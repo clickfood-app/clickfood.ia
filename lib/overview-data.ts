@@ -483,7 +483,6 @@ export interface HeatmapDay {
 export function getHeatmapData(period: PeriodKey): HeatmapDay[] {
   const dow = getDayOfWeekAnalysis(period)
   const data = dataByPeriod[period]
-  const days = parseInt(period)
 
   // Count occurrences of each day
   const dayCounts = Array(7).fill(0)
@@ -516,7 +515,6 @@ export function getImpactFactors(period: PeriodKey): ImpactFactor[] {
   const products = getTopProducts(period)
   const coupon = getCouponImpact(period)
   const client = getClientAnalysis(period)
-  const kpis = getKPIs(period)
   const order = getOrderStatus(period)
   const cancelRate = Math.round((order.cancelados / (order.concluidos + order.cancelados)) * 100)
 

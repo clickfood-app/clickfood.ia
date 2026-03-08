@@ -1,112 +1,134 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import {
-  type AuthSession,
-  type User,
-  type Restaurant,
-  type Subscription,
-  getSession,
-  signOut as authSignOut,
-  hasActiveSubscription,
-  getTrialDaysRemaining,
-  isRestaurantConfigured,
-} from "@/lib/auth"
+import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createClient } from "@/lib/supabase/client"
 
+const supabase = createClient()
+
+// Tipos de usuário e restaurante
+export interface User {
+  id: string
+  name: string
+  email: string
+}
+
+export interface Restaurant {
+  id: string
+  name: string
+  logo_url?: string
+}
+
+// Tipagem do contexto
 interface AuthContextType {
-  session: AuthSession | null
   user: User | null
   restaurant: Restaurant | null
-  subscription: Subscription | null
   isLoading: boolean
-  isAuthenticated: boolean
-  hasSubscription: boolean
-  isConfigured: boolean
-  trialDaysRemaining: number | null
-  signOut: () => Promise<void>
-  refreshSession: () => void
+  login: (email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | null>(null)
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/", "/auth", "/cardapio", "/oferta", "/bem-vindo", "/configurar"]
-
-// Routes that require active subscription
-const SUBSCRIPTION_ROUTES = ["/dashboard", "/pedidos", "/produtos", "/clientes", "/financeiro", "/relatorios", "/configuracoes", "/novo-pedido"]
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(null)
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null)
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
-  const pathname = usePathname()
 
-  const refreshSession = useCallback(() => {
-    const currentSession = getSession()
-    setSession(currentSession)
+  // Buscar sessão ao iniciar
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data } = await supabase.auth.getSession()
+
+      const sessionUser = data.session?.user
+
+      if (sessionUser) {
+        setUser({
+          id: sessionUser.id,
+          name: sessionUser.user_metadata?.name || "Administrador",
+          email: sessionUser.email!,
+        })
+
+        const { data: restData, error } = await supabase
+          .from("restaurants")
+          .select("*")
+          .eq("owner_id", sessionUser.id)
+          .single()
+
+        if (!error && restData) {
+          setRestaurant(restData as Restaurant)
+        }
+      }
+
+      setIsLoading(false)
+    }
+
+    fetchSession()
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        setUser(null)
+        setRestaurant(null)
+      }
+    })
+
+    return () => {
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
-  useEffect(() => {
-    // Initial session load
-    refreshSession()
-    setIsLoading(false)
-  }, [refreshSession])
+  // LOGIN
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-  // Route protection
-  useEffect(() => {
-    if (isLoading) return
+    if (error) throw error
 
-    const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith("/cardapio/"))
-    const isSubscriptionRoute = SUBSCRIPTION_ROUTES.some((route) => pathname.startsWith(route))
+    const sessionUser = data.user
 
-    if (!session && !isPublicRoute) {
-      // Not authenticated, redirect to auth
-      router.push("/auth")
-      return
+    if (sessionUser) {
+      setUser({
+        id: sessionUser.id,
+        name: sessionUser.user_metadata?.name || "Administrador",
+        email: sessionUser.email!,
+      })
+
+      const { data: restData } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("owner_id", sessionUser.id)
+        .single()
+
+      if (restData) {
+        setRestaurant(restData as Restaurant)
+      }
     }
-
-    if (session && isSubscriptionRoute && !hasActiveSubscription()) {
-      // Has session but subscription expired, redirect to offer
-      router.push("/oferta")
-      return
-    }
-
-    // Check if user needs to complete restaurant setup
-    if (session && isSubscriptionRoute && !isRestaurantConfigured()) {
-      // Has session but restaurant not configured, redirect to setup
-      router.push("/configurar")
-      return
-    }
-  }, [session, pathname, isLoading, router])
-
-  const handleSignOut = useCallback(async () => {
-    await authSignOut()
-    setSession(null)
-    router.push("/auth")
-  }, [router])
-
-  const value: AuthContextType = {
-    session,
-    user: session?.user || null,
-    restaurant: session?.restaurant || null,
-    subscription: session?.subscription || null,
-    isLoading,
-    isAuthenticated: !!session,
-    hasSubscription: hasActiveSubscription(),
-    isConfigured: isRestaurantConfigured(),
-    trialDaysRemaining: getTrialDaysRemaining(),
-    signOut: handleSignOut,
-    refreshSession,
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  // LOGOUT
+  const logout = async () => {
+    await supabase.auth.signOut({ scope: "global" })
+
+    setUser(null)
+    setRestaurant(null)
+
+    window.location.href = "/login"
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, restaurant, isLoading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext)
+
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider")
   }
+
   return context
 }

@@ -1,7 +1,5 @@
 "use client"
 
-import React from "react"
-
 import { useState, useCallback, useMemo, useRef } from "react"
 import AdminLayout from "@/components/admin-layout"
 import ProductsToolbar from "@/components/products-toolbar"
@@ -16,7 +14,7 @@ import {
   getProductIndicator,
   getProfit,
 } from "@/lib/products-data"
-import { Plus, FolderPlus, X, Tag, Package, Upload, ImageIcon, Trash2, AlertCircle, Loader2 } from "lucide-react"
+import { Plus, FolderPlus, X, Tag, Package, Upload, Trash2, AlertCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ConfirmationModal from "@/components/confirmation-modal"
 import { useToast } from "@/hooks/use-toast"
@@ -34,7 +32,6 @@ export default function ProdutosPage() {
   const [dragCategoryId, setDragCategoryId] = useState<string | null>(null)
   const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null)
   const [dragProductId, setDragProductId] = useState<string | null>(null)
-  const [dragProductSourceCat, setDragProductSourceCat] = useState<string | null>(null)
   const dragOverProductId = useRef<string | null>(null)
 
   // Category modal state
@@ -417,9 +414,8 @@ export default function ProdutosPage() {
 
   // --- Product drag-and-drop ---
   const handleProductDragStart = useCallback(
-    (productId: string, categoryId: string) => {
+    (productId: string, _categoryId: string) => {
       setDragProductId(productId)
-      setDragProductSourceCat(categoryId)
       setDragCategoryId(null)
     },
     []
@@ -469,7 +465,6 @@ export default function ProdutosPage() {
       })
 
       setDragProductId(null)
-      setDragProductSourceCat(null)
       dragOverProductId.current = null
     },
     [dragProductId]

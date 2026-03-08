@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   Receipt,
   Loader2,
-  XCircle,
   TrendingUp,
   TrendingDown,
   Minus,

@@ -8,7 +8,7 @@ import {
 import AdminLayout from "@/components/admin-layout"
 import KanbanColumn from "@/components/kanban-column"
 import { OrderDetailsModal } from "@/components/order-card"
-import type { KanbanOrder, KanbanStatus, OrderType, OrderPayment, DeliveryStatus } from "@/components/order-card"
+import type { KanbanOrder, KanbanStatus, DeliveryStatus } from "@/components/order-card"
 import { cn } from "@/lib/utils"
 import { getActiveDeliveryStaff, type StaffMember } from "@/lib/staff-data"
 

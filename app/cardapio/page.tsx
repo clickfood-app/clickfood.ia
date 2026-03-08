@@ -1,15 +1,14 @@
 "use client"
 
-import React, { useState } from "react"
-import Image from "next/image"
+import { useState } from "react"
 import AdminLayout from "@/components/admin-layout"
 import {
   ExternalLink, Copy, Check, Eye, QrCode, Link2, Share2,
-  Globe, Smartphone, Monitor, Store, ShoppingBag, ArrowRight,
+  Globe, Smartphone, Monitor, Store, ArrowRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { getMenuCategories, formatPrice, productImageMap } from "@/lib/menu-data"
+import { getMenuCategories } from "@/lib/menu-data"
 import { defaultStoreData } from "@/lib/settings-data"
 
 const SLUG = "adminpro-restaurante"

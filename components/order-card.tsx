@@ -4,7 +4,7 @@ import { memo, useState, useEffect, useRef } from "react"
 import {
   Clock, Loader2, Package, User, ChefHat, CreditCard,
   Bike, Store, UtensilsCrossed, AlertTriangle, MapPin,
-  Phone, MessageSquare, ChevronDown, ChevronUp, X
+  Phone, MessageSquare, ChevronDown, X
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 

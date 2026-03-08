@@ -31,12 +31,9 @@ const BLUE = "hsl(217, 91%, 60%)"
 const BLUE_LIGHT = "hsl(217, 70%, 78%)"
 
 export default function CouponAnalytics({ usageData, coupons }: CouponAnalyticsProps) {
-  const [period, setPeriod] = useState<7 | 14>("14")
+  const [period, setPeriod] = useState<7 | 14>(14)
 
   const slicedData = usageData.slice(-Number(period))
-
-  const totalRevenue = coupons.reduce((sum, c) => sum + c.revenueGenerated, 0)
-  const totalUses = coupons.reduce((sum, c) => sum + c.usedCount, 0)
 
   // Best performing coupon
   const bestCoupon = coupons.reduce((best, c) =>

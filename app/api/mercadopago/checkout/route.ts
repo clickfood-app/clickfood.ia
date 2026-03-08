@@ -19,7 +19,7 @@ interface CheckoutRequest {
 }
 
 // This would come from Supabase in production
-function getRestaurantMercadoPagoToken(restaurantId: string): string | null {
+function getRestaurantMercadoPagoToken(_restaurantId: string): string | null {
   // In production, fetch from database
   // For demo, we check localStorage on client and pass token in request
   // But since this is server-side, we use env var for demo

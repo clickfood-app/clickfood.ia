@@ -6,7 +6,6 @@ import {
   ArrowUpDown,
   Eye,
   LayoutGrid,
-  MoreHorizontal,
   Power,
   PowerOff,
   Percent,

@@ -4,11 +4,11 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import Image from "next/image"
 import { useParams, useSearchParams } from "next/navigation"
 import {
-  Clock, MapPin, Phone, ShoppingBag, Plus, Minus, X,
+  ShoppingBag, Plus, Minus, X,
   ChevronUp, Truck, Store, MessageCircle, Search, Star,
-  Check, CreditCard, Banknote, QrCode, ChevronRight,
-  Flame, Sparkles, Info, ArrowLeft, Loader2, ChevronDown,
-  Percent, Utensils, Heart, BadgeCheck, Timer, Gift,
+  Check, CreditCard, Banknote, QrCode,
+  Flame, Sparkles, ArrowLeft, Loader2,
+  Percent, Utensils, BadgeCheck, Timer,
 } from "lucide-react"
 import { getMercadoPagoConnection } from "@/lib/mercadopago"
 import { getCoverFromStorage } from "@/components/settings/cover-image-upload"
@@ -1209,9 +1209,7 @@ export default function CardapioPublicoPage() {
   const [cartOpen, setCartOpen] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchOpen, setSearchOpen] = useState(false)
   const [upsellProducts, setUpsellProducts] = useState<MenuProduct[] | null>(null)
-  const [lastAddedCategory, setLastAddedCategory] = useState<string | null>(null)
 
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const categoryNavRef = useRef<HTMLDivElement>(null)
@@ -1254,7 +1252,6 @@ export default function CardapioPublicoPage() {
 
   const handleAddWithUpsell = useCallback((item: Omit<CartItem, "id">, categoryId: string) => {
     addToCart(item)
-    setLastAddedCategory(categoryId)
     
     // Check for upsell suggestions
     const suggestionIds = upsellSuggestions[categoryId]

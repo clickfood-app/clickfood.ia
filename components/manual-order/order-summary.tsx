@@ -1,7 +1,6 @@
 "use client"
 
 import { Minus, Plus, Trash2, MessageSquare } from "lucide-react"
-import { cn } from "@/lib/utils"
 import type { OrderItem, OrderType } from "@/lib/order-types"
 
 interface OrderSummaryProps {

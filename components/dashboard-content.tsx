@@ -25,7 +25,6 @@ import {
   XCircle,
   Award,
   Bike,
-  User,
   Timer,
   Package,
   ArrowUpRight,

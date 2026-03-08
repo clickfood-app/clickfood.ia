@@ -23,6 +23,7 @@ export const productImageMap: Record<string, string> = {
 
 // ── Restaurant (tenant) ──
 export interface Restaurant {
+  id: string
   slug: string
   name: string
   description: string
@@ -54,6 +55,7 @@ export function getRestaurantBySlug(slug: string): Restaurant | null {
   // In production: fetch from Supabase where slug = slug
   if (slug === "adminpro-restaurante") {
     return {
+      id: "rest-adminpro",
       slug: "adminpro-restaurante",
       name: defaultStoreData.name,
       description: "Hamburguer artesanal, lanches especiais e muito sabor. Delivery e retirada.",

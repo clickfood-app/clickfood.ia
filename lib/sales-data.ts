@@ -2,7 +2,7 @@
 // Deterministic data based on period, reuses existing mock sources
 
 import { initialProducts, initialCategories } from "@/lib/products-data"
-import { MOCK_CLIENTS, isRecurrentClient } from "@/lib/clients-data"
+import { MOCK_CLIENTS } from "@/lib/clients-data"
 import { initialCoupons, initialExclusiveCoupons, ticketComparison } from "@/lib/coupons-data"
 
 export type SalesPeriodKey = "30" | "90" | "120" | "custom"
@@ -445,7 +445,6 @@ export function getComboSuggestions(period: SalesPeriodKey): ComboSuggestion[] {
   const products = getProductSales(period)
   const hourly = getHourlySales(period)
   const clientTypes = getClientTypeSales(period)
-  const kpis = getSalesKPIs(period)
 
   const mult = period === "30" ? 1 : period === "90" ? 1.4 : 1.6
 
@@ -453,7 +452,6 @@ export function getComboSuggestions(period: SalesPeriodKey): ComboSuggestion[] {
   const topSellers = products.filter((p) => p.quantity > 50 * mult).slice(0, 3)
   const lowSales = products.filter((p) => p.quantity < 20 * mult && p.quantity > 0).slice(0, 3)
   const weakHour = hourly.buckets.find((b) => b.isWeakest)
-  const peakHour = hourly.buckets.find((b) => b.isPeak)
 
   // VIP ticket comparison
   const vipGroup = clientTypes.groups[0]

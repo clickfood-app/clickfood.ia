@@ -34,14 +34,13 @@ import {
 export default function CuponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons)
   const [exclusiveCoupons, setExclusiveCoupons] = useState<ExclusiveCoupon[]>(initialExclusiveCoupons)
-  const [suggestions, setSuggestions] = useState<ExclusiveSuggestion[]>(smartSuggestions)
+  const [suggestions] = useState<ExclusiveSuggestion[]>(smartSuggestions)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   // KPI calculations
   const activeCoupons = coupons.filter((c) => c.status === "ativo").length
   const usedToday = 28 // mock: today's total
   const totalRevenue = coupons.reduce((sum, c) => sum + c.revenueGenerated, 0)
-  const totalUses = coupons.reduce((sum, c) => sum + c.usedCount, 0)
   const conversionRate = 23.5 // mock percentage
   const bestCoupon = coupons.reduce((best, c) =>
     c.revenueGenerated > (best?.revenueGenerated || 0) ? c : best
@@ -160,7 +159,7 @@ export default function CuponsPage() {
     setExclusiveCoupons((prev) => prev.filter((c) => c.id !== id))
   }
 
-  const handleResendExclusive = (id: string) => {
+  const handleResendExclusive = (_id: string) => {
     // Mock resend - in production this would trigger a notification
     alert("Cupom reenviado com sucesso!")
   }

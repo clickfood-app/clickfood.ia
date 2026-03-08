@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import LoginForm from "./login-form"
-import SignUpForm from "./signup-form"
+import SignUpForm from "./signup"
 
 type Tab = "login" | "signup"
 

@@ -295,7 +295,6 @@ export function getWeeklyData(): DailyPoint[] {
 
 export function getMonthlyData(): DailyPoint[] {
   const data: DailyPoint[] = []
-  const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
 
   for (let i = 29; i >= 0; i--) {
     const dayOfWeek = (7 - (i % 7)) % 7

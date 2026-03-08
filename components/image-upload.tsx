@@ -1,9 +1,7 @@
 "use client"
 
-import React from "react"
-
-import { useState, useRef, useCallback } from "react"
-import { Upload, X, ImageIcon, Loader2, AlertCircle } from "lucide-react"
+import { useState, useRef, useCallback, type ChangeEvent, type DragEvent } from "react"
+import { Upload, X, ImageIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ImageUploadProps {
@@ -133,7 +131,7 @@ export default function ImageUpload({
   )
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    (e: DragEvent) => {
       e.preventDefault()
       setIsDragOver(false)
       const file = e.dataTransfer.files[0]
@@ -142,7 +140,7 @@ export default function ImageUpload({
     [processFile]
   )
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: DragEvent) => {
     e.preventDefault()
     setIsDragOver(true)
   }, [])
@@ -152,7 +150,7 @@ export default function ImageUpload({
   }, [])
 
   const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (file) processFile(file)
       // Reset input so the same file can be re-selected

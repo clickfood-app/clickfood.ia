@@ -17,8 +17,6 @@ import {
   computeFinalAmount,
   type Expense,
   type Supplier,
-  type PaymentMethod,
-  type ExpenseStatus,
 } from "@/lib/finance-data"
 import { cn } from "@/lib/utils"
 

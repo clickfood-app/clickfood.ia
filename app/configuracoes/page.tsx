@@ -1,6 +1,6 @@
 "use client"
 
-import React, { lazy, Suspense, useState } from "react"
+import { lazy, Suspense, useState } from "react"
 import {
   Building2,
   Clock,
