@@ -203,7 +203,7 @@ export default function AdminHeader({ isCollapsed, onToggleCollapse }: AdminHead
                 className="cursor-pointer gap-2 text-destructive focus:text-destructive"
                 onClick={async () => {
                   await logout()         // encerra sessão Supabase
-                  window.location.href = "/bem-vindo" // redireciona manualmente
+                  window.location.href = "/auth" // redireciona manualmente
                 }}
               >
                 <LogOut className="h-4 w-4" />

@@ -59,7 +59,7 @@ export async function signUp(
   }
 
   // criar perfil
-  await supabase.from("profiles").insert({
+  const { error: profileError } = await supabase.from("profiles").insert({
     id: user.id,
     name,
     email,
@@ -67,11 +67,25 @@ export async function signUp(
     subscription_status: "trial",
   })
 
+  if (profileError) {
+    return {
+      success: false,
+      error: profileError.message,
+    }
+  }
+
   // criar restaurante
-  await supabase.from("restaurants").insert({
+  const { error: restaurantError } = await supabase.from("restaurants").insert({
     name: restaurantName,
     owner_id: user.id,
   })
+
+  if (restaurantError) {
+    return {
+      success: false,
+      error: restaurantError.message,
+    }
+  }
 
   return {
     success: true,
@@ -91,8 +105,18 @@ export async function getSession() {
 // LOGOUT
 // =============================
 export async function signOut() {
-  await supabase.auth.signOut()
+  const { error } = await supabase.auth.signOut()
+
+  if (error) {
+    console.error("Erro ao sair:", error.message)
+  }
+
+  // redireciona para login
+  if (typeof window !== "undefined") {
+    window.location.href = "/auth.ts"
+  }
 }
+  
 
 // =============================
 // PEGAR PERFIL
@@ -104,11 +128,13 @@ export async function getProfile() {
 
   if (!user) return null
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single()
+
+  if (error) return null
 
   return data
 }
