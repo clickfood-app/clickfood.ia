@@ -1,15 +1,16 @@
 "use client"
 
 import {
-  Search,
-  SlidersHorizontal,
   ArrowUpDown,
   Eye,
+  FolderOpen,
   LayoutGrid,
+  Percent,
   Power,
   PowerOff,
-  Percent,
-  FolderOpen,
+  Search,
+  SlidersHorizontal,
+  X,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -20,7 +21,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import type { Category, SortOption, ViewMode } from "@/lib/products-data"
+import type {
+  Category,
+  ProductQuickFilter,
+  SortOption,
+  ViewMode,
+} from "@/lib/products-data"
 
 interface ProductsToolbarProps {
   search: string
@@ -33,6 +39,11 @@ interface ProductsToolbarProps {
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
   selectedCount: number
+  visibleCount: number
+  quickFilters: Set<ProductQuickFilter>
+  quickFilterCounts: Record<ProductQuickFilter, number>
+  onToggleQuickFilter: (value: ProductQuickFilter) => void
+  onClearQuickFilters: () => void
   onBatchActivate: () => void
   onBatchDeactivate: () => void
   onBatchCategoryChange: (categoryId: string) => void
@@ -40,10 +51,25 @@ interface ProductsToolbarProps {
 }
 
 const sortLabels: Record<SortOption, string> = {
-  name: "Nome",
-  price: "Preco",
-  profit: "Lucro",
+  manual: "Ordem manual",
+  name: "A-Z",
+  price: "Maior preco",
+  profit: "Maior lucro",
 }
+
+const quickFilterLabels: Record<ProductQuickFilter, string> = {
+  "low-margin": "Margem baixa",
+  "low-sales": "Baixa saida",
+  "no-image": "Sem foto",
+  "no-cost": "Sem custo",
+}
+
+const quickFilterOrder: ProductQuickFilter[] = [
+  "low-margin",
+  "low-sales",
+  "no-image",
+  "no-cost",
+]
 
 export default function ProductsToolbar({
   search,
@@ -56,6 +82,11 @@ export default function ProductsToolbar({
   viewMode,
   onViewModeChange,
   selectedCount,
+  visibleCount,
+  quickFilters,
+  quickFilterCounts,
+  onToggleQuickFilter,
+  onClearQuickFilters,
   onBatchActivate,
   onBatchDeactivate,
   onBatchCategoryChange,
@@ -63,27 +94,26 @@ export default function ProductsToolbar({
 }: ProductsToolbarProps) {
   return (
     <div className="flex flex-col gap-3">
-      {/* Row 1: Search + Filters + Sort + View toggle */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Buscar produto..."
+            placeholder="Buscar por nome ou descricao..."
             value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
+            onChange={(event) => onSearchChange(event.target.value)}
+            className="h-10 w-full rounded-xl border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
           />
         </div>
 
-        {/* Category filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex h-9 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-secondary">
+            <button className="flex h-10 items-center gap-2 rounded-xl border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-secondary">
               <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
               <span className="hidden sm:inline">
-                {categoryFilter === "all" ? "Todas categorias" : categories.find((c) => c.id === categoryFilter)?.name}
+                {categoryFilter === "all"
+                  ? "Todas categorias"
+                  : categories.find((category) => category.id === categoryFilter)?.name}
               </span>
             </button>
           </DropdownMenuTrigger>
@@ -96,47 +126,48 @@ export default function ProductsToolbar({
             >
               Todas categorias
             </DropdownMenuItem>
-            {categories.map((cat) => (
+            {categories.map((category) => (
               <DropdownMenuItem
-                key={cat.id}
-                onClick={() => onCategoryFilterChange(cat.id)}
-                className={cn("cursor-pointer", categoryFilter === cat.id && "font-semibold text-[hsl(var(--primary))]")}
+                key={category.id}
+                onClick={() => onCategoryFilterChange(category.id)}
+                className={cn(
+                  "cursor-pointer",
+                  categoryFilter === category.id && "font-semibold text-[hsl(var(--primary))]"
+                )}
               >
-                {cat.name}
+                {category.name}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex h-9 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-secondary">
+            <button className="flex h-10 items-center gap-2 rounded-xl border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-secondary">
               <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
               <span className="hidden sm:inline">{sortLabels[sortBy]}</span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40">
+          <DropdownMenuContent align="start" className="w-44">
             <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {(Object.keys(sortLabels) as SortOption[]).map((key) => (
+            {(Object.keys(sortLabels) as SortOption[]).map((option) => (
               <DropdownMenuItem
-                key={key}
-                onClick={() => onSortChange(key)}
-                className={cn("cursor-pointer", sortBy === key && "font-semibold text-[hsl(var(--primary))]")}
+                key={option}
+                onClick={() => onSortChange(option)}
+                className={cn("cursor-pointer", sortBy === option && "font-semibold text-[hsl(var(--primary))]")}
               >
-                {sortLabels[key]}
+                {sortLabels[option]}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* View mode toggle */}
-        <div className="ml-auto flex items-center rounded-lg border border-input bg-background p-0.5">
+        <div className="ml-auto flex items-center rounded-xl border border-input bg-background p-0.5">
           <button
             onClick={() => onViewModeChange("management")}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
               viewMode === "management"
                 ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -148,7 +179,7 @@ export default function ProductsToolbar({
           <button
             onClick={() => onViewModeChange("menu")}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
               viewMode === "menu"
                 ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -160,21 +191,65 @@ export default function ProductsToolbar({
         </div>
       </div>
 
-      {/* Row 2: Batch actions (only shown when items selected) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {visibleCount} resultado{visibleCount === 1 ? "" : "s"}
+        </span>
+
+        {quickFilterOrder.map((filter) => {
+          const active = quickFilters.has(filter)
+          const count = quickFilterCounts[filter]
+
+          return (
+            <button
+              key={filter}
+              onClick={() => onToggleQuickFilter(filter)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                active
+                  ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {quickFilterLabels[filter]}
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                  active ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]" : "bg-secondary"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
+
+        {quickFilters.size > 0 && (
+          <button
+            onClick={onClearQuickFilters}
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+            Limpar alertas
+          </button>
+        )}
+      </div>
+
       {selectedCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-[hsl(var(--primary))]/20 bg-[hsl(var(--primary))]/5 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[hsl(var(--primary))]/20 bg-[hsl(var(--primary))]/5 px-4 py-3">
           <span className="text-sm font-medium text-foreground">
             {selectedCount} {selectedCount === 1 ? "produto selecionado" : "produtos selecionados"}
           </span>
 
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
             <button
               onClick={onBatchActivate}
-              className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700"
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
             >
               <Power className="h-3.5 w-3.5" />
               Ativar
             </button>
+
             <button
               onClick={onBatchDeactivate}
               className="flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
@@ -183,7 +258,6 @@ export default function ProductsToolbar({
               Desativar
             </button>
 
-            {/* Change category */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary">
@@ -194,19 +268,18 @@ export default function ProductsToolbar({
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuLabel>Mover para</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {categories.map((cat) => (
+                {categories.map((category) => (
                   <DropdownMenuItem
-                    key={cat.id}
-                    onClick={() => onBatchCategoryChange(cat.id)}
+                    key={category.id}
+                    onClick={() => onBatchCategoryChange(category.id)}
                     className="cursor-pointer"
                   >
-                    {cat.name}
+                    {category.name}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Price adjustment */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary">
@@ -217,13 +290,13 @@ export default function ProductsToolbar({
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuLabel>Reajuste de preco</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {[5, 10, 15, 20, -5, -10, -15].map((pct) => (
+                {[5, 10, 15, 20, -5, -10, -15].map((percentage) => (
                   <DropdownMenuItem
-                    key={pct}
-                    onClick={() => onBatchPriceAdjust(pct)}
-                    className={cn("cursor-pointer", pct < 0 && "text-destructive")}
+                    key={percentage}
+                    onClick={() => onBatchPriceAdjust(percentage)}
+                    className={cn("cursor-pointer", percentage < 0 && "text-destructive")}
                   >
-                    {pct > 0 ? `+${pct}%` : `${pct}%`}
+                    {percentage > 0 ? `+${percentage}%` : `${percentage}%`}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

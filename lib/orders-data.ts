@@ -1,18 +1,13 @@
-// ── Orders History mock data generator ──
-// Generates deterministic order data from existing clients and products.
-// Structured for future Supabase migration (server-side filtering/pagination).
-
-import { MOCK_CLIENTS } from "@/lib/clients-data"
-import { initialProducts } from "@/lib/products-data"
 import { formatDate } from "@/lib/utils/format-date"
 
 export { formatDate }
 
 export function formatBRL(value: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value)
 }
-
-// ── Types ──
 
 export type OrderStatus = "pending" | "preparing" | "finished" | "cancelled"
 export type PaymentMethod = "Pix" | "Cartao" | "Dinheiro" | "Vale Refeicao"
@@ -33,8 +28,8 @@ export interface Order {
   paymentMethod: PaymentMethod
   items: OrderItem[]
   total: number
-  date: string // ISO string YYYY-MM-DD
-  createdAt: string // ISO datetime
+  date: string
+  createdAt: string
 }
 
 export interface OrderFilters {
@@ -64,133 +59,50 @@ export interface OrderSummary {
   cancelledCount: number
 }
 
-// ── Data Generation ──
-
-const paymentMethods: PaymentMethod[] = ["Pix", "Cartao", "Dinheiro", "Vale Refeicao"]
-const statuses: OrderStatus[] = ["finished", "finished", "finished", "finished", "finished", "pending", "preparing", "cancelled"]
-
-const activeProducts = initialProducts.filter((p) => p.active)
-
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed) * 10000
-  return x - Math.floor(x)
+export interface PaginatedOrdersResponse {
+  data: Order[]
+  totalPages: number
+  totalItems: number
 }
 
-function generateOrders(): Order[] {
-  const orders: Order[] = []
-  let orderId = 1000
+function buildQueryString(filters: OrderFilters, page = 1, perPage = 10) {
+  const params = new URLSearchParams()
 
-  // Generate orders from existing client orders
-  for (const client of MOCK_CLIENTS) {
-    for (const co of client.orders) {
-      orderId++
-      const seed = orderId * 7 + client.id.charCodeAt(1) * 13
+  if (filters.search) params.set("search", filters.search)
+  if (filters.dateFrom) params.set("dateFrom", filters.dateFrom)
+  if (filters.dateTo) params.set("dateTo", filters.dateTo)
+  if (filters.status !== "all") params.set("status", filters.status)
+  if (filters.paymentMethod !== "all") params.set("paymentMethod", filters.paymentMethod)
+  if (filters.minValue) params.set("minValue", filters.minValue)
+  if (filters.maxValue) params.set("maxValue", filters.maxValue)
 
-      // Map client order items to OrderItems
-      const items: OrderItem[] = co.items.map((itemStr, idx) => {
-        const qtyMatch = itemStr.match(/x(\d+)/)
-        const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1
-        const cleanName = itemStr.replace(/\s*x\d+/, "").trim()
+  params.set("page", String(page))
+  params.set("perPage", String(perPage))
 
-        // Try to find matching product
-        const matched = activeProducts.find((p) =>
-          cleanName.toLowerCase().includes(p.name.toLowerCase().split(" ")[0])
-        )
-
-        const unitPrice = matched ? matched.price : 35 + (seed % 30)
-        return {
-          productId: matched?.id || `gen-${idx}`,
-          name: cleanName,
-          quantity: qty,
-          unitPrice,
-          subtotal: qty * unitPrice,
-        }
-      })
-
-      const total = co.total > 0 ? co.total : items.reduce((s, i) => s + i.subtotal, 0)
-
-      const statusMap: Record<string, OrderStatus> = {
-        "Entregue": "finished",
-        "Em trânsito": "preparing",
-        "Cancelado": "cancelled",
-        "Pendente": "pending",
-      }
-
-      orders.push({
-        id: `PED-${orderId}`,
-        clientName: client.name,
-        clientPhone: client.phone,
-        status: statusMap[co.status] || "finished",
-        paymentMethod: paymentMethods[seed % paymentMethods.length],
-        items,
-        total,
-        date: co.date,
-        createdAt: `${co.date}T${12 + (seed % 10)}:${(seed % 60).toString().padStart(2, "0")}:00`,
-      })
-    }
-  }
-
-  // Generate additional orders to fill 150+ entries for pagination demo
-  const baseDate = new Date(2026, 1, 23) // Feb 23 2026
-
-  for (let i = 0; i < 100; i++) {
-    orderId++
-    const seed = orderId * 11 + i * 37
-
-    const daysAgo = Math.floor(seededRandom(seed) * 90)
-    const date = new Date(baseDate)
-    date.setDate(date.getDate() - daysAgo)
-    const dateISO = date.toISOString().split("T")[0]
-
-    const clientIdx = Math.floor(seededRandom(seed + 1) * MOCK_CLIENTS.length)
-    const client = MOCK_CLIENTS[clientIdx]
-
-    const numItems = 1 + Math.floor(seededRandom(seed + 2) * 3)
-    const items: OrderItem[] = []
-    let total = 0
-
-    for (let j = 0; j < numItems; j++) {
-      const prodIdx = Math.floor(seededRandom(seed + 3 + j) * activeProducts.length)
-      const prod = activeProducts[prodIdx]
-      const qty = 1 + Math.floor(seededRandom(seed + 10 + j) * 2)
-      const subtotal = qty * prod.price
-      items.push({
-        productId: prod.id,
-        name: prod.name,
-        quantity: qty,
-        unitPrice: prod.price,
-        subtotal,
-      })
-      total += subtotal
-    }
-
-    total = Math.round(total * 100) / 100
-
-    orders.push({
-      id: `PED-${orderId}`,
-      clientName: client.name,
-      clientPhone: client.phone,
-      status: statuses[Math.floor(seededRandom(seed + 4) * statuses.length)],
-      paymentMethod: paymentMethods[Math.floor(seededRandom(seed + 5) * paymentMethods.length)],
-      items,
-      total,
-      date: dateISO,
-      createdAt: `${dateISO}T${12 + Math.floor(seededRandom(seed + 6) * 10)}:${Math.floor(seededRandom(seed + 7) * 60).toString().padStart(2, "0")}:00`,
-    })
-  }
-
-  // Sort by date descending
-  orders.sort((a, b) => b.date.localeCompare(a.date))
-
-  return orders
+  return params.toString()
 }
 
-const ALL_ORDERS = generateOrders()
+export async function fetchOrders(
+  filters: OrderFilters,
+  page = 1,
+  perPage = 10
+): Promise<PaginatedOrdersResponse> {
+  const query = buildQueryString(filters, page, perPage)
 
-// ── Filtering (client-side, prepared for server-side migration) ──
+  const response = await fetch(`/api/orders?${query}`, {
+    method: "GET",
+    cache: "no-store",
+  })
 
-export function filterOrders(filters: OrderFilters): Order[] {
-  let result = [...ALL_ORDERS]
+  if (!response.ok) {
+    throw new Error("Falha ao buscar pedidos")
+  }
+
+  return response.json()
+}
+
+export function filterOrders(filters: OrderFilters, orders: Order[]): Order[] {
+  let result = [...orders]
 
   if (filters.search) {
     const q = filters.search.toLowerCase()
@@ -231,11 +143,10 @@ export function filterOrders(filters: OrderFilters): Order[] {
   return result
 }
 
-// ── Summary ──
-
 export function getOrderSummary(orders: Order[]): OrderSummary {
   const finished = orders.filter((o) => o.status !== "cancelled")
-  const totalRevenue = finished.reduce((s, o) => s + o.total, 0)
+  const totalRevenue = finished.reduce((sum, order) => sum + order.total, 0)
+
   return {
     totalOrders: orders.length,
     totalRevenue,
@@ -244,16 +155,15 @@ export function getOrderSummary(orders: Order[]): OrderSummary {
   }
 }
 
-// ── Pagination ──
-
 export function paginateOrders(
   orders: Order[],
   page: number,
   perPage: number
-): { data: Order[]; totalPages: number; totalItems: number } {
+): PaginatedOrdersResponse {
   const totalItems = orders.length
   const totalPages = Math.ceil(totalItems / perPage)
   const start = (page - 1) * perPage
+
   return {
     data: orders.slice(start, start + perPage),
     totalPages,
@@ -261,10 +171,9 @@ export function paginateOrders(
   }
 }
 
-// ── CSV Export ──
-
 export function exportOrdersCSV(orders: Order[]): string {
   const header = "ID,Cliente,Telefone,Status,Pagamento,Total,Data"
+
   const rows = orders.map((o) =>
     [
       o.id,
@@ -276,10 +185,9 @@ export function exportOrdersCSV(orders: Order[]): string {
       formatDate(o.date),
     ].join(",")
   )
+
   return [header, ...rows].join("\n")
 }
-
-// ── Status helpers ──
 
 export const STATUS_CONFIG: Record<OrderStatus, { label: string; className: string }> = {
   pending: {

@@ -135,7 +135,7 @@ export default function ConfigurarPage() {
     markRestaurantConfigured()
 
     setIsSaving(false)
-    router.push("/dashboard")
+    router.push("/financeiro")
   }, [logo, restaurantName, address, phone, businessHours, products, serviceType, deliveryFee, welcomeMessage, router])
 
   const formatPrice = (value: number) => {

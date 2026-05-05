@@ -27,7 +27,6 @@ import {
   isMercadoPagoConnected,
   saveMercadoPagoConnection,
   disconnectMercadoPago,
-  type MercadoPagoTokens,
 } from "@/lib/mercadopago"
 
 export default function PaymentsTab() {
@@ -52,28 +51,21 @@ export default function PaymentsTab() {
     const mpSuccess = searchParams.get("mp_success")
     const mpError = searchParams.get("mp_error")
     const mpDemo = searchParams.get("mp_demo")
-    const mpTokens = searchParams.get("mp_tokens")
 
-    if (mpSuccess === "true" && mpTokens) {
-      try {
-        const tokens: MercadoPagoTokens = JSON.parse(decodeURIComponent(mpTokens))
-        saveMercadoPagoConnection(restaurant.id, tokens)
-        setMpConnected(true)
-        toast.success("Mercado Pago conectado com sucesso!")
-        // Clean URL
-        window.history.replaceState({}, "", "/configuracoes")
-      } catch {
-        toast.error("Erro ao processar tokens do Mercado Pago")
-      }
+    if (mpSuccess === "true") {
+      setMpConnected(true)
+      toast.success("Mercado Pago conectado com sucesso!")
+      window.history.replaceState({}, "", "/configuracoes")
     } else if (mpDemo === "true") {
       // Demo mode - simulate connection
-      const demoTokens: MercadoPagoTokens = {
+      const demoTokens = {
         access_token: "DEMO_ACCESS_TOKEN",
         refresh_token: "DEMO_REFRESH_TOKEN",
         expires_in: 15552000,
         connected_at: new Date().toISOString(),
         user_id: 123456789,
       }
+
       saveMercadoPagoConnection(restaurant.id, demoTokens)
       setMpConnected(true)
       toast.success("Mercado Pago conectado (modo demonstracao)!")
@@ -90,6 +82,7 @@ export default function PaymentsTab() {
       toast.error("Restaurante nao encontrado")
       return
     }
+
     setMpConnecting(true)
     const authUrl = getMercadoPagoAuthUrl(restaurant.id)
     window.location.href = authUrl
@@ -98,6 +91,7 @@ export default function PaymentsTab() {
   // Disconnect from Mercado Pago
   const handleDisconnectMercadoPago = useCallback(() => {
     if (!restaurant?.id) return
+
     disconnectMercadoPago(restaurant.id)
     setMpConnected(false)
     toast.success("Mercado Pago desconectado")
@@ -126,6 +120,7 @@ export default function PaymentsTab() {
       fee: 0,
       notes: "",
     }
+
     setMethods((prev) => [...prev, newMethod])
     toast.info("Nova forma de pagamento adicionada. Preencha os dados.")
   }
@@ -137,10 +132,12 @@ export default function PaymentsTab() {
 
   async function handleSave() {
     const emptyNames = methods.filter((m) => !m.name.trim())
+
     if (emptyNames.length > 0) {
       toast.error("Preencha o nome de todas as formas de pagamento.")
       return
     }
+
     setSaving(true)
     await new Promise((r) => setTimeout(r, 1200))
     setSaving(false)
@@ -151,17 +148,16 @@ export default function PaymentsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Mercado Pago Integration */}
       {restaurant && (
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {/* MP Logo */}
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#009ee3]/10">
                 <svg viewBox="0 0 24 24" className="h-7 w-7" fill="#009ee3">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.5 14.5v-5l4.5 2.5-4.5 2.5zm0-8h3v1h-3v-1z" />
                 </svg>
               </div>
+
               <div>
                 <h3 className="text-base font-bold text-card-foreground">Mercado Pago</h3>
                 <p className="text-sm text-muted-foreground">
@@ -172,7 +168,6 @@ export default function PaymentsTab() {
               </div>
             </div>
 
-            {/* Connection Status & Button */}
             <div className="flex items-center gap-3">
               {mpConnected ? (
                 <>
@@ -180,6 +175,7 @@ export default function PaymentsTab() {
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <span className="text-xs font-semibold text-green-700">Conectado</span>
                   </div>
+
                   <button
                     onClick={handleDisconnectMercadoPago}
                     className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
@@ -195,7 +191,7 @@ export default function PaymentsTab() {
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all",
                     "bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                    "disabled:cursor-not-allowed disabled:opacity-50"
                   )}
                 >
                   {mpConnecting ? (
@@ -214,11 +210,10 @@ export default function PaymentsTab() {
             </div>
           </div>
 
-          {/* Info text */}
           {!mpConnected && (
             <div className="mt-4 rounded-lg bg-blue-50 px-4 py-3">
               <p className="text-xs text-blue-700">
-                Ao conectar, voce autoriza o ClickFood a processar pagamentos em seu nome. 
+                Ao conectar, voce autoriza o ClickFood a processar pagamentos em seu nome.
                 Seus dados estao protegidos pela criptografia do Mercado Pago.
               </p>
             </div>
@@ -226,13 +221,15 @@ export default function PaymentsTab() {
         </div>
       )}
 
-      {/* Summary */}
       <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
         <div className="flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-[hsl(var(--primary))]" />
-          <span className="text-sm font-bold text-card-foreground">{methods.length} formas cadastradas</span>
+          <span className="text-sm font-bold text-card-foreground">
+            {methods.length} formas cadastradas
+          </span>
           <span className="text-xs text-muted-foreground">({enabledCount} ativas)</span>
         </div>
+
         <button
           onClick={addMethod}
           className="flex items-center gap-1.5 rounded-lg border border-[hsl(var(--primary))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--primary))] transition-colors hover:bg-[hsl(var(--primary))]/5"
@@ -242,7 +239,6 @@ export default function PaymentsTab() {
         </button>
       </div>
 
-      {/* Methods List */}
       <div className="space-y-3">
         {methods.map((method) => (
           <div
@@ -253,16 +249,13 @@ export default function PaymentsTab() {
             )}
           >
             <div className="flex items-start gap-4">
-              {/* Drag Handle */}
               <div className="mt-2 flex-shrink-0 text-muted-foreground/40">
                 <GripVertical className="h-5 w-5" />
               </div>
 
-              {/* Content */}
-              <div className="flex-1 grid grid-cols-1 gap-4 md:grid-cols-12">
-                {/* Name */}
+              <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-12">
                 <div className="md:col-span-4">
-                  <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Nome
                   </label>
                   <input
@@ -274,9 +267,8 @@ export default function PaymentsTab() {
                   />
                 </div>
 
-                {/* Fee */}
                 <div className="md:col-span-2">
-                  <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Taxa (%)
                   </label>
                   <input
@@ -285,15 +277,16 @@ export default function PaymentsTab() {
                     max={100}
                     step={0.1}
                     value={method.fee}
-                    onChange={(e) => updateMethod(method.id, "fee", parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      updateMethod(method.id, "fee", parseFloat(e.target.value) || 0)
+                    }
                     className="input-field"
                     placeholder="0"
                   />
                 </div>
 
-                {/* Notes */}
                 <div className="md:col-span-4">
-                  <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Observacao
                   </label>
                   <input
@@ -305,8 +298,7 @@ export default function PaymentsTab() {
                   />
                 </div>
 
-                {/* Actions */}
-                <div className="md:col-span-2 flex items-end gap-3 justify-end">
+                <div className="flex items-end justify-end gap-3 md:col-span-2">
                   <Switch
                     checked={method.enabled}
                     onCheckedChange={() => toggleMethod(method.id)}
@@ -327,8 +319,10 @@ export default function PaymentsTab() {
 
       {methods.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 py-12">
-          <CreditCard className="h-10 w-10 text-muted-foreground/40 mb-3" />
-          <p className="text-sm text-muted-foreground">Nenhuma forma de pagamento cadastrada</p>
+          <CreditCard className="mb-3 h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">
+            Nenhuma forma de pagamento cadastrada
+          </p>
           <button
             onClick={addMethod}
             className="mt-3 flex items-center gap-1.5 rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-xs font-semibold text-[hsl(var(--primary-foreground))] shadow-sm transition-opacity hover:opacity-90"
@@ -339,7 +333,6 @@ export default function PaymentsTab() {
         </div>
       )}
 
-      {/* Save */}
       <div className="flex justify-end">
         <button
           onClick={handleSave}

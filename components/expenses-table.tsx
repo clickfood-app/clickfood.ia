@@ -1,590 +1,526 @@
 "use client"
 
-import { useState } from "react"
-import {
-  Check,
-  Pencil,
-  Plus,
-  Trash2,
-  X,
-  Percent,
-} from "lucide-react"
-import type {
-  Expense,
-  PaymentMethod,
-  ExpenseStatus,
-} from "@/lib/finance-data"
-import {
-  SUPPLIERS,
-  PAYMENT_METHODS,
-  computeFinalAmount,
-  formatBRL,
-} from "@/lib/finance-data"
-import { cn } from "@/lib/utils"
-import { formatDate } from "@/lib/utils/format-date"
+import { useMemo, useState } from "react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
+import { computeFinalAmount, type Expense, type Supplier } from "@/lib/finance-data"
 
-interface ExpensesTableProps {
+type CanonicalPaymentMethod =
+  | "pix"
+  | "dinheiro"
+  | "cartao_credito"
+  | "cartao_debito"
+  | "boleto"
+
+type UiExpenseStatus = "Pago" | "Pendente"
+type CanonicalExpenseStatus = "pago" | "pendente"
+
+type ExpensesTableProps = {
   expenses: Expense[]
-  onUpdate: (expenses: Expense[]) => void
+  suppliers: Supplier[]
+  onCreateExpense: (payload: {
+    supplier_id?: string | null
+    supplier_name?: string | null
+    description: string
+    category?: string | null
+    amount: number
+    discount_percent?: number
+    payment_method: CanonicalPaymentMethod
+    status: UiExpenseStatus
+    issue_date?: string | null
+    due_date: string
+    paid_at?: string | null
+  }) => Promise<void>
+  onUpdateExpense: (
+    id: string,
+    payload: Partial<{
+      supplier_id: string | null
+      supplier_name: string | null
+      description: string
+      category: string | null
+      amount: number
+      discount_percent: number
+      payment_method: CanonicalPaymentMethod
+      status: UiExpenseStatus
+      issue_date: string | null
+      due_date: string
+      paid_at: string | null
+    }>
+  ) => Promise<void>
+  onDeleteExpense: (id: string) => Promise<void>
 }
 
-function generateId() {
-  return `exp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+type FormState = {
+  id?: string
+  supplier_id: string
+  description: string
+  category: string
+  amount: string
+  discount_percent: string
+  payment_method: CanonicalPaymentMethod
+  status: CanonicalExpenseStatus
+  issue_date: string
+  due_date: string
 }
 
-const emptyExpense: Omit<Expense, "id"> = {
-  supplier: "",
+const PAYMENT_METHOD_OPTIONS: Array<{
+  value: CanonicalPaymentMethod
+  label: string
+}> = [
+  { value: "pix", label: "Pix" },
+  { value: "dinheiro", label: "Dinheiro" },
+  { value: "cartao_credito", label: "Cartão de Crédito" },
+  { value: "cartao_debito", label: "Cartão de Débito" },
+  { value: "boleto", label: "Boleto" },
+]
+
+const initialForm: FormState = {
+  supplier_id: "",
   description: "",
-  amount: 0,
-  paymentMethod: "Pix",
-  dueDate: new Date().toISOString().split("T")[0],
-  status: "Pendente",
-  discountPercent: 0,
+  category: "",
+  amount: "",
+  discount_percent: "0",
+  payment_method: "pix",
+  status: "pendente",
+  issue_date: "",
+  due_date: "",
 }
 
-export default function ExpensesTable({ expenses, onUpdate }: ExpensesTableProps) {
+function normalizeText(value: string | null | undefined) {
+  return value?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+}
+
+function normalizePaymentMethod(value: string | null | undefined): CanonicalPaymentMethod {
+  const normalized = normalizeText(value)
+
+  const map: Record<string, CanonicalPaymentMethod> = {
+    pix: "pix",
+    dinheiro: "dinheiro",
+    boleto: "boleto",
+    cartao_credito: "cartao_credito",
+    cartao_debito: "cartao_debito",
+    credito: "cartao_credito",
+    debito: "cartao_debito",
+    "cartao de credito": "cartao_credito",
+    "cartao de debito": "cartao_debito",
+  }
+
+  return map[normalized ?? ""] ?? "pix"
+}
+
+function paymentMethodLabel(value: string | null | undefined) {
+  const normalized = normalizePaymentMethod(value)
+  const option = PAYMENT_METHOD_OPTIONS.find((item) => item.value === normalized)
+  return option?.label ?? "Pix"
+}
+
+function normalizeStatus(value: string | null | undefined): CanonicalExpenseStatus {
+  const normalized = normalizeText(value)
+  return normalized === "pago" ? "pago" : "pendente"
+}
+
+function statusLabel(value: string | null | undefined): UiExpenseStatus {
+  return normalizeStatus(value) === "pago" ? "Pago" : "Pendente"
+}
+
+export default function ExpensesTable({
+  expenses,
+  suppliers,
+  onCreateExpense,
+  onUpdateExpense,
+  onDeleteExpense,
+}: ExpensesTableProps) {
+  const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editData, setEditData] = useState<Expense | null>(null)
-  const [isAdding, setIsAdding] = useState(false)
-  const [newExpense, setNewExpense] = useState<Omit<Expense, "id">>(emptyExpense)
-  // Supplier-level discount
-  const [supplierDiscount, setSupplierDiscount] = useState<{ supplier: string; percent: number } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState<FormState>(initialForm)
 
-  // ── Inline edit ──
+  const sortedExpenses = useMemo(() => {
+    return [...expenses].sort((a, b) => b.dueDate.localeCompare(a.dueDate))
+  }, [expenses])
+
+  function resetForm() {
+    setForm(initialForm)
+    setEditingId(null)
+    setShowForm(false)
+  }
+
   function startEdit(expense: Expense) {
+    const supplierMatch = suppliers.find((supplier) => supplier.name === expense.supplier)
+
     setEditingId(expense.id)
-    setEditData({ ...expense })
-  }
-
-  function cancelEdit() {
-    setEditingId(null)
-    setEditData(null)
-  }
-
-  function saveEdit() {
-    if (!editData) return
-    onUpdate(expenses.map((e) => (e.id === editData.id ? editData : e)))
-    setEditingId(null)
-    setEditData(null)
-  }
-
-  // ── Add row ──
-  function confirmAdd() {
-    if (!newExpense.supplier || !newExpense.description || newExpense.amount <= 0) return
-    const created: Expense = { ...newExpense, id: generateId() }
-    onUpdate([created, ...expenses])
-    setNewExpense(emptyExpense)
-    setIsAdding(false)
-  }
-
-  function cancelAdd() {
-    setIsAdding(false)
-    setNewExpense(emptyExpense)
-  }
-
-  // ── Delete ──
-  function deleteExpense(id: string) {
-    onUpdate(expenses.filter((e) => e.id !== id))
-  }
-
-  // ── Apply supplier-level discount ──
-  function applySupplierDiscount() {
-    if (!supplierDiscount || supplierDiscount.percent <= 0) return
-    const updated = expenses.map((e) => {
-      if (e.supplier === supplierDiscount.supplier) {
-        return { ...e, discountPercent: supplierDiscount.percent }
-      }
-      return e
+    setShowForm(true)
+    setForm({
+      id: expense.id,
+      supplier_id: expense.supplier_id || supplierMatch?.id || "",
+      description: expense.description || "",
+      category: expense.category || "",
+      amount: String(expense.amount ?? ""),
+      discount_percent: String(expense.discountPercent ?? 0),
+      payment_method: normalizePaymentMethod(expense.paymentMethod),
+      status: normalizeStatus(expense.status),
+      issue_date: expense.issueDate || "",
+      due_date: expense.dueDate || "",
     })
-    onUpdate(updated)
-    setSupplierDiscount(null)
   }
 
-  const totalOriginal = expenses.reduce((s, e) => s + e.amount, 0)
-  const totalFinal = expenses.reduce(
-    (s, e) => s + computeFinalAmount(e.amount, e.discountPercent),
-    0
-  )
-  const totalSaved = totalOriginal - totalFinal
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+
+    if (!form.description.trim()) {
+      alert("Informe a descrição da despesa.")
+      return
+    }
+
+    if (!form.amount || Number(form.amount) <= 0) {
+      alert("Informe um valor válido.")
+      return
+    }
+
+    if (!form.due_date) {
+      alert("Informe a data de vencimento.")
+      return
+    }
+
+    const selectedSupplier = suppliers.find((supplier) => supplier.id === form.supplier_id) || null
+
+    const payload = {
+      supplier_id: selectedSupplier?.id ?? null,
+      supplier_name: selectedSupplier?.name ?? null,
+      description: form.description.trim(),
+      category: form.category.trim() || null,
+      amount: Number(form.amount),
+      discount_percent: Number(form.discount_percent || 0),
+      payment_method: form.payment_method,
+      status: statusLabel(form.status),
+      issue_date: form.issue_date || null,
+      due_date: form.due_date,
+      paid_at: form.status === "pago" ? new Date().toISOString() : null,
+    } as const
+
+    try {
+      setLoading(true)
+
+      if (editingId) {
+        await onUpdateExpense(editingId, payload)
+      } else {
+        await onCreateExpense(payload)
+      }
+
+      resetForm()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDelete(id: string, description: string) {
+    const confirmed = window.confirm(`Deseja excluir a despesa "${description}"?`)
+    if (!confirmed) return
+
+    try {
+      await onDeleteExpense(id)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  async function toggleStatus(expense: Expense) {
+    const currentStatus = normalizeStatus(expense.status)
+    const newStatus: CanonicalExpenseStatus =
+      currentStatus === "pago" ? "pendente" : "pago"
+
+    try {
+      await onUpdateExpense(expense.id, {
+        status: statusLabel(newStatus),
+        paid_at: newStatus === "pago" ? new Date().toISOString() : null,
+      })
+    } catch (error) {
+      console.error(error)
+    }
+  }
 
   return (
-    <div className="rounded-xl border border-border bg-card">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-foreground">
-            Planilha de Gastos
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Controle de saídas com edição inline
+          <h2 className="text-base font-semibold text-foreground">Despesas</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Cadastre e acompanhe os gastos do restaurante.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Supplier discount handler */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
-            <Percent className="h-3.5 w-3.5 text-muted-foreground" />
+
+        <button
+          onClick={() => {
+            if (showForm && !editingId) {
+              setShowForm(false)
+            } else {
+              setEditingId(null)
+              setForm(initialForm)
+              setShowForm(true)
+            }
+          }}
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90"
+        >
+          <Plus className="h-4 w-4" />
+          Nova despesa
+        </button>
+      </div>
+
+      {showForm && (
+        <form
+          onSubmit={handleSubmit}
+          className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-border bg-background/40 p-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <div className="xl:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Descrição
+            </label>
+            <input
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="Ex: Compra de bebidas"
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Fornecedor
+            </label>
             <select
-              value={supplierDiscount?.supplier ?? ""}
-              onChange={(e) =>
-                setSupplierDiscount({
-                  supplier: e.target.value,
-                  percent: supplierDiscount?.percent ?? 0,
-                })
-              }
-              className="h-7 rounded border-0 bg-transparent text-xs text-foreground outline-none"
+              value={form.supplier_id}
+              onChange={(e) => setForm((prev) => ({ ...prev, supplier_id: e.target.value }))}
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
             >
-              <option value="">Fornecedor</option>
-              {SUPPLIERS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              <option value="">Selecione</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Categoria
+            </label>
+            <input
+              value={form.category}
+              onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+              placeholder="Ex: Insumos"
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Valor
+            </label>
             <input
               type="number"
-              min={0}
-              max={100}
-              placeholder="%"
-              value={supplierDiscount?.percent ?? ""}
-              onChange={(e) =>
-                setSupplierDiscount({
-                  supplier: supplierDiscount?.supplier ?? "",
-                  percent: Number(e.target.value),
-                })
-              }
-              className="h-7 w-14 rounded border border-border bg-background px-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+              step="0.01"
+              value={form.amount}
+              onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
+              placeholder="0,00"
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
             />
-            <button
-              onClick={applySupplierDiscount}
-              disabled={!supplierDiscount?.supplier || !supplierDiscount?.percent}
-              className="flex h-7 items-center rounded bg-[hsl(var(--primary))] px-2.5 text-xs font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-40"
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Desconto %
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={form.discount_percent}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, discount_percent: e.target.value }))
+              }
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Forma de pagamento
+            </label>
+            <select
+              value={form.payment_method}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  payment_method: e.target.value as CanonicalPaymentMethod,
+                }))
+              }
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
             >
-              Aplicar
+              {PAYMENT_METHOD_OPTIONS.map((method) => (
+                <option key={method.value} value={method.value}>
+                  {method.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Status
+            </label>
+            <select
+              value={form.status}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  status: e.target.value as CanonicalExpenseStatus,
+                }))
+              }
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+            >
+              <option value="pendente">Pendente</option>
+              <option value="pago">Pago</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Data de emissão
+            </label>
+            <input
+              type="date"
+              value={form.issue_date}
+              onChange={(e) => setForm((prev) => ({ ...prev, issue_date: e.target.value }))}
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Data de vencimento
+            </label>
+            <input
+              type="date"
+              value={form.due_date}
+              onChange={(e) => setForm((prev) => ({ ...prev, due_date: e.target.value }))}
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+            />
+          </div>
+
+          <div className="flex items-end gap-2 xl:col-span-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-10 items-center rounded-xl bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Salvando..." : editingId ? "Salvar alterações" : "Cadastrar despesa"}
+            </button>
+
+            <button
+              type="button"
+              onClick={resetForm}
+              className="inline-flex h-10 items-center rounded-xl border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Cancelar
             </button>
           </div>
+        </form>
+      )}
 
-          <button
-            onClick={() => setIsAdding(true)}
-            disabled={isAdding}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-[hsl(var(--primary))] px-3 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" />
-            Adicionar
-          </button>
+      {sortedExpenses.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          Nenhuma despesa cadastrada ainda.
         </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3">Fornecedor</th>
-              <th className="px-4 py-3">Descrição</th>
-              <th className="px-4 py-3">Valor</th>
-              <th className="px-4 py-3">Desc. %</th>
-              <th className="px-4 py-3">Final</th>
-              <th className="px-4 py-3">Pagamento</th>
-              <th className="px-4 py-3">Prazo</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Add row */}
-            {isAdding && (
-              <tr className="border-b border-border bg-[hsl(var(--primary))/0.04]">
-                <td className="px-4 py-2">
-                  <select
-                    value={newExpense.supplier}
-                    onChange={(e) =>
-                      setNewExpense({ ...newExpense, supplier: e.target.value })
-                    }
-                    className="h-8 w-full rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                  >
-                    <option value="">Selecionar</option>
-                    {SUPPLIERS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-2">
-                  <input
-                    value={newExpense.description}
-                    onChange={(e) =>
-                      setNewExpense({ ...newExpense, description: e.target.value })
-                    }
-                    placeholder="Descrição"
-                    className="h-8 w-full rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                  />
-                </td>
-                <td className="px-4 py-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={newExpense.amount || ""}
-                    onChange={(e) =>
-                      setNewExpense({ ...newExpense, amount: Number(e.target.value) })
-                    }
-                    placeholder="0,00"
-                    className="h-8 w-24 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                  />
-                </td>
-                <td className="px-4 py-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={newExpense.discountPercent || ""}
-                    onChange={(e) =>
-                      setNewExpense({
-                        ...newExpense,
-                        discountPercent: Number(e.target.value),
-                      })
-                    }
-                    placeholder="0"
-                    className="h-8 w-16 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                  />
-                </td>
-                <td className="px-4 py-2 text-xs font-medium text-foreground">
-                  {formatBRL(
-                    computeFinalAmount(newExpense.amount, newExpense.discountPercent)
-                  )}
-                </td>
-                <td className="px-4 py-2">
-                  <select
-                    value={newExpense.paymentMethod}
-                    onChange={(e) =>
-                      setNewExpense({
-                        ...newExpense,
-                        paymentMethod: e.target.value as PaymentMethod,
-                      })
-                    }
-                    className="h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                  >
-                    {PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-2">
-                  <input
-                    type="date"
-                    value={newExpense.dueDate}
-                    onChange={(e) =>
-                      setNewExpense({ ...newExpense, dueDate: e.target.value })
-                    }
-                    className="h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                  />
-                </td>
-                <td className="px-4 py-2">
-                  <select
-                    value={newExpense.status}
-                    onChange={(e) =>
-                      setNewExpense({
-                        ...newExpense,
-                        status: e.target.value as ExpenseStatus,
-                      })
-                    }
-                    className="h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                  >
-                    <option value="Pendente">Pendente</option>
-                    <option value="Pago">Pago</option>
-                  </select>
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={confirmAdd}
-                      className="flex h-7 w-7 items-center justify-center rounded text-green-600 transition-colors hover:bg-green-50"
-                      aria-label="Confirmar"
-                    >
-                      <Check className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={cancelAdd}
-                      className="flex h-7 w-7 items-center justify-center rounded text-red-500 transition-colors hover:bg-red-50"
-                      aria-label="Cancelar"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] border-separate border-spacing-y-2">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="px-3 py-2">Descrição</th>
+                <th className="px-3 py-2">Fornecedor</th>
+                <th className="px-3 py-2">Categoria</th>
+                <th className="px-3 py-2">Pagamento</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Vencimento</th>
+                <th className="px-3 py-2">Valor Final</th>
+                <th className="px-3 py-2 text-right">Ações</th>
               </tr>
-            )}
+            </thead>
 
-            {/* Data rows */}
-            {expenses.map((expense) => {
-              const isEditing = editingId === expense.id
-              const row = isEditing && editData ? editData : expense
-              const finalAmount = computeFinalAmount(row.amount, row.discountPercent)
+            <tbody>
+              {sortedExpenses.map((expense) => {
+                const finalAmount = computeFinalAmount(
+                  Number(expense.amount),
+                  Number(expense.discountPercent || 0)
+                )
 
-              return (
-                <tr
-                  key={expense.id}
-                  className={cn(
-                    "border-b border-border last:border-b-0 transition-colors",
-                    isEditing
-                      ? "bg-[hsl(var(--primary))/0.04]"
-                      : "hover:bg-muted/50"
-                  )}
-                >
-                  {/* Supplier */}
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <select
-                        value={editData!.supplier}
-                        onChange={(e) =>
-                          setEditData({ ...editData!, supplier: e.target.value })
-                        }
-                        className="h-8 w-full rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+                return (
+                  <tr key={expense.id} className="rounded-xl bg-background/50">
+                    <td className="rounded-l-xl px-3 py-3">
+                      <div className="font-medium text-foreground">{expense.description}</div>
+                    </td>
+
+                    <td className="px-3 py-3 text-sm text-muted-foreground">
+                      {expense.supplier || "—"}
+                    </td>
+
+                    <td className="px-3 py-3 text-sm text-muted-foreground">
+                      {expense.category || "—"}
+                    </td>
+
+                    <td className="px-3 py-3 text-sm text-muted-foreground">
+                      {paymentMethodLabel(expense.paymentMethod)}
+                    </td>
+
+                    <td className="px-3 py-3">
+                      <button
+                        onClick={() => toggleStatus(expense)}
+                        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                          normalizeStatus(expense.status) === "pago"
+                            ? "bg-emerald-500/15 text-emerald-600"
+                            : "bg-amber-500/15 text-amber-600"
+                        }`}
                       >
-                        {SUPPLIERS.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-sm font-medium text-foreground">
-                        {row.supplier}
-                      </span>
-                    )}
-                  </td>
+                        {statusLabel(expense.status)}
+                      </button>
+                    </td>
 
-                  {/* Description */}
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <input
-                        value={editData!.description}
-                        onChange={(e) =>
-                          setEditData({ ...editData!, description: e.target.value })
-                        }
-                        className="h-8 w-full rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                      />
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        {row.description}
-                      </span>
-                    )}
-                  </td>
+                    <td className="px-3 py-3 text-sm text-muted-foreground">
+                      {new Date(`${expense.dueDate}T00:00:00`).toLocaleDateString("pt-BR")}
+                    </td>
 
-                  {/* Amount */}
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={editData!.amount}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData!,
-                            amount: Number(e.target.value),
-                          })
-                        }
-                        className="h-8 w-24 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                      />
-                    ) : (
-                      <span className="text-sm text-foreground">
-                        {formatBRL(row.amount)}
-                      </span>
-                    )}
-                  </td>
+                    <td className="px-3 py-3 text-sm font-semibold text-foreground">
+                      {finalAmount.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </td>
 
-                  {/* Discount % */}
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={editData!.discountPercent}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData!,
-                            discountPercent: Number(e.target.value),
-                          })
-                        }
-                        className="h-8 w-16 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                      />
-                    ) : row.discountPercent > 0 ? (
-                      <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                        -{row.discountPercent}%
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
-                  </td>
+                    <td className="rounded-r-xl px-3 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => startEdit(expense)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
 
-                  {/* Final */}
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        "text-sm font-medium",
-                        row.discountPercent > 0
-                          ? "text-green-600"
-                          : "text-foreground"
-                      )}
-                    >
-                      {formatBRL(finalAmount)}
-                    </span>
-                  </td>
-
-                  {/* Payment method */}
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <select
-                        value={editData!.paymentMethod}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData!,
-                            paymentMethod: e.target.value as PaymentMethod,
-                          })
-                        }
-                        className="h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                      >
-                        {PAYMENT_METHODS.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                        {row.paymentMethod}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Due date */}
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <input
-                        type="date"
-                        value={editData!.dueDate}
-                        onChange={(e) =>
-                          setEditData({ ...editData!, dueDate: e.target.value })
-                        }
-                        className="h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                      />
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        {formatDate(row.dueDate)}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <select
-                        value={editData!.status}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData!,
-                            status: e.target.value as ExpenseStatus,
-                          })
-                        }
-                        className="h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-                      >
-                        <option value="Pago">Pago</option>
-                        <option value="Pendente">Pendente</option>
-                      </select>
-                    ) : (
-                      <span
-                        className={cn(
-                          "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
-                          row.status === "Pago"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-amber-100 text-amber-700"
-                        )}
-                      >
-                        {row.status}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      {isEditing ? (
-                        <>
-                          <button
-                            onClick={saveEdit}
-                            className="flex h-7 w-7 items-center justify-center rounded text-green-600 transition-colors hover:bg-green-50"
-                            aria-label="Salvar"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            className="flex h-7 w-7 items-center justify-center rounded text-red-500 transition-colors hover:bg-red-50"
-                            aria-label="Cancelar"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => startEdit(expense)}
-                            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            aria-label="Editar"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => deleteExpense(expense.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-                            aria-label="Remover"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer totals */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-6 py-4">
-        <div className="flex items-center gap-6 text-sm">
-          <span className="text-muted-foreground">
-            {expenses.length} registro(s)
-          </span>
-          {totalSaved > 0 && (
-            <span className="flex items-center gap-1.5 text-green-600">
-              <Percent className="h-3.5 w-3.5" />
-              Economia total: {formatBRL(totalSaved)}
-            </span>
-          )}
+                        <button
+                          onClick={() => handleDelete(expense.id, expense.description)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-500/30 text-red-500 transition-colors hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Original</p>
-            <p className="text-sm font-medium text-foreground">
-              {formatBRL(totalOriginal)}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Com desconto</p>
-            <p className="text-sm font-bold text-[hsl(var(--primary))]">
-              {formatBRL(totalFinal)}
-            </p>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   )
 }

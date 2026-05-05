@@ -6,6 +6,7 @@ import {
   Clock,
   CreditCard,
   Crown,
+  LayoutDashboard,
   Settings,
   Truck,
 } from "lucide-react"
@@ -20,12 +21,14 @@ const OperationTab = lazy(() => import("@/components/settings/operation-tab"))
 const PaymentsTab = lazy(() => import("@/components/settings/payments-tab"))
 const DeliveryTab = lazy(() => import("@/components/settings/delivery-tab"))
 const PlanTab = lazy(() => import("@/components/settings/plan-tab"))
+const MenuPublicTab = lazy(() => import("@/components/settings/cardapio-tab"))
 
 const tabs = [
   { value: "store", label: "Dados da Loja", icon: <Building2 className="h-4 w-4" /> },
   { value: "operation", label: "Funcionamento", icon: <Clock className="h-4 w-4" /> },
   { value: "payments", label: "Pagamentos", icon: <CreditCard className="h-4 w-4" /> },
   { value: "delivery", label: "Entrega", icon: <Truck className="h-4 w-4" /> },
+  { value: "menu", label: "Cardápio Público", icon: <LayoutDashboard className="h-4 w-4" /> },
   { value: "plan", label: "Plano", icon: <Crown className="h-4 w-4" /> },
 ] as const
 
@@ -33,28 +36,28 @@ function TabSkeleton() {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-6">
-        <Skeleton className="h-5 w-48 mb-5" />
+        <Skeleton className="mb-5 h-5 w-48" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <Skeleton className="h-3 w-24 mb-2" />
+            <Skeleton className="mb-2 h-3 w-24" />
             <Skeleton className="h-10 w-full" />
           </div>
           <div>
-            <Skeleton className="h-3 w-24 mb-2" />
+            <Skeleton className="mb-2 h-3 w-24" />
             <Skeleton className="h-10 w-full" />
           </div>
           <div>
-            <Skeleton className="h-3 w-24 mb-2" />
+            <Skeleton className="mb-2 h-3 w-24" />
             <Skeleton className="h-10 w-full" />
           </div>
           <div>
-            <Skeleton className="h-3 w-24 mb-2" />
+            <Skeleton className="mb-2 h-3 w-24" />
             <Skeleton className="h-10 w-full" />
           </div>
         </div>
       </div>
       <div className="rounded-xl border border-border bg-card p-6">
-        <Skeleton className="h-5 w-40 mb-5" />
+        <Skeleton className="mb-5 h-5 w-40" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
@@ -70,20 +73,20 @@ export default function ConfiguracoesPage() {
   return (
     <AdminLayout>
       <div className="p-8">
-        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="mb-2 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(var(--primary))]/10">
               <Settings className="h-5 w-5 text-[hsl(var(--primary))]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">Configuracoes</h1>
-              <p className="text-sm text-muted-foreground">Gerencie todas as configuracoes do seu restaurante</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Configuracoes</h1>
+              <p className="text-sm text-muted-foreground">
+                Gerencie todas as configuracoes do seu restaurante
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-8 flex h-auto w-full flex-wrap gap-1 rounded-xl bg-muted/50 p-1.5">
             {tabs.map((tab) => (
@@ -122,6 +125,12 @@ export default function ConfiguracoesPage() {
           <TabsContent value="delivery">
             <Suspense fallback={<TabSkeleton />}>
               <DeliveryTab />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="menu">
+            <Suspense fallback={<TabSkeleton />}>
+              <MenuPublicTab />
             </Suspense>
           </TabsContent>
 

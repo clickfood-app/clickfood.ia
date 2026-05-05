@@ -1,224 +1,187 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo } from "react"
 import {
-  Bar,
-  CartesianGrid,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Line,
-  ComposedChart,
-} from "recharts"
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
-  ChartContainer,
-} from "@/components/ui/chart"
-import {
-  ArrowUpRight,
-  Lightbulb,
+  BarChart3,
+  Receipt,
+  ShoppingCart,
+  TrendingDown,
   TrendingUp,
+  Ticket,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { CouponUsageDay, Coupon } from "@/lib/coupons-data"
+import type { CouponUsageDay } from "@/lib/coupons-data"
 import { formatBRL, ticketComparison } from "@/lib/coupons-data"
+
+interface AnalyticsCoupon {
+  status: "ativo" | "pausado" | "expirado"
+}
 
 interface CouponAnalyticsProps {
   usageData: CouponUsageDay[]
-  coupons: Coupon[]
+  coupons: AnalyticsCoupon[]
 }
 
-const BLUE = "hsl(217, 91%, 60%)"
-const BLUE_LIGHT = "hsl(217, 70%, 78%)"
+export default function CouponAnalytics({
+  usageData,
+  coupons,
+}: CouponAnalyticsProps) {
+  const analytics = useMemo(() => {
+    const totalOrders = usageData.reduce((acc, day) => acc + day.orders, 0)
+    const couponOrders = usageData.reduce((acc, day) => acc + day.uses, 0)
 
-export default function CouponAnalytics({ usageData, coupons }: CouponAnalyticsProps) {
-  const [period, setPeriod] = useState<7 | 14>(14)
+    const revenueWithCoupon = usageData.reduce(
+      (acc, day) => acc + day.revenue,
+      0
+    )
 
-  const slicedData = usageData.slice(-Number(period))
+    const discountGiven = usageData.reduce(
+      (acc, day) => acc + day.discountGiven,
+      0
+    )
 
-  // Best performing coupon
-  const bestCoupon = coupons.reduce((best, c) =>
-    c.revenueGenerated > (best?.revenueGenerated || 0) ? c : best
-  , coupons[0])
+    const revenueWithoutCoupon = Math.max(revenueWithCoupon - discountGiven, 0)
 
-  const insights = [
+    const avgTicketWithCoupon =
+      couponOrders > 0 ? revenueWithCoupon / couponOrders : 0
+
+    const nonCouponOrders = Math.max(totalOrders - couponOrders, 0)
+
+    const avgTicketWithoutCoupon =
+      nonCouponOrders > 0 ? revenueWithoutCoupon / nonCouponOrders : 0
+
+    const conversionRate =
+      totalOrders > 0 ? (couponOrders / totalOrders) * 100 : 0
+
+    const activeCoupons = coupons.filter((coupon) => coupon.status === "ativo").length
+
+    const comparison = ticketComparison(
+      avgTicketWithCoupon,
+      avgTicketWithoutCoupon
+    )
+
+    return {
+      totalOrders,
+      couponOrders,
+      revenueWithCoupon,
+      revenueWithoutCoupon,
+      avgTicketWithCoupon,
+      avgTicketWithoutCoupon,
+      conversionRate,
+      activeCoupons,
+      comparison,
+    }
+  }, [usageData, coupons])
+
+  const cards = [
     {
-      text: `Clientes que usam cupom gastam ${ticketComparison.percentDifference}% a mais que os demais`,
-      type: "positive" as const,
+      title: "Pedidos com cupom",
+      value: analytics.couponOrders.toString(),
+      subtitle: `${analytics.conversionRate.toFixed(1)}% dos pedidos`,
+      icon: Ticket,
     },
     {
-      text: `O cupom "${bestCoupon?.name}" gerou ${formatBRL(bestCoupon?.revenueGenerated || 0)} em receita`,
-      type: "highlight" as const,
+      title: "Receita com cupom",
+      value: formatBRL(analytics.revenueWithCoupon),
+      subtitle: "Total gerado com uso de cupons",
+      icon: ShoppingCart,
     },
     {
-      text: `Ticket medio com cupom: ${formatBRL(ticketComparison.withCoupon)} vs ${formatBRL(ticketComparison.withoutCoupon)} sem cupom`,
-      type: "positive" as const,
+      title: "Ticket médio com cupom",
+      value: formatBRL(analytics.avgTicketWithCoupon),
+      subtitle: "Valor médio dos pedidos com cupom",
+      icon: Receipt,
+    },
+    {
+      title: "Cupons ativos",
+      value: analytics.activeCoupons.toString(),
+      subtitle: "Campanhas disponíveis agora",
+      icon: BarChart3,
     },
   ]
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        {/* Usage chart */}
-        <div className="rounded-xl border border-border bg-card p-5 xl:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-card-foreground">Uso de Cupons por Periodo</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Utilizacoes e receita diaria</p>
-            </div>
-            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-              {([7, 14] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p as 7 | 14)}
-                  className={cn(
-                    "rounded-md px-3 py-1 text-xs font-medium transition-all",
-                    Number(period) === p
-                      ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {p}d
-                </button>
-              ))}
-            </div>
-          </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => {
+          const Icon = card.icon
 
-          <ChartContainer
-            config={{
-              uses: { label: "Usos", color: BLUE },
-              revenue: { label: "Receita", color: BLUE_LIGHT },
-            }}
-            className="h-[280px] w-full"
-          >
-            <ComposedChart data={slicedData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(220, 13%, 91%)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "hsl(220, 9%, 46%)", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  yAxisId="uses"
-                  tick={{ fill: "hsl(220, 9%, 46%)", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={35}
-                />
-                <YAxis
-                  yAxisId="revenue"
-                  orientation="right"
-                  tick={{ fill: "hsl(220, 9%, 46%)", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={50}
-                  tickFormatter={(v: number) => `R$${v}`}
-                />
-                <Tooltip
-                  cursor={{ fill: "hsl(220, 14%, 96%)", radius: 4 }}
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid hsl(220, 13%, 91%)",
-                    boxShadow: "0 4px 12px rgba(0,0,0,.08)",
-                    fontSize: 12,
-                  }}
-                  formatter={(value: number, name: string) => [
-                    name === "revenue" ? formatBRL(value) : value,
-                    name === "revenue" ? "Receita" : "Usos",
-                  ]}
-                />
-                <Bar
-                  yAxisId="uses"
-                  dataKey="uses"
-                  fill={BLUE}
-                  radius={[4, 4, 0, 0]}
-                  barSize={24}
-                  animationDuration={800}
-                />
-                <Line
-                  yAxisId="revenue"
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke={BLUE_LIGHT}
-                  strokeWidth={2.5}
-                  dot={{ r: 3, fill: BLUE_LIGHT }}
-                  activeDot={{ r: 5 }}
-                  animationDuration={1000}
-                />
-            </ComposedChart>
-          </ChartContainer>
-        </div>
+          return (
+            <Card key={card.title}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {card.title}
+                </CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
 
-        {/* Right column: ticket comparison + insights */}
-        <div className="space-y-5">
-          {/* Ticket comparison */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h3 className="text-sm font-bold text-card-foreground">Ticket Medio</h3>
-            <p className="text-xs text-muted-foreground mt-0.5 mb-4">Com cupom vs sem cupom</p>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-medium text-card-foreground">Com cupom</span>
-                  <span className="text-sm font-bold text-[hsl(var(--primary))]">
-                    {formatBRL(ticketComparison.withCoupon)}
-                  </span>
-                </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-[hsl(var(--primary))] transition-all duration-500"
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-medium text-card-foreground">Sem cupom</span>
-                  <span className="text-sm font-bold text-muted-foreground">
-                    {formatBRL(ticketComparison.withoutCoupon)}
-                  </span>
-                </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-muted-foreground/30 transition-all duration-500"
-                    style={{ width: `${(ticketComparison.withoutCoupon / ticketComparison.withCoupon) * 100}%` }}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2 text-green-700">
-                <ArrowUpRight className="h-4 w-4" />
-                <span className="text-xs font-semibold">+{ticketComparison.percentDifference}% de aumento</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Insights */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Lightbulb className="h-4 w-4 text-amber-500" />
-              <h3 className="text-sm font-bold text-card-foreground">Sugestoes Inteligentes</h3>
-            </div>
-            <div className="space-y-2.5">
-              {insights.map((insight, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-xs leading-relaxed",
-                    insight.type === "positive" ? "bg-green-50 text-green-800" : "bg-blue-50 text-blue-800"
-                  )}
-                >
-                  <TrendingUp className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                  <span>{insight.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              <CardContent>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {card.subtitle}
+                </p>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Comparativo de ticket médio</CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-4 rounded-xl border p-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Com cupom</p>
+              <p className="text-2xl font-bold">
+                {formatBRL(analytics.comparison.withCoupon)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-sm text-muted-foreground">Sem cupom</p>
+              <p className="text-2xl font-bold">
+                {formatBRL(analytics.comparison.withoutCoupon)}
+              </p>
+            </div>
+
+            <div
+              className={cn(
+                "flex w-fit items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
+                analytics.comparison.isPositive
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                  : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+              )}
+            >
+              {analytics.comparison.isPositive ? (
+                <TrendingUp className="h-4 w-4" />
+              ) : (
+                <TrendingDown className="h-4 w-4" />
+              )}
+
+              <span>
+                {analytics.comparison.isPositive ? "+" : ""}
+                {analytics.comparison.percentage.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            Diferença absoluta:{" "}
+            <span className="font-medium text-foreground">
+              {formatBRL(analytics.comparison.difference)}
+            </span>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

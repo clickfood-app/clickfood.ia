@@ -1,93 +1,170 @@
 import { NextRequest, NextResponse } from "next/server"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 
-// This route handles the OAuth callback from Mercado Pago
-// In production with Supabase, tokens would be saved to the database here
+type MercadoPagoTokenResponse = {
+  access_token: string
+  token_type?: string
+  expires_in?: number
+  scope?: string
+  user_id?: number | string
+  refresh_token?: string
+  public_key?: string
+  live_mode?: boolean
+}
+
+function getBaseAppUrl() {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000"
+  )
+}
+
+function getRedirectUri() {
+  return (
+    process.env.NEXT_PUBLIC_MERCADOPAGO_REDIRECT_URI ||
+    `${getBaseAppUrl()}/api/mercadopago/callback`
+  )
+}
+
+function buildSettingsRedirect(status: "success" | "error", message?: string) {
+  const url = new URL("/configuracoes?tab=payments", getBaseAppUrl())
+  url.searchParams.set("mp", status)
+
+  if (message) {
+    url.searchParams.set("message", message)
+  }
+
+  return url
+}
+
+function normalizeRestaurantId(value: string | null) {
+  return (value || "").trim()
+}
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state") // restaurant_id
-  const error = searchParams.get("error")
-  
-  // Handle OAuth errors
-  if (error) {
-    const errorDescription = searchParams.get("error_description") || "Erro desconhecido"
-    return NextResponse.redirect(
-      new URL(`/configuracoes?mp_error=${encodeURIComponent(errorDescription)}`, request.url)
-    )
-  }
-  
-  // Validate required params
-  if (!code || !state) {
-    return NextResponse.redirect(
-      new URL("/configuracoes?mp_error=Parametros%20invalidos", request.url)
-    )
-  }
-  
-  // Exchange code for tokens
-  const clientId = process.env.NEXT_PUBLIC_MERCADOPAGO_CLIENT_ID
-  const clientSecret = process.env.MERCADOPAGO_CLIENT_SECRET
-  const redirectUri = process.env.NEXT_PUBLIC_MERCADOPAGO_REDIRECT_URI || `${request.nextUrl.origin}/api/mercadopago/callback`
-  
-  if (!clientId || !clientSecret) {
-    // For demo mode, redirect with success and let client-side handle mock connection
-    return NextResponse.redirect(
-      new URL(`/configuracoes?mp_demo=true&mp_restaurant=${state}`, request.url)
-    )
-  }
-  
   try {
+    const url = new URL(request.url)
+    const code = url.searchParams.get("code")
+    const restaurantId = normalizeRestaurantId(url.searchParams.get("state"))
+    const errorParam = url.searchParams.get("error")
+    const errorDescription = url.searchParams.get("error_description")
+
+    if (errorParam) {
+      return NextResponse.redirect(
+        buildSettingsRedirect("error", errorDescription || errorParam)
+      )
+    }
+
+    if (!code) {
+      return NextResponse.redirect(
+        buildSettingsRedirect("error", "Codigo de autorizacao nao recebido.")
+      )
+    }
+
+    if (!restaurantId) {
+      return NextResponse.redirect(
+        buildSettingsRedirect("error", "Restaurant ID nao recebido no state.")
+      )
+    }
+
+    const clientId = process.env.NEXT_PUBLIC_MERCADOPAGO_CLIENT_ID
+    const clientSecret = process.env.MERCADOPAGO_CLIENT_SECRET
+    const redirectUri = getRedirectUri()
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.redirect(
+        buildSettingsRedirect("error", "Credenciais do Mercado Pago nao configuradas.")
+      )
+    }
+
+    const { data: restaurant, error: restaurantError } = await supabaseAdmin
+      .from("restaurants")
+      .select("id")
+      .eq("id", restaurantId)
+      .maybeSingle()
+
+    if (restaurantError || !restaurant) {
+      return NextResponse.redirect(
+        buildSettingsRedirect("error", "Restaurante nao encontrado para vincular Mercado Pago.")
+      )
+    }
+
     const tokenResponse = await fetch("https://api.mercadopago.com/oauth/token", {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
+        "Content-Type": "application/json",
       },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
+      body: JSON.stringify({
         client_id: clientId,
         client_secret: clientSecret,
-        code: code,
+        code,
+        grant_type: "authorization_code",
         redirect_uri: redirectUri,
+        test_token: false,
       }),
     })
-    
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("Token exchange failed:", errorData)
+
+    const tokenData = (await tokenResponse.json()) as MercadoPagoTokenResponse & {
+      message?: string
+      error?: string
+    }
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      const message =
+        tokenData?.message ||
+        tokenData?.error ||
+        "Nao foi possivel concluir a conexao com o Mercado Pago."
+
+      return NextResponse.redirect(buildSettingsRedirect("error", message))
+    }
+
+    const expiresInSeconds = Number(tokenData.expires_in || 0)
+    const expiresAt =
+      expiresInSeconds > 0
+        ? new Date(Date.now() + expiresInSeconds * 1000).toISOString()
+        : null
+
+    const payload = {
+      restaurant_id: restaurantId,
+      mp_user_id:
+        tokenData.user_id !== undefined && tokenData.user_id !== null
+          ? String(tokenData.user_id)
+          : null,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || null,
+      expires_at: expiresAt,
+      connected_at: new Date().toISOString(),
+    }
+
+    const { error: upsertError } = await supabaseAdmin
+      .from("mercadopago_connections")
+      .upsert(payload, {
+        onConflict: "restaurant_id",
+      })
+
+    if (upsertError) {
       return NextResponse.redirect(
-        new URL("/configuracoes?mp_error=Falha%20ao%20obter%20tokens", request.url)
+        buildSettingsRedirect(
+          "error",
+          upsertError.message || "Erro ao salvar conexao do Mercado Pago."
+        )
       )
     }
-    
-    const tokens = await tokenResponse.json()
-    
-    // In production with Supabase, save tokens to database:
-    // await supabase.from('mercadopago_connections').upsert({
-    //   restaurant_id: state,
-    //   access_token: tokens.access_token,
-    //   refresh_token: tokens.refresh_token,
-    //   expires_in: tokens.expires_in,
-    //   user_id: tokens.user_id,
-    //   connected_at: new Date().toISOString(),
-    // })
-    
-    // For now, pass tokens to client via URL params (encoded)
-    const tokenData = encodeURIComponent(JSON.stringify({
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_in: tokens.expires_in,
-      user_id: tokens.user_id,
-      connected_at: new Date().toISOString(),
-    }))
-    
+
     return NextResponse.redirect(
-      new URL(`/configuracoes?mp_success=true&mp_restaurant=${state}&mp_tokens=${tokenData}`, request.url)
+      buildSettingsRedirect("success", "Conta Mercado Pago conectada com sucesso.")
     )
-  } catch (err) {
-    console.error("Error in Mercado Pago callback:", err)
+  } catch (error) {
+    console.error("Mercado Pago callback error:", error)
+
     return NextResponse.redirect(
-      new URL("/configuracoes?mp_error=Erro%20interno", request.url)
+      buildSettingsRedirect(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Erro interno ao conectar Mercado Pago."
+      )
     )
   }
 }

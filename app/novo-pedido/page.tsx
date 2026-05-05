@@ -1,15 +1,16 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import AdminLayout from "@/components/admin-layout"
 import OrderTypeSelector from "@/components/manual-order/order-type-selector"
 import TableSelector from "@/components/manual-order/table-selector"
 import ProductSearch from "@/components/manual-order/product-search"
 import OrderSummary from "@/components/manual-order/order-summary"
-import PaymentSelector from "@/components/manual-order/payment-selector"
+// import PaymentSelector from "@/components/manual-order/payment-selector" // Você pode remover/comentar esse componente se não for mais usar em outro lugar
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 import { initialProducts, initialCategories, type Product } from "@/lib/products-data"
 import {
   type OrderType,
@@ -20,11 +21,12 @@ import {
   type DeliveryAddress,
   initialTables,
 } from "@/lib/order-types"
-import { ShoppingCart, User, MapPin, Check } from "lucide-react"
+import { ShoppingCart, User, MapPin, Check, Wallet, QrCode, CreditCard, Clock, X } from "lucide-react"
 
 export default function NovoPedidoPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const supabase = useMemo(() => createClient(), [])
 
   // Order state
   const [orderType, setOrderType] = useState<OrderType>("local")
@@ -35,6 +37,28 @@ export default function NovoPedidoPage() {
   const [discount, setDiscount] = useState(0)
   const [deliveryFee] = useState(8.0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // NOVO ESTADO: Controle do Modal de Pagamento
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+
+  // NOVO ESTADO: ID do Restaurante logado
+  const [restaurantId, setRestaurantId] = useState<string>("")
+
+  // Busca o ID do restaurante logado
+  useEffect(() => {
+    const fetchRestaurant = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from("restaurants")
+          .select("id")
+          .eq("owner_id", user.id)
+          .single()
+        if (data) setRestaurantId(data.id)
+      }
+    }
+    fetchRestaurant()
+  }, [supabase])
 
   // Customer data
   const [customer, setCustomer] = useState<CustomerData>({
@@ -53,9 +77,18 @@ export default function NovoPedidoPage() {
     zipCode: "",
   })
 
-  // Products data (would come from props/API)
+  // Products data
   const [products] = useState<Product[]>(initialProducts)
   const [categories] = useState(initialCategories)
+
+  // Opções de Pagamento para o Modal
+  const paymentOptions = [
+    { id: 'dinheiro', name: 'Dinheiro', icon: <Wallet className="h-8 w-8 mb-2" /> },
+    { id: 'pix', name: 'PIX', icon: <QrCode className="h-8 w-8 mb-2" /> },
+    { id: 'credito', name: 'Crédito', icon: <CreditCard className="h-8 w-8 mb-2" /> },
+    { id: 'debito', name: 'Débito', icon: <CreditCard className="h-8 w-8 mb-2" /> },
+    { id: 'pending', name: 'Pendente', icon: <Clock className="h-8 w-8 mb-2" /> },
+  ]
 
   // Add product to order
   const handleAddProduct = useCallback((product: Product) => {
@@ -129,13 +162,13 @@ export default function NovoPedidoPage() {
     if (!canSubmit()) return
 
     setIsSubmitting(true)
+    setIsPaymentModalOpen(false) // Fecha o modal ao iniciar o envio
 
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     const orderStatus = orderType === "delivery" ? "delivering" : "preparing"
 
-    // Here you would send to your API/Supabase
     const order = {
       type: orderType,
       tableId: orderType === "local" ? selectedTable : undefined,
@@ -166,7 +199,6 @@ export default function NovoPedidoPage() {
     <AdminLayout>
       <div className="min-h-screen bg-background p-6">
         <div className="mx-auto max-w-7xl">
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-xl font-bold text-foreground">Novo Pedido</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -175,9 +207,7 @@ export default function NovoPedidoPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            {/* Left Column - Order Details */}
             <div className="xl:col-span-2 space-y-6">
-              {/* Order Type */}
               <div className="rounded-xl border border-border bg-card p-5">
                 <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <ShoppingCart className="h-4 w-4 text-muted-foreground" />
@@ -186,7 +216,6 @@ export default function NovoPedidoPage() {
                 <OrderTypeSelector value={orderType} onChange={setOrderType} />
               </div>
 
-              {/* Table Selection (for local) */}
               {orderType === "local" && (
                 <div className="rounded-xl border border-border bg-card p-5">
                   <TableSelector
@@ -194,11 +223,11 @@ export default function NovoPedidoPage() {
                     value={selectedTable}
                     onChange={setSelectedTable}
                     onCreateTable={handleCreateTable}
+                    restaurantId={restaurantId}
                   />
                 </div>
               )}
 
-              {/* Customer Data */}
               <div className="rounded-xl border border-border bg-card p-5">
                 <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
@@ -240,7 +269,6 @@ export default function NovoPedidoPage() {
                 </div>
               </div>
 
-              {/* Delivery Address (for delivery) */}
               {orderType === "delivery" && (
                 <div className="rounded-xl border border-border bg-card p-5">
                   <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -308,7 +336,6 @@ export default function NovoPedidoPage() {
                 </div>
               )}
 
-              {/* Products Search */}
               <div className="rounded-xl border border-border bg-card p-5">
                 <h2 className="text-sm font-semibold text-foreground mb-4">Adicionar Produtos</h2>
                 <ProductSearch
@@ -319,12 +346,11 @@ export default function NovoPedidoPage() {
               </div>
             </div>
 
-            {/* Right Column - Order Summary */}
             <div className="xl:col-span-1">
-              <div className="sticky top-6 rounded-xl border border-border bg-card p-5">
+              <div className="sticky top-6 rounded-xl border border-border bg-card p-5 flex flex-col h-[calc(100vh-100px)]">
                 <h2 className="text-sm font-semibold text-foreground mb-4">Resumo do Pedido</h2>
                 
-                <div className="h-[320px]">
+                <div className="flex-1 overflow-hidden min-h-[320px]">
                   <OrderSummary
                     items={items}
                     orderType={orderType}
@@ -337,46 +363,99 @@ export default function NovoPedidoPage() {
                   />
                 </div>
 
-                {/* Payment Method */}
-                <div className="mt-6 pt-4 border-t border-border">
-                  <PaymentSelector value={paymentMethod} onChange={setPaymentMethod} />
+                <div className="mt-4 pt-4 border-t border-border">
+                  <button
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    disabled={!canSubmit() || isSubmitting}
+                    className={cn(
+                      "flex w-full items-center justify-center gap-2 rounded-lg py-4 text-sm font-bold transition-all shadow-md",
+                      canSubmit() && !isSubmitting
+                        ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90"
+                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                    )}
+                  >
+                    Cobrar Pedido
+                  </button>
+
+                  {!canSubmit() && items.length > 0 && (
+                    <p className="mt-2 text-xs text-center text-muted-foreground">
+                      {orderType === "local" && !selectedTable && "Selecione uma mesa"}
+                      {orderType === "delivery" && (!address.street || !address.number || !address.neighborhood) && "Preencha o endereco completo"}
+                    </p>
+                  )}
                 </div>
-
-                {/* Submit Button */}
-                <button
-                  onClick={handleSubmit}
-                  disabled={!canSubmit() || isSubmitting}
-                  className={cn(
-                    "mt-6 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold transition-all",
-                    canSubmit() && !isSubmitting
-                      ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Criando pedido...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Criar Pedido
-                    </>
-                  )}
-                </button>
-
-                {!canSubmit() && items.length > 0 && (
-                  <p className="mt-2 text-xs text-center text-muted-foreground">
-                    {orderType === "local" && !selectedTable && "Selecione uma mesa"}
-                    {orderType === "delivery" && (!address.street || !address.number || !address.neighborhood) && "Preencha o endereco completo"}
-                  </p>
-                )}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-2xl p-8 transform transition-all">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h3 className="text-2xl font-bold text-foreground">Forma de Pagamento</h3>
+                <p className="text-muted-foreground mt-1">Selecione como o cliente deseja pagar</p>
+              </div>
+              <button 
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-accent transition"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="bg-accent/50 border border-border rounded-xl p-6 text-center mb-8">
+              <span className="block text-muted-foreground text-sm font-semibold uppercase tracking-wider mb-1">Total a Cobrar</span>
+              <span className="text-4xl font-bold text-foreground">R$ {total.toFixed(2).replace('.', ',')}</span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+              {paymentOptions.map((method) => (
+                <button
+                  key={method.id}
+                  onClick={() => setPaymentMethod(method.id as PaymentMethod)}
+                  className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all duration-200 ${
+                    paymentMethod === method.id
+                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] shadow-sm'
+                      : 'border-border hover:border-border/80 hover:bg-accent text-muted-foreground'
+                  }`}
+                >
+                  {method.icon}
+                  <span className="font-semibold">{method.name}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-4 border-t border-border pt-6">
+              <button 
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="px-6 py-3 font-semibold text-muted-foreground hover:bg-accent rounded-xl transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-8 py-3 font-bold text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 rounded-xl transition shadow-md flex items-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-5 w-5" />
+                    Confirmar e Finalizar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }

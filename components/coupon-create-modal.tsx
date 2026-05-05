@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
+  Bot,
   Clock,
   Hash,
-  Link2,
   Mail,
   Megaphone,
   MessageCircle,
@@ -12,11 +12,10 @@ import {
   Search,
   Tag,
   UserCheck,
-  Zap,
   X,
-  Bot,
   Bell,
 } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 import type {
   Coupon,
@@ -26,6 +25,7 @@ import type {
   ExclusiveCoupon,
   ExclusiveReason,
   SendChannel,
+  CouponStatus,
 } from "@/lib/coupons-data"
 import { autoTriggerLabels, exclusiveReasonLabels } from "@/lib/coupons-data"
 import { MOCK_CLIENTS, type Client } from "@/lib/clients-data"
@@ -33,551 +33,735 @@ import { MOCK_CLIENTS, type Client } from "@/lib/clients-data"
 interface CouponCreateModalProps {
   open: boolean
   onClose: () => void
-  onSave: (coupon: Coupon) => void
-  onSaveExclusive?: (coupon: ExclusiveCoupon) => void
+  onSave: (coupon: Coupon) => void | Promise<void>
+  onSaveExclusive?: (coupon: ExclusiveCoupon) => void | Promise<void>
+}
+
+type CouponCreateForm = {
+  type: CouponType
+  title: string
+  code: string
+  description: string
+  discountType: DiscountType
+  discountValue: number
+  minOrderValue: number
+  maxDiscountValue: number
+  usageLimit: number
+  status: CouponStatus
+  startsAt: string
+  expiresAt: string
+
+  autoTrigger?: AutoTrigger
+  triggerValue?: number
+
+  durationHours?: number
+
+  exclusiveReason?: ExclusiveReason
+  selectedClients: string[]
+  channel: SendChannel[]
 }
 
 const typeOptions: { value: CouponType; label: string; icon: React.ReactNode; desc: string }[] = [
-  { value: "manual", label: "Manual", icon: <Tag className="h-5 w-5" />, desc: "Codigo personalizado" },
-  { value: "automatico", label: "Automatico", icon: <Bot className="h-5 w-5" />, desc: "Sem codigo, ativado por regra" },
-  { value: "relampago", label: "Relampago", icon: <Zap className="h-5 w-5" />, desc: "Valido por poucas horas" },
-  { value: "campanha", label: "Campanha", icon: <Megaphone className="h-5 w-5" />, desc: "Link rastreavel" },
-  { value: "exclusivo", label: "Exclusivo", icon: <UserCheck className="h-5 w-5" />, desc: "Vinculado a um cliente" },
+  {
+    value: "manual",
+    label: "Manual",
+    icon: <Tag className="h-4 w-4" />,
+    desc: "Cupom aplicado manualmente pelo cliente",
+  },
+  {
+    value: "automatico",
+    label: "Automático",
+    icon: <Bot className="h-4 w-4" />,
+    desc: "Cupom ativado por regras automáticas",
+  },
+  {
+    value: "relampago",
+    label: "Relâmpago",
+    icon: <Clock className="h-4 w-4" />,
+    desc: "Promoção com duração curta",
+  },
+  {
+    value: "campanha",
+    label: "Campanha",
+    icon: <Megaphone className="h-4 w-4" />,
+    desc: "Cupom para divulgação e tráfego",
+  },
+  {
+    value: "exclusivo",
+    label: "Exclusivo",
+    icon: <UserCheck className="h-4 w-4" />,
+    desc: "Cupom enviado para clientes específicos",
+  },
 ]
 
-export default function CouponCreateModal({ open, onClose, onSave, onSaveExclusive }: CouponCreateModalProps) {
-  const [couponType, setCouponType] = useState<CouponType>("manual")
-  const [name, setName] = useState("")
-  const [code, setCode] = useState("")
-  const [discountType, setDiscountType] = useState<DiscountType>("percentual")
-  const [discountValue, setDiscountValue] = useState(10)
-  const [minOrder, setMinOrder] = useState(0)
-  const [maxUses, setMaxUses] = useState(100)
-  const [maxPerClient, setMaxPerClient] = useState(1)
-  const [expiresAt, setExpiresAt] = useState("")
-  // Auto-specific
-  const [autoTrigger, setAutoTrigger] = useState<AutoTrigger>("primeiro_pedido")
-  const [autoParam, setAutoParam] = useState(30)
-  // Relampago
-  const [durationHours, setDurationHours] = useState(4)
-  const [notifyClients, setNotifyClients] = useState(true)
-  // Campanha
-  const [campaignName, setCampaignName] = useState("")
-  const [origin, setOrigin] = useState("Instagram")
-  // Exclusivo
-  const [clientSearch, setClientSearch] = useState("")
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [showClientDropdown, setShowClientDropdown] = useState(false)
-  const [exclusiveReason, setExclusiveReason] = useState<ExclusiveReason>("fidelidade")
-  const [sendChannels, setSendChannels] = useState<SendChannel[]>(["whatsapp"])
-  const [autoCode, setAutoCode] = useState(true)
+const discountTypeOptions: { value: DiscountType; label: string; icon: React.ReactNode }[] = [
+  {
+    value: "percentual",
+    label: "Percentual",
+    icon: <Percent className="h-4 w-4" />,
+  },
+  {
+    value: "fixo",
+    label: "Valor fixo",
+    icon: <Hash className="h-4 w-4" />,
+  },
+]
 
-  const filteredClients = MOCK_CLIENTS.filter((c) => {
-    if (!clientSearch.trim()) return false
-    const q = clientSearch.toLowerCase()
-    return (
-      c.name.toLowerCase().includes(q) ||
-      c.phone.includes(q) ||
-      (c.email?.toLowerCase().includes(q) ?? false)
-    )
-  }).slice(0, 5)
+const channelOptions: { value: SendChannel; label: string; icon: React.ReactNode }[] = [
+  { value: "whatsapp", label: "WhatsApp", icon: <MessageCircle className="h-4 w-4" /> },
+  { value: "email", label: "Email", icon: <Mail className="h-4 w-4" /> },
+  { value: "notificacao", label: "Notificação", icon: <Bell className="h-4 w-4" /> },
+]
 
-  const toggleChannel = (ch: SendChannel) => {
-    setSendChannels((prev) =>
-      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
-    )
+const initialForm: CouponCreateForm = {
+  type: "manual",
+  title: "",
+  code: "",
+  description: "",
+  discountType: "percentual",
+  discountValue: 10,
+  minOrderValue: 0,
+  maxDiscountValue: 0,
+  usageLimit: 0,
+  status: "ativo",
+  startsAt: "",
+  expiresAt: "",
+  autoTrigger: "primeiro_pedido",
+  triggerValue: 0,
+  durationHours: 6,
+  exclusiveReason: "manual",
+  selectedClients: [],
+  channel: ["whatsapp"],
+}
+
+function generateId() {
+  return crypto.randomUUID()
+}
+
+function toNumber(value: string | number | undefined) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+export default function CouponCreateModal({
+  open,
+  onClose,
+  onSave,
+  onSaveExclusive,
+}: CouponCreateModalProps) {
+  const [form, setForm] = useState<CouponCreateForm>(initialForm)
+  const [search, setSearch] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) {
+      setForm(initialForm)
+      setSearch("")
+      setSaving(false)
+    }
+  }, [open])
+
+  const filteredClients = useMemo(() => {
+    const term = search.trim().toLowerCase()
+
+    if (!term) return MOCK_CLIENTS
+
+    return MOCK_CLIENTS.filter((client) => {
+      return (
+        client.name.toLowerCase().includes(term) ||
+        client.phone?.toLowerCase().includes(term) ||
+        client.email?.toLowerCase().includes(term)
+      )
+    })
+  }, [search])
+
+  const setField = <K extends keyof CouponCreateForm>(field: K, value: CouponCreateForm[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const generateCode = (client: Client | null) => {
-    if (!client) return ""
-    const first = client.name.split(" ")[0].toUpperCase().slice(0, 5)
-    return `${first}${discountValue}${discountType === "percentual" ? "OFF" : "R"}`
+  const toggleClient = (clientId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      selectedClients: prev.selectedClients.includes(clientId)
+        ? prev.selectedClients.filter((id) => id !== clientId)
+        : [...prev.selectedClients, clientId],
+    }))
+  }
+
+  const toggleChannel = (channel: SendChannel) => {
+    setForm((prev) => ({
+      ...prev,
+      channel: prev.channel.includes(channel)
+        ? prev.channel.filter((item) => item !== channel)
+        : [...prev.channel, channel],
+    }))
+  }
+
+  const buildBaseCoupon = (): Coupon => {
+    return {
+      id: generateId(),
+      code:
+        form.type === "automatico"
+          ? ""
+          : form.code.trim().toUpperCase(),
+      title: form.title.trim(),
+      description: form.description.trim() || undefined,
+      type: form.type,
+      status: form.status,
+      discountType: form.discountType,
+      discountValue: toNumber(form.discountValue),
+      minOrderValue: form.minOrderValue > 0 ? toNumber(form.minOrderValue) : undefined,
+      maxDiscountValue: form.maxDiscountValue > 0 ? toNumber(form.maxDiscountValue) : undefined,
+      usageLimit: form.usageLimit > 0 ? toNumber(form.usageLimit) : undefined,
+      usedCount: 0,
+      validFrom: form.startsAt || undefined,
+      validUntil: form.expiresAt || undefined,
+      createdAt: new Date().toISOString(),
+
+      autoTrigger: form.type === "automatico" ? form.autoTrigger : undefined,
+      triggerValue:
+        form.type === "automatico" && form.triggerValue !== undefined
+          ? toNumber(form.triggerValue)
+          : undefined,
+
+      audience:
+        form.type === "campanha"
+          ? "Campanha"
+          : form.type === "relampago"
+            ? "Oferta relâmpago"
+            : undefined,
+
+      channel:
+        form.type === "campanha" ||
+        form.type === "automatico" ||
+        form.type === "relampago"
+          ? form.channel
+          : undefined,
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) return
+
+    if (
+      (form.type === "manual" || form.type === "campanha" || form.type === "exclusivo") &&
+      !form.code.trim()
+    ) {
+      return
+    }
+
+    if (form.type === "exclusivo") {
+      if (!onSaveExclusive) return
+      if (!form.selectedClients.length) return
+
+      const firstSelectedClient = MOCK_CLIENTS.find((client) =>
+        form.selectedClients.includes(client.id)
+      )
+
+      const exclusiveCoupon: ExclusiveCoupon = {
+        id: generateId(),
+        code: form.code.trim().toUpperCase(),
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+        discountType: form.discountType,
+        discountValue: toNumber(form.discountValue),
+        minOrderValue: form.minOrderValue > 0 ? toNumber(form.minOrderValue) : undefined,
+        maxDiscountValue: form.maxDiscountValue > 0 ? toNumber(form.maxDiscountValue) : undefined,
+        status: form.status,
+        reason: form.exclusiveReason || "manual",
+        sendChannels: form.channel,
+        customerName: firstSelectedClient?.name ?? undefined,
+        customerPhone: firstSelectedClient?.phone ?? undefined,
+        customerEmail: firstSelectedClient?.email ?? undefined,
+        validUntil: form.expiresAt || undefined,
+        createdAt: new Date().toISOString(),
+      }
+
+      try {
+        setSaving(true)
+        await onSaveExclusive(exclusiveCoupon)
+        onClose()
+      } finally {
+        setSaving(false)
+      }
+
+      return
+    }
+
+    const coupon = buildBaseCoupon()
+
+    try {
+      setSaving(true)
+      await onSave(coupon)
+      onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!open) return null
 
-  const handleSave = () => {
-    if (couponType === "exclusivo") {
-      if (!selectedClient) return
-      const finalCode = autoCode ? generateCode(selectedClient) : code
-      const newExclusive: ExclusiveCoupon = {
-        id: `exc-${Date.now()}`,
-        clientId: selectedClient.id,
-        clientName: selectedClient.name,
-        code: finalCode || `EXC${Date.now().toString().slice(-5)}`,
-        discountType,
-        discountValue,
-        minOrder,
-        maxUses: maxPerClient || 1,
-        usedCount: 0,
-        reason: exclusiveReason,
-        status: "ativo",
-        createdAt: new Date().toISOString().split("T")[0],
-        expiresAt: expiresAt || "2026-12-31",
-        sendChannels,
-        revenueGenerated: 0,
-      }
-      onSaveExclusive?.(newExclusive)
-      onClose()
-      return
-    }
-
-    const newCoupon: Coupon = {
-      id: `cup-${Date.now()}`,
-      name: name || "Novo Cupom",
-      code: couponType === "automatico" ? null : code || null,
-      type: couponType,
-      discountType,
-      discountValue,
-      minOrder,
-      maxUses: couponType === "automatico" ? 0 : maxUses,
-      maxPerClient,
-      usedCount: 0,
-      status: "ativo",
-      createdAt: new Date().toISOString().split("T")[0],
-      expiresAt: expiresAt || "2026-12-31",
-      revenueGenerated: 0,
-      ...(couponType === "automatico" && { autoTrigger, autoParam }),
-      ...(couponType === "relampago" && { durationHours, notifyClients }),
-      ...(couponType === "campanha" && {
-        campaignName,
-        shareLink: `https://clickfood.com.br/c/${code || "LINK"}`,
-        origin,
-      }),
-    }
-    onSave(newCoupon)
-    onClose()
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal */}
-      <div className="relative z-10 mx-4 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-card shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-[#111827] text-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
-            <h2 className="text-lg font-bold text-card-foreground">Criar Novo Cupom</h2>
-            <p className="text-sm text-muted-foreground">Configure o tipo e as regras do cupom</p>
+            <h2 className="text-xl font-semibold">Criar cupom</h2>
+            <p className="text-sm text-white/60">Configure o tipo de oferta e as regras do cupom.</p>
           </div>
+
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="rounded-full p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          {/* Type selector */}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-card-foreground">Tipo do Cupom</label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {typeOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setCouponType(opt.value)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all",
-                    couponType === opt.value
-                      ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5"
-                      : "border-border hover:border-muted-foreground/30"
-                  )}
-                >
-                  <span className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg",
-                    couponType === opt.value
-                      ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-                      : "bg-secondary text-muted-foreground"
-                  )}>
-                    {opt.icon}
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-card-foreground">{opt.label}</p>
-                    <p className="text-xs text-muted-foreground">{opt.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="max-h-[85vh] overflow-y-auto px-6 py-6">
+          <div className="grid gap-6 lg:grid-cols-[1.25fr_0.9fr]">
+            <div className="space-y-6">
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
+                  Tipo de cupom
+                </h3>
 
-          {/* Common fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-card-foreground">Nome do cupom</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Desconto de Boas-Vindas"
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-              />
-            </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {typeOptions.map((option) => {
+                    const active = form.type === option.value
 
-            {couponType !== "automatico" && (
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-card-foreground">
-                  <Hash className="h-3.5 w-3.5" /> Codigo
-                </label>
-                <input
-                  type="text"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="BEMVINDO10"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono text-foreground uppercase placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-card-foreground">
-                <Percent className="h-3.5 w-3.5" /> Tipo de desconto
-              </label>
-              <select
-                value={discountType}
-                onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-              >
-                <option value="percentual">Percentual (%)</option>
-                <option value="fixo">Valor fixo (R$)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                Valor do desconto
-              </label>
-              <input
-                type="number"
-                value={discountValue}
-                onChange={(e) => setDiscountValue(Number(e.target.value))}
-                min={1}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                Pedido minimo (R$)
-              </label>
-              <input
-                type="number"
-                value={minOrder}
-                onChange={(e) => setMinOrder(Number(e.target.value))}
-                min={0}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                Data de validade
-              </label>
-              <input
-                type="date"
-                value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-              />
-            </div>
-
-            {couponType !== "automatico" && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                  Limite de uso total
-                </label>
-                <input
-                  type="number"
-                  value={maxUses}
-                  onChange={(e) => setMaxUses(Number(e.target.value))}
-                  min={0}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                Limite por cliente
-              </label>
-              <input
-                type="number"
-                value={maxPerClient}
-                onChange={(e) => setMaxPerClient(Number(e.target.value))}
-                min={0}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
-              />
-            </div>
-          </div>
-
-          {/* Type-specific fields */}
-          {couponType === "automatico" && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-4">
-              <p className="text-sm font-semibold text-blue-800">Regra de ativacao automatica</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <select
-                    value={autoTrigger}
-                    onChange={(e) => setAutoTrigger(e.target.value as AutoTrigger)}
-                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
-                  >
-                    {Object.entries(autoTriggerLabels).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setField("type", option.value)}
+                        className={cn(
+                          "rounded-2xl border p-4 text-left transition",
+                          active
+                            ? "border-violet-400 bg-violet-500/15"
+                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                        )}
+                      >
+                        <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                          <span className="text-violet-300">{option.icon}</span>
+                          <span>{option.label}</span>
+                        </div>
+                        <p className="text-sm text-white/60">{option.desc}</p>
+                      </button>
+                    )
+                  })}
                 </div>
-                {(autoTrigger === "inativo_dias" || autoTrigger === "pedido_acima" || autoTrigger === "vip") && (
-                  <div className="col-span-2">
-                    <label className="mb-1.5 block text-sm font-medium text-blue-800">
-                      {autoTrigger === "inativo_dias" ? "Dias de inatividade" :
-                       autoTrigger === "pedido_acima" ? "Valor minimo do pedido (R$)" :
-                       "Minimo de pedidos para ser VIP"}
+              </section>
+
+              <section className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm text-white/70">Título</label>
+                  <input
+                    value={form.title}
+                    onChange={(e) => setField("title", e.target.value)}
+                    placeholder="Ex: 10% OFF no primeiro pedido"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                  />
+                </div>
+
+                {(form.type === "manual" || form.type === "campanha" || form.type === "exclusivo") && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/70">Código</label>
+                    <input
+                      value={form.code}
+                      onChange={(e) => setField("code", e.target.value.toUpperCase())}
+                      placeholder="Ex: BEMVINDO10"
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 uppercase outline-none transition focus:border-violet-400"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm text-white/70">Descrição</label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setField("description", e.target.value)}
+                    rows={3}
+                    placeholder="Descreva a campanha ou a condição do cupom"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                  />
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
+                  Desconto
+                </h3>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm text-white/70">Tipo de desconto</label>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {discountTypeOptions.map((option) => {
+                        const active = form.discountType === option.value
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setField("discountType", option.value)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition",
+                              active
+                                ? "border-violet-400 bg-violet-500/15"
+                                : "border-white/10 bg-white/5 hover:bg-white/10"
+                            )}
+                          >
+                            <span className="text-violet-300">{option.icon}</span>
+                            {option.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/70">
+                      {form.discountType === "percentual" ? "Percentual (%)" : "Valor (R$)"}
                     </label>
                     <input
                       type="number"
-                      value={autoParam}
-                      onChange={(e) => setAutoParam(Number(e.target.value))}
-                      min={1}
-                      className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
+                      value={form.discountValue}
+                      onChange={(e) => setField("discountValue", toNumber(e.target.value))}
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
                     />
                   </div>
-                )}
-              </div>
-            </div>
-          )}
 
-          {couponType === "relampago" && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-4">
-              <p className="text-sm font-semibold text-amber-800">Configuracoes Relampago</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-amber-800">
-                    <Clock className="h-3.5 w-3.5" /> Duracao (horas)
-                  </label>
-                  <input
-                    type="number"
-                    value={durationHours}
-                    onChange={(e) => setDurationHours(Number(e.target.value))}
-                    min={1}
-                    max={24}
-                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-medium text-amber-800">
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/70">Pedido mínimo (R$)</label>
                     <input
-                      type="checkbox"
-                      checked={notifyClients}
-                      onChange={(e) => setNotifyClients(e.target.checked)}
-                      className="h-4 w-4 rounded border-amber-300 accent-[hsl(var(--primary))]"
+                      type="number"
+                      value={form.minOrderValue}
+                      onChange={(e) => setField("minOrderValue", toNumber(e.target.value))}
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
                     />
-                    Notificar clientes
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {couponType === "campanha" && (
-            <div className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-4">
-              <p className="text-sm font-semibold text-green-800">Configuracoes de Campanha</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-green-800">
-                    <Megaphone className="h-3.5 w-3.5" /> Nome da campanha
-                  </label>
-                  <input
-                    type="text"
-                    value={campaignName}
-                    onChange={(e) => setCampaignName(e.target.value)}
-                    placeholder="Promo Verao 2026"
-                    className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-green-800">
-                    <Link2 className="h-3.5 w-3.5" /> Origem do trafego
-                  </label>
-                  <select
-                    value={origin}
-                    onChange={(e) => setOrigin(e.target.value)}
-                    className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
-                  >
-                    <option value="Instagram">Instagram</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Facebook">Facebook</option>
-                    <option value="TikTok">TikTok</option>
-                    <option value="Google">Google</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {couponType === "exclusivo" && (
-            <div className="rounded-xl border border-[hsl(var(--primary))]/30 bg-blue-50 p-4 space-y-4">
-              <p className="text-sm font-semibold text-blue-800">Cupom Exclusivo por Cliente</p>
-
-              {/* Client search */}
-              <div className="relative">
-                <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-blue-800">
-                  <UserCheck className="h-3.5 w-3.5" /> Selecionar cliente
-                </label>
-                {selectedClient ? (
-                  <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-white px-3 py-2">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{selectedClient.name}</p>
-                      <p className="text-xs text-muted-foreground">{selectedClient.phone} {selectedClient.email ? `- ${selectedClient.email}` : ""}</p>
-                    </div>
-                    <button
-                      onClick={() => { setSelectedClient(null); setClientSearch("") }}
-                      className="rounded-md p-1 text-muted-foreground hover:bg-blue-100 hover:text-foreground"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
                   </div>
-                ) : (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/70">Desconto máximo (R$)</label>
                     <input
-                      type="text"
-                      value={clientSearch}
-                      onChange={(e) => { setClientSearch(e.target.value); setShowClientDropdown(true) }}
-                      onFocus={() => setShowClientDropdown(true)}
-                      placeholder="Buscar por nome, telefone ou email..."
-                      className="w-full rounded-lg border border-blue-200 bg-white py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
+                      type="number"
+                      value={form.maxDiscountValue}
+                      onChange={(e) => setField("maxDiscountValue", toNumber(e.target.value))}
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
                     />
-                    {showClientDropdown && filteredClients.length > 0 && (
-                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
-                        {filteredClients.map((client) => (
-                          <button
-                            key={client.id}
-                            onClick={() => {
-                              setSelectedClient(client)
-                              setClientSearch("")
-                              setShowClientDropdown(false)
-                            }}
-                            className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
-                          >
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[hsl(var(--primary))]/10 text-xs font-bold text-[hsl(var(--primary))]">
-                              {client.name.split(" ").map(n => n[0]).join("").slice(0,2)}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-card-foreground">{client.name}</p>
-                              <p className="text-xs text-muted-foreground">{client.phone}</p>
-                            </div>
-                            <span className={cn(
-                              "ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium",
-                              client.status === "ativo" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                            )}>
-                              {client.status}
-                            </span>
-                          </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/70">Limite de uso</label>
+                    <input
+                      type="number"
+                      value={form.usageLimit}
+                      onChange={(e) => setField("usageLimit", toNumber(e.target.value))}
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/70">Início</label>
+                    <input
+                      type="datetime-local"
+                      value={form.startsAt}
+                      onChange={(e) => setField("startsAt", e.target.value)}
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/70">Expiração</label>
+                    <input
+                      type="datetime-local"
+                      value={form.expiresAt}
+                      onChange={(e) => setField("expiresAt", e.target.value)}
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {form.type === "automatico" && (
+                <section className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
+                    Regra automática
+                  </h3>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm text-white/70">Gatilho</label>
+                      <select
+                        value={form.autoTrigger}
+                        onChange={(e) => setField("autoTrigger", e.target.value as AutoTrigger)}
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      >
+                        {Object.entries(autoTriggerLabels).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
                         ))}
-                      </div>
-                    )}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm text-white/70">Valor do gatilho</label>
+                      <input
+                        type="number"
+                        value={form.triggerValue ?? 0}
+                        onChange={(e) => setField("triggerValue", toNumber(e.target.value))}
+                        placeholder="Ex: 30 dias ou R$ 80"
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
+                </section>
+              )}
 
-              {/* Reason */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-blue-800">Motivo do cupom</label>
-                <select
-                  value={exclusiveReason}
-                  onChange={(e) => setExclusiveReason(e.target.value as ExclusiveReason)}
-                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
-                >
-                  {Object.entries(exclusiveReasonLabels).map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
-                  ))}
-                </select>
-              </div>
+              {form.type === "relampago" && (
+                <section className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
+                    Configuração relâmpago
+                  </h3>
 
-              {/* Code type */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-blue-800">Codigo do cupom</label>
-                <div className="flex items-center gap-3 mb-2">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-blue-700">
-                    <input
-                      type="radio"
-                      checked={autoCode}
-                      onChange={() => setAutoCode(true)}
-                      className="accent-[hsl(var(--primary))]"
-                    />
-                    Automatico
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-blue-700">
-                    <input
-                      type="radio"
-                      checked={!autoCode}
-                      onChange={() => setAutoCode(false)}
-                      className="accent-[hsl(var(--primary))]"
-                    />
-                    Personalizado
-                  </label>
-                </div>
-                {autoCode ? (
-                  <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-mono text-muted-foreground">
-                    {selectedClient ? generateCode(selectedClient) : "Selecione um cliente..."}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm text-white/70">Duração (horas)</label>
+                      <input
+                        type="number"
+                        value={form.durationHours ?? 0}
+                        onChange={(e) => setField("durationHours", toNumber(e.target.value))}
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <input
-                    type="text"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    placeholder="CODIGO123"
-                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-mono text-foreground uppercase placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] focus:outline-none"
-                  />
-                )}
-              </div>
+                </section>
+              )}
 
-              {/* Send channels */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-blue-800">Enviar via</label>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { value: "whatsapp" as SendChannel, label: "WhatsApp", icon: <MessageCircle className="h-3.5 w-3.5" /> },
-                    { value: "notificacao" as SendChannel, label: "Notificacao", icon: <Bell className="h-3.5 w-3.5" /> },
-                    { value: "email" as SendChannel, label: "Email", icon: <Mail className="h-3.5 w-3.5" /> },
-                  ]).map((ch) => (
-                    <button
-                      key={ch.value}
-                      onClick={() => toggleChannel(ch.value)}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
-                        sendChannels.includes(ch.value)
-                          ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
-                          : "border-blue-200 bg-white text-muted-foreground hover:border-blue-300"
-                      )}
-                    >
-                      {ch.icon}
-                      {ch.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {form.type === "campanha" && (
+                <section className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
+                    Configuração da campanha
+                  </h3>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+                    Cupons de campanha usam o mesmo schema dos cupons normais. O detalhamento
+                    de tráfego e origem pode ser tratado depois em uma tabela separada, sem
+                    quebrar este módulo.
+                  </div>
+                </section>
+              )}
             </div>
-          )}
+
+            <div className="space-y-6">
+              {form.type === "exclusivo" && (
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                  <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/70">
+                    Público exclusivo
+                  </h3>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm text-white/70">Motivo</label>
+                      <select
+                        value={form.exclusiveReason}
+                        onChange={(e) =>
+                          setField("exclusiveReason", e.target.value as ExclusiveReason)
+                        }
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      >
+                        {Object.entries(exclusiveReasonLabels).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm text-white/70">Canal de envio</label>
+                      <div className="grid gap-2">
+                        {channelOptions.map((item) => {
+                          const active = form.channel.includes(item.value)
+
+                          return (
+                            <button
+                              key={item.value}
+                              type="button"
+                              onClick={() => toggleChannel(item.value)}
+                              className={cn(
+                                "flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm transition",
+                                active
+                                  ? "border-violet-400 bg-violet-500/15"
+                                  : "border-white/10 bg-white/5 hover:bg-white/10"
+                              )}
+                            >
+                              <span className="text-violet-300">{item.icon}</span>
+                              {item.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-sm text-white/70">Buscar clientes</label>
+
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                        <input
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder="Buscar por nome, email ou telefone"
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 outline-none transition focus:border-violet-400"
+                        />
+                      </div>
+
+                      <div className="max-h-80 space-y-2 overflow-y-auto">
+                        {filteredClients.map((client: Client) => {
+                          const selected = form.selectedClients.includes(client.id)
+
+                          return (
+                            <button
+                              key={client.id}
+                              type="button"
+                              onClick={() => toggleClient(client.id)}
+                              className={cn(
+                                "w-full rounded-2xl border p-3 text-left transition",
+                                selected
+                                  ? "border-violet-400 bg-violet-500/15"
+                                  : "border-white/10 bg-white/5 hover:bg-white/10"
+                              )}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-medium">{client.name}</p>
+                                  <p className="text-sm text-white/60">
+                                    {client.email || client.phone || "Sem contato"}
+                                  </p>
+                                </div>
+
+                                <div
+                                  className={cn(
+                                    "h-5 w-5 rounded-full border",
+                                    selected
+                                      ? "border-violet-400 bg-violet-400"
+                                      : "border-white/20"
+                                  )}
+                                />
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      <p className="text-sm text-white/60">
+                        {form.selectedClients.length} cliente(s) selecionado(s)
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/70">
+                  Resumo
+                </h3>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/60">Tipo</span>
+                    <span className="font-medium">
+                      {typeOptions.find((item) => item.value === form.type)?.label}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/60">Desconto</span>
+                    <span className="font-medium">
+                      {form.discountType === "percentual"
+                        ? `${form.discountValue}%`
+                        : `R$ ${form.discountValue}`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/60">Pedido mínimo</span>
+                    <span className="font-medium">R$ {form.minOrderValue}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/60">Uso total</span>
+                    <span className="font-medium">{form.usageLimit || "Ilimitado"}</span>
+                  </div>
+
+                  {form.type === "exclusivo" && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/60">Clientes</span>
+                      <span className="font-medium">{form.selectedClients.length}</span>
+                    </div>
+                  )}
+
+                  {form.type === "automatico" && form.autoTrigger && (
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-white/70">
+                      Gatilho:{" "}
+                      <span className="font-medium text-white">
+                        {autoTriggerLabels[form.autoTrigger]}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/70">
+                  Status ao salvar
+                </h3>
+
+                <div className="grid gap-2">
+                  {(["ativo", "pausado"] as CouponStatus[]).map((status) => {
+                    const active = form.status === status
+
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setField("status", status)}
+                        className={cn(
+                          "rounded-2xl border px-4 py-3 text-left text-sm transition",
+                          active
+                            ? "border-violet-400 bg-violet-500/15"
+                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                        )}
+                      >
+                        {status === "ativo" ? "Ativo ao salvar" : "Salvar pausado"}
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-white/10 px-6 py-4">
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
           >
             Cancelar
           </button>
+
           <button
-            onClick={handleSave}
-            className="rounded-lg bg-[hsl(var(--primary))] px-5 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90"
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving}
+            className="rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Criar Cupom
+            {saving ? "Salvando..." : "Salvar cupom"}
           </button>
         </div>
       </div>

@@ -1,10 +1,16 @@
-import AdminLayout from "@/components/admin-layout"
-import DashboardContent from "@/components/dashboard-content"
+import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
 
-export default function Page() {
-  return (
-    <AdminLayout>
-      <DashboardContent />
-    </AdminLayout>
-  )
+export default async function Page() {
+  const supabase = await createClient()
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    redirect("/auth")
+  }
+
+  redirect("/gestao")
 }

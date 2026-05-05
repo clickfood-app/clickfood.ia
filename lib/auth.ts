@@ -1,16 +1,20 @@
-import { supabase } from "./supabase"
+import { createClient } from "@/lib/supabase/client"
 
 export type AuthSession = any
 export type User = any
 export type Restaurant = any
 export type Subscription = any
 
-// =============================
-// LOGIN
-// =============================
+function getSupabase() {
+  return createClient()
+}
+
 export async function signIn(email: string, password: string) {
+  const supabase = getSupabase()
+  const normalizedEmail = email.trim().toLowerCase()
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
+    email: normalizedEmail,
     password,
   })
 
@@ -28,19 +32,18 @@ export async function signIn(email: string, password: string) {
   }
 }
 
-// =============================
-// CRIAR CONTA
-// =============================
-export async function signUp(
-  email: string,
-  password: string,
-  name: string,
-  restaurantName: string
-) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  })
+export async function signUp() {
+  return {
+    success: false,
+    error:
+      "Cadastro publico desativado. Entre em contato com a equipe ClickFood para solicitar acesso.",
+  }
+}
+
+export async function signOut() {
+  const supabase = getSupabase()
+
+  const { error } = await supabase.auth.signOut()
 
   if (error) {
     return {
@@ -49,163 +52,162 @@ export async function signUp(
     }
   }
 
-  const user = data.user
+  return {
+    success: true,
+    error: null,
+  }
+}
 
-  if (!user) {
-    return {
-      success: false,
-      error: "Erro ao criar usuário",
-    }
+export async function getCurrentUser() {
+  const supabase = getSupabase()
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+
+  if (error) {
+    return null
   }
 
-  // criar perfil
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: user.id,
-    name,
-    email,
-    trial_started_at: new Date().toISOString(),
-    subscription_status: "trial",
-  })
+  return user
+}
 
-  if (profileError) {
-    return {
-      success: false,
-      error: profileError.message,
-    }
+export async function getCurrentSession() {
+  const supabase = getSupabase()
+
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession()
+
+  if (error) {
+    return null
   }
 
-  // criar restaurante
-  const { error: restaurantError } = await supabase.from("restaurants").insert({
-    name: restaurantName,
-    owner_id: user.id,
-  })
+  return session
+}
 
-  if (restaurantError) {
+export async function getRestaurantByOwner(ownerId: string) {
+  const supabase = getSupabase()
+
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .maybeSingle()
+
+  if (error) {
     return {
       success: false,
-      error: restaurantError.message,
+      error: error.message,
+      restaurant: null,
     }
   }
 
   return {
     success: true,
-    user,
+    error: null,
+    restaurant: data,
   }
 }
 
-// =============================
-// PEGAR SESSÃO
-// =============================
-export async function getSession() {
-  const { data } = await supabase.auth.getSession()
-  return data.session
-}
+export async function activateSubscription(plan: string = "trial") {
+  const supabase = getSupabase()
 
-// =============================
-// LOGOUT
-// =============================
-export async function signOut() {
-  const { error } = await supabase.auth.signOut()
-
-  if (error) {
-    console.error("Erro ao sair:", error.message)
-  }
-
-  // redireciona para login
-  if (typeof window !== "undefined") {
-    window.location.href = "/auth.ts"
-  }
-}
-  
-
-// =============================
-// PEGAR PERFIL
-// =============================
-export async function getProfile() {
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser()
 
-  if (!user) return null
+  if (userError || !user) {
+    return {
+      success: false,
+      error: userError?.message || "Usuario nao autenticado.",
+    }
+  }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single()
-
-  if (error) return null
-
-  return data
-}
-
-// =============================
-// ASSINATURA ATIVA
-// =============================
-export function hasActiveSubscription(profile: any) {
-  return profile?.subscription_status === "active"
-}
-
-// =============================
-// DIAS RESTANTES DO TRIAL
-// =============================
-export function getTrialDaysRemaining(profile: any) {
-  if (!profile?.trial_started_at) return 0
-
-  const start = new Date(profile.trial_started_at)
-  const now = new Date()
-
-  const diff = Math.floor(
-    (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-  )
-
-  return Math.max(30 - diff, 0)
-}
-
-// =============================
-// RESTAURANTE CONFIGURADO
-// =============================
-export async function isRestaurantConfigured() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return false
-
-  const { data } = await supabase
+  const { data: restaurant, error: restaurantError } = await supabase
     .from("restaurants")
     .select("id")
     .eq("owner_id", user.id)
-    .single()
+    .maybeSingle()
 
-  return !!data
+  if (restaurantError || !restaurant) {
+    return {
+      success: false,
+      error: restaurantError?.message || "Restaurante nao encontrado.",
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from("restaurants")
+    .update({
+      subscription_status: "active",
+      subscription_plan: plan,
+      trial_ends_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", restaurant.id)
+
+  if (updateError) {
+    return {
+      success: false,
+      error: updateError.message,
+    }
+  }
+
+  return {
+    success: true,
+    error: null,
+  }
 }
 
-export function markRestaurantConfigured() {
-  if (typeof window === "undefined") return
-  localStorage.setItem("restaurant_configured", "true")
-}
+export async function markRestaurantConfigured() {
+  const supabase = getSupabase()
 
-// =============================
-// ATIVAR ASSINATURA
-// =============================
-export async function activateSubscription(plan: string) {
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser()
 
-  if (!user) throw new Error("Usuário não autenticado")
+  if (userError || !user) {
+    return {
+      success: false,
+      error: userError?.message || "Usuario nao autenticado.",
+    }
+  }
 
-  const now = new Date()
+  const { data: restaurant, error: restaurantError } = await supabase
+    .from("restaurants")
+    .select("id")
+    .eq("owner_id", user.id)
+    .maybeSingle()
 
-  const { error } = await supabase
-    .from("profiles")
+  if (restaurantError || !restaurant) {
+    return {
+      success: false,
+      error: restaurantError?.message || "Restaurante nao encontrado.",
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from("restaurants")
     .update({
-      subscription_plan: plan,
-      subscription_status: "active",
-      subscription_started_at: now.toISOString(),
+      configured: true,
+      updated_at: new Date().toISOString(),
     })
-    .eq("id", user.id)
+    .eq("id", restaurant.id)
 
-  if (error) throw error
+  if (updateError) {
+    return {
+      success: false,
+      error: updateError.message,
+    }
+  }
+
+  return {
+    success: true,
+    error: null,
+  }
 }

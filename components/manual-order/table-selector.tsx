@@ -1,21 +1,26 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, X, Users } from "lucide-react"
+import { Plus, X, Users, QrCode } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Table } from "@/lib/order-types"
+import QrCodeModal from "@/components/manual-order/qr-code-modal" // Ajuste este caminho se necessário
 
 interface TableSelectorProps {
   tables: Table[]
   value: string
   onChange: (tableId: string) => void
   onCreateTable: (table: Omit<Table, "id">) => void
+  restaurantId?: string //
 }
 
 export default function TableSelector({ tables, value, onChange, onCreateTable }: TableSelectorProps) {
   const [showModal, setShowModal] = useState(false)
   const [newTableNumber, setNewTableNumber] = useState("")
   const [newTableCapacity, setNewTableCapacity] = useState("4")
+  
+  // Estado para controlar qual mesa está com o Modal de QR Code aberto
+  const [qrModalTable, setQrModalTable] = useState<Table | null>(null)
 
   const handleCreateTable = () => {
     if (!newTableNumber) return
@@ -48,27 +53,41 @@ export default function TableSelector({ tables, value, onChange, onCreateTable }
 
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
         {availableTables.map((table) => (
-          <button
-            key={table.id}
-            onClick={() => onChange(table.id)}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 transition-all",
-              value === table.id
-                ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10"
-                : "border-border bg-card hover:border-[hsl(var(--primary))]/40"
-            )}
-          >
-            <span className={cn(
-              "text-lg font-bold",
-              value === table.id ? "text-[hsl(var(--primary))]" : "text-foreground"
-            )}>
-              {table.number}
-            </span>
-            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-              <Users className="h-3 w-3" />
-              {table.capacity}
-            </span>
-          </button>
+          <div key={table.id} className="relative group">
+            {/* Botão principal que seleciona a mesa */}
+            <button
+              onClick={() => onChange(table.id)}
+              className={cn(
+                "flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 transition-all",
+                value === table.id
+                  ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10"
+                  : "border-border bg-card hover:border-[hsl(var(--primary))]/40"
+              )}
+            >
+              <span className={cn(
+                "text-lg font-bold",
+                value === table.id ? "text-[hsl(var(--primary))]" : "text-foreground"
+              )}>
+                {table.number}
+              </span>
+              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                <Users className="h-3 w-3" />
+                {table.capacity}
+              </span>
+            </button>
+
+            {/* Botão do QR Code que aparece no hover */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // Evita que o clique selecione a mesa sem querer
+                setQrModalTable(table);
+              }}
+              className="absolute top-1.5 right-1.5 rounded bg-background/80 p-1 text-muted-foreground opacity-0 backdrop-blur transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100"
+              title="Imprimir QR Code"
+            >
+              <QrCode className="h-3.5 w-3.5" />
+            </button>
+          </div>
         ))}
       </div>
 
@@ -78,10 +97,10 @@ export default function TableSelector({ tables, value, onChange, onCreateTable }
         </p>
       )}
 
-      {/* Create Table Modal */}
+      {/* Modal de Criação de Mesa */}
       {showModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm transition-opacity"
           onClick={() => setShowModal(false)}
         >
           <div
@@ -108,7 +127,7 @@ export default function TableSelector({ tables, value, onChange, onCreateTable }
                   value={newTableNumber}
                   onChange={(e) => setNewTableNumber(e.target.value)}
                   placeholder="Ex: 7"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
                 />
               </div>
 
@@ -119,7 +138,7 @@ export default function TableSelector({ tables, value, onChange, onCreateTable }
                 <select
                   value={newTableCapacity}
                   onChange={(e) => setNewTableCapacity(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
                 >
                   <option value="2">2 pessoas</option>
                   <option value="4">4 pessoas</option>
@@ -140,13 +159,23 @@ export default function TableSelector({ tables, value, onChange, onCreateTable }
               <button
                 onClick={handleCreateTable}
                 disabled={!newTableNumber}
-                className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] disabled:opacity-50"
+                className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] disabled:opacity-50 transition-colors hover:bg-[hsl(var(--primary))]/90"
               >
                 Criar Mesa
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Renderiza o Modal de QR Code se alguma mesa estiver selecionada para isso */}
+      {qrModalTable && (
+        <QrCodeModal 
+          isOpen={!!qrModalTable} 
+          onClose={() => setQrModalTable(null)} 
+          tableName={`Mesa ${qrModalTable.number}`} 
+          tableId={qrModalTable.id} 
+        />
       )}
     </div>
   )

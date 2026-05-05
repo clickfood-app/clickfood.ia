@@ -1,526 +1,1329 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
-  Search, PauseCircle, PlayCircle, RefreshCw, Filter, X,
-  Bike, Store, UtensilsCrossed, AlertTriangle, User, Check
+  AlertTriangle,
+  CheckCircle2,
+  ChefHat,
+  Clock3,
+  Loader2,
+  RefreshCcw,
+  Search,
+  Settings2,
+  Truck,
+  UserRound,
+  XCircle,
 } from "lucide-react"
+
 import AdminLayout from "@/components/admin-layout"
-import KanbanColumn from "@/components/kanban-column"
-import { OrderDetailsModal } from "@/components/order-card"
-import type { KanbanOrder, KanbanStatus, DeliveryStatus } from "@/components/order-card"
-import { cn } from "@/lib/utils"
-import { getActiveDeliveryStaff, type StaffMember } from "@/lib/staff-data"
+import { useAuth } from "@/components/auth/auth-provider"
+import { createClient } from "@/lib/supabase/client"
 
-// ── Deterministic mock data (hydration-safe: no Date.now() at module level) ──
-
-function buildMockOrders(now: number): KanbanOrder[] {
-  return [
-    {
-      id: "4830", customerName: "Lucas Ferreira", customerPhone: "(11) 99887-1234",
-      customerAddress: "Rua das Flores, 123 - Vila Nova",
-      items: [
-        { name: "Pizza Margherita", quantity: 2, price: 45.9 },
-        { name: "Refrigerante 2L", quantity: 1, price: 12.0 },
-      ],
-      total: 103.8, time: "14:32", status: "pendente", type: "delivery", payment: "pix",
-      priority: "normal", createdAt: now - 120_000,
-      deliveryFee: 8, deliveryStatus: "nao_atribuido",
-    },
-    {
-      id: "4831", customerName: "Ana Carolina Silva", customerPhone: "(11) 98765-4321",
-      items: [
-        { name: "Hamburguer Artesanal", quantity: 1, price: 38.5 },
-        { name: "Batata Frita G", quantity: 1, price: 18.0 },
-        { name: "Milkshake Chocolate", quantity: 2, price: 22.0 },
-      ],
-      total: 100.5, time: "14:28", status: "pendente", type: "retirada", payment: "cartao",
-      priority: "alta", observations: "Sem cebola no hamburguer", createdAt: now - 180_000,
-    },
-    {
-      id: "4832", customerName: "Roberto Santos", customerPhone: "(21) 97654-3210",
-      customerAddress: "Av. Brasil, 456 - Centro",
-      items: [
-        { name: "Acai 500ml", quantity: 3, price: 25.0 },
-        { name: "Granola Extra", quantity: 3, price: 5.0 },
-      ],
-      total: 90.0, time: "14:15", status: "pendente", type: "delivery", payment: "dinheiro",
-      priority: "urgente", createdAt: now - 300_000,
-      deliveryFee: 8, deliveryStatus: "nao_atribuido",
-    },
-    {
-      id: "4825", customerName: "Mariana Costa", customerPhone: "(11) 91234-5678",
-      items: [
-        { name: "Combo Familia", quantity: 1, price: 89.9 },
-        { name: "Suco Natural 1L", quantity: 2, price: 15.0 },
-      ],
-      total: 119.9, time: "13:50", status: "em_preparo", type: "delivery", payment: "pix",
-      priority: "normal", prepTime: 25, customerAddress: "Rua Boa Vista, 88 - Jd. America",
-      createdAt: now - 600_000,
-      deliveryFee: 8, deliveryPersonId: "s4", deliveryPersonName: "Lucas Ferreira", deliveryStatus: "atribuido",
-    },
-    {
-      id: "4826", customerName: "Felipe Oliveira", customerPhone: "(21) 98877-6543",
-      items: [
-        { name: "Pizza Calabresa G", quantity: 1, price: 52.0 },
-        { name: "Borda Recheada", quantity: 1, price: 12.0 },
-      ],
-      total: 64.0, time: "13:45", status: "em_preparo", type: "retirada", payment: "cartao",
-      priority: "alta", prepTime: 35, observations: "Cliente VIP - Prioridade",
-      createdAt: now - 900_000,
-    },
-    {
-      id: "4827", customerName: "Juliana Martins", customerPhone: "(11) 95544-3322",
-      items: [
-        { name: "Lasanha Bolonhesa", quantity: 1, price: 42.0 },
-        { name: "Salada Caesar", quantity: 1, price: 28.0 },
-      ],
-      total: 70.0, time: "13:30", status: "em_preparo", type: "mesa", payment: "cartao",
-      priority: "normal", prepTime: 20, tableNumber: 5,
-      createdAt: now - 1_200_000,
-    },
-    {
-      id: "4822", customerName: "Carla Mendes", customerPhone: "(11) 94433-2211",
-      customerAddress: "Rua Augusta, 200 - Consolacao",
-      items: [
-        { name: "Salada Caesar", quantity: 2, price: 32.0 },
-        { name: "Agua Mineral", quantity: 2, price: 6.0 },
-      ],
-      total: 76.0, time: "13:20", status: "pronto", type: "delivery", payment: "vale",
-      priority: "normal", prepTime: 15,
-      createdAt: now - 1_800_000,
-      deliveryFee: 8, deliveryPersonId: "s5", deliveryPersonName: "Rafael Costa", deliveryStatus: "atribuido",
-    },
-    {
-      id: "4823", customerName: "Joao Pedro Lima", customerPhone: "(21) 93322-1100",
-      items: [
-        { name: "Esfiha Carne", quantity: 10, price: 6.5 },
-        { name: "Esfiha Queijo", quantity: 5, price: 6.5 },
-      ],
-      total: 97.5, time: "13:10", status: "pronto", type: "retirada", payment: "pix",
-      priority: "normal", prepTime: 20,
-      createdAt: now - 2_100_000,
-    },
-  ]
+type OrderRow = {
+  id: string
+  public_order_number: string | number | null
+  customer_name: string | null
+  customer_phone: string | null
+  status: string | null
+  total: number | string | null
+  payment_method: string | null
+  notes: string | null
+  created_at: string
+  delivery_person_id: string | null
+  accepted_at: string | null
+  preparation_started_at: string | null
+  out_for_delivery_at: string | null
+  delivered_at: string | null
+  cancelled_at: string | null
+  accept_by: string | null
 }
 
-// ── Filter chips ──
-
-type FilterChip = {
-  key: string
-  label: string
-  icon?: typeof Bike
-  filter: (o: KanbanOrder) => boolean
+type DeliveryPerson = {
+  id: string
+  name: string
+  phone: string | null
+  is_active: boolean
+  created_at: string
 }
 
-const FILTER_CHIPS: FilterChip[] = [
-  { key: "all", label: "Todos", filter: () => true },
-  { key: "delivery", label: "Delivery", icon: Bike, filter: (o) => o.type === "delivery" },
-  { key: "retirada", label: "Retirada", icon: Store, filter: (o) => o.type === "retirada" },
-  { key: "mesa", label: "Mesa", icon: UtensilsCrossed, filter: (o) => o.type === "mesa" },
-  { key: "atrasados", label: "Atrasados", icon: AlertTriangle, filter: () => false }, // computed dynamically
-  { key: "pix", label: "Pix", filter: (o) => o.payment === "pix" },
-  { key: "cartao", label: "Cartao", filter: (o) => o.payment === "cartao" },
+type BoardStatus = "analysis" | "preparation" | "on_route"
+
+const supabase = createClient()
+
+const OPEN_ORDER_STATUSES = [
+  "pending",
+  "pendente",
+  "in_analysis",
+  "em_analise",
+  "analise",
+  "em análise",
+  "accepted",
+  "aceito",
+  "preparing",
+  "em_preparo",
+  "em preparo",
+  "waiting",
+  "aguardando",
+  "ready",
+  "pronto",
+  "out_for_delivery",
+  "saiu_para_entrega",
+  "delivering",
+  "on_route",
+  "em_rota",
+  "em rota",
 ]
 
-// ── Column config ──
+async function ensureSupabaseSession() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-const COLUMNS: { status: KanbanStatus; title: string; color: string }[] = [
-  { status: "pendente", title: "Pendentes", color: "#EAB308" },
-  { status: "em_preparo", title: "Em Preparo", color: "#3B82F6" },
-  { status: "pronto", title: "Pronto", color: "#22C55E" },
-]
+  return session
+}
 
-// ── Page Component ──
-
-export default function PedidosPage() {
-  const [mounted, setMounted] = useState(false)
-  const [orders, setOrders] = useState<KanbanOrder[]>([])
-  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeFilter, setActiveFilter] = useState("all")
-  const [isPaused, setIsPaused] = useState(false)
-  const [detailOrder, setDetailOrder] = useState<KanbanOrder | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
-  const [assigningOrder, setAssigningOrder] = useState<KanbanOrder | null>(null)
-  const [deliveryStaff, setDeliveryStaff] = useState<StaffMember[]>([])
-
-  // Hydration-safe init: only build orders after mount
-  useEffect(() => {
-    setOrders(buildMockOrders(Date.now()))
-    setDeliveryStaff(getActiveDeliveryStaff())
-    setMounted(true)
-  }, [])
-
-  // ── Actions ──
-
-  const moveOrder = useCallback((orderId: string, newStatus: KanbanStatus | "remover", prepTime?: number) => {
-    setExitingIds((prev) => new Set(prev).add(orderId))
-    setTimeout(() => {
-      setOrders((prev) => {
-        if (newStatus === "remover") return prev.filter((o) => o.id !== orderId)
-        return prev.map((o) =>
-          o.id === orderId
-            ? { ...o, status: newStatus, ...(prepTime !== undefined ? { prepTime } : {}) }
-            : o
-        )
-      })
-      setExitingIds((prev) => { const n = new Set(prev); n.delete(orderId); return n })
-      setDetailOrder(null)
-    }, 350)
-  }, [])
-
-  // ── Assign Delivery Person ──
-
-  const handleAssignDelivery = useCallback((orderId: string, staff: StaffMember) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              deliveryPersonId: staff.id,
-              deliveryPersonName: staff.name,
-              deliveryFee: staff.baseValue,
-              deliveryStatus: "atribuido" as DeliveryStatus,
-            }
-          : o
-      )
-    )
-    setAssigningOrder(null)
-  }, [])
-
-  // ── Filtering ──
-
-  const filteredOrders = useMemo(() => {
-    let result = orders
-
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim()
-      result = result.filter((o) =>
-        o.id.toLowerCase().includes(q) ||
-        o.customerName.toLowerCase().includes(q)
-      )
-    }
-
-    // Filter chip
-    if (activeFilter !== "all") {
-      if (activeFilter === "atrasados") {
-        const now = Date.now()
-        result = result.filter((o) => {
-          const elapsedMin = Math.floor((now - o.createdAt) / 60_000)
-          return o.prepTime ? elapsedMin > o.prepTime : elapsedMin > 30
-        })
-      } else {
-        const chip = FILTER_CHIPS.find((c) => c.key === activeFilter)
-        if (chip) result = result.filter(chip.filter)
-      }
-    }
-
-    return result
-  }, [orders, searchQuery, activeFilter])
-
-  // ── Column data ──
-
-  const columnOrders = useMemo(() => {
-    const map: Record<string, KanbanOrder[]> = {
-      pendente: [], em_preparo: [], pronto: [],
-    }
-    for (const o of filteredOrders) {
-      if (map[o.status]) map[o.status].push(o)
-    }
-    return map
-  }, [filteredOrders])
-
-  // ── Status history helper ──
-
-  const getStatusHistory = (order: KanbanOrder) => {
-    const history: { status: string; time: string }[] = []
-    const statuses: KanbanStatus[] = ["pendente", "em_preparo", "pronto"]
-    const currentIdx = statuses.indexOf(order.status)
-    const labels = ["Recebido", "Em Preparo", "Pronto"]
-    for (let i = 0; i <= Math.max(0, currentIdx); i++) {
-      const offset = i * 8
-      const h = parseInt(order.time.split(":")[0]) || 12
-      const m = (parseInt(order.time.split(":")[1]) || 0) + offset
-      history.push({
-        status: labels[i],
-        time: `${h}:${m.toString().padStart(2, "0")}`,
-      })
-    }
-    return history
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message
   }
 
-  // ── Render actions per column ──
-
-  const getColumnActions = useCallback((order: KanbanOrder) => {
-    switch (order.status) {
-      case "pendente":
-        return [
-          { label: "Aceitar", color: "bg-green-600 hover:bg-green-700", onClick: (pt?: number) => moveOrder(order.id, "em_preparo", pt) },
-          { label: "Negar", color: "bg-red-600 hover:bg-red-700", onClick: () => moveOrder(order.id, "remover") },
-        ]
-      case "em_preparo":
-        return [{ label: "Pronto", color: "bg-blue-600 hover:bg-blue-700", onClick: () => moveOrder(order.id, "pronto") }]
-      case "pronto":
-        return order.type === "delivery"
-          ? [{ label: "Despachar", color: "bg-purple-600 hover:bg-purple-700", onClick: () => moveOrder(order.id, "remover") }]
-          : [{ label: "Finalizar", color: "bg-green-700 hover:bg-green-800", onClick: () => moveOrder(order.id, "remover") }]
-      default:
-        return []
-    }
-  }, [moveOrder])
-
-  // ── Skeleton state before mount ──
-
-  if (!mounted) {
-    return (
-      <AdminLayout>
-        <div className="p-6 space-y-6">
-          <div className="h-8 w-48 rounded-lg bg-muted animate-pulse" />
-          <div className="grid grid-cols-3 gap-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-96 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        </div>
-      </AdminLayout>
-    )
+  if (typeof error === "string" && error) {
+    return error
   }
+
+  if (error && typeof error === "object") {
+    const maybeError = error as {
+      message?: string
+      details?: string
+      hint?: string
+      code?: string
+    }
+
+    const message = [
+      maybeError.message,
+      maybeError.details,
+      maybeError.hint,
+      maybeError.code,
+    ]
+      .filter(Boolean)
+      .join(" • ")
+
+    if (message) return message
+  }
+
+  return fallback
+}
+
+function normalizeStatus(status: string | null | undefined) {
+  return (status || "").trim().toLowerCase()
+}
+
+function isAnalysisStatus(status: string | null | undefined) {
+  const value = normalizeStatus(status)
 
   return (
-    <AdminLayout>
-      <div className="p-6 space-y-5">
-        {/* ── Page Header ── */}
-        <div className="flex items-center justify-between">
+    value === "pending" ||
+    value === "pendente" ||
+    value === "in_analysis" ||
+    value === "em_analise" ||
+    value === "analise" ||
+    value === "em análise"
+  )
+}
+
+function isPreparationStatus(status: string | null | undefined) {
+  const value = normalizeStatus(status)
+
+  return (
+    value === "accepted" ||
+    value === "aceito" ||
+    value === "preparing" ||
+    value === "em_preparo" ||
+    value === "em preparo" ||
+    value === "waiting" ||
+    value === "aguardando" ||
+    value === "ready" ||
+    value === "pronto"
+  )
+}
+
+function isOnRouteStatus(status: string | null | undefined) {
+  const value = normalizeStatus(status)
+
+  return (
+    value === "out_for_delivery" ||
+    value === "saiu_para_entrega" ||
+    value === "delivering" ||
+    value === "on_route" ||
+    value === "em_rota" ||
+    value === "em rota"
+  )
+}
+
+function getBoardStatus(status: string | null | undefined): BoardStatus | null {
+  if (isAnalysisStatus(status)) return "analysis"
+  if (isPreparationStatus(status)) return "preparation"
+  if (isOnRouteStatus(status)) return "on_route"
+  return null
+}
+
+function formatBRL(value: number | string | null | undefined) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0))
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
+}
+
+function formatTimeOnly(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
+}
+
+function formatElapsedTime(value: string, nowMs: number) {
+  const createdAt = new Date(value).getTime()
+  const diffInMinutes = Math.max(0, Math.floor((nowMs - createdAt) / 60000))
+
+  if (diffInMinutes < 1) return "Agora"
+  if (diffInMinutes < 60) return `${diffInMinutes} min`
+
+  const hours = Math.floor(diffInMinutes / 60)
+  const minutes = diffInMinutes % 60
+
+  if (hours < 24) {
+    return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`
+  }
+
+  const days = Math.floor(hours / 24)
+  return `${days}d`
+}
+
+function formatCountdown(ms: number) {
+  const safeMs = Math.max(0, ms)
+  const totalSeconds = Math.floor(safeMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+}
+
+function getOrderNumber(order: OrderRow) {
+  if (order.public_order_number !== null && order.public_order_number !== undefined) {
+    return String(order.public_order_number)
+  }
+
+  return order.id.slice(0, 8)
+}
+
+function getCustomerName(order: OrderRow) {
+  return order.customer_name?.trim() || "Cliente sem nome"
+}
+
+function getCustomerPhone(order: OrderRow) {
+  return order.customer_phone?.trim() || "Sem telefone"
+}
+
+function getCustomerInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("")
+}
+
+function getAcceptDeadline(order: OrderRow) {
+  if (order.accept_by) {
+    return new Date(order.accept_by)
+  }
+
+  const createdAt = new Date(order.created_at)
+  return new Date(createdAt.getTime() + 30 * 1000)
+}
+
+function getPreparationBaseTime(order: OrderRow) {
+  return order.preparation_started_at || order.accepted_at || order.created_at
+}
+
+function getPreparationDeadline(order: OrderRow, averagePrepTimeMinutes: number) {
+  const base = new Date(getPreparationBaseTime(order))
+  return new Date(base.getTime() + averagePrepTimeMinutes * 60 * 1000)
+}
+
+function getAcceptProgressPercent(order: OrderRow, nowMs: number) {
+  const deadline = getAcceptDeadline(order).getTime()
+  const createdAt = new Date(order.created_at).getTime()
+  const total = Math.max(1, deadline - createdAt)
+  const elapsed = Math.min(Math.max(0, nowMs - createdAt), total)
+  return Math.min(100, Math.max(0, (elapsed / total) * 100))
+}
+
+function getDeliveryPersonName(
+  deliveryPeople: DeliveryPerson[],
+  deliveryPersonId: string | null
+) {
+  if (!deliveryPersonId) return null
+  return deliveryPeople.find((person) => person.id === deliveryPersonId)?.name || null
+}
+
+function getPaymentLabel(paymentMethod: string | null) {
+  if (!paymentMethod) return "—"
+
+  const normalized = paymentMethod.toLowerCase()
+
+  if (normalized === "pix") return "PIX"
+  if (normalized === "cash" || normalized === "dinheiro") return "Dinheiro"
+  if (normalized === "credit_card" || normalized === "credito") return "Crédito"
+  if (normalized === "debit_card" || normalized === "debito") return "Débito"
+
+  return paymentMethod
+}
+
+type BoardColumnProps = {
+  title: string
+  description: string
+  status: BoardStatus
+  orders: OrderRow[]
+  deliveryPeople: DeliveryPerson[]
+  averagePrepTimeMinutes: number
+  nowMs: number
+  busyOrderId: string | null
+  onAccept: (order: OrderRow) => void
+  onCancel: (order: OrderRow) => void
+  onSendToRoute: (order: OrderRow) => void
+  onFinish: (order: OrderRow) => void
+  onAssignDeliveryPerson: (orderId: string, deliveryPersonId: string) => void
+}
+
+function BoardColumn({
+  title,
+  description,
+  status,
+  orders,
+  deliveryPeople,
+  averagePrepTimeMinutes,
+  nowMs,
+  busyOrderId,
+  onAccept,
+  onCancel,
+  onSendToRoute,
+  onFinish,
+  onAssignDeliveryPerson,
+}: BoardColumnProps) {
+  const tone =
+    status === "analysis"
+      ? {
+          column: "border-amber-200 bg-amber-50/40",
+          iconWrap: "border-amber-200 bg-amber-100 text-amber-700",
+          card: "border-amber-200/80 bg-white shadow-[0_14px_30px_-20px_rgba(245,158,11,0.55)]",
+          badge: "bg-amber-100 text-amber-800 border-amber-200",
+          line: "bg-amber-500",
+        }
+      : status === "preparation"
+        ? {
+            column: "border-orange-200 bg-orange-50/40",
+            iconWrap: "border-orange-200 bg-orange-100 text-orange-700",
+            card: "border-orange-200/80 bg-white shadow-[0_14px_30px_-20px_rgba(249,115,22,0.55)]",
+            badge: "bg-orange-100 text-orange-800 border-orange-200",
+            line: "bg-orange-500",
+          }
+        : {
+            column: "border-emerald-200 bg-emerald-50/40",
+            iconWrap: "border-emerald-200 bg-emerald-100 text-emerald-700",
+            card: "border-emerald-200/80 bg-white shadow-[0_14px_30px_-20px_rgba(16,185,129,0.55)]",
+            badge: "bg-emerald-100 text-emerald-800 border-emerald-200",
+            line: "bg-emerald-500",
+          }
+
+  const icon =
+    status === "analysis" ? (
+      <Clock3 className="h-5 w-5" />
+    ) : status === "preparation" ? (
+      <ChefHat className="h-5 w-5" />
+    ) : (
+      <Truck className="h-5 w-5" />
+    )
+
+  return (
+    <div className={`flex min-h-[720px] min-w-[360px] flex-col rounded-[28px] border ${tone.column}`}>
+      <div className="border-b border-black/5 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${tone.iconWrap}`}>
+            {icon}
+          </div>
+
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight text-balance">Pedidos</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {orders.length} pedidos ativos agora
-            </p>
+            <h3 className="text-base font-bold text-foreground">{title}</h3>
+            <p className="text-sm text-muted-foreground">{description}</p>
           </div>
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all active:scale-[0.97]",
-              isPaused
-                ? "bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/25"
-                : "bg-card border border-border text-foreground hover:bg-secondary"
-            )}
-          >
-            {isPaused ? <><PauseCircle className="h-4 w-4" />Pausado</> : <><PlayCircle className="h-4 w-4" />Pausar</>}
-          </button>
-        </div>
 
-        {/* ── Paused Banner ── */}
-        {isPaused && (
-          <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-            <PauseCircle className="h-5 w-5 text-amber-600 shrink-0" />
+          <div className={`ml-auto rounded-full border px-3 py-1 text-xs font-semibold ${tone.badge}`}>
+            {orders.length} pedido(s)
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        {orders.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center rounded-[24px] border border-dashed border-border bg-background/70 p-6 text-center">
             <div>
-              <p className="text-sm font-semibold text-amber-800">Recebimento de pedidos pausado</p>
-              <p className="text-xs text-amber-600 mt-0.5">Novos pedidos estao bloqueados. Clique em &quot;Pausado&quot; para retomar.</p>
+              <p className="text-sm font-semibold text-foreground">
+                Nenhum pedido aqui
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Os pedidos vão aparecer em tempo real.
+              </p>
             </div>
           </div>
-        )}
+        ) : (
+          orders.map((order) => {
+            const isBusy = busyOrderId === order.id
+            const customerName = getCustomerName(order)
+            const acceptDeadline = getAcceptDeadline(order)
+            const acceptRemainingMs = acceptDeadline.getTime() - nowMs
+            const acceptProgress = getAcceptProgressPercent(order, nowMs)
 
-        {/* ── Search + Filters ── */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar por pedido ou cliente..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field pl-10"
-              />
-            </div>
-            {/* Toggle filters */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
-                showFilters
-                  ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
-                  : "border-border text-muted-foreground hover:bg-secondary"
-              )}
-            >
-              <Filter className="h-4 w-4" />
-              Filtros
-            </button>
-            {/* Refresh */}
-            <button
-              onClick={() => setOrders(buildMockOrders(Date.now()))}
-              className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Atualizar
-            </button>
-          </div>
+            const prepDeadline = getPreparationDeadline(order, averagePrepTimeMinutes)
+            const prepRemainingMs = prepDeadline.getTime() - nowMs
+            const deliveryPersonName = getDeliveryPersonName(
+              deliveryPeople,
+              order.delivery_person_id
+            )
 
-          {/* Filter chips */}
-          {showFilters && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-4 py-3">
-              {FILTER_CHIPS.map((chip) => {
-                const isActive = activeFilter === chip.key
-                const ChipIcon = chip.icon
-                return (
-                  <button
-                    key={chip.key}
-                    onClick={() => setActiveFilter(isActive ? "all" : chip.key)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.97]",
-                      isActive
-                        ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
-                        : "border-border text-muted-foreground hover:bg-secondary"
-                    )}
-                  >
-                    {ChipIcon && <ChipIcon className="h-3 w-3" />}
-                    {chip.label}
-                    {isActive && chip.key !== "all" && <X className="h-3 w-3 ml-0.5" />}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
+            const acceptTone =
+              acceptRemainingMs <= 0
+                ? "border-red-300 bg-red-50 text-red-700"
+                : acceptRemainingMs <= 10000
+                  ? "border-red-300 bg-red-50 text-red-700"
+                  : acceptRemainingMs <= 20000
+                    ? "border-amber-300 bg-amber-50 text-amber-700"
+                    : "border-emerald-300 bg-emerald-50 text-emerald-700"
 
-        {/* ── Kanban Board ── */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {COLUMNS.map((col) => (
-            <div key={col.status}>
-              <KanbanColumn
-                title={col.title}
-                headerColor={col.color}
-                count={columnOrders[col.status].length}
-                orders={columnOrders[col.status]}
-                exitingIds={exitingIds}
-                renderActions={getColumnActions}
-                onViewDetails={setDetailOrder}
-                onAssignDelivery={setAssigningOrder}
-              />
-            </div>
-          ))}
-        </div>
+            const prepTone =
+              prepRemainingMs <= 0
+                ? "border-red-300 bg-red-50 text-red-700"
+                : prepRemainingMs <= 5 * 60 * 1000
+                  ? "border-amber-300 bg-amber-50 text-amber-700"
+                  : "border-emerald-300 bg-emerald-50 text-emerald-700"
 
-        {/* ── Order Details Modal ── */}
-        {detailOrder && (
-          <OrderDetailsModal
-            order={detailOrder}
-            onClose={() => setDetailOrder(null)}
-            actions={getColumnActions(detailOrder).map((a) => ({
-              label: a.label,
-              color: a.color,
-              onClick: () => a.onClick(),
-            }))}
-            statusHistory={getStatusHistory(detailOrder)}
-            onAssignDelivery={setAssigningOrder}
-          />
-        )}
+            return (
+              <div
+                key={order.id}
+                className={`overflow-hidden rounded-[26px] border ${tone.card}`}
+              >
+                <div className={`h-1.5 w-full ${tone.line}`} />
 
-        {/* ── Delivery Assignment Modal ── */}
-        {assigningOrder && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAssigningOrder(null)}>
-            <div
-              className="w-full max-w-md rounded-2xl bg-card border border-border shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-bold text-card-foreground">Atribuir Entregador</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">Pedido #{assigningOrder.id}</p>
-                </div>
-                <button onClick={() => setAssigningOrder(null)} className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-bold text-foreground">
+                          Pedido #{getOrderNumber(order)}
+                        </p>
+                        <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                          {getPaymentLabel(order.payment_method)}
+                        </span>
+                      </div>
 
-              {/* Order Info */}
-              <div className="border-b border-border px-6 py-4 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    <span>{assigningOrder.customerName}</span>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Entrou às {formatTimeOnly(order.created_at)} • {formatDateTime(order.created_at)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground">
+                      {formatElapsedTime(order.created_at, nowMs)}
+                    </div>
                   </div>
-                  <span className="text-sm font-semibold text-foreground">
-                    R$ {assigningOrder.total.toFixed(2).replace(".", ",")}
-                  </span>
-                </div>
-                {assigningOrder.customerAddress && (
-                  <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
-                    {assigningOrder.customerAddress}
-                  </p>
-                )}
-              </div>
 
-              {/* Delivery Staff List */}
-              <div className="px-6 py-4 max-h-80 overflow-y-auto">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Entregadores Disponiveis
-                </p>
-                <div className="space-y-2">
-                  {deliveryStaff.map((staff) => {
-                    const isCurrentAssigned = assigningOrder.deliveryPersonId === staff.id
-                    return (
-                      <button
-                        key={staff.id}
-                        onClick={() => handleAssignDelivery(assigningOrder.id, staff)}
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-lg border p-3 transition-all",
-                          isCurrentAssigned
-                            ? "border-blue-300 bg-blue-50 ring-1 ring-blue-200"
-                            : "border-border hover:bg-muted/50 hover:border-border"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold",
-                            isCurrentAssigned ? "bg-blue-200 text-blue-700" : "bg-secondary text-muted-foreground"
-                          )}>
-                            {staff.name.charAt(0)}
+                  <div className="mt-4 flex items-center gap-3 rounded-[22px] border border-border bg-muted/30 p-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary">
+                      {getCustomerInitials(customerName) || "CL"}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-foreground">
+                        {customerName}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {getCustomerPhone(order)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-[20px] border border-border bg-background p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Total
+                      </p>
+                      <p className="mt-1 text-base font-bold text-foreground">
+                        {formatBRL(order.total)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-[20px] border border-border bg-background p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Pagamento
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {getPaymentLabel(order.payment_method)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {order.notes ? (
+                    <div className="mt-4 rounded-[20px] border border-border bg-background p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Observação
+                      </p>
+                      <p className="mt-1 text-sm text-foreground">
+                        {order.notes}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {status === "analysis" && (
+                    <div className="mt-4 rounded-[22px] border border-border bg-background p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-600" />
+                          <p className="text-sm font-bold text-foreground">
+                            Prazo para aceitar
+                          </p>
+                        </div>
+
+                        <div className={`rounded-full border px-3 py-1 text-xs font-bold ${acceptTone}`}>
+                          {acceptRemainingMs > 0
+                            ? formatCountdown(acceptRemainingMs)
+                            : "Tempo esgotado"}
+                        </div>
+                      </div>
+
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            acceptRemainingMs <= 0
+                              ? "bg-red-500"
+                              : acceptRemainingMs <= 10000
+                                ? "bg-red-500"
+                                : acceptRemainingMs <= 20000
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${acceptProgress}%` }}
+                        />
+                      </div>
+
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Limite até {formatTimeOnly(acceptDeadline.toISOString())}
+                      </p>
+                    </div>
+                  )}
+
+                  {status === "preparation" && (
+                    <div className="mt-4 space-y-4">
+                      <div className="rounded-[22px] border border-border bg-background p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <ChefHat className="h-4 w-4 text-orange-600" />
+                            <p className="text-sm font-bold text-foreground">
+                              Preparo
+                            </p>
                           </div>
-                          <div className="text-left">
-                            <p className="text-sm font-medium text-card-foreground">{staff.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {staff.deliveriesToday || 0} entregas hoje
+
+                          <div className={`rounded-full border px-3 py-1 text-xs font-bold ${prepTone}`}>
+                            {prepRemainingMs > 0
+                              ? `Faltam ${Math.ceil(prepRemainingMs / 60000)} min`
+                              : "Atrasado"}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-[18px] bg-muted/40 p-3">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Início
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-foreground">
+                              {formatTimeOnly(getPreparationBaseTime(order))}
+                            </p>
+                          </div>
+
+                          <div className="rounded-[18px] bg-muted/40 p-3">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Saída prevista
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-foreground">
+                              {formatTimeOnly(prepDeadline.toISOString())}
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-card-foreground">
-                            R$ {staff.baseValue.toFixed(2).replace(".", ",")}
+                      </div>
+
+                      <div className="rounded-[22px] border border-border bg-background p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <UserRound className="h-4 w-4 text-primary" />
+                          <p className="text-sm font-bold text-foreground">
+                            Entregador
                           </p>
-                          <p className="text-[10px] text-muted-foreground">por entrega</p>
-                          {isCurrentAssigned && (
-                            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
-                              <Check className="h-3 w-3" /> Atribuido
-                            </span>
-                          )}
                         </div>
+
+                        <select
+                          value={order.delivery_person_id || ""}
+                          onChange={(e) =>
+                            onAssignDeliveryPerson(order.id, e.target.value)
+                          }
+                          disabled={isBusy || deliveryPeople.length === 0}
+                          className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <option value="">
+                            {deliveryPeople.length === 0
+                              ? "Nenhum entregador cadastrado"
+                              : "Selecionar entregador"}
+                          </option>
+
+                          {deliveryPeople.map((person) => (
+                            <option key={person.id} value={person.id}>
+                              {person.name}
+                              {person.phone ? ` • ${person.phone}` : ""}
+                            </option>
+                          ))}
+                        </select>
+
+                        {deliveryPersonName ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Responsável atual: <span className="font-semibold text-foreground">{deliveryPersonName}</span>
+                          </p>
+                        ) : (
+                          <p className="mt-2 text-xs text-amber-700">
+                            Escolha um entregador antes de enviar para rota.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {status === "on_route" && (
+                    <div className="mt-4 rounded-[22px] border border-border bg-background p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-4 w-4 text-emerald-600" />
+                            <p className="text-sm font-bold text-foreground">
+                              Em rota
+                            </p>
+                          </div>
+
+                          <p className="mt-2 text-sm text-foreground">
+                            {deliveryPersonName || "Entregador não definido"}
+                          </p>
+
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Saiu às{" "}
+                            {order.out_for_delivery_at
+                              ? formatTimeOnly(order.out_for_delivery_at)
+                              : "—"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                          {order.out_for_delivery_at
+                            ? `${formatElapsedTime(order.out_for_delivery_at, nowMs)} em rota`
+                            : "Em rota"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {status === "analysis" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onAccept(order)}
+                          disabled={isBusy}
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          Aceitar pedido
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onCancel(order)}
+                          disabled={isBusy}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          Cancelar
+                        </button>
+                      </>
+                    )}
+
+                    {status === "preparation" && (
+                      <button
+                        type="button"
+                        onClick={() => onSendToRoute(order)}
+                        disabled={isBusy || !order.delivery_person_id}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Truck className="h-4 w-4" />
+                        )}
+                        Enviar para rota
                       </button>
-                    )
-                  })}
+                    )}
+
+                    {status === "on_route" && (
+                      <button
+                        type="button"
+                        onClick={() => onFinish(order)}
+                        disabled={isBusy}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        Finalizar pedido
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function PedidosPage() {
+  const { restaurant, user, isLoading: authLoading } = useAuth()
+
+  const [orders, setOrders] = useState<OrderRow[]>([])
+  const [deliveryPeople, setDeliveryPeople] = useState<DeliveryPerson[]>([])
+  const [averagePrepTimeMinutes, setAveragePrepTimeMinutes] = useState(30)
+
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [search, setSearch] = useState("")
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
+  const [savingPrepTime, setSavingPrepTime] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+  const [nowMs, setNowMs] = useState(Date.now())
+
+  async function loadOrders(showRefresh = false) {
+    if (!restaurant?.id) return
+
+    try {
+      if (showRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
+
+      setError(null)
+
+      const session = await ensureSupabaseSession()
+
+      if (!session) {
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select(
+          "id, public_order_number, customer_name, customer_phone, status, total, payment_method, notes, created_at, delivery_person_id, accepted_at, preparation_started_at, out_for_delivery_at, delivered_at, cancelled_at, accept_by"
+        )
+        .eq("restaurant_id", restaurant.id)
+        .in("status", OPEN_ORDER_STATUSES)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      setOrders((data || []) as OrderRow[])
+      setLastUpdatedAt(new Date())
+    } catch (err) {
+      console.error("Erro ao buscar pedidos:", err)
+      setError(getErrorMessage(err, "Erro ao buscar pedidos."))
+      setOrders([])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  async function loadDeliveryPeople() {
+    if (!restaurant?.id) return
+
+    try {
+      const session = await ensureSupabaseSession()
+
+      if (!session) {
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("delivery_people")
+        .select("id, name, phone, is_active, created_at")
+        .eq("restaurant_id", restaurant.id)
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+
+      if (error) {
+        throw error
+      }
+
+      setDeliveryPeople((data || []) as DeliveryPerson[])
+    } catch (err) {
+      console.error("Erro ao carregar entregadores:", err)
+      setError(getErrorMessage(err, "Erro ao carregar entregadores."))
+    }
+  }
+
+  async function loadRestaurantSettings() {
+    if (!restaurant?.id) return
+
+    try {
+      const session = await ensureSupabaseSession()
+
+      if (!session) {
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("average_prep_time_minutes")
+        .eq("id", restaurant.id)
+        .single()
+
+      if (error) {
+        throw error
+      }
+
+      setAveragePrepTimeMinutes(Number(data.average_prep_time_minutes || 30))
+    } catch (err) {
+      console.error("Erro ao carregar configurações do restaurante:", err)
+      setError(getErrorMessage(err, "Erro ao carregar configurações do restaurante."))
+    }
+  }
+
+  async function updateAveragePrepTime(nextValue: number) {
+    if (!restaurant?.id) return
+
+    const previousValue = averagePrepTimeMinutes
+
+    try {
+      setSavingPrepTime(true)
+      setAveragePrepTimeMinutes(nextValue)
+
+      const { error } = await supabase
+        .from("restaurants")
+        .update({ average_prep_time_minutes: nextValue })
+        .eq("id", restaurant.id)
+
+      if (error) {
+        throw error
+      }
+    } catch (err) {
+      console.error("Erro ao salvar tempo médio:", err)
+      setAveragePrepTimeMinutes(previousValue)
+      setError(getErrorMessage(err, "Erro ao salvar tempo médio."))
+    } finally {
+      setSavingPrepTime(false)
+    }
+  }
+
+  async function loadInitialData() {
+    if (!restaurant?.id) return
+
+    setError(null)
+
+    await loadOrders()
+    void loadDeliveryPeople()
+    void loadRestaurantSettings()
+  }
+
+  async function refreshAll() {
+    if (!restaurant?.id) return
+
+    setError(null)
+
+    await Promise.all([
+      loadOrders(true),
+      loadDeliveryPeople(),
+      loadRestaurantSettings(),
+    ])
+  }
+
+  async function assignDeliveryPerson(orderId: string, deliveryPersonId: string) {
+    const previousOrders = orders
+
+    try {
+      setBusyOrderId(orderId)
+      setError(null)
+
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                delivery_person_id: deliveryPersonId || null,
+              }
+            : order
+        )
+      )
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          delivery_person_id: deliveryPersonId || null,
+        })
+        .eq("id", orderId)
+        .eq("restaurant_id", restaurant?.id)
+
+      if (error) {
+        throw error
+      }
+    } catch (err) {
+      console.error("Erro ao vincular entregador:", err)
+      setOrders(previousOrders)
+      setError(getErrorMessage(err, "Erro ao vincular entregador."))
+    } finally {
+      setBusyOrderId(null)
+    }
+  }
+
+  async function updateOrder(order: OrderRow, action: "accept" | "cancel" | "route" | "finish") {
+    const previousOrders = orders
+    const nowIso = new Date().toISOString()
+
+    try {
+      setBusyOrderId(order.id)
+      setError(null)
+
+      let payload: Partial<OrderRow> = {}
+
+      if (action === "accept") {
+        payload = {
+          status: "accepted",
+          accepted_at: nowIso,
+          preparation_started_at: nowIso,
+        }
+      }
+
+      if (action === "cancel") {
+        payload = {
+          status: "cancelled",
+          cancelled_at: nowIso,
+        }
+      }
+
+      if (action === "route") {
+        if (!order.delivery_person_id) {
+          setError("Selecione um entregador antes de enviar para rota.")
+          return
+        }
+
+        payload = {
+          status: "out_for_delivery",
+          out_for_delivery_at: nowIso,
+        }
+      }
+
+      if (action === "finish") {
+        payload = {
+          status: "delivered",
+          delivered_at: nowIso,
+        }
+      }
+
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                ...payload,
+              }
+            : item
+        )
+      )
+
+      const { error } = await supabase
+        .from("orders")
+        .update(payload)
+        .eq("id", order.id)
+        .eq("restaurant_id", restaurant?.id)
+
+      if (error) {
+        throw error
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar pedido:", err)
+      setOrders(previousOrders)
+      setError(getErrorMessage(err, "Erro ao atualizar pedido."))
+    } finally {
+      setBusyOrderId(null)
+    }
+  }
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (authLoading) {
+      setLoading(true)
+      return
+    }
+
+    if (!user || !restaurant?.id) {
+      setOrders([])
+      setDeliveryPeople([])
+      setLoading(false)
+      setRefreshing(false)
+      setError(null)
+      return
+    }
+
+    void loadInitialData()
+
+    const refreshInterval = window.setInterval(() => {
+      void loadOrders(true)
+    }, 15000)
+
+    const ordersChannel = supabase
+      .channel(`orders-live-${restaurant.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `restaurant_id=eq.${restaurant.id}`,
+        },
+        () => {
+          void loadOrders(true)
+        }
+      )
+      .subscribe()
+
+    const deliveryPeopleChannel = supabase
+      .channel(`delivery-people-live-${restaurant.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "delivery_people",
+          filter: `restaurant_id=eq.${restaurant.id}`,
+        },
+        () => {
+          void loadDeliveryPeople()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      window.clearInterval(refreshInterval)
+      void supabase.removeChannel(ordersChannel)
+      void supabase.removeChannel(deliveryPeopleChannel)
+    }
+  }, [authLoading, restaurant?.id, user?.id])
+
+  useEffect(() => {
+    if (!restaurant?.id || !user?.id) return
+
+    const handlePageBack = () => {
+      if (document.visibilityState === "visible") {
+        void loadOrders(true)
+        void loadDeliveryPeople()
+        void loadRestaurantSettings()
+      }
+    }
+
+    const handleWindowFocus = () => {
+      void loadOrders(true)
+      void loadDeliveryPeople()
+      void loadRestaurantSettings()
+    }
+
+    document.addEventListener("visibilitychange", handlePageBack)
+    window.addEventListener("focus", handleWindowFocus)
+
+    return () => {
+      document.removeEventListener("visibilitychange", handlePageBack)
+      window.removeEventListener("focus", handleWindowFocus)
+    }
+  }, [restaurant?.id, user?.id])
+
+  const openOrders = useMemo(() => {
+    return orders.filter((order) => getBoardStatus(order.status) !== null)
+  }, [orders])
+
+  const filteredOrders = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase()
+
+    return openOrders.filter((order) => {
+      if (!normalizedSearch) return true
+
+      const customerName = getCustomerName(order).toLowerCase()
+      const customerPhone = getCustomerPhone(order).toLowerCase()
+      const orderNumber = getOrderNumber(order).toLowerCase()
+
+      return (
+        customerName.includes(normalizedSearch) ||
+        customerPhone.includes(normalizedSearch) ||
+        orderNumber.includes(normalizedSearch)
+      )
+    })
+  }, [openOrders, search])
+
+  const analysisOrders = useMemo(
+    () => filteredOrders.filter((order) => getBoardStatus(order.status) === "analysis"),
+    [filteredOrders]
+  )
+
+  const preparationOrders = useMemo(
+    () => filteredOrders.filter((order) => getBoardStatus(order.status) === "preparation"),
+    [filteredOrders]
+  )
+
+  const onRouteOrders = useMemo(
+    () => filteredOrders.filter((order) => getBoardStatus(order.status) === "on_route"),
+    [filteredOrders]
+  )
+
+  const totalOpenOrders =
+    analysisOrders.length + preparationOrders.length + onRouteOrders.length
+
+  return (
+    <AdminLayout title="Pedidos" description="Central operacional do restaurante">
+      <div className="flex flex-col gap-6">
+        <div className="overflow-hidden rounded-[30px] border border-border bg-card">
+          <div className="bg-gradient-to-r from-foreground to-foreground/90 px-6 py-6 text-white">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                  </span>
+                  Operação em tempo real
+                </div>
+
+                <h1 className="text-3xl font-black tracking-tight">
+                  Central de pedidos
+                </h1>
+                <p className="mt-1 text-sm text-white/70">
+                  Aceite rápido, preparo controlado e saída organizada por entregador.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-white/60">
+                    Em análise
+                  </p>
+                  <p className="mt-1 text-2xl font-black">{analysisOrders.length}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-white/60">
+                    Em preparo
+                  </p>
+                  <p className="mt-1 text-2xl font-black">{preparationOrders.length}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-white/60">
+                    Em rota
+                  </p>
+                  <p className="mt-1 text-2xl font-black">{onRouteOrders.length}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-white/60">
+                    Abertos
+                  </p>
+                  <p className="mt-1 text-2xl font-black">
+                    {loading ? "..." : totalOpenOrders}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border bg-card px-6 py-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative w-full max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar cliente, telefone ou pedido..."
+                    className="h-12 w-full rounded-2xl border border-border bg-background pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2.5">
+                  <Settings2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">
+                    Tempo médio:
+                  </span>
+
+                  <select
+                    value={averagePrepTimeMinutes}
+                    onChange={(e) => updateAveragePrepTime(Number(e.target.value))}
+                    disabled={savingPrepTime}
+                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  >
+                    <option value={10}>10 min</option>
+                    <option value={15}>15 min</option>
+                    <option value={20}>20 min</option>
+                    <option value={25}>25 min</option>
+                    <option value={30}>30 min</option>
+                    <option value={35}>35 min</option>
+                    <option value={40}>40 min</option>
+                    <option value={45}>45 min</option>
+                    <option value={50}>50 min</option>
+                    <option value={60}>60 min</option>
+                  </select>
+
+                  {savingPrepTime ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : null}
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="flex items-center justify-between border-t border-border px-6 py-4 bg-muted/30">
-                <div>
-                  <p className="text-xs text-muted-foreground">Taxa de entrega</p>
-                  <p className="text-sm font-semibold text-card-foreground">
-                    R$ {(assigningOrder.deliveryFee || 8).toFixed(2).replace(".", ",")}
-                  </p>
-                </div>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {lastUpdatedAt
+                    ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}`
+                    : "Aguardando dados..."}
+                </p>
+
                 <button
-                  onClick={() => setAssigningOrder(null)}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-muted"
+                  type="button"
+                  onClick={() => void refreshAll()}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted/40"
                 >
-                  Fechar
+                  {refreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-4 w-4" />
+                  )}
+                  Atualizar
                 </button>
               </div>
+            </div>
+
+            {error && (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center rounded-[30px] border border-border bg-card py-20">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Carregando operação...
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto pb-2">
+            <div className="grid min-w-[1140px] grid-cols-3 gap-4">
+              <BoardColumn
+                title="Em análise"
+                description="Pedidos aguardando confirmação"
+                status="analysis"
+                orders={analysisOrders}
+                deliveryPeople={deliveryPeople}
+                averagePrepTimeMinutes={averagePrepTimeMinutes}
+                nowMs={nowMs}
+                busyOrderId={busyOrderId}
+                onAccept={(order) => void updateOrder(order, "accept")}
+                onCancel={(order) => void updateOrder(order, "cancel")}
+                onSendToRoute={(order) => void updateOrder(order, "route")}
+                onFinish={(order) => void updateOrder(order, "finish")}
+                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                  void assignDeliveryPerson(orderId, deliveryPersonId)
+                }
+              />
+
+              <BoardColumn
+                title="Em preparo"
+                description="Pedidos em produção"
+                status="preparation"
+                orders={preparationOrders}
+                deliveryPeople={deliveryPeople}
+                averagePrepTimeMinutes={averagePrepTimeMinutes}
+                nowMs={nowMs}
+                busyOrderId={busyOrderId}
+                onAccept={(order) => void updateOrder(order, "accept")}
+                onCancel={(order) => void updateOrder(order, "cancel")}
+                onSendToRoute={(order) => void updateOrder(order, "route")}
+                onFinish={(order) => void updateOrder(order, "finish")}
+                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                  void assignDeliveryPerson(orderId, deliveryPersonId)
+                }
+              />
+
+              <BoardColumn
+                title="Em rota"
+                description="Pedidos com entregador"
+                status="on_route"
+                orders={onRouteOrders}
+                deliveryPeople={deliveryPeople}
+                averagePrepTimeMinutes={averagePrepTimeMinutes}
+                nowMs={nowMs}
+                busyOrderId={busyOrderId}
+                onAccept={(order) => void updateOrder(order, "accept")}
+                onCancel={(order) => void updateOrder(order, "cancel")}
+                onSendToRoute={(order) => void updateOrder(order, "route")}
+                onFinish={(order) => void updateOrder(order, "finish")}
+                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                  void assignDeliveryPerson(orderId, deliveryPersonId)
+                }
+              />
             </div>
           </div>
         )}

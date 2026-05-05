@@ -1,77 +1,65 @@
 "use client"
 
-import { useState } from "react"
-import { cn } from "@/lib/utils"
 import LoginForm from "./login-form"
-import SignUpForm from "./signup"
-
-type Tab = "login" | "signup"
+import { ShieldCheck, Sparkles } from "lucide-react"
 
 export default function AuthCard() {
-  const [activeTab, setActiveTab] = useState<Tab>("login")
-
   return (
-    <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Card */}
-      <div className="rounded-2xl bg-white shadow-2xl shadow-gray-200/60 border border-gray-100/80 overflow-hidden">
-        {/* Tabs */}
-        <div className="flex bg-gray-50/50">
-          <button
-            onClick={() => setActiveTab("login")}
-            className={cn(
-              "flex-1 py-4 text-sm font-semibold transition-all duration-200 relative",
-              activeTab === "login"
-                ? "text-blue-600 bg-white"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-          >
-            Entrar
-            {activeTab === "login" && (
-              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-blue-600 rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("signup")}
-            className={cn(
-              "flex-1 py-4 text-sm font-semibold transition-all duration-200 relative",
-              activeTab === "signup"
-                ? "text-blue-600 bg-white"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-          >
-            Criar Conta
-            {activeTab === "signup" && (
-              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-blue-600 rounded-full" />
-            )}
-          </button>
-        </div>
+    <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-6 duration-700">
 
-        {/* Form Content */}
-        <div className="p-6 sm:p-8">
-          <div
-            key={activeTab}
-            className="animate-in fade-in slide-in-from-right-2 duration-300"
-          >
-            {activeTab === "login" ? <LoginForm /> : <SignUpForm />}
+      {/* Glow externo */}
+      <div className="relative">
+
+        <div className="absolute inset-0 rounded-[32px] bg-gradient-to-r from-violet-500/30 to-fuchsia-500/30 blur-2xl opacity-40" />
+
+        {/* Card principal */}
+        <div className="relative rounded-[28px] border border-white/10 bg-white/95 backdrop-blur-xl shadow-[0_30px_80px_rgba(0,0,0,0.35)] overflow-hidden">
+
+          {/* HEADER */}
+          <div className="relative border-b border-slate-200 px-6 py-5 sm:px-8">
+
+            {/* Badge */}
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-600">
+              <Sparkles size={12} />
+              Acesso seguro
+            </div>
+
+            <h2 className="text-lg font-bold text-slate-900">
+              Entrar na plataforma
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-500">
+              Use o acesso liberado pela equipe ClickFood
+            </p>
+
+            {/* Linha glow */}
+            <div className="absolute bottom-0 left-0 h-[2px] w-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-transparent opacity-60" />
           </div>
+
+          {/* BODY */}
+          <div className="p-6 sm:p-8">
+
+            <div className="animate-in fade-in slide-in-from-right-3 duration-500">
+              <LoginForm />
+            </div>
+
+            {/* Segurança */}
+            <div className="mt-6 flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
+              <ShieldCheck className="h-4 w-4 text-violet-600" />
+              <p className="text-xs text-slate-600">
+                Seus dados são protegidos e criptografados
+              </p>
+            </div>
+
+          </div>
+
         </div>
       </div>
 
-      {/* Social Proof */}
+      {/* Footer */}
       <div className="mt-6 text-center">
-        <div className="flex items-center justify-center gap-1 mb-2">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <svg
-              key={star}
-              className="h-4 w-4 text-yellow-400 fill-current"
-              viewBox="0 0 20 20"
-            >
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500">
-          Mais de <span className="font-semibold text-gray-700">2.000 restaurantes</span> ja usam nossa plataforma
+        <p className="text-xs text-slate-400">
+          ClickFood • tecnologia para restaurantes que querem crescer
         </p>
       </div>
     </div>

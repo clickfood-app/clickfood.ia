@@ -1,25 +1,19 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useMemo, useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   BarChart3,
-  Briefcase,
-  ChevronDown,
   ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  DollarSign,
-  FileText,
   Globe,
   Home,
-  LogOut,
   Package,
   PlusCircle,
   Settings,
   ShoppingCart,
-  Ticket,
+  TicketPercent,
+  Truck,
   Users,
 } from "lucide-react"
 
@@ -29,254 +23,152 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
 interface NavItem {
   label: string
+  href: string
   icon: React.ReactNode
-  href?: string
-  children?: { label: string; href: string }[]
 }
 
 const navItems: NavItem[] = [
-  {
-    label: "Painel",
-    icon: <Home className="h-5 w-5" />,
-    href: "/",
-  },
-  {
-    label: "Novo Pedido",
-    icon: <PlusCircle className="h-5 w-5" />,
-    href: "/novo-pedido",
-  },
-  {
-    label: "Pedidos",
-    icon: <ShoppingCart className="h-5 w-5" />,
-    href: "/pedidos",
-  },
-  {
-    label: "Produtos",
-    icon: <Package className="h-5 w-5" />,
-    href: "/produtos",
-  },
-  {
-    label: "Clientes",
-    icon: <Users className="h-5 w-5" />,
-    href: "/clientes",
-  },
-  {
-    label: "Cardapio",
-    icon: <Globe className="h-5 w-5" />,
-    href: "/cardapio",
-  },
-  {
-    label: "Cupons",
-    icon: <Ticket className="h-5 w-5" />,
-    href: "/cupons",
-  },
-  {
-    label: "Funcionarios",
-    icon: <Briefcase className="h-5 w-5" />,
-    href: "/funcionarios",
-  },
-  {
-    label: "Financeiro",
-    icon: <DollarSign className="h-5 w-5" />,
-    href: "/financeiro",
-  },
-  {
-    label: "Relatórios",
-    icon: <BarChart3 className="h-5 w-5" />,
-    children: [
-      { label: "Visao Geral", href: "/relatorios/resumo" },
-      { label: "Vendas", href: "/relatorios/vendas" },
-      { label: "Histórico de Pedidos", href: "/relatorios/historico" },
-    ],
-  },
-  {
-    label: "Configurações",
-    icon: <Settings className="h-5 w-5" />,
-    href: "/configuracoes",
-  },
+  { label: "Painel", icon: <Home className="h-5 w-5" />, href: "/" },
+  { label: "Novo Pedido", icon: <PlusCircle className="h-5 w-5" />, href: "/novo-pedido" },
+  { label: "Mesas", icon: <Users className="h-5 w-5" />, href: "/mesas" },
+  { label: "Pedidos", icon: <ShoppingCart className="h-5 w-5" />, href: "/pedidos" },
+  { label: "Entregadores", icon: <Truck className="h-5 w-5" />, href: "/entregadores" },
+  { label: "Produtos", icon: <Package className="h-5 w-5" />, href: "/produtos" },
+  { label: "Clientes", icon: <Users className="h-5 w-5" />, href: "/clientes" },
+  { label: "Cupons", icon: <TicketPercent className="h-5 w-5" />, href: "/cupons" },
+  { label: "Cardápio", icon: <Globe className="h-5 w-5" />, href: "/cardapio" },
+  { label: "Configurações", icon: <Settings className="h-5 w-5" />, href: "/configuracoes" },
+  { label: "Gestão", icon: <BarChart3 className="h-5 w-5" />, href: "/gestao" },
 ]
 
-function SidebarItem({
-  item,
-  isCollapsed,
-  pathname,
-  openSubmenu,
-  toggleSubmenu,
-}: any) {
-  const hasChildren = !!item.children
-  const isSubmenuOpen = openSubmenu === item.label
-  const isActive = item.href ? pathname === item.href : false
-  const isChildActive = item.children?.some((c: any) => pathname === c.href)
+function SidebarItem({ item, isCollapsed, pathname }: any) {
+  const isActive = pathname === item.href
 
-  if (hasChildren) {
-    return (
-      <div>
-        <button
-          onClick={() => toggleSubmenu(item.label)}
-          className={cn(
-            "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-            "hover:bg-[hsl(var(--sidebar-accent))]",
-            isChildActive && "bg-[hsl(var(--sidebar-accent))]"
-          )}
-        >
-          <span className="flex-shrink-0">{item.icon}</span>
-
-          {!isCollapsed && (
-            <>
-              <span className="flex-1 text-left truncate">{item.label}</span>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform",
-                  isSubmenuOpen && "rotate-180"
-                )}
-              />
-            </>
-          )}
-        </button>
-
-        {!isCollapsed && isSubmenuOpen && (
-          <div className="ml-4 mt-1 flex flex-col gap-1 border-l pl-3">
-            {item.children.map((child: any) => (
-              <Link
-                key={child.href}
-                href={child.href}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted",
-                  pathname === child.href && "bg-muted font-medium"
-                )}
-              >
-                <FileText className="h-4 w-4" />
-                {child.label}
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  return (
+  const link = (
     <Link
-      href={item.href || "/"}
+      href={item.href}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
-        "hover:bg-[hsl(var(--sidebar-accent))]",
-        isActive && "bg-[hsl(var(--sidebar-accent))]"
+        "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] text-white shadow-md"
+          : "text-[#A1A1AA] hover:bg-white/10 hover:text-white"
       )}
     >
-      {item.icon}
-
-      {!isCollapsed && <span>{item.label}</span>}
+      <span className="flex h-5 w-5 items-center justify-center">
+        {item.icon}
+      </span>
+      {!isCollapsed && <span className="truncate">{item.label}</span>}
     </Link>
+  )
+
+  if (!isCollapsed) return link
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right">{item.label}</TooltipContent>
+    </Tooltip>
   )
 }
 
-interface AdminSidebarProps {
-  isCollapsed: boolean
-  onToggleCollapse: () => void
-}
-
-export default function AdminSidebar({
-  isCollapsed,
-  onToggleCollapse,
-}: AdminSidebarProps) {
+export default function AdminSidebar({ isCollapsed, onToggleCollapse }: any) {
   const pathname = usePathname()
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
 
-  const supabase = createClient()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [restaurant, setRestaurant] = useState<any>(null)
 
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
+  useEffect(() => {
+    const loadRestaurant = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-  const toggleSubmenu = (label: string) => {
-    setOpenSubmenu((prev) => (prev === label ? null : label))
-  }
+      if (!user) return
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut()
+      const { data } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("owner_id", user.id)
+        .single()
 
-    if (error) {
-      console.error("Erro ao sair:", error.message)
-      return
+      if (data) setRestaurant(data)
     }
 
-    router.push("/login")
+    loadRestaurant()
+  }, [supabase])
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return
+
+    setIsLoggingOut(true)
+    await supabase.auth.signOut()
+    router.replace("/auth")
   }
 
   return (
     <TooltipProvider>
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-background transition-all",
-          isCollapsed ? "w-[68px]" : "w-64"
+          "fixed left-0 top-0 flex h-screen flex-col border-r border-[#272A3A] bg-[#0B0B12] text-white",
+          isCollapsed ? "w-[72px]" : "w-64"
         )}
       >
-        {/* HEADER */}
-        <div className="flex items-center justify-between border-b px-4 py-4">
-          {!isCollapsed && (
-            <div className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5" />
-              <span className="font-bold">AdminPro</span>
+        <div className="flex items-center justify-between border-b border-[#272A3A] px-4 py-4">
+          {!isCollapsed ? (
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-900 overflow-hidden">
+                {restaurant?.logo_url ? (
+                  <img src={restaurant.logo_url} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-sm font-bold">
+                    {restaurant?.name?.charAt(0) || "R"}
+                  </span>
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">
+                  {restaurant?.name || "Restaurante"}
+                </p>
+                <p className="text-xs text-slate-400">Painel</p>
+              </div>
+            </div>
+          ) : (
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-900">
+              <span className="text-sm font-bold">
+                {restaurant?.name?.charAt(0) || "R"}
+              </span>
             </div>
           )}
 
-          <button onClick={onToggleCollapse}>
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
+          {!isCollapsed && (
+            <button onClick={onToggleCollapse}>
               <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
 
-        {/* MENU */}
-        <ScrollArea className="flex-1">
-          <nav className="px-3 py-4 flex flex-col gap-1">
-            {navItems.map((item) => (
-              <SidebarItem
-                key={item.label}
-                item={item}
-                isCollapsed={isCollapsed}
-                pathname={pathname}
-                openSubmenu={openSubmenu}
-                toggleSubmenu={toggleSubmenu}
-              />
-            ))}
-          </nav>
+        <ScrollArea className="flex-1 px-3 py-4">
+          {navItems.map((item) => (
+            <SidebarItem
+              key={item.href}
+              item={item}
+              isCollapsed={isCollapsed}
+              pathname={pathname}
+            />
+          ))}
         </ScrollArea>
 
-        {/* FOOTER */}
-        <div className="border-t px-3 py-3 space-y-3">
-
-          {/* ADMIN INFO */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-              A
-            </div>
-
-            {!isCollapsed && (
-              <div>
-                <p className="text-sm font-medium">Administrador</p>
-                <p className="text-xs text-muted-foreground">
-                  admin@empresa.com
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* LOGOUT */}
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-500 transition hover:bg-red-500/10"
-          >
-            <LogOut className="h-4 w-4" />
-
+        <div className="p-3">
+          <button onClick={handleLogout}>
             {!isCollapsed && "Sair"}
           </button>
         </div>

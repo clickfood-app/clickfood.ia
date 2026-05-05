@@ -1,581 +1,676 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { createClient } from "@supabase/supabase-js"
 import {
-  getRestaurantStatus,
-  getDayResults,
-  getOperationalCounters,
-  getDeliveryStats,
-  getComparativeData,
-  getFeaturedProduct,
-  getSmartAlerts,
-  formatBRL,
-} from "@/lib/dashboard-data"
-import {
-  Clock,
-  DollarSign,
-  ShoppingCart,
-  Receipt,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  ChefHat,
-  Truck,
   AlertTriangle,
+  Clock3,
+  DollarSign,
+  Loader2,
+  Receipt,
+  RefreshCcw,
+  ShoppingCart,
+  TimerReset,
   XCircle,
-  Award,
-  Bike,
-  Timer,
-  Package,
-  ArrowUpRight,
-  ArrowDownRight,
 } from "lucide-react"
+
+import { useAuth } from "@/components/auth/auth-provider"
 import { cn } from "@/lib/utils"
 
-// ── Skeleton ──
-
-function DashboardSkeleton() {
-  return (
-    <div className="min-h-screen">
-      <div className="p-6 space-y-5">
-        {/* Status bar skeleton */}
-        <div className="h-16 rounded-xl bg-muted animate-pulse" />
-        {/* Main cards skeleton */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
-          ))}
-        </div>
-        {/* Rest */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="h-48 rounded-xl bg-muted animate-pulse" />
-          <div className="h-48 rounded-xl bg-muted animate-pulse" />
-          <div className="h-48 rounded-xl bg-muted animate-pulse" />
-        </div>
-      </div>
-    </div>
-  )
+type OrderRow = {
+  id: string
+  public_order_number: string
+  customer_name: string
+  status: string
+  total: number | string | null
+  created_at: string
 }
 
-// ── Variation Badge ──
+type DashboardMetrics = {
+  faturamentoHoje: number
+  faturamentoOntem: number
+  faturamentoVar: number
+  pedidosHoje: number
+  pedidosOntem: number
+  pedidosVar: number
+  ticketMedioHoje: number
+  ticketMedioOntem: number
+  ticketVar: number
+  pendentesAgora: number
+  emPreparoAgora: number
+  concluidosHoje: number
+  canceladosHoje: number
+  recentOrders: OrderRow[]
+}
 
-function VariationBadge({ value, inverted = false }: { value: number; inverted?: boolean }) {
-  const isPositive = inverted ? value < 0 : value > 0
-  const isNegative = inverted ? value > 0 : value < 0
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-  if (value === 0) {
-    return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-        <Minus className="h-3 w-3" />
-        0%
-      </span>
-    )
+const CANCELLED_STATUSES = ["cancelado", "cancelled", "canceled"]
+const REVENUE_STATUSES = [
+  "aceito",
+  "accepted",
+  "em_preparo",
+  "preparing",
+  "aguardando",
+  "waiting",
+  "pronto",
+  "ready",
+  "saiu_para_entrega",
+  "out_for_delivery",
+  "entregue",
+  "delivered",
+]
+const PENDING_STATUSES = ["pendente", "pending"]
+const PREPARING_STATUSES = [
+  "aceito",
+  "accepted",
+  "em_preparo",
+  "preparing",
+  "aguardando",
+  "waiting",
+  "pronto",
+  "ready",
+  "saiu_para_entrega",
+  "out_for_delivery",
+]
+const DONE_STATUSES = ["entregue", "delivered"]
+
+function normalizeStatus(status: string | null | undefined) {
+  return (status || "").trim().toLowerCase()
+}
+
+function isCancelled(status: string) {
+  return CANCELLED_STATUSES.includes(normalizeStatus(status))
+}
+
+function isRevenueStatus(status: string) {
+  return REVENUE_STATUSES.includes(normalizeStatus(status))
+}
+
+function isPendingStatus(status: string) {
+  return PENDING_STATUSES.includes(normalizeStatus(status))
+}
+
+function isPreparingStatus(status: string) {
+  return PREPARING_STATUSES.includes(normalizeStatus(status))
+}
+
+function isDoneStatus(status: string) {
+  return DONE_STATUSES.includes(normalizeStatus(status))
+}
+
+function formatBRL(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value || 0)
+}
+
+function formatDateTime(date: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date))
+}
+
+function formatStatus(status: string) {
+  const normalized = normalizeStatus(status)
+
+  if (normalized === "pending" || normalized === "pendente") return "Pendente"
+  if (normalized === "accepted" || normalized === "aceito") return "Aceito"
+  if (normalized === "preparing" || normalized === "em_preparo") return "Em preparo"
+  if (normalized === "waiting" || normalized === "aguardando") return "Aguardando"
+  if (normalized === "ready" || normalized === "pronto") return "Pronto"
+  if (normalized === "out_for_delivery" || normalized === "saiu_para_entrega") {
+    return "Saiu para entrega"
   }
+  if (normalized === "delivered" || normalized === "entregue") return "Entregue"
+  if (
+    normalized === "cancelled" ||
+    normalized === "canceled" ||
+    normalized === "cancelado"
+  ) {
+    return "Cancelado"
+  }
+
+  return status
+}
+
+function getStatusClasses(status: string) {
+  const normalized = normalizeStatus(status)
+
+  if (normalized === "pending" || normalized === "pendente") {
+    return "border-amber-200 bg-amber-50 text-amber-700"
+  }
+
+  if (
+    normalized === "accepted" ||
+    normalized === "aceito" ||
+    normalized === "preparing" ||
+    normalized === "em_preparo" ||
+    normalized === "waiting" ||
+    normalized === "aguardando" ||
+    normalized === "ready" ||
+    normalized === "pronto" ||
+    normalized === "out_for_delivery" ||
+    normalized === "saiu_para_entrega"
+  ) {
+    return "border-blue-200 bg-blue-50 text-blue-700"
+  }
+
+  if (normalized === "delivered" || normalized === "entregue") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700"
+  }
+
+  if (
+    normalized === "cancelled" ||
+    normalized === "canceled" ||
+    normalized === "cancelado"
+  ) {
+    return "border-red-200 bg-red-50 text-red-700"
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700"
+}
+
+function pctChange(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? 100 : 0
+  return Math.round(((current - previous) / previous) * 1000) / 10
+}
+
+function getDayRange(baseDate: Date) {
+  const start = new Date(baseDate)
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(baseDate)
+  end.setHours(23, 59, 59, 999)
+
+  return { start, end }
+}
+
+function isBetween(date: string, start: Date, end: Date) {
+  const value = new Date(date).getTime()
+  return value >= start.getTime() && value <= end.getTime()
+}
+
+function buildMetrics(allOrders: OrderRow[], now = new Date()): DashboardMetrics {
+  const todayRange = getDayRange(now)
+  const yesterdayDate = new Date(now)
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const yesterdayRange = getDayRange(yesterdayDate)
+
+  const ordersToday = allOrders.filter((order) =>
+    isBetween(order.created_at, todayRange.start, todayRange.end)
+  )
+
+  const ordersYesterday = allOrders.filter((order) =>
+    isBetween(order.created_at, yesterdayRange.start, yesterdayRange.end)
+  )
+
+  const faturamentoHoje = ordersToday
+    .filter((order) => isRevenueStatus(order.status))
+    .reduce((acc, order) => acc + Number(order.total || 0), 0)
+
+  const faturamentoOntem = ordersYesterday
+    .filter((order) => isRevenueStatus(order.status))
+    .reduce((acc, order) => acc + Number(order.total || 0), 0)
+
+  const pedidosHoje = ordersToday.length
+  const pedidosOntem = ordersYesterday.length
+
+  const validOrdersHoje = ordersToday.filter((order) => !isCancelled(order.status))
+  const validOrdersOntem = ordersYesterday.filter((order) => !isCancelled(order.status))
+
+  const ticketMedioHoje =
+    validOrdersHoje.length > 0 ? faturamentoHoje / validOrdersHoje.length : 0
+
+  const ticketMedioOntem =
+    validOrdersOntem.length > 0 ? faturamentoOntem / validOrdersOntem.length : 0
+
+  const pendentesAgora = ordersToday.filter((order) =>
+    isPendingStatus(order.status)
+  ).length
+
+  const emPreparoAgora = ordersToday.filter((order) =>
+    isPreparingStatus(order.status)
+  ).length
+
+  const concluidosHoje = ordersToday.filter((order) =>
+    isDoneStatus(order.status)
+  ).length
+
+  const canceladosHoje = ordersToday.filter((order) =>
+    isCancelled(order.status)
+  ).length
+
+  const recentOrders = [...ordersToday]
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    .slice(0, 8)
+
+  return {
+    faturamentoHoje,
+    faturamentoOntem,
+    faturamentoVar: pctChange(faturamentoHoje, faturamentoOntem),
+    pedidosHoje,
+    pedidosOntem,
+    pedidosVar: pctChange(pedidosHoje, pedidosOntem),
+    ticketMedioHoje,
+    ticketMedioOntem,
+    ticketVar: pctChange(ticketMedioHoje, ticketMedioOntem),
+    pendentesAgora,
+    emPreparoAgora,
+    concluidosHoje,
+    canceladosHoje,
+    recentOrders,
+  }
+}
+
+function SkeletonCard() {
+  return <div className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+}
+
+function VariationBadge({ value }: { value: number }) {
+  const isPositive = value > 0
+  const isNeutral = value === 0
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold",
-        isPositive && "bg-emerald-100 text-emerald-700",
-        isNegative && "bg-red-100 text-red-700"
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+        isNeutral && "bg-slate-100 text-slate-600",
+        !isNeutral && isPositive && "bg-emerald-100 text-emerald-700",
+        !isNeutral && !isPositive && "bg-red-100 text-red-700"
       )}
     >
-      {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-      {Math.abs(value)}%
+      {isNeutral ? "0%" : `${isPositive ? "+" : ""}${value}%`}
     </span>
   )
 }
 
-// ── Main Dashboard ──
-
 export default function DashboardContent() {
-  const [mounted, setMounted] = useState(false)
+  const { restaurant, user, isLoading: authLoading } = useAuth()
+
+  const [orders, setOrders] = useState<OrderRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  async function loadDashboard(showRefresh = false) {
+    if (!restaurant?.id) return
+
+    try {
+      if (showRefresh) setRefreshing(true)
+      else setLoading(true)
+
+      setError(null)
+
+      const today = getDayRange(new Date())
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayRange = getDayRange(yesterday)
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, public_order_number, customer_name, status, total, created_at")
+        .eq("restaurant_id", restaurant.id)
+        .gte("created_at", yesterdayRange.start.toISOString())
+        .lte("created_at", today.end.toISOString())
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      setOrders((data || []) as OrderRow[])
+      setLastUpdated(new Date())
+    } catch (err) {
+      console.error("Erro ao carregar dashboard:", err)
+      setError(
+        err instanceof Error ? err.message : "Erro ao carregar dashboard."
+      )
+      setOrders([])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    if (authLoading) return
 
-  // Get all data
-  const status = useMemo(() => getRestaurantStatus(), [])
-  const dayResults = useMemo(() => getDayResults(), [])
-  const operational = useMemo(() => getOperationalCounters(), [])
-  const delivery = useMemo(() => getDeliveryStats(), [])
-  const comparative = useMemo(() => getComparativeData(), [])
-  const featured = useMemo(() => getFeaturedProduct(), [])
-  const alerts = useMemo(() => getSmartAlerts(), [])
+    if (!user) {
+      setOrders([])
+      setLoading(false)
+      setError("Usuário não autenticado.")
+      return
+    }
 
-  // Format time open
-  const timeOpenFormatted = useMemo(() => {
-    const hours = Math.floor(status.timeOpenMinutes / 60)
-    const mins = status.timeOpenMinutes % 60
-    return `${hours}h ${mins}min`
-  }, [status.timeOpenMinutes])
+    if (!restaurant?.id) {
+      setOrders([])
+      setLoading(false)
+      setError("Restaurante não encontrado para este usuário.")
+      return
+    }
 
-  if (!mounted) {
-    return <DashboardSkeleton />
+    void loadDashboard()
+
+    const interval = window.setInterval(() => {
+      void loadDashboard(true)
+    }, 15000)
+
+    const channel = supabase
+      .channel(`dashboard-orders-${restaurant.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `restaurant_id=eq.${restaurant.id}`,
+        },
+        () => {
+          void loadDashboard(true)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      window.clearInterval(interval)
+      void supabase.removeChannel(channel)
+    }
+  }, [authLoading, restaurant?.id, user?.id])
+
+  const metrics = useMemo(() => buildMetrics(orders), [orders])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="h-24 animate-pulse rounded-3xl bg-white" />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="h-96 animate-pulse rounded-3xl bg-white" />
+            <div className="h-96 animate-pulse rounded-3xl bg-white" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="p-6 space-y-5">
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                <TimerReset className="h-3.5 w-3.5" />
+                Operação em tempo real
+              </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            1. STATUS BAR - Live operational status
-        ══════════════════════════════════════════════════════════════════ */}
-        <div
-          className={cn(
-            "rounded-xl border p-4",
-            status.isOpen
-              ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-100/50"
-              : "border-red-200 bg-gradient-to-r from-red-50 to-red-100/50"
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                Painel do dia
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Dados reais do restaurante com atualização automática.
+              </p>
+            </div>
+
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600">
+                Última atualização:{" "}
+                <span className="font-semibold text-slate-900">
+                  {lastUpdated
+                    ? new Intl.DateTimeFormat("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      }).format(lastUpdated)
+                    : "—"}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => loadDashboard(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {refreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCcw className="h-4 w-4" />
+                )}
+                Atualizar
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              {error}
+            </div>
           )}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Left: Status */}
-            <div className="flex items-center gap-4">
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <VariationBadge value={metrics.faturamentoVar} />
+            </div>
+            <p className="mt-4 text-sm text-slate-500">Faturamento hoje</p>
+            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+              {formatBRL(metrics.faturamentoHoje)}
+            </h3>
+            <p className="mt-2 text-xs text-slate-400">
+              Ontem: {formatBRL(metrics.faturamentoOntem)}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                <ShoppingCart className="h-5 w-5" />
+              </div>
+              <VariationBadge value={metrics.pedidosVar} />
+            </div>
+            <p className="mt-4 text-sm text-slate-500">Pedidos hoje</p>
+            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+              {metrics.pedidosHoje}
+            </h3>
+            <p className="mt-2 text-xs text-slate-400">
+              Ontem: {metrics.pedidosOntem}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+                <Receipt className="h-5 w-5" />
+              </div>
+              <VariationBadge value={metrics.ticketVar} />
+            </div>
+            <p className="mt-4 text-sm text-slate-500">Ticket médio</p>
+            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+              {formatBRL(metrics.ticketMedioHoje)}
+            </h3>
+            <p className="mt-2 text-xs text-slate-400">
+              Ontem: {formatBRL(metrics.ticketMedioOntem)}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+                <XCircle className="h-5 w-5" />
+              </div>
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                Hoje
+              </span>
+            </div>
+            <p className="mt-4 text-sm text-slate-500">Cancelados</p>
+            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+              {metrics.canceladosHoje}
+            </h3>
+            <p className="mt-2 text-xs text-slate-400">
+              Pedidos cancelados no dia
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Fila operacional
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Situação atual da operação
+                </p>
+              </div>
+
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                <Clock3 className="h-3.5 w-3.5" />
+                Atualiza em tempo real
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-medium text-amber-700">Pendentes</p>
+                <h3 className="mt-2 text-3xl font-bold text-amber-900">
+                  {metrics.pendentesAgora}
+                </h3>
+              </div>
+
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                <p className="text-sm font-medium text-blue-700">Em preparo</p>
+                <h3 className="mt-2 text-3xl font-bold text-blue-900">
+                  {metrics.emPreparoAgora}
+                </h3>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <p className="text-sm font-medium text-emerald-700">
+                  Concluídos hoje
+                </p>
+                <h3 className="mt-2 text-3xl font-bold text-emerald-900">
+                  {metrics.concluidosHoje}
+                </h3>
+              </div>
+
               <div
                 className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-xl",
-                  status.isOpen ? "bg-emerald-500" : "bg-red-500"
+                  "rounded-2xl border p-4",
+                  metrics.canceladosHoje > 0
+                    ? "border-rose-200 bg-rose-50"
+                    : "border-slate-200 bg-slate-50"
                 )}
               >
-                <Clock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span
+                <div className="flex items-center justify-between">
+                  <p
                     className={cn(
-                      "text-lg font-bold",
-                      status.isOpen ? "text-emerald-700" : "text-red-700"
+                      "text-sm font-medium",
+                      metrics.canceladosHoje > 0
+                        ? "text-rose-700"
+                        : "text-slate-600"
                     )}
                   >
-                    {status.isOpen ? "Restaurante Aberto" : "Restaurante Fechado"}
-                  </span>
-                  <span
-                    className={cn(
-                      "h-2.5 w-2.5 rounded-full animate-pulse",
-                      status.isOpen ? "bg-emerald-500" : "bg-red-500"
-                    )}
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {status.isOpen ? (
-                    <>
-                      Aberto ha <span className="font-semibold text-foreground">{timeOpenFormatted}</span>
-                      {" "} | Fecha as {status.closeTime}
-                    </>
-                  ) : (
-                    <>Ultimo expediente: {formatBRL(status.lastSessionRevenue || 0)} em {status.lastSessionOrders || 0} pedidos</>
-                  )}
-                </p>
-              </div>
-            </div>
+                    Cancelados
+                  </p>
 
-            {/* Right: Quick stats */}
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-foreground tabular-nums">{status.ordersInProgress}</p>
-                <p className="text-xs text-muted-foreground">Em andamento</p>
-              </div>
-              <div className="h-10 w-px bg-border" />
-              <div className="text-center">
-                <p
+                  {metrics.canceladosHoje > 0 && (
+                    <AlertTriangle className="h-4 w-4 text-rose-500" />
+                  )}
+                </div>
+
+                <h3
                   className={cn(
-                    "text-2xl font-bold tabular-nums",
-                    status.ordersLate > 0 ? "text-red-600" : "text-foreground"
+                    "mt-2 text-3xl font-bold",
+                    metrics.canceladosHoje > 0
+                      ? "text-rose-900"
+                      : "text-slate-900"
                   )}
                 >
-                  {status.ordersLate}
+                  {metrics.canceladosHoje}
+                </h3>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5">
+              <h2 className="text-lg font-bold text-slate-900">
+                Últimos pedidos
+              </h2>
+              <p className="text-sm text-slate-500">
+                Entradas mais recentes do dia
+              </p>
+            </div>
+
+            {metrics.recentOrders.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+                <p className="text-sm font-medium text-slate-700">
+                  Nenhum pedido hoje
                 </p>
-                <p className="text-xs text-muted-foreground">Atrasados</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            2. MAIN KPI CARDS - Day results
-        ══════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {/* Faturamento Bruto */}
-          <div className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100">
-                <DollarSign className="h-5 w-5 text-emerald-600" />
-              </div>
-              <VariationBadge value={dayResults.faturamentoVar} />
-            </div>
-            <p className="mt-4 text-2xl font-bold text-foreground tabular-nums">
-              {formatBRL(dayResults.faturamentoBruto)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Faturamento bruto do dia
-            </p>
-          </div>
-
-          {/* Total Pedidos */}
-          <div className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100">
-                <ShoppingCart className="h-5 w-5 text-blue-600" />
-              </div>
-              <VariationBadge value={dayResults.pedidosVar} />
-            </div>
-            <p className="mt-4 text-2xl font-bold text-foreground tabular-nums">
-              {dayResults.totalPedidos}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Total de pedidos
-            </p>
-          </div>
-
-          {/* Ticket Medio */}
-          <div className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100">
-                <Receipt className="h-5 w-5 text-violet-600" />
-              </div>
-              <VariationBadge value={dayResults.ticketVar} />
-            </div>
-            <p className="mt-4 text-2xl font-bold text-foreground tabular-nums">
-              {formatBRL(dayResults.ticketMedio)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Ticket medio
-            </p>
-          </div>
-
-          {/* Lucro Estimado */}
-          <div className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100">
-                <TrendingUp className="h-5 w-5 text-amber-600" />
-              </div>
-              <VariationBadge value={dayResults.lucroVar} />
-            </div>
-            <p className="mt-4 text-2xl font-bold text-foreground tabular-nums">
-              {formatBRL(dayResults.lucroEstimado)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Lucro estimado
-            </p>
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            3-4-5. OPERATIONAL + DELIVERIES + COMPARATIVE
-        ══════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-
-          {/* 3. Operational Block */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <ChefHat className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-sm font-semibold text-foreground">Operacional</h3>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-center">
-                <p className="text-xl font-bold text-amber-700 tabular-nums">{operational.pendentes}</p>
-                <p className="text-[10px] font-medium text-amber-600 uppercase">Pendentes</p>
-              </div>
-              <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-center">
-                <p className="text-xl font-bold text-blue-700 tabular-nums">{operational.emPreparo}</p>
-                <p className="text-[10px] font-medium text-blue-600 uppercase">Preparo</p>
-              </div>
-              <div className="rounded-lg bg-violet-50 border border-violet-100 p-3 text-center">
-                <p className="text-xl font-bold text-violet-700 tabular-nums">{operational.saiuParaEntrega}</p>
-                <p className="text-[10px] font-medium text-violet-600 uppercase">Entrega</p>
-              </div>
-              <div
-                className={cn(
-                  "rounded-lg border p-3 text-center",
-                  operational.atrasados > 0
-                    ? "bg-red-50 border-red-200"
-                    : "bg-muted/50 border-border"
-                )}
-              >
-                <p
-                  className={cn(
-                    "text-xl font-bold tabular-nums",
-                    operational.atrasados > 0 ? "text-red-600" : "text-muted-foreground"
-                  )}
-                >
-                  {operational.atrasados}
+                <p className="mt-1 text-xs text-slate-500">
+                  Assim que entrarem pedidos, eles aparecem aqui.
                 </p>
-                <p
-                  className={cn(
-                    "text-[10px] font-medium uppercase",
-                    operational.atrasados > 0 ? "text-red-500" : "text-muted-foreground"
-                  )}
-                >
-                  Atrasados
-                </p>
-              </div>
-            </div>
-
-            {/* Prep time */}
-            <div
-              className={cn(
-                "rounded-lg p-3 flex items-center justify-between",
-                operational.isTempoAcimaDaMedia ? "bg-amber-50 border border-amber-100" : "bg-muted/50"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Timer className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Tempo medio preparo</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "text-lg font-bold tabular-nums",
-                    operational.isTempoAcimaDaMedia ? "text-amber-700" : "text-foreground"
-                  )}
-                >
-                  {operational.tempoMedioPreparoHoje}min
-                </span>
-                {operational.isTempoAcimaDaMedia && (
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Deliveries Block */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Truck className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-sm font-semibold text-foreground">Entregas</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total realizadas</span>
-                <span className="text-lg font-bold text-foreground tabular-nums">{delivery.totalEntregasHoje}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Pago a entregadores</span>
-                <span className="text-lg font-bold text-foreground tabular-nums">{formatBRL(delivery.valorTotalPagoEntregadores)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Media por entrega</span>
-                <span className="text-sm font-semibold text-foreground tabular-nums">{formatBRL(delivery.mediaGanhoPorEntrega)}</span>
-              </div>
-
-              <div className="h-px bg-border my-2" />
-
-              {/* Top deliveryman */}
-              <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100">
-                  <Bike className="h-4 w-4 text-emerald-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{delivery.entregadorMaisAtivo.nome}</p>
-                  <p className="text-xs text-muted-foreground">Mais ativo do dia</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-foreground tabular-nums">{delivery.entregadorMaisAtivo.entregas}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase">entregas</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 5. Comparative Block */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-sm font-semibold text-foreground">Hoje vs Ontem</h3>
-              <span className="text-xs text-muted-foreground ml-auto">(mesmo horario)</span>
-            </div>
-
-            <div className="space-y-3">
-              {/* Faturamento */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase">Faturamento</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-bold text-foreground tabular-nums">
-                      {formatBRL(comparative.hojeVsOntem.faturamentoHoje)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      vs {formatBRL(comparative.hojeVsOntem.faturamentoOntem)}
-                    </span>
-                  </div>
-                </div>
-                <VariationBadge value={comparative.hojeVsOntem.faturamentoVar} />
-              </div>
-
-              <div className="h-px bg-border" />
-
-              {/* Pedidos */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase">Pedidos</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-bold text-foreground tabular-nums">
-                      {comparative.hojeVsOntem.pedidosHoje}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      vs {comparative.hojeVsOntem.pedidosOntem}
-                    </span>
-                  </div>
-                </div>
-                <VariationBadge value={comparative.hojeVsOntem.pedidosVar} />
-              </div>
-
-              <div className="h-px bg-border" />
-
-              {/* Ticket */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase">Ticket Medio</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-bold text-foreground tabular-nums">
-                      {formatBRL(comparative.hojeVsOntem.ticketHoje)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      vs {formatBRL(comparative.hojeVsOntem.ticketOntem)}
-                    </span>
-                  </div>
-                </div>
-                <VariationBadge value={comparative.hojeVsOntem.ticketVar} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            6-7. FEATURED PRODUCT + SMART ALERTS
-        ══════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-
-          {/* 6. Featured Product */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Award className="h-5 w-5 text-amber-500" />
-              <h3 className="text-sm font-semibold text-foreground">Produto Destaque do Dia</h3>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 border border-amber-200">
-                <Package className="h-8 w-8 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-lg font-bold text-foreground">{featured.nome}</h4>
-                <div className="mt-2 grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xl font-bold text-foreground tabular-nums">{featured.quantidadeVendida}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">Vendidos</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-foreground tabular-nums">{formatBRL(featured.receitaGerada)}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">Receita</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-foreground tabular-nums">{featured.percentualDoTotal}%</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">Do total</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {featured.sugestao && (
-              <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 p-3">
-                <p className="text-xs text-amber-700">{featured.sugestao}</p>
-              </div>
-            )}
-          </div>
-
-          {/* 7. Smart Alerts */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-sm font-semibold text-foreground">Alertas Inteligentes</h3>
-              {alerts.length > 0 && (
-                <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-600">
-                  {alerts.length}
-                </span>
-              )}
-            </div>
-
-            {alerts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 mb-3">
-                  <TrendingUp className="h-6 w-6 text-emerald-600" />
-                </div>
-                <p className="text-sm font-medium text-foreground">Tudo funcionando bem!</p>
-                <p className="text-xs text-muted-foreground mt-1">Nenhum alerta no momento</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {alerts.map((alert) => {
-                  const iconMap = {
-                    clock: Clock,
-                    "trending-down": TrendingDown,
-                    truck: Truck,
-                    "x-circle": XCircle,
-                    "alert-triangle": AlertTriangle,
-                  }
-                  const Icon = iconMap[alert.icon]
+              <div className="space-y-3">
+                {metrics.recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          #{order.public_order_number} • {order.customer_name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatDateTime(order.created_at)}
+                        </p>
+                      </div>
 
-                  return (
-                    <div
-                      key={alert.id}
-                      className={cn(
-                        "flex items-start gap-3 rounded-lg border p-3",
-                        alert.type === "danger" && "border-red-200 bg-red-50",
-                        alert.type === "warning" && "border-amber-200 bg-amber-50",
-                        alert.type === "info" && "border-blue-200 bg-blue-50"
-                      )}
-                    >
-                      <div
+                      <span
                         className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
-                          alert.type === "danger" && "bg-red-100",
-                          alert.type === "warning" && "bg-amber-100",
-                          alert.type === "info" && "bg-blue-100"
+                          "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                          getStatusClasses(order.status)
                         )}
                       >
-                        <Icon
-                          className={cn(
-                            "h-4 w-4",
-                            alert.type === "danger" && "text-red-600",
-                            alert.type === "warning" && "text-amber-600",
-                            alert.type === "info" && "text-blue-600"
-                          )}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <p
-                          className={cn(
-                            "text-sm font-semibold",
-                            alert.type === "danger" && "text-red-700",
-                            alert.type === "warning" && "text-amber-700",
-                            alert.type === "info" && "text-blue-700"
-                          )}
-                        >
-                          {alert.title}
-                        </p>
-                        <p
-                          className={cn(
-                            "text-xs mt-0.5",
-                            alert.type === "danger" && "text-red-600",
-                            alert.type === "warning" && "text-amber-600",
-                            alert.type === "info" && "text-blue-600"
-                          )}
-                        >
-                          {alert.description}
-                        </p>
-                      </div>
+                        {formatStatus(order.status)}
+                      </span>
                     </div>
-                  )
-                })}
+
+                    <div className="mt-3 flex items-center justify-between">
+                      <p className="text-xs text-slate-500">Total</p>
+                      <p className="text-sm font-bold text-slate-900">
+                        {formatBRL(Number(order.total || 0))}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
-
       </div>
     </div>
   )

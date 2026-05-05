@@ -1,14 +1,101 @@
+// lib/sales-data.ts
 // ── Sales Report deep analytics data generator ──
 // Deterministic data based on period, reuses existing mock sources
 
 import { initialProducts, initialCategories } from "@/lib/products-data"
 import { MOCK_CLIENTS } from "@/lib/clients-data"
-import { initialCoupons, initialExclusiveCoupons, ticketComparison } from "@/lib/coupons-data"
+import {
+  initialCoupons,
+  initialExclusiveCoupons,
+  ticketComparison,
+} from "@/lib/coupons-data"
 
 export type SalesPeriodKey = "30" | "90" | "120" | "custom"
 
 export function formatBRL(value: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number.isFinite(value) ? value : 0)
+}
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+
+function safeNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+function round2(value: number): number {
+  return Math.round(safeNumber(value) * 100) / 100
+}
+
+function round1(value: number): number {
+  return Math.round(safeNumber(value) * 10) / 10
+}
+
+function sumBy<T>(items: T[], selector: (item: T) => number): number {
+  return items.reduce((sum, item) => sum + safeNumber(selector(item)), 0)
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0
+  return sumBy(values, (v) => v) / values.length
+}
+
+function safeDivide(numerator: number, denominator: number): number {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
+    return 0
+  }
+  return numerator / denominator
+}
+
+function pct(current: number, previous: number): number {
+  if (!Number.isFinite(previous) || previous === 0) return 0
+  return round1(((current - previous) / previous) * 100)
+}
+
+function getPeriodMultiplier(period: SalesPeriodKey): number {
+  switch (period) {
+    case "30":
+      return 1
+    case "90":
+      return 2.8
+    case "120":
+      return 3.8
+    case "custom":
+    default:
+      return 1
+  }
+}
+
+function getComboMultiplier(period: SalesPeriodKey): number {
+  switch (period) {
+    case "30":
+      return 1
+    case "90":
+      return 1.4
+    case "120":
+      return 1.6
+    case "custom":
+    default:
+      return 1
+  }
+}
+
+function getStablePeriodSeed(period: SalesPeriodKey): number {
+  switch (period) {
+    case "30":
+      return 30
+    case "90":
+      return 90
+    case "120":
+      return 120
+    case "custom":
+    default:
+      return 30
+  }
 }
 
 // ── Daily data generator (same pattern as overview, for consistency) ──
@@ -25,12 +112,14 @@ interface DailyDataPoint {
 }
 
 function generateDailyData(days: number): DailyDataPoint[] {
+  const safeDays = Math.max(0, Math.floor(days))
   const data: DailyDataPoint[] = []
   const baseDate = new Date(2026, 1, 23)
 
-  for (let i = days - 1; i >= 0; i--) {
+  for (let i = safeDays - 1; i >= 0; i--) {
     const date = new Date(baseDate)
     date.setDate(date.getDate() - i)
+
     const dayOfWeek = date.getDay()
     const day = date.getDate().toString().padStart(2, "0")
     const month = (date.getMonth() + 1).toString().padStart(2, "0")
@@ -42,17 +131,19 @@ function generateDailyData(days: number): DailyDataPoint[] {
       dayOfWeek === 1 ? 0.7 :
       1.0
 
-    const seed = (date.getFullYear() * 1000 + (date.getMonth() + 1) * 50 + date.getDate() * 7) % 100
+    const seed =
+      (date.getFullYear() * 1000 + (date.getMonth() + 1) * 50 + date.getDate() * 7) % 100
+
     const noise = 0.8 + (seed / 100) * 0.4
 
-    const basePedidos = Math.round(38 * weekdayMult * noise)
+    const basePedidos = Math.max(1, Math.round(38 * weekdayMult * noise))
     const baseTicket = 42 + (seed % 20) - 10
-    const fat = Math.round(basePedidos * baseTicket)
+    const fat = Math.max(0, Math.round(basePedidos * baseTicket))
 
-    // Hour distribution: restaurant pattern 11h-23h
     const hourRevenue: number[] = []
     const hourWeights = [3, 5, 4, 2, 1, 1, 2, 8, 14, 18, 12, 6, 2] // 11h to 23h
     const totalW = hourWeights.reduce((s, w) => s + w, 0)
+
     hourWeights.forEach((w) => {
       hourRevenue.push(Math.round((w / totalW) * fat))
     })
@@ -62,12 +153,13 @@ function generateDailyData(days: number): DailyDataPoint[] {
       dateISO: date.toISOString().split("T")[0],
       faturamento: fat,
       pedidos: basePedidos,
-      ticketMedio: Math.round((fat / basePedidos) * 100) / 100,
+      ticketMedio: round2(safeDivide(fat, basePedidos)),
       dayOfWeek,
       dayOfMonth: date.getDate(),
       hour: hourRevenue,
     })
   }
+
   return data
 }
 
@@ -75,16 +167,15 @@ const d30 = generateDailyData(30)
 const d90 = generateDailyData(90)
 const d120 = generateDailyData(120)
 
-const dataMap: Record<string, DailyDataPoint[]> = {
+const dataMap: Record<SalesPeriodKey, DailyDataPoint[]> = {
   "30": d30,
   "90": d90,
   "120": d120,
   custom: d30,
 }
 
-function pct(current: number, previous: number): number {
-  if (previous === 0) return 0
-  return Math.round(((current - previous) / previous) * 1000) / 10
+function getPeriodData(period: SalesPeriodKey): DailyDataPoint[] {
+  return dataMap[period] ?? d30
 }
 
 // ── 1. Faturamento Detalhado ──
@@ -111,31 +202,28 @@ export interface SalesKPIs {
 }
 
 export function getSalesKPIs(period: SalesPeriodKey): SalesKPIs {
-  const data = dataMap[period] || d30
+  const data = getPeriodData(period)
   const days = data.length
 
-  const receitaBruta = data.reduce((s, d) => s + d.faturamento, 0)
-  const totalPedidos = data.reduce((s, d) => s + d.pedidos, 0)
-  const ticketMedio = totalPedidos > 0 ? receitaBruta / totalPedidos : 0
+  const receitaBruta = sumBy(data, (d) => d.faturamento)
+  const totalPedidos = sumBy(data, (d) => d.pedidos)
+  const ticketMedio = safeDivide(receitaBruta, totalPedidos)
 
-  // Discounts ~8-12% of revenue
   const discountRate = 0.08 + (days % 3) * 0.02
   const totalDescontos = Math.round(receitaBruta * discountRate)
   const receitaLiquida = receitaBruta - totalDescontos
 
-  // Cancel rate ~4.5%
   const cancelRate = 0.045 + (days % 4) * 0.003
   const cancelados = Math.round(totalPedidos * cancelRate)
   const valorPerdido = Math.round(cancelados * ticketMedio)
 
-  // Previous period
   const prevMult = 0.88 + (days % 5) * 0.02
   const receitaBrutaPrev = Math.round(receitaBruta * prevMult)
   const totalPedidosPrev = Math.round(totalPedidos * (prevMult + 0.02))
-  const ticketMedioPrev = totalPedidosPrev > 0 ? receitaBrutaPrev / totalPedidosPrev : 0
-  const totalDescontosPrev = Math.round(receitaBrutaPrev * (discountRate - 0.01))
+  const ticketMedioPrev = safeDivide(receitaBrutaPrev, totalPedidosPrev)
+  const totalDescontosPrev = Math.round(receitaBrutaPrev * Math.max(0, discountRate - 0.01))
   const receitaLiquidaPrev = receitaBrutaPrev - totalDescontosPrev
-  const canceladosPrev = Math.round(totalPedidosPrev * (cancelRate - 0.005))
+  const canceladosPrev = Math.round(totalPedidosPrev * Math.max(0, cancelRate - 0.005))
   const valorPerdidoPrev = Math.round(canceladosPrev * ticketMedioPrev)
 
   return {
@@ -151,8 +239,8 @@ export function getSalesKPIs(period: SalesPeriodKey): SalesKPIs {
     totalPedidos,
     totalPedidosPrev,
     totalPedidosVar: pct(totalPedidos, totalPedidosPrev),
-    ticketMedio,
-    ticketMedioPrev,
+    ticketMedio: round2(ticketMedio),
+    ticketMedioPrev: round2(ticketMedioPrev),
     ticketMedioVar: pct(ticketMedio, ticketMedioPrev),
     valorPerdidoCancelamentos: valorPerdido,
     valorPerdidoPrev,
@@ -176,28 +264,49 @@ export interface ProductSalesRow {
 }
 
 export function getProductSales(period: SalesPeriodKey): ProductSalesRow[] {
-  const mult = period === "30" ? 1 : period === "90" ? 2.8 : 3.8
-  const products = initialProducts
-    .filter((p) => p.active && p.salesCount > 0)
+  const mult = getPeriodMultiplier(period)
+
+  const products: ProductSalesRow[] = initialProducts
+    .filter((p) => p.active && safeNumber(p.salesCount) > 0)
     .map((p) => {
-      const qty = Math.round(p.salesCount * mult)
-      const rev = Math.round(qty * p.price * 100) / 100
-      const catName = initialCategories.find((c) => c.id === p.category)?.name || "Outros"
-      return { id: p.id, name: p.name, category: p.category, categoryName: catName, quantity: qty, revenue: rev, ticketMedio: p.price, pctFaturamento: 0, isMostSold: false, isTopRevenue: false }
+      const qty = Math.max(0, Math.round(safeNumber(p.salesCount) * mult))
+      const price = safeNumber(p.price)
+      const rev = round2(qty * price)
+      const catName =
+        initialCategories.find((c) => c.id === p.category)?.name || "Outros"
+
+      return {
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        categoryName: catName,
+        quantity: qty,
+        revenue: rev,
+        ticketMedio: price,
+        pctFaturamento: 0,
+        isMostSold: false,
+        isTopRevenue: false,
+      }
     })
     .sort((a, b) => b.revenue - a.revenue)
 
-  const totalRev = products.reduce((s, p) => s + p.revenue, 0)
+  const totalRev = sumBy(products, (p) => p.revenue)
+
   products.forEach((p) => {
-    p.pctFaturamento = totalRev > 0 ? Math.round((p.revenue / totalRev) * 1000) / 10 : 0
+    p.pctFaturamento = totalRev > 0 ? round1((p.revenue / totalRev) * 100) : 0
   })
 
-  // Mark highlights
+  if (products.length === 0) {
+    return []
+  }
+
   const maxQty = Math.max(...products.map((p) => p.quantity))
+
   products.forEach((p) => {
     if (p.quantity === maxQty) p.isMostSold = true
   })
-  if (products.length > 0) products[0].isTopRevenue = true
+
+  products[0].isTopRevenue = true
 
   return products
 }
@@ -214,25 +323,44 @@ export interface HourlyBucket {
   isWeakest: boolean
 }
 
-export function getHourlySales(period: SalesPeriodKey): { buckets: HourlyBucket[]; insight: string } {
-  const data = dataMap[period] || d30
+export function getHourlySales(
+  period: SalesPeriodKey
+): { buckets: HourlyBucket[]; insight: string } {
+  const data = getPeriodData(period)
   const hourLabels = ["11h", "12h", "13h", "14h", "15h", "16h", "17h", "18h", "19h", "20h", "21h", "22h", "23h"]
 
   const totalByHour = hourLabels.map(() => ({ revenue: 0, orders: 0 }))
+
   data.forEach((d) => {
     d.hour.forEach((rev, idx) => {
-      totalByHour[idx].revenue += rev
-      totalByHour[idx].orders += Math.max(1, Math.round(d.pedidos * (d.hour[idx] / Math.max(1, d.faturamento))))
+      if (!totalByHour[idx]) return
+
+      totalByHour[idx].revenue += safeNumber(rev)
+
+      const proportionalOrders = Math.round(
+        safeNumber(d.pedidos) * safeDivide(safeNumber(d.hour[idx]), Math.max(1, safeNumber(d.faturamento)))
+      )
+
+      totalByHour[idx].orders += Math.max(0, proportionalOrders)
     })
   })
 
-  const totalRev = totalByHour.reduce((s, h) => s + h.revenue, 0)
-  const maxRev = Math.max(...totalByHour.map((h) => h.revenue))
-  const minRev = Math.min(...totalByHour.map((h) => h.revenue))
+  const totalRev = sumBy(totalByHour, (h) => h.revenue)
+
+  if (totalByHour.length === 0) {
+    return {
+      buckets: [],
+      insight: "Ainda nao ha dados suficientes por horario.",
+    }
+  }
+
+  const revenues = totalByHour.map((h) => h.revenue)
+  const maxRev = Math.max(...revenues)
+  const minRev = Math.min(...revenues)
+
   const peakIdx = totalByHour.findIndex((h) => h.revenue === maxRev)
   const weakIdx = totalByHour.findIndex((h) => h.revenue === minRev)
 
-  // Compute % in peak window 18h-22h (indices 7-10)
   const peakWindowRev = totalByHour.slice(7, 11).reduce((s, h) => s + h.revenue, 0)
   const peakWindowPct = totalRev > 0 ? Math.round((peakWindowRev / totalRev) * 100) : 0
 
@@ -241,14 +369,17 @@ export function getHourlySales(period: SalesPeriodKey): { buckets: HourlyBucket[
     hourLabel: label,
     revenue: totalByHour[idx].revenue,
     orders: totalByHour[idx].orders,
-    pctTotal: totalRev > 0 ? Math.round((totalByHour[idx].revenue / totalRev) * 1000) / 10 : 0,
+    pctTotal: totalRev > 0 ? round1((totalByHour[idx].revenue / totalRev) * 100) : 0,
     isPeak: idx === peakIdx,
     isWeakest: idx === weakIdx,
   }))
 
+  const peakLabel = peakIdx >= 0 ? hourLabels[peakIdx] : "—"
+  const weakLabel = weakIdx >= 0 ? hourLabels[weakIdx] : "—"
+
   return {
     buckets,
-    insight: `${peakWindowPct}% das vendas acontecem entre 18h e 22h. Pico de vendas as ${hourLabels[peakIdx]} e horario mais fraco as ${hourLabels[weakIdx]}.`,
+    insight: `${peakWindowPct}% das vendas acontecem entre 18h e 22h. Pico de vendas as ${peakLabel} e horario mais fraco as ${weakLabel}.`,
   }
 }
 
@@ -263,11 +394,23 @@ export interface DailyRow {
   isWorst: boolean
 }
 
-export function getDailySales(period: SalesPeriodKey): { days: DailyRow[]; avgDaily: number; bestDay: DailyRow; worstDay: DailyRow } {
-  const data = dataMap[period] || d30
+export function getDailySales(
+  period: SalesPeriodKey
+): { days: DailyRow[]; avgDaily: number; bestDay: DailyRow | null; worstDay: DailyRow | null } {
+  const data = getPeriodData(period)
+
+  if (data.length === 0) {
+    return {
+      days: [],
+      avgDaily: 0,
+      bestDay: null,
+      worstDay: null,
+    }
+  }
+
   const maxRev = Math.max(...data.map((d) => d.faturamento))
   const minRev = Math.min(...data.map((d) => d.faturamento))
-  const avgDaily = data.reduce((s, d) => s + d.faturamento, 0) / data.length
+  const avgDaily = safeDivide(sumBy(data, (d) => d.faturamento), data.length)
 
   const days: DailyRow[] = data.map((d) => ({
     date: d.date,
@@ -278,8 +421,8 @@ export function getDailySales(period: SalesPeriodKey): { days: DailyRow[]; avgDa
     isWorst: d.faturamento === minRev,
   }))
 
-  const bestDay = days.find((d) => d.isBest) || days[0]
-  const worstDay = days.find((d) => d.isWorst) || days[0]
+  const bestDay = days.find((d) => d.isBest) ?? null
+  const worstDay = days.find((d) => d.isWorst) ?? null
 
   return { days, avgDaily: Math.round(avgDaily), bestDay, worstDay }
 }
@@ -294,17 +437,19 @@ export interface ClientTypeGroup {
   pctFaturamento: number
 }
 
-export function getClientTypeSales(period: SalesPeriodKey): { groups: ClientTypeGroup[]; insight: string } {
-  const mult = period === "30" ? 1 : period === "90" ? 2.8 : 3.8
+export function getClientTypeSales(
+  period: SalesPeriodKey
+): { groups: ClientTypeGroup[]; insight: string } {
+  const mult = getPeriodMultiplier(period)
   const activeClients = MOCK_CLIENTS.filter((c) => c.status === "ativo" && !c.isBlocked)
 
   const vipClients = activeClients.filter((c) => c.orders.length >= 6)
   const recurrentClients = activeClients.filter((c) => c.orders.length >= 3 && c.orders.length < 6)
   const newClients = activeClients.filter((c) => c.orders.length < 3)
 
-  const vipRevenue = Math.round(vipClients.reduce((s, c) => s + c.totalSpent, 0) * mult)
-  const recRevenue = Math.round(recurrentClients.reduce((s, c) => s + c.totalSpent, 0) * mult)
-  const newRevenue = Math.round(newClients.reduce((s, c) => s + c.totalSpent, 0) * mult)
+  const vipRevenue = Math.round(sumBy(vipClients, (c) => c.totalSpent) * mult)
+  const recRevenue = Math.round(sumBy(recurrentClients, (c) => c.totalSpent) * mult)
+  const newRevenue = Math.round(sumBy(newClients, (c) => c.totalSpent) * mult)
   const totalRevenue = vipRevenue + recRevenue + newRevenue
 
   const groups: ClientTypeGroup[] = [
@@ -312,35 +457,44 @@ export function getClientTypeSales(period: SalesPeriodKey): { groups: ClientType
       type: "VIP (+6 pedidos)",
       count: vipClients.length,
       revenue: vipRevenue,
-      ticketMedio: vipClients.length > 0 ? Math.round(vipRevenue / (vipClients.length * Math.round(6 * mult))) : 0,
-      pctFaturamento: totalRevenue > 0 ? Math.round((vipRevenue / totalRevenue) * 1000) / 10 : 0,
+      ticketMedio:
+        vipClients.length > 0
+          ? Math.round(safeDivide(vipRevenue, vipClients.length * Math.max(1, Math.round(6 * mult))))
+          : 0,
+      pctFaturamento: totalRevenue > 0 ? round1((vipRevenue / totalRevenue) * 100) : 0,
     },
     {
       type: "Recorrentes (3-5)",
       count: recurrentClients.length,
       revenue: recRevenue,
-      ticketMedio: recurrentClients.length > 0 ? Math.round(recRevenue / (recurrentClients.length * Math.round(3.5 * mult))) : 0,
-      pctFaturamento: totalRevenue > 0 ? Math.round((recRevenue / totalRevenue) * 1000) / 10 : 0,
+      ticketMedio:
+        recurrentClients.length > 0
+          ? Math.round(safeDivide(recRevenue, recurrentClients.length * Math.max(1, Math.round(3.5 * mult))))
+          : 0,
+      pctFaturamento: totalRevenue > 0 ? round1((recRevenue / totalRevenue) * 100) : 0,
     },
     {
       type: "Novos (1-2)",
       count: newClients.length,
       revenue: newRevenue,
-      ticketMedio: newClients.length > 0 ? Math.round(newRevenue / (newClients.length * Math.round(1.5 * mult))) : 0,
-      pctFaturamento: totalRevenue > 0 ? Math.round((newRevenue / totalRevenue) * 1000) / 10 : 0,
+      ticketMedio:
+        newClients.length > 0
+          ? Math.round(safeDivide(newRevenue, newClients.length * Math.max(1, Math.round(1.5 * mult))))
+          : 0,
+      pctFaturamento: totalRevenue > 0 ? round1((newRevenue / totalRevenue) * 100) : 0,
     },
   ]
 
-  // Ticket comparison
-  const recTicket = groups[1].ticketMedio
-  const newTicket = groups[2].ticketMedio
+  const recTicket = groups[1]?.ticketMedio ?? 0
+  const newTicket = groups[2]?.ticketMedio ?? 0
   const ticketDiff = newTicket > 0 ? Math.round(((recTicket - newTicket) / newTicket) * 100) : 0
 
   return {
     groups,
-    insight: ticketDiff > 0
-      ? `Clientes recorrentes tem ticket ${ticketDiff}% maior que novos clientes.`
-      : `Novos clientes estao com ticket medio proximo aos recorrentes.`,
+    insight:
+      ticketDiff > 0
+        ? `Clientes recorrentes tem ticket ${ticketDiff}% maior que novos clientes.`
+        : `Novos clientes estao com ticket medio proximo aos recorrentes.`,
   }
 }
 
@@ -358,23 +512,79 @@ export interface CouponSalesImpact {
 
 export function getCouponSalesImpact(period: SalesPeriodKey): CouponSalesImpact {
   const allCoupons = [...initialCoupons]
-  const totalRevenue = allCoupons.reduce((s, c) => s + c.revenueGenerated, 0)
-  const exclusiveRevenue = initialExclusiveCoupons.reduce((s, c) => s + c.revenueGenerated, 0)
-  const bestCoupon = allCoupons.reduce((best, c) => (c.usedCount > (best?.usedCount || 0) ? c : best), allCoupons[0])
-
-  const mult = period === "30" ? 1 : period === "90" ? 2.8 : 3.8
-  const totalDescontos = Math.round((totalRevenue + exclusiveRevenue) * 0.18 * mult)
+  const exclusiveCoupons = [...initialExclusiveCoupons]
+  const mult = getPeriodMultiplier(period)
   const kpis = getSalesKPIs(period)
-  const discountPct = kpis.receitaBruta > 0 ? (totalDescontos / kpis.receitaBruta) * 100 : 0
+
+  const totalUsedCoupons = sumBy(allCoupons, (c) => safeNumber(c.usedCount))
+
+  const totalUsedExclusiveCoupons = exclusiveCoupons.reduce((sum, coupon) => {
+    return sum + (coupon.usedAt ? 1 : 0)
+  }, 0)
+
+  const totalCouponUses = totalUsedCoupons + totalUsedExclusiveCoupons
+
+  const pctPedidosComCupom =
+    kpis.totalPedidos > 0
+      ? round1((totalCouponUses / kpis.totalPedidos) * 100)
+      : 0
+
+  const receitaComCupom = Math.round(totalCouponUses * kpis.ticketMedio)
+
+  const totalDescontosBase = sumBy(allCoupons, (c) => {
+    const usedCount = safeNumber(c.usedCount)
+    const discountValue = safeNumber(c.discountValue)
+    return usedCount * discountValue
+  })
+
+  const totalDescontosExclusive = exclusiveCoupons.reduce((sum, coupon) => {
+    const wasUsed = Boolean(coupon.usedAt)
+    const discountValue = safeNumber(coupon.discountValue)
+    return sum + (wasUsed ? discountValue : 0)
+  }, 0)
+
+  const totalDescontosConcedidos = Math.round(
+    (totalDescontosBase + totalDescontosExclusive) * mult
+  )
+
+  const discountPct =
+    kpis.receitaBruta > 0
+      ? (totalDescontosConcedidos / kpis.receitaBruta) * 100
+      : 0
+
+  const bestCoupon =
+    allCoupons.length > 0
+      ? allCoupons.reduce<(typeof allCoupons)[number] | null>((best, current) => {
+          if (!best) return current
+          return safeNumber(current.usedCount) > safeNumber(best.usedCount)
+            ? current
+            : best
+        }, null)
+      : null
+
+  const averageDiscountPerCouponUse =
+    totalCouponUses > 0
+      ? totalDescontosConcedidos / totalCouponUses
+      : 0
+
+  const computedTicketWithoutCoupon = round2(kpis.ticketMedio)
+  const computedTicketWithCoupon = round2(
+    Math.max(0, kpis.ticketMedio - averageDiscountPerCouponUse)
+  )
+
+  const comparison = ticketComparison(
+    computedTicketWithCoupon,
+    computedTicketWithoutCoupon
+  )
 
   return {
-    pctPedidosComCupom: 34,
-    receitaComCupom: Math.round((totalRevenue + exclusiveRevenue) * mult),
-    ticketComCupom: ticketComparison.withCoupon,
-    ticketSemCupom: ticketComparison.withoutCoupon,
-    totalDescontosConcedidos: totalDescontos,
+    pctPedidosComCupom,
+    receitaComCupom,
+    ticketComCupom: round2(comparison.withCoupon),
+    ticketSemCupom: round2(comparison.withoutCoupon),
+    totalDescontosConcedidos,
     isDiscountHigh: discountPct > 12,
-    cupomMaisUsado: bestCoupon.name,
+    cupomMaisUsado: bestCoupon?.title ?? bestCoupon?.code ?? "Nenhum cupom utilizado",
   }
 }
 
@@ -393,10 +603,14 @@ export function getCancellations(period: SalesPeriodKey): CancellationData {
   const kpis = getSalesKPIs(period)
   const totalCancelados = Math.round(kpis.totalPedidos * 0.047)
   const valorPerdido = kpis.valorPerdidoCancelamentos
-  const pctTotal = kpis.totalPedidos > 0 ? Math.round((totalCancelados / kpis.totalPedidos) * 1000) / 10 : 0
+  const pctTotal =
+    kpis.totalPedidos > 0 ? round1((totalCancelados / kpis.totalPedidos) * 100) : 0
 
   const prevCancelados = Math.round(kpis.totalPedidosPrev * 0.042)
-  const pctPrev = kpis.totalPedidosPrev > 0 ? Math.round((prevCancelados / kpis.totalPedidosPrev) * 1000) / 10 : 0
+  const pctPrev =
+    kpis.totalPedidosPrev > 0
+      ? round1((prevCancelados / kpis.totalPedidosPrev) * 100)
+      : 0
 
   const motivos = [
     { motivo: "Tempo de entrega longo", count: Math.round(totalCancelados * 0.35), pct: 35 },
@@ -418,7 +632,11 @@ export function getCancellations(period: SalesPeriodKey): CancellationData {
 
 // ── Combo Opportunity Suggestions ──
 
-export type ComboType = "frequently_bought" | "strong_weak" | "weak_hour" | "loyal_exclusive"
+export type ComboType =
+  | "frequently_bought"
+  | "strong_weak"
+  | "weak_hour"
+  | "loyal_exclusive"
 
 export interface ComboSuggestion {
   id: string
@@ -427,10 +645,10 @@ export interface ComboSuggestion {
   mainProduct: { id: string; name: string; price: number }
   complementProduct: { id: string; name: string; price: number }
   reason: string
-  recurrence: number // % of orders containing both
-  suggestedDiscount: number // %
-  estimatedTicketIncrease: number // %
-  estimatedMonthlyRevenue: number // R$
+  recurrence: number
+  suggestedDiscount: number
+  estimatedTicketIncrease: number
+  estimatedMonthlyRevenue: number
   hourRange?: string
 }
 
@@ -446,49 +664,57 @@ export function getComboSuggestions(period: SalesPeriodKey): ComboSuggestion[] {
   const hourly = getHourlySales(period)
   const clientTypes = getClientTypeSales(period)
 
-  const mult = period === "30" ? 1 : period === "90" ? 1.4 : 1.6
+  if (products.length === 0) return []
 
-  // Find products by behavior
+  const mult = getComboMultiplier(period)
+  const periodSeed = getStablePeriodSeed(period)
+
   const topSellers = products.filter((p) => p.quantity > 50 * mult).slice(0, 3)
   const lowSales = products.filter((p) => p.quantity < 20 * mult && p.quantity > 0).slice(0, 3)
   const weakHour = hourly.buckets.find((b) => b.isWeakest)
 
-  // VIP ticket comparison
   const vipGroup = clientTypes.groups[0]
   const newGroup = clientTypes.groups[2]
-  const vipTicketDiff = newGroup.ticketMedio > 0
-    ? Math.round(((vipGroup.ticketMedio - newGroup.ticketMedio) / newGroup.ticketMedio) * 100)
-    : 22
+  const vipTicketDiff =
+    (newGroup?.ticketMedio ?? 0) > 0
+      ? Math.round((((vipGroup?.ticketMedio ?? 0) - (newGroup?.ticketMedio ?? 0)) / (newGroup?.ticketMedio ?? 1)) * 100)
+      : 22
 
   const suggestions: ComboSuggestion[] = []
 
-  // 1. Frequently bought together
   if (topSellers.length >= 1) {
     const main = topSellers[0]
-    // Beverage most likely paired
-    const complement = products.find((p) => p.categoryName === "Bebidas" && p.quantity > 30 * mult)
-      || products.find((p) => p.categoryName === "Bebidas")
+    const complement =
+      products.find((p) => p.categoryName === "Bebidas" && p.quantity > 30 * mult) ||
+      products.find((p) => p.categoryName === "Bebidas")
+
     if (complement) {
-      const recurrence = 63 + Math.round((parseInt(period) % 7) * 2)
+      const recurrence = 63 + Math.round((periodSeed % 7) * 2)
+
       suggestions.push({
         id: "combo-1",
         type: "frequently_bought",
         typeBadge: "Frequentemente Comprados Juntos",
         mainProduct: { id: main.id, name: main.name, price: main.ticketMedio },
-        complementProduct: { id: complement.id, name: complement.name, price: complement.ticketMedio },
+        complementProduct: {
+          id: complement.id,
+          name: complement.name,
+          price: complement.ticketMedio,
+        },
         reason: `${recurrence}% dos clientes que compram ${main.name} tambem pedem ${complement.name}. Criar combo com desconto incentiva o upsell natural.`,
         recurrence,
         suggestedDiscount: 8,
         estimatedTicketIncrease: 12,
         estimatedMonthlyRevenue: Math.round(2400 * mult),
-        })
+      })
     }
   }
 
-  // 2. Strong + Weak product
   if (topSellers.length >= 1 && lowSales.length >= 1) {
-    const strong = topSellers.find((p) => p.categoryName === "Acompanhamentos") || topSellers[0]
+    const strong =
+      topSellers.find((p) => p.categoryName === "Acompanhamentos") || topSellers[0]
     const weak = lowSales[0]
+
     suggestions.push({
       id: "combo-2",
       type: "strong_weak",
@@ -503,35 +729,41 @@ export function getComboSuggestions(period: SalesPeriodKey): ComboSuggestion[] {
     })
   }
 
-  // 3. Weak hour combo
   if (weakHour) {
     const main = topSellers[0] || products[0]
-    const dessert = products.find((p) => p.categoryName === "Sobremesas" && p.quantity > 10 * mult)
-      || products.find((p) => p.categoryName === "Sobremesas")
+    const dessert =
+      products.find((p) => p.categoryName === "Sobremesas" && p.quantity > 10 * mult) ||
+      products.find((p) => p.categoryName === "Sobremesas")
+
     if (main && dessert) {
-      const avgRev = hourly.buckets.reduce((s, b) => s + b.revenue, 0) / hourly.buckets.length
+      const avgRev = average(hourly.buckets.map((b) => b.revenue))
       const weakPct = avgRev > 0 ? Math.round(((avgRev - weakHour.revenue) / avgRev) * 100) : 40
+
+      const weakHourNum = Number.parseInt(weakHour.hour.replace("h", ""), 10)
+      const endHour = Number.isFinite(weakHourNum) ? `${weakHourNum + 2}h` : "—"
+
       suggestions.push({
         id: "combo-3",
         type: "weak_hour",
         typeBadge: "Combo para Horario Fraco",
         mainProduct: { id: main.id, name: main.name, price: main.ticketMedio },
         complementProduct: { id: dessert.id, name: dessert.name, price: dessert.ticketMedio },
-        reason: `Entre ${weakHour.hour} e ${parseInt(weakHour.hour) + 2}h o volume e ${weakPct}% menor que a media. Combo promocional neste horario pode recuperar vendas perdidas.`,
+        reason: `Entre ${weakHour.hour} e ${endHour} o volume e ${weakPct}% menor que a media. Combo promocional neste horario pode recuperar vendas perdidas.`,
         recurrence: 0,
         suggestedDiscount: 15,
         estimatedTicketIncrease: 6,
         estimatedMonthlyRevenue: Math.round(1200 * mult),
-        hourRange: `${weakHour.hour} - ${parseInt(weakHour.hour) + 2}h`,
+        hourRange: `${weakHour.hour} - ${endHour}`,
       })
     }
   }
 
-  // 4. Loyal customer exclusive
-  if (topSellers.length >= 2) {
+  if (topSellers.length >= 1) {
     const main = topSellers[0]
-    const side = products.find((p) => p.categoryName === "Acompanhamentos" && p.quantity > 20 * mult)
-      || products.find((p) => p.categoryName === "Acompanhamentos")
+    const side =
+      products.find((p) => p.categoryName === "Acompanhamentos" && p.quantity > 20 * mult) ||
+      products.find((p) => p.categoryName === "Acompanhamentos")
+
     if (main && side) {
       suggestions.push({
         id: "combo-4",
@@ -554,14 +786,15 @@ export function getComboSuggestions(period: SalesPeriodKey): ComboSuggestion[] {
 export function getComboSummary(period: SalesPeriodKey): ComboOpportunitySummary {
   const kpis = getSalesKPIs(period)
   const suggestions = getComboSuggestions(period)
-  const totalEstimated = suggestions.reduce((s, c) => s + c.estimatedMonthlyRevenue, 0)
-  const avgTicketIncrease = suggestions.length > 0
-    ? suggestions.reduce((s, c) => s + c.estimatedTicketIncrease, 0) / suggestions.length
-    : 0
+  const totalEstimated = sumBy(suggestions, (c) => c.estimatedMonthlyRevenue)
+  const avgTicketIncrease =
+    suggestions.length > 0
+      ? safeDivide(sumBy(suggestions, (c) => c.estimatedTicketIncrease), suggestions.length)
+      : 0
 
   return {
-    currentTicket: Math.round(kpis.ticketMedio * 100) / 100,
-    potentialTicket: Math.round(kpis.ticketMedio * (1 + avgTicketIncrease / 100) * 100) / 100,
+    currentTicket: round2(kpis.ticketMedio),
+    potentialTicket: round2(kpis.ticketMedio * (1 + avgTicketIncrease / 100)),
     totalOpportunities: suggestions.length,
     totalEstimatedRevenue: totalEstimated,
   }
@@ -579,16 +812,29 @@ export function getSmartSalesSummary(period: SalesPeriodKey): string[] {
   const insights: string[] = []
 
   if (topProduct) {
-    insights.push(`Seu produto "${topProduct.name}" representa ${topProduct.pctFaturamento}% do faturamento.`)
+    insights.push(
+      `Seu produto "${topProduct.name}" representa ${topProduct.pctFaturamento}% do faturamento.`
+    )
+  } else {
+    insights.push("Ainda nao ha produtos com dados suficientes para analise.")
   }
 
-  insights.push(hourly.insight)
-  insights.push(clientTypes.insight)
+  if (hourly.insight) {
+    insights.push(hourly.insight)
+  }
+
+  if (clientTypes.insight) {
+    insights.push(clientTypes.insight)
+  }
 
   if (cancellations.increased) {
-    insights.push(`Cancelamentos aumentaram de ${cancellations.pctPrev}% para ${cancellations.pctTotal}% neste periodo.`)
+    insights.push(
+      `Cancelamentos aumentaram de ${cancellations.pctPrev}% para ${cancellations.pctTotal}% neste periodo.`
+    )
   } else {
-    insights.push(`Cancelamentos reduziram de ${cancellations.pctPrev}% para ${cancellations.pctTotal}% neste periodo.`)
+    insights.push(
+      `Cancelamentos reduziram de ${cancellations.pctPrev}% para ${cancellations.pctTotal}% neste periodo.`
+    )
   }
 
   return insights
