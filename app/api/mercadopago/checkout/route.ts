@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
 interface CheckoutItem {
   product_id: string
@@ -12,6 +12,8 @@ interface CheckoutRequest {
   customerName: string
   customerPhone: string
   customerAddress?: string
+  neighborhood?: string
+  customerNote?: string | null
   orderType: "delivery" | "pickup"
   deliveryFee?: number
   serviceFee?: number
@@ -25,11 +27,15 @@ interface ProductRow {
   restaurant_id: string
 }
 
-function getRestaurantMercadoPagoToken(_restaurantId: string): string | null {
-  return process.env.MERCADOPAGO_RESTAURANT_ACCESS_TOKEN || null
+interface MercadoPagoConnectionRow {
+  restaurant_id: string
+  access_token: string
+  refresh_token: string | null
+  expires_at: string | null
+  mp_user_id: string | null
 }
 
-function getSupabaseAdmin() {
+function getSupabaseAdmin(): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -45,12 +51,39 @@ function getSupabaseAdmin() {
   })
 }
 
+async function getRestaurantMercadoPagoToken(
+  supabase: SupabaseClient,
+  restaurantId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("mercadopago_connections")
+    .select("restaurant_id, access_token, refresh_token, expires_at, mp_user_id")
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message || "Erro ao buscar conexão do Mercado Pago.")
+  }
+
+  const connection = data as MercadoPagoConnectionRow | null
+
+  if (!connection?.access_token) {
+    return null
+  }
+
+  return connection.access_token
+}
+
 function generatePublicOrderNumber() {
   return `PD-${Date.now().toString().slice(-6)}`
 }
 
 function normalizeCouponCode(code?: string | null) {
   return code?.trim().toUpperCase() || null
+}
+
+function normalizeText(value?: string | null) {
+  return value?.trim() || null
 }
 
 function calculateCouponDiscount({
@@ -73,17 +106,19 @@ export async function POST(request: NextRequest) {
   try {
     const body: CheckoutRequest = await request.json()
 
-const {
-  restaurantId,
-  items,
-  customerName,
-  customerPhone,
-  customerAddress,
-  orderType,
-  deliveryFee = 0,
-  serviceFee = 0,
-  couponCode,
-} = body
+    const {
+      restaurantId,
+      items,
+      customerName,
+      customerPhone,
+      customerAddress,
+      neighborhood,
+      customerNote,
+      orderType,
+      deliveryFee = 0,
+      serviceFee = 0,
+      couponCode,
+    } = body
 
     if (!restaurantId) {
       return NextResponse.json(
@@ -119,6 +154,16 @@ const {
 
     const parsedDeliveryFee = Number(deliveryFee)
     const parsedServiceFee = Number(serviceFee)
+    const normalizedAddress = normalizeText(customerAddress)
+    const normalizedNeighborhood = normalizeText(neighborhood)
+    const normalizedCustomerNote = normalizeText(customerNote)
+
+    if (orderType === "delivery" && !normalizedAddress) {
+      return NextResponse.json(
+        { error: "Endereço é obrigatório para entrega" },
+        { status: 400 }
+      )
+    }
 
     if (Number.isNaN(parsedDeliveryFee) || parsedDeliveryFee < 0) {
       return NextResponse.json(
@@ -141,7 +186,10 @@ const {
 
     if (
       normalizedRequestItems.some(
-        (item) => !item.product_id || !Number.isInteger(item.quantity) || item.quantity <= 0
+        (item) =>
+          !item.product_id ||
+          !Number.isInteger(item.quantity) ||
+          item.quantity <= 0
       )
     ) {
       return NextResponse.json(
@@ -150,7 +198,12 @@ const {
       )
     }
 
-    const mpAccessToken = getRestaurantMercadoPagoToken(restaurantId)
+    const supabase = getSupabaseAdmin()
+
+    const mpAccessToken = await getRestaurantMercadoPagoToken(
+      supabase,
+      restaurantId
+    )
 
     if (!mpAccessToken) {
       return NextResponse.json(
@@ -159,9 +212,9 @@ const {
       )
     }
 
-    const supabase = getSupabaseAdmin()
-
-    const uniqueProductIds = [...new Set(normalizedRequestItems.map((item) => item.product_id))]
+    const uniqueProductIds = [
+      ...new Set(normalizedRequestItems.map((item) => item.product_id)),
+    ]
 
     const { data: products, error: productsError } = await supabase
       .from("products")
@@ -235,7 +288,9 @@ const {
     if (normalizedCouponCode) {
       const { data: coupon, error: couponError } = await supabase
         .from("coupons")
-        .select("id, code, type, value, minimum_order, valid_until, status, usage_limit, used_count")
+        .select(
+          "id, code, type, value, minimum_order, valid_until, status, usage_limit, used_count"
+        )
         .eq("restaurant_id", restaurantId)
         .eq("code", normalizedCouponCode)
         .single()
@@ -269,28 +324,15 @@ const {
         value: Number(coupon.value),
         subtotal,
       })
+
+      resolvedCouponId = coupon.id
+      resolvedCouponCode = coupon.code
     }
 
     const total = Math.max(
       Number((subtotal + parsedServiceFee + parsedDeliveryFee - discount).toFixed(2)),
       0
     )
-
-    if (normalizedCouponCode) {
-      const { data: coupon, error: couponError } = await supabase
-        .from("coupons")
-        .select("id, code")
-        .eq("restaurant_id", restaurantId)
-        .eq("code", normalizedCouponCode)
-        .single()
-
-      if (couponError || !coupon) {
-        return NextResponse.json({ error: "Cupom inválido" }, { status: 400 })
-      }
-
-      resolvedCouponId = coupon.id
-      resolvedCouponCode = coupon.code
-    }
 
     const publicOrderNumber = generatePublicOrderNumber()
 
@@ -309,7 +351,11 @@ const {
         total,
         payment_method: "mercadopago",
         payment_status: "pending",
-        notes: customerAddress || null,
+        notes: normalizedCustomerNote,
+        order_type: orderType,
+        delivery_address: orderType === "delivery" ? normalizedAddress : null,
+        delivery_neighborhood:
+          orderType === "delivery" ? normalizedNeighborhood : null,
         coupon_id: resolvedCouponId,
         coupon_code: resolvedCouponCode,
         coupon_discount: discount,
@@ -383,7 +429,9 @@ const {
         quantity: 1,
         unit_price: -discount,
         currency_id: "BRL",
-        description: resolvedCouponCode ? `Cupom ${resolvedCouponCode}` : "Desconto promocional",
+        description: resolvedCouponCode
+          ? `Cupom ${resolvedCouponCode}`
+          : "Desconto promocional",
       })
     }
 
@@ -394,9 +442,9 @@ const {
         phone: {
           number: customerPhone.replace(/\D/g, ""),
         },
-        address: customerAddress
+        address: normalizedAddress
           ? {
-              street_name: customerAddress,
+              street_name: normalizedAddress,
             }
           : undefined,
       },
@@ -416,7 +464,8 @@ const {
         customer_id: customerId,
         customer_name: customerName,
         customer_phone: customerPhone,
-        customer_address: customerAddress,
+        customer_address: normalizedAddress,
+        customer_neighborhood: normalizedNeighborhood,
         order_type: orderType,
         coupon_id: resolvedCouponId,
         coupon_code: resolvedCouponCode,
@@ -424,14 +473,17 @@ const {
       },
     }
 
-    const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${mpAccessToken}`,
-      },
-      body: JSON.stringify(preference),
-    })
+    const response = await fetch(
+      "https://api.mercadopago.com/checkout/preferences",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${mpAccessToken}`,
+        },
+        body: JSON.stringify(preference),
+      }
+    )
 
     if (!response.ok) {
       const error = await response.text()
@@ -445,17 +497,39 @@ const {
       )
     }
 
-    const data = await response.json()
+   const data = await response.json()
 
-    return NextResponse.json({
-      checkoutUrl: data.init_point,
-      preferenceId: data.id,
-      orderId: order.id,
-    })
+const checkoutUrl =
+  data.init_point ||
+  data.sandbox_init_point ||
+  data?.point_of_interaction?.transaction_data?.ticket_url ||
+  null
+
+if (!checkoutUrl) {
+  console.error("Mercado Pago response sem URL de checkout:", data)
+
+  await supabase.from("orders").delete().eq("id", order.id)
+
+  return NextResponse.json(
+    { error: "Mercado Pago nao retornou uma URL de checkout valida." },
+    { status: 500 }
+  )
+}
+
+return NextResponse.json({
+  checkoutUrl,
+  preferenceId: data.id,
+  orderId: order.id,
+})
   } catch (error) {
     console.error("Checkout error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro interno do servidor" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro interno do servidor",
+      },
       { status: 500 }
     )
   }

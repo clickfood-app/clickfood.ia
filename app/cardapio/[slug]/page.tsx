@@ -942,6 +942,12 @@ function CartSheet({
         : restaurant.deliveryFee
       : 0
   const total = subtotal + serviceFee + deliveryFee - couponDiscount
+  const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
+  const isPixPayment = normalizedPaymentMethod === "pix"
+
+  const primaryButtonLabel = isPixPayment
+  ? "Pagar agora"
+  : "Confirmar pedido"
 
   const formattedCustomerAddress =
     orderType !== "delivery"
@@ -1045,10 +1051,14 @@ function CartSheet({
         }),
       })
 
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error)
+const data = await response.json()
+if (!response.ok) throw new Error(data.error)
 
-      window.location.href = data.checkoutUrl
+if (!data?.checkoutUrl) {
+  throw new Error("Checkout do Mercado Pago nao retornou URL.")
+}
+
+window.location.href = data.checkoutUrl
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao processar pagamento")
       setIsProcessing(false)
@@ -1478,57 +1488,24 @@ function CartSheet({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {hasMercadoPago && (
-                  <button
-                    onClick={() => void processOnlinePayment()}
-                    disabled={isProcessing}
-                    className="flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
-                    style={{
-                      backgroundColor: accentColor,
-                      boxShadow: `0 14px 28px -12px ${accentColor}`,
-                    }}
-                  >
-                    {isProcessing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CreditCard className="h-4 w-4" />
-                    )}
-                    {isProcessing ? "..." : "Pagar pelo Site"}
-                  </button>
-                )}
-
-                <button
-                  onClick={() => void sendWhatsAppOrder()}
-                  disabled={isProcessing}
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold transition-all active:scale-[0.98]",
-                    hasMercadoPago
-                      ? "bg-green-500 text-white shadow-lg shadow-green-500/25 hover:bg-green-600"
-                      : "col-span-2 text-white shadow-lg hover:opacity-95",
-                    isProcessing && "opacity-60"
-                  )}
-                  style={
-                    !hasMercadoPago
-                      ? {
-                          backgroundColor: accentColor,
-                          boxShadow: `0 14px 28px -12px ${accentColor}`,
-                        }
-                      : undefined
-                  }
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <MessageCircle className="h-4 w-4" />
-                  )}
-                  {isProcessing
-                    ? "Criando pedido..."
-                    : hasMercadoPago
-                      ? "WhatsApp"
-                      : "Pedir pelo WhatsApp"}
-                </button>
-              </div>
+              <button
+  onClick={isPixPayment ? processOnlinePayment : sendWhatsAppOrder}
+  disabled={isProcessing}
+  className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+  style={{
+    backgroundColor: accentColor,
+    boxShadow: `0 14px 28px -12px ${accentColor}`,
+  }}
+>
+  {isProcessing && isPixPayment ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : isPixPayment ? (
+    <CreditCard className="h-4 w-4" />
+  ) : (
+    <Check className="h-4 w-4" />
+  )}
+  {isProcessing && isPixPayment ? "Processando..." : primaryButtonLabel}
+</button>
             </div>
           </>
         )}
