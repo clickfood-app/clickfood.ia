@@ -8,23 +8,21 @@ interface CheckoutItem {
 
 interface CheckoutRequest {
   restaurantId: string
-  items: CheckoutItem[]
+  orderId: string
+  publicOrderNumber?: string | null
+  items?: CheckoutItem[]
   customerName: string
   customerPhone: string
+  customerEmail: string
+  customerDocument: string
+  customerDocumentType?: string
   customerAddress?: string
-  neighborhood?: string
+  customerNeighborhood?: string | null
   customerNote?: string | null
   orderType: "delivery" | "pickup"
   deliveryFee?: number
   serviceFee?: number
   couponCode?: string | null
-}
-
-interface ProductRow {
-  id: string
-  name: string
-  price: number
-  restaurant_id: string
 }
 
 interface MercadoPagoConnectionRow {
@@ -33,6 +31,22 @@ interface MercadoPagoConnectionRow {
   refresh_token: string | null
   expires_at: string | null
   mp_user_id: string | null
+}
+
+interface OrderRow {
+  id: string
+  public_order_number: string | null
+  total: number | string
+  customer_id: string | null
+  delivery_address: string | null
+  delivery_neighborhood: string | null
+  payment_status: string | null
+  status: string | null
+  coupon_id: string | null
+  coupon_code: string | null
+  coupon_discount: number | string | null
+  delivery_fee: number | string | null
+  mercadopago_payment_id: string | null
 }
 
 function getSupabaseAdmin(): SupabaseClient {
@@ -74,32 +88,28 @@ async function getRestaurantMercadoPagoToken(
   return connection.access_token
 }
 
-function generatePublicOrderNumber() {
-  return `PD-${Date.now().toString().slice(-6)}`
-}
-
-function normalizeCouponCode(code?: string | null) {
-  return code?.trim().toUpperCase() || null
-}
-
 function normalizeText(value?: string | null) {
   return value?.trim() || null
 }
 
-function calculateCouponDiscount({
-  type,
-  value,
-  subtotal,
-}: {
-  type: "percentage" | "fixed"
-  value: number
-  subtotal: number
-}) {
-  if (type === "percentage") {
-    return Number(((subtotal * value) / 100).toFixed(2))
-  }
+function normalizeDocument(value?: string | null) {
+  return value?.replace(/\D/g, "") || ""
+}
 
-  return Math.min(subtotal, value)
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+function splitCustomerName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/)
+  const firstName = parts.shift() || fullName.trim()
+  const lastName = parts.join(" ") || firstName
+
+  return { firstName, lastName }
+}
+
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || "https://clickfood.vercel.app"
 }
 
 export async function POST(request: NextRequest) {
@@ -108,16 +118,16 @@ export async function POST(request: NextRequest) {
 
     const {
       restaurantId,
-      items,
+      orderId,
+      publicOrderNumber,
       customerName,
       customerPhone,
+      customerEmail,
+      customerDocument,
+      customerDocumentType = "CPF",
       customerAddress,
-      neighborhood,
-      customerNote,
+      customerNeighborhood,
       orderType,
-      deliveryFee = 0,
-      serviceFee = 0,
-      couponCode,
     } = body
 
     if (!restaurantId) {
@@ -127,8 +137,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: "Carrinho vazio" }, { status: 400 })
+    if (!orderId) {
+      return NextResponse.json(
+        { error: "Pedido inválido" },
+        { status: 400 }
+      )
     }
 
     if (!customerName?.trim()) {
@@ -145,6 +158,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!customerEmail?.trim() || !isValidEmail(customerEmail.trim())) {
+      return NextResponse.json(
+        { error: "E-mail do cliente é obrigatório" },
+        { status: 400 }
+      )
+    }
+
+    const sanitizedDocument = normalizeDocument(customerDocument)
+
+    if (!sanitizedDocument) {
+      return NextResponse.json(
+        { error: "Documento do cliente é obrigatório" },
+        { status: 400 }
+      )
+    }
+
+    if (customerDocumentType === "CPF" && sanitizedDocument.length !== 11) {
+      return NextResponse.json(
+        { error: "CPF inválido" },
+        { status: 400 }
+      )
+    }
+
+    if (customerDocumentType === "CNPJ" && sanitizedDocument.length !== 14) {
+      return NextResponse.json(
+        { error: "CNPJ inválido" },
+        { status: 400 }
+      )
+    }
+
     if (orderType !== "delivery" && orderType !== "pickup") {
       return NextResponse.json(
         { error: "Tipo de pedido inválido" },
@@ -152,48 +195,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const parsedDeliveryFee = Number(deliveryFee)
-    const parsedServiceFee = Number(serviceFee)
     const normalizedAddress = normalizeText(customerAddress)
-    const normalizedNeighborhood = normalizeText(neighborhood)
-    const normalizedCustomerNote = normalizeText(customerNote)
+    const normalizedNeighborhood = normalizeText(customerNeighborhood)
+    const normalizedEmail = customerEmail.trim().toLowerCase()
 
     if (orderType === "delivery" && !normalizedAddress) {
       return NextResponse.json(
         { error: "Endereço é obrigatório para entrega" },
-        { status: 400 }
-      )
-    }
-
-    if (Number.isNaN(parsedDeliveryFee) || parsedDeliveryFee < 0) {
-      return NextResponse.json(
-        { error: "Taxa de entrega inválida" },
-        { status: 400 }
-      )
-    }
-
-    if (Number.isNaN(parsedServiceFee) || parsedServiceFee < 0) {
-      return NextResponse.json(
-        { error: "Taxa de serviço inválida" },
-        { status: 400 }
-      )
-    }
-
-    const normalizedRequestItems = items.map((item) => ({
-      product_id: String(item.product_id || "").trim(),
-      quantity: Number(item.quantity ?? 0),
-    }))
-
-    if (
-      normalizedRequestItems.some(
-        (item) =>
-          !item.product_id ||
-          !Number.isInteger(item.quantity) ||
-          item.quantity <= 0
-      )
-    ) {
-      return NextResponse.json(
-        { error: "Itens do pedido inválidos" },
         { status: 400 }
       )
     }
@@ -212,317 +220,185 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const uniqueProductIds = [
-      ...new Set(normalizedRequestItems.map((item) => item.product_id)),
-    ]
-
-    const { data: products, error: productsError } = await supabase
-      .from("products")
-      .select("id, name, price, restaurant_id")
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        public_order_number,
+        total,
+        customer_id,
+        delivery_address,
+        delivery_neighborhood,
+        payment_status,
+        status,
+        coupon_id,
+        coupon_code,
+        coupon_discount,
+        delivery_fee,
+        mercadopago_payment_id
+      `)
+      .eq("id", orderId)
       .eq("restaurant_id", restaurantId)
-      .in("id", uniqueProductIds)
+      .maybeSingle()
 
-    if (productsError) {
-      console.error("Products fetch error:", productsError)
+    if (orderError) {
+      console.error("Order fetch error:", orderError)
       return NextResponse.json(
-        { error: "Erro ao validar produtos do pedido" },
+        { error: "Erro ao buscar pedido" },
         { status: 500 }
       )
     }
 
-    if (!products || products.length !== uniqueProductIds.length) {
+    const order = orderData as OrderRow | null
+
+    if (!order) {
       return NextResponse.json(
-        { error: "Um ou mais produtos são inválidos para este restaurante" },
+        { error: "Pedido nao encontrado" },
+        { status: 404 }
+      )
+    }
+
+    if (order.status === "cancelled") {
+      return NextResponse.json(
+        { error: "Este pedido foi cancelado" },
         { status: 400 }
       )
     }
 
-    const productMap = new Map(
-      (products as ProductRow[]).map((product) => [String(product.id), product])
-    )
-
-    const normalizedItems = normalizedRequestItems.map((item) => {
-      const product = productMap.get(item.product_id)
-
-      if (!product) {
-        throw new Error("Produto não encontrado para este restaurante")
-      }
-
-      const unitPrice = Number(product.price ?? 0)
-
-      return {
-        product_id: String(product.id),
-        title: product.name,
-        quantity: item.quantity,
-        unit_price: unitPrice,
-        total_price: Number((unitPrice * item.quantity).toFixed(2)),
-      }
-    })
-
-    const subtotal = Number(
-      normalizedItems
-        .reduce((sum, item) => sum + item.total_price, 0)
-        .toFixed(2)
-    )
-
-    const { data: customerId, error: customerError } = await supabase.rpc(
-      "find_or_create_customer",
-      {
-        p_restaurant_id: restaurantId,
-        p_name: customerName,
-        p_phone: customerPhone,
-        p_email: null,
-      }
-    )
-
-    if (customerError || !customerId) {
-      throw new Error("Erro ao criar/buscar cliente")
-    }
-
-    const normalizedCouponCode = normalizeCouponCode(couponCode)
-
-    let resolvedCouponId: string | null = null
-    let resolvedCouponCode: string | null = null
-    let discount = 0
-
-    if (normalizedCouponCode) {
-      const { data: coupon, error: couponError } = await supabase
-        .from("coupons")
-        .select(
-          "id, code, type, value, minimum_order, valid_until, status, usage_limit, used_count"
-        )
-        .eq("restaurant_id", restaurantId)
-        .eq("code", normalizedCouponCode)
-        .single()
-
-      if (couponError || !coupon) {
-        return NextResponse.json({ error: "Cupom inválido" }, { status: 400 })
-      }
-
-      if (coupon.status !== "active") {
-        return NextResponse.json({ error: "Cupom inativo" }, { status: 400 })
-      }
-
-      const validUntil = new Date(`${coupon.valid_until}T23:59:59`)
-      if (validUntil < new Date()) {
-        return NextResponse.json({ error: "Cupom expirado" }, { status: 400 })
-      }
-
-      if (subtotal < Number(coupon.minimum_order || 0)) {
-        return NextResponse.json(
-          { error: "Pedido mínimo não atingido para este cupom" },
-          { status: 400 }
-        )
-      }
-
-      if (Number(coupon.used_count || 0) >= Number(coupon.usage_limit || 0)) {
-        return NextResponse.json({ error: "Cupom esgotado" }, { status: 400 })
-      }
-
-      discount = calculateCouponDiscount({
-        type: coupon.type as "percentage" | "fixed",
-        value: Number(coupon.value),
-        subtotal,
-      })
-
-      resolvedCouponId = coupon.id
-      resolvedCouponCode = coupon.code
-    }
-
-    const total = Math.max(
-      Number((subtotal + parsedServiceFee + parsedDeliveryFee - discount).toFixed(2)),
-      0
-    )
-
-    const publicOrderNumber = generatePublicOrderNumber()
-
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        restaurant_id: restaurantId,
-        public_order_number: publicOrderNumber,
-        customer_id: customerId,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        status: "pending",
-        subtotal,
-        discount,
-        delivery_fee: parsedDeliveryFee,
-        total,
-        payment_method: "mercadopago",
-        payment_status: "pending",
-        notes: normalizedCustomerNote,
-        order_type: orderType,
-        delivery_address: orderType === "delivery" ? normalizedAddress : null,
-        delivery_neighborhood:
-          orderType === "delivery" ? normalizedNeighborhood : null,
-        coupon_id: resolvedCouponId,
-        coupon_code: resolvedCouponCode,
-        coupon_discount: discount,
-      })
-      .select("id, public_order_number")
-      .single()
-
-    if (orderError || !order) {
-      console.error("Order insert error:", orderError)
+    if (order.payment_status === "approved") {
       return NextResponse.json(
-        { error: "Erro ao salvar pedido" },
-        { status: 500 }
+        { error: "Este pedido ja foi pago" },
+        { status: 400 }
       )
     }
 
-    const orderItemsPayload = normalizedItems.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      product_name: item.title,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      total_price: item.total_price,
-    }))
+    const total = Number(order.total ?? 0)
 
-    const { error: orderItemsError } = await supabase
-      .from("order_items")
-      .insert(orderItemsPayload)
-
-    if (orderItemsError) {
-      console.error("Order items insert error:", orderItemsError)
-
-      await supabase.from("orders").delete().eq("id", order.id)
-
+    if (!Number.isFinite(total) || total <= 0) {
       return NextResponse.json(
-        { error: "Erro ao salvar itens do pedido" },
-        { status: 500 }
+        { error: "Valor do pedido invalido para pagamento Pix" },
+        { status: 400 }
       )
     }
 
-    const preferenceItems = normalizedItems.map((item) => ({
-      title: item.title,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      currency_id: "BRL",
-      description: "",
-    }))
+    const { firstName, lastName } = splitCustomerName(customerName)
+    const notificationUrl = `${getAppUrl()}/api/mercadopago/webhook`
+    const idempotencyKey = `pix-${order.id}`
 
-    if (parsedServiceFee > 0) {
-      preferenceItems.push({
-        title: "Taxa de servico",
-        quantity: 1,
-        unit_price: parsedServiceFee,
-        currency_id: "BRL",
-        description: "Taxa de servico do pedido",
-      })
-    }
-
-    if (orderType === "delivery" && parsedDeliveryFee > 0) {
-      preferenceItems.push({
-        title: "Taxa de entrega",
-        quantity: 1,
-        unit_price: parsedDeliveryFee,
-        currency_id: "BRL",
-        description: "Taxa de entrega",
-      })
-    }
-
-    if (discount > 0) {
-      preferenceItems.push({
-        title: "Desconto aplicado",
-        quantity: 1,
-        unit_price: -discount,
-        currency_id: "BRL",
-        description: resolvedCouponCode
-          ? `Cupom ${resolvedCouponCode}`
-          : "Desconto promocional",
-      })
-    }
-
-    const preference = {
-      items: preferenceItems,
+    const payload = {
+      transaction_amount: Number(total.toFixed(2)),
+      description: `Pedido #${order.public_order_number || publicOrderNumber || order.id}`,
+      payment_method_id: "pix",
       payer: {
-        name: customerName,
-        phone: {
-          number: customerPhone.replace(/\D/g, ""),
+        email: normalizedEmail,
+        first_name: firstName,
+        last_name: lastName,
+        identification: {
+          type: customerDocumentType,
+          number: sanitizedDocument,
         },
-        address: normalizedAddress
-          ? {
-              street_name: normalizedAddress,
-            }
-          : undefined,
       },
-      back_urls: {
-        success: `${process.env.NEXT_PUBLIC_APP_URL || "https://clickfood.vercel.app"}/cardapio/pedido-confirmado`,
-        failure: `${process.env.NEXT_PUBLIC_APP_URL || "https://clickfood.vercel.app"}/cardapio/pedido-falhou`,
-        pending: `${process.env.NEXT_PUBLIC_APP_URL || "https://clickfood.vercel.app"}/cardapio/pedido-pendente`,
-      },
-      auto_return: "approved",
-      statement_descriptor: "CLICKFOOD",
       external_reference: order.id,
-      notification_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://clickfood.vercel.app"}/api/mercadopago/webhook`,
+      notification_url: notificationUrl,
       metadata: {
         order_id: order.id,
-        public_order_number: order.public_order_number,
+        public_order_number: order.public_order_number || publicOrderNumber || null,
         restaurant_id: restaurantId,
-        customer_id: customerId,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        customer_address: normalizedAddress,
-        customer_neighborhood: normalizedNeighborhood,
+        customer_id: order.customer_id ?? null,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        customer_email: normalizedEmail,
+        customer_address: order.delivery_address || normalizedAddress,
+        customer_neighborhood:
+          order.delivery_neighborhood || normalizedNeighborhood,
         order_type: orderType,
-        coupon_id: resolvedCouponId,
-        coupon_code: resolvedCouponCode,
-        coupon_discount: discount,
+        coupon_id: order.coupon_id ?? null,
+        coupon_code: order.coupon_code ?? null,
+        coupon_discount: Number(order.coupon_discount ?? 0),
+        delivery_fee: Number(order.delivery_fee ?? 0),
       },
     }
 
-    const response = await fetch(
-      "https://api.mercadopago.com/checkout/preferences",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${mpAccessToken}`,
-        },
-        body: JSON.stringify(preference),
-      }
-    )
+    const response = await fetch("https://api.mercadopago.com/v1/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${mpAccessToken}`,
+        "X-Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(payload),
+    })
 
     if (!response.ok) {
-      const error = await response.text()
-      console.error("Mercado Pago error:", error)
+      const errorText = await response.text()
+      console.error("Mercado Pago PIX error:", errorText)
 
-      await supabase.from("orders").delete().eq("id", order.id)
+      await supabase
+        .from("orders")
+        .update({
+          payment_method: "pix",
+          payment_status: "failed",
+        })
+        .eq("id", order.id)
 
       return NextResponse.json(
-        { error: "Erro ao criar checkout" },
+        { error: "Erro ao criar pagamento Pix" },
         { status: 500 }
       )
     }
 
-   const data = await response.json()
+    const data = await response.json()
 
-const checkoutUrl =
-  data.init_point ||
-  data.sandbox_init_point ||
-  data?.point_of_interaction?.transaction_data?.ticket_url ||
-  null
+    const transactionData = data?.point_of_interaction?.transaction_data
+    const qrCodeBase64 = transactionData?.qr_code_base64 || null
+    const qrCode = transactionData?.qr_code || null
+    const ticketUrl = transactionData?.ticket_url || null
 
-if (!checkoutUrl) {
-  console.error("Mercado Pago response sem URL de checkout:", data)
+    if (!data?.id) {
+      console.error("Mercado Pago response sem payment id:", data)
 
-  await supabase.from("orders").delete().eq("id", order.id)
+      return NextResponse.json(
+        { error: "Mercado Pago nao retornou um paymentId valido." },
+        { status: 500 }
+      )
+    }
 
-  return NextResponse.json(
-    { error: "Mercado Pago nao retornou uma URL de checkout valida." },
-    { status: 500 }
-  )
-}
+    if (!qrCodeBase64 && !qrCode && !ticketUrl) {
+      console.error("Mercado Pago response sem dados do Pix:", data)
 
-return NextResponse.json({
-  checkoutUrl,
-  preferenceId: data.id,
-  orderId: order.id,
-})
+      return NextResponse.json(
+        { error: "Mercado Pago nao retornou os dados do Pix." },
+        { status: 500 }
+      )
+    }
+
+    const { error: updateOrderError } = await supabase
+      .from("orders")
+      .update({
+        payment_method: "pix",
+        payment_status: "pending",
+        mercadopago_payment_id: String(data.id),
+      })
+      .eq("id", order.id)
+
+    if (updateOrderError) {
+      console.error("Order update error after Pix creation:", updateOrderError)
+    }
+
+    return NextResponse.json({
+      orderId: order.id,
+      publicOrderNumber: order.public_order_number,
+      paymentId: String(data.id),
+      status: data.status || "pending",
+      qrCodeBase64,
+      qrCode,
+      pixCopyPaste: qrCode,
+      ticketUrl,
+      expiresAt: data.date_of_expiration || null,
+    })
   } catch (error) {
     console.error("Checkout error:", error)
+
     return NextResponse.json(
       {
         error:

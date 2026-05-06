@@ -80,6 +80,7 @@ interface PublicRestaurant {
   floatingCartNumberColor?: string | null
 }
 
+
 interface ModifierOption {
   id: string
   name: string
@@ -845,6 +846,17 @@ type NeighborhoodOption = {
   ruleLabel: string
 }
 
+type PixPaymentData = {
+  paymentId: string
+  qrCodeBase64: string | null
+  qrCode: string | null
+  pixCopyPaste: string | null
+  ticketUrl: string | null
+  status: string | null
+  publicOrderNumber: string | null
+  expiresAt: string | null
+}
+
 function CartSheet({
   items,
   open,
@@ -874,6 +886,8 @@ function CartSheet({
   )
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
+  const [customerEmail, setCustomerEmail] = useState("")
+  const [customerDocument, setCustomerDocument] = useState("")
   const [customerAddress, setCustomerAddress] = useState("")
   const [selectedNeighborhoodKey, setSelectedNeighborhoodKey] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
@@ -881,6 +895,8 @@ function CartSheet({
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponDiscount, setCouponDiscount] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [pixPayment, setPixPayment] = useState<PixPaymentData | null>(null)
+  const [pixCopied, setPixCopied] = useState(false)
 
   const deliveryRules = useMemo(() => getActiveDeliveryRules(restaurant), [restaurant])
 
@@ -944,9 +960,12 @@ function CartSheet({
   const total = subtotal + serviceFee + deliveryFee - couponDiscount
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
   const isPixPayment = normalizedPaymentMethod === "pix"
+  const sanitizedCustomerDocument = customerDocument.replace(/\D/g, "")
 
   const primaryButtonLabel = isPixPayment
-  ? "Pagar agora"
+  ? pixPayment
+    ? "Pix gerado"
+    : "Gerar Pix"
   : "Confirmar pedido"
 
   const formattedCustomerAddress =
@@ -956,29 +975,64 @@ function CartSheet({
         ? `${customerAddress.trim()} - Bairro: ${selectedNeighborhoodOption.neighborhood}`
         : customerAddress.trim()
 
-  const validateForm = () => {
-    if (!customerName.trim()) {
-      alert("Informe seu nome")
-      return false
-    }
-
-    if (!customerPhone.trim()) {
-      alert("Informe seu telefone")
-      return false
-    }
-
-    if (orderType === "delivery" && hasNeighborhoodRules && !selectedNeighborhoodOption) {
-      alert("Selecione o bairro de entrega")
-      return false
-    }
-
-    if (orderType === "delivery" && !customerAddress.trim()) {
-      alert("Informe rua, numero e complemento")
-      return false
-    }
-
-    return true
+const validateForm = () => {
+  if (!customerName.trim()) {
+    alert("Informe seu nome")
+    return false
   }
+
+  if (!customerPhone.trim()) {
+    alert("Informe seu telefone")
+    return false
+  }
+
+  if (isPixPayment && !customerEmail.trim()) {
+    alert("Informe seu e-mail para pagar com Pix")
+    return false
+  }
+
+  if (
+    isPixPayment &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())
+  ) {
+    alert("Informe um e-mail válido")
+    return false
+  }
+
+  if (isPixPayment && sanitizedCustomerDocument.length !== 11) {
+    alert("Informe um CPF válido para pagar com Pix")
+    return false
+  }
+
+  if (orderType === "delivery" && hasNeighborhoodRules && !selectedNeighborhoodOption) {
+    alert("Selecione o bairro de entrega")
+    return false
+  }
+
+  if (orderType === "delivery" && !customerAddress.trim()) {
+    alert("Informe rua, numero e complemento")
+    return false
+  }
+
+  return true
+}
+
+const handleCopyPixCode = async () => {
+  const code = pixPayment?.pixCopyPaste || pixPayment?.qrCode || ""
+
+  if (!code) {
+    alert("Nao foi encontrado o codigo Pix para copiar.")
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(code)
+    setPixCopied(true)
+    setTimeout(() => setPixCopied(false), 2000)
+  } catch {
+    alert("Nao foi possivel copiar o codigo Pix.")
+  }
+}
 
   const createPublicOrder = async (paymentMethodLabel: string) => {
     const response = await fetch("/api/public/orders", {
@@ -1019,51 +1073,66 @@ function CartSheet({
   }
 
   const processOnlinePayment = async () => {
-    if (!validateForm()) return
+  if (!validateForm()) return
+  if (pixPayment) return
 
-    setIsProcessing(true)
+  setIsProcessing(true)
 
-    try {
-      const createdOrder = await createPublicOrder("Pix")
+  try {
+    const createdOrder = await createPublicOrder("Pix")
 
-      const response = await fetch("/api/mercadopago/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          couponCode: couponCode || null,
-          restaurantId: restaurant.id,
-          orderId: createdOrder.id,
-          publicOrderNumber: createdOrder.public_order_number,
-          items: items.map((i) => ({
-            product_id: i.product.id,
-            quantity: i.quantity,
-          })),
-          customerName,
-          customerPhone,
-          customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
-          customerNeighborhood:
-            orderType === "delivery" ? selectedNeighborhoodOption?.neighborhood ?? null : null,
-          deliveryFeeRuleId:
-            orderType === "delivery" ? selectedNeighborhoodOption?.ruleId ?? null : null,
-          orderType,
-          deliveryFee,
-          serviceFee,
-        }),
-      })
+    const response = await fetch("/api/mercadopago/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        couponCode: couponCode || null,
+        restaurantId: restaurant.id,
+        orderId: createdOrder.id,
+        publicOrderNumber: createdOrder.public_order_number,
+        items: items.map((i) => ({
+          product_id: i.product.id,
+          quantity: i.quantity,
+        })),
+        customerName,
+        customerPhone,
+        customerEmail: customerEmail.trim(),
+        customerDocument: sanitizedCustomerDocument,
+        customerDocumentType: "CPF",
+        customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
+        customerNeighborhood:
+          orderType === "delivery" ? selectedNeighborhoodOption?.neighborhood ?? null : null,
+        deliveryFeeRuleId:
+          orderType === "delivery" ? selectedNeighborhoodOption?.ruleId ?? null : null,
+        orderType,
+        deliveryFee,
+        serviceFee,
+      }),
+    })
 
-const data = await response.json()
-if (!response.ok) throw new Error(data.error)
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error)
 
-if (!data?.checkoutUrl) {
-  throw new Error("Checkout do Mercado Pago nao retornou URL.")
+    if (!data?.paymentId) {
+      throw new Error("Pagamento Pix nao retornou os dados esperados.")
+    }
+
+    setPixPayment({
+      paymentId: String(data.paymentId),
+      qrCodeBase64: data.qrCodeBase64 ?? null,
+      qrCode: data.qrCode ?? null,
+      pixCopyPaste: data.pixCopyPaste ?? data.qrCode ?? null,
+      ticketUrl: data.ticketUrl ?? null,
+      status: data.status ?? null,
+      publicOrderNumber: data.publicOrderNumber ?? createdOrder.public_order_number ?? null,
+      expiresAt: data.expiresAt ?? null,
+    })
+  } catch (error) {
+    alert(error instanceof Error ? error.message : "Erro ao processar pagamento")
+  } finally {
+    setIsProcessing(false)
+  }
 }
 
-window.location.href = data.checkoutUrl
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao processar pagamento")
-      setIsProcessing(false)
-    }
-  }
 
   const sendWhatsAppOrder = async () => {
     if (!validateForm()) return
@@ -1351,6 +1420,36 @@ window.location.href = data.checkoutUrl
                     className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
                   />
                 </div>
+
+                {isPixPayment && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold uppercase text-gray-500">
+                        E-mail *
+                      </label>
+                      <input
+                        type="email"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        placeholder="seuemail@exemplo.com"
+                        className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold uppercase text-gray-500">
+                        CPF *
+                      </label>
+                      <input
+                        type="text"
+                        value={customerDocument}
+                        onChange={(e) => setCustomerDocument(e.target.value)}
+                        placeholder="000.000.000-00"
+                        className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {orderType === "delivery" && (
@@ -1448,6 +1547,67 @@ window.location.href = data.checkoutUrl
                   ))}
                 </div>
               </div>
+
+              {isPixPayment && pixPayment && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="mb-3">
+                    <p className="text-sm font-bold text-emerald-700">Pix gerado com sucesso</p>
+                    <p className="text-xs text-emerald-600">
+                      Escaneie o QR Code ou copie o codigo abaixo para pagar.
+                    </p>
+                    {pixPayment.publicOrderNumber && (
+                      <p className="mt-1 text-xs font-medium text-gray-600">
+                        Pedido #{pixPayment.publicOrderNumber}
+                      </p>
+                    )}
+                  </div>
+
+                  {pixPayment.qrCodeBase64 && (
+                    <div className="mb-4 flex justify-center">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <img
+                          src={`data:image/png;base64,${pixPayment.qrCodeBase64}`}
+                          alt="QR Code Pix"
+                          className="h-48 w-48"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-gray-500">
+                      Pix copia e cola
+                    </label>
+                    <textarea
+                      readOnly
+                      value={pixPayment.pixCopyPaste || pixPayment.qrCode || ""}
+                      rows={4}
+                      className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-700 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="mt-3 grid gap-2">
+                    <button
+                      onClick={handleCopyPixCode}
+                      className="rounded-xl py-3 text-sm font-bold text-white"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      {pixCopied ? "Codigo copiado" : "Copiar codigo Pix"}
+                    </button>
+
+                    {pixPayment.ticketUrl && (
+                      <a
+                        href={pixPayment.ticketUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-xl border border-gray-200 bg-white py-3 text-center text-sm font-semibold text-gray-700"
+                      >
+                        Abrir link do pagamento
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex-shrink-0 space-y-3 border-t border-gray-100 bg-white px-5 py-4">
@@ -1489,12 +1649,12 @@ window.location.href = data.checkoutUrl
               </div>
 
               <button
-  onClick={isPixPayment ? processOnlinePayment : sendWhatsAppOrder}
-  disabled={isProcessing}
-  className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
-  style={{
-    backgroundColor: accentColor,
-    boxShadow: `0 14px 28px -12px ${accentColor}`,
+                 onClick={isPixPayment ? processOnlinePayment : sendWhatsAppOrder}
+                 disabled={isProcessing || (isPixPayment && !!pixPayment)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+                 style={{
+                 backgroundColor: accentColor,
+                 boxShadow: `0 14px 28px -12px ${accentColor}`,
   }}
 >
   {isProcessing && isPixPayment ? (
@@ -1505,7 +1665,7 @@ window.location.href = data.checkoutUrl
     <Check className="h-4 w-4" />
   )}
   {isProcessing && isPixPayment ? "Processando..." : primaryButtonLabel}
-</button>
+             </button>
             </div>
           </>
         )}
