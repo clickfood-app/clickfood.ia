@@ -27,7 +27,6 @@ import {
   Timer,
   Receipt,
 } from "lucide-react"
-import { getMercadoPagoConnection } from "@/lib/mercadopago"
 import { cn } from "@/lib/utils"
 import {
   formatPrice,
@@ -849,6 +848,7 @@ type NeighborhoodOption = {
 type PixPaymentData = {
   paymentId: string
   qrCodeBase64: string | null
+  qrCodeUrl: string | null
   qrCode: string | null
   pixCopyPaste: string | null
   ticketUrl: string | null
@@ -946,8 +946,7 @@ function CartSheet({
     }
   }, [hasNeighborhoodRules, neighborhoodOptions, orderType, selectedNeighborhoodKey])
 
-  const mpConnection = typeof window !== "undefined" ? getMercadoPagoConnection(restaurant.id) : null
-  const hasMercadoPago = !!(mpConnection as any)?.tokens?.access_token
+
 
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
   const serviceFee = Math.round(subtotal * 0.05)
@@ -1072,7 +1071,7 @@ const handleCopyPixCode = async () => {
     }
   }
 
-  const processOnlinePayment = async () => {
+const processOnlinePayment = async () => {
   if (!validateForm()) return
   if (pixPayment) return
 
@@ -1081,7 +1080,7 @@ const handleCopyPixCode = async () => {
   try {
     const createdOrder = await createPublicOrder("Pix")
 
-    const response = await fetch("/api/mercadopago/checkout", {
+    const response = await fetch("/api/stripe/pix", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1089,20 +1088,13 @@ const handleCopyPixCode = async () => {
         restaurantId: restaurant.id,
         orderId: createdOrder.id,
         publicOrderNumber: createdOrder.public_order_number,
-        items: items.map((i) => ({
-          product_id: i.product.id,
-          quantity: i.quantity,
-        })),
         customerName,
         customerPhone,
         customerEmail: customerEmail.trim(),
         customerDocument: sanitizedCustomerDocument,
-        customerDocumentType: "CPF",
         customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
         customerNeighborhood:
           orderType === "delivery" ? selectedNeighborhoodOption?.neighborhood ?? null : null,
-        deliveryFeeRuleId:
-          orderType === "delivery" ? selectedNeighborhoodOption?.ruleId ?? null : null,
         orderType,
         deliveryFee,
         serviceFee,
@@ -1119,6 +1111,7 @@ const handleCopyPixCode = async () => {
     setPixPayment({
       paymentId: String(data.paymentId),
       qrCodeBase64: data.qrCodeBase64 ?? null,
+      qrCodeUrl: data.qrCodeUrl ?? null,
       qrCode: data.qrCode ?? null,
       pixCopyPaste: data.pixCopyPaste ?? data.qrCode ?? null,
       ticketUrl: data.ticketUrl ?? null,
@@ -1506,9 +1499,10 @@ const handleCopyPixCode = async () => {
                 </label>
                 <div className="mt-2 space-y-2">
                   {[
-  { id: "dinheiro", label: "Dinheiro", icon: Banknote },
-  { id: "cartao", label: "Cartao na entrega", icon: CreditCard },
-].map((method) => (
+                    { id: "dinheiro", label: "Dinheiro", icon: Banknote },
+                    { id: "pix", label: "Pix", icon: QrCode },
+                    { id: "cartao", label: "Cartao na entrega", icon: CreditCard },
+                  ].map((method) => (
                     <button
                       key={method.id}
                       onClick={() => setPaymentMethod(method.label)}
@@ -1561,17 +1555,20 @@ const handleCopyPixCode = async () => {
                     )}
                   </div>
 
-                  {pixPayment.qrCodeBase64 && (
-                    <div className="mb-4 flex justify-center">
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
-                        <img
-                          src={`data:image/png;base64,${pixPayment.qrCodeBase64}`}
-                          alt="QR Code Pix"
-                          className="h-48 w-48"
-                        />
-                      </div>
-                    </div>
-                  )}
+{(pixPayment.qrCodeUrl || pixPayment.qrCodeBase64) && (
+  <div className="mb-4 flex justify-center">
+    <div className="rounded-2xl bg-white p-3 shadow-sm">
+      <img
+        src={
+          pixPayment.qrCodeUrl ||
+          `data:image/png;base64,${pixPayment.qrCodeBase64}`
+        }
+        alt="QR Code Pix"
+        className="h-48 w-48"
+      />
+    </div>
+  </div>
+)}
 
                   <div>
                     <label className="text-xs font-semibold uppercase text-gray-500">
