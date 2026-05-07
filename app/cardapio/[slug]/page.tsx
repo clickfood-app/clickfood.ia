@@ -1506,10 +1506,9 @@ const handleCopyPixCode = async () => {
                 </label>
                 <div className="mt-2 space-y-2">
                   {[
-                    { id: "dinheiro", label: "Dinheiro", icon: Banknote },
-                    { id: "pix", label: "Pix", icon: QrCode },
-                    { id: "cartao", label: "Cartao na entrega", icon: CreditCard },
-                  ].map((method) => (
+  { id: "dinheiro", label: "Dinheiro", icon: Banknote },
+  { id: "cartao", label: "Cartao na entrega", icon: CreditCard },
+].map((method) => (
                     <button
                       key={method.id}
                       onClick={() => setPaymentMethod(method.label)}

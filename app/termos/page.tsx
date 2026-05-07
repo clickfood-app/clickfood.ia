@@ -100,9 +100,9 @@ export default function TermosPage() {
                 <h2 className="text-xl font-semibold text-gray-900">4. Pagamentos</h2>
               </div>
               <p className="mb-3">
-                Os pagamentos realizados atraves da ClickFood sao processados por parceiros de pagamento
-                confiaveis, como o Mercado Pago.
-              </p>
+  Os pagamentos realizados atraves da ClickFood sao processados por parceiros de pagamento
+  confiaveis e integracoes financeiras utilizadas pela plataforma.
+</p>
               <ul className="list-disc list-inside space-y-1 ml-4">
                 <li>Os precos exibidos incluem todas as taxas aplicaveis.</li>
                 <li>Reembolsos seguem a politica de cada restaurante parceiro.</li>

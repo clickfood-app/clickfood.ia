@@ -10,8 +10,9 @@ import {
   Save,
   Trash2,
   CheckCircle2,
-  XCircle,
   ExternalLink,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
@@ -22,80 +23,50 @@ import {
   generatePaymentId,
 } from "@/lib/settings-data"
 import { useAuth } from "@/components/auth/auth-provider"
-import {
-  getMercadoPagoAuthUrl,
-  isMercadoPagoConnected,
-  saveMercadoPagoConnection,
-  disconnectMercadoPago,
-} from "@/lib/mercadopago"
+import { createClient } from "@/lib/supabase/client"
+
+type StripeStatusResponse = {
+  connected: boolean
+  stripeAccountId: string | null
+  onboardingCompleted: boolean
+  chargesEnabled: boolean
+  payoutsEnabled: boolean
+  detailsSubmitted: boolean
+  requirements: {
+    currentlyDue: string[]
+    eventuallyDue: string[]
+    pastDue: string[]
+    pendingVerification: string[]
+    disabledReason: string | null
+  } | null
+  capabilities: {
+    card_payments: string | null
+    transfers: string | null
+  } | null
+}
+
+const defaultStripeStatus: StripeStatusResponse = {
+  connected: false,
+  stripeAccountId: null,
+  onboardingCompleted: false,
+  chargesEnabled: false,
+  payoutsEnabled: false,
+  detailsSubmitted: false,
+  requirements: null,
+  capabilities: null,
+}
 
 export default function PaymentsTab() {
   const [methods, setMethods] = useState<PaymentMethod[]>(defaultPaymentMethods)
   const [saving, setSaving] = useState(false)
-  const [mpConnected, setMpConnected] = useState(false)
-  const [mpConnecting, setMpConnecting] = useState(false)
+  const [stripeStatus, setStripeStatus] =
+    useState<StripeStatusResponse>(defaultStripeStatus)
+  const [stripeLoading, setStripeLoading] = useState(false)
+  const [stripeConnecting, setStripeConnecting] = useState(false)
+
   const { restaurant } = useAuth()
   const searchParams = useSearchParams()
-
-  // Check Mercado Pago connection status on mount
-  useEffect(() => {
-    if (restaurant?.id) {
-      setMpConnected(isMercadoPagoConnected(restaurant.id))
-    }
-  }, [restaurant?.id])
-
-  // Handle OAuth callback params
-  useEffect(() => {
-    if (!restaurant?.id) return
-
-    const mpSuccess = searchParams.get("mp_success")
-    const mpError = searchParams.get("mp_error")
-    const mpDemo = searchParams.get("mp_demo")
-
-    if (mpSuccess === "true") {
-      setMpConnected(true)
-      toast.success("Mercado Pago conectado com sucesso!")
-      window.history.replaceState({}, "", "/configuracoes")
-    } else if (mpDemo === "true") {
-      // Demo mode - simulate connection
-      const demoTokens = {
-        access_token: "DEMO_ACCESS_TOKEN",
-        refresh_token: "DEMO_REFRESH_TOKEN",
-        expires_in: 15552000,
-        connected_at: new Date().toISOString(),
-        user_id: 123456789,
-      }
-
-      saveMercadoPagoConnection(restaurant.id, demoTokens)
-      setMpConnected(true)
-      toast.success("Mercado Pago conectado (modo demonstracao)!")
-      window.history.replaceState({}, "", "/configuracoes")
-    } else if (mpError) {
-      toast.error(`Erro ao conectar Mercado Pago: ${mpError}`)
-      window.history.replaceState({}, "", "/configuracoes")
-    }
-  }, [searchParams, restaurant?.id])
-
-  // Connect to Mercado Pago
-  const handleConnectMercadoPago = useCallback(() => {
-    if (!restaurant?.id) {
-      toast.error("Restaurante nao encontrado")
-      return
-    }
-
-    setMpConnecting(true)
-    const authUrl = getMercadoPagoAuthUrl(restaurant.id)
-    window.location.href = authUrl
-  }, [restaurant?.id])
-
-  // Disconnect from Mercado Pago
-  const handleDisconnectMercadoPago = useCallback(() => {
-    if (!restaurant?.id) return
-
-    disconnectMercadoPago(restaurant.id)
-    setMpConnected(false)
-    toast.success("Mercado Pago desconectado")
-  }, [restaurant?.id])
+  const supabase = createClient()
 
   const toggleMethod = useCallback((id: string) => {
     setMethods((prev) =>
@@ -144,57 +115,209 @@ export default function PaymentsTab() {
     toast.success("Formas de pagamento salvas!")
   }
 
+  const getAccessToken = useCallback(async () => {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
+
+    if (error || !session?.access_token) {
+      throw new Error("Sessao nao encontrada. Faca login novamente.")
+    }
+
+    return session.access_token
+  }, [supabase])
+
+  const fetchStripeStatus = useCallback(async () => {
+    if (!restaurant?.id) {
+      setStripeStatus(defaultStripeStatus)
+      return
+    }
+
+    try {
+      setStripeLoading(true)
+      const token = await getAccessToken()
+
+      const response = await fetch(
+        `/api/stripe/status?restaurantId=${restaurant.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao consultar status da Stripe.")
+      }
+
+      setStripeStatus({
+        connected: !!data.connected,
+        stripeAccountId: data.stripeAccountId ?? null,
+        onboardingCompleted: !!data.onboardingCompleted,
+        chargesEnabled: !!data.chargesEnabled,
+        payoutsEnabled: !!data.payoutsEnabled,
+        detailsSubmitted: !!data.detailsSubmitted,
+        requirements: data.requirements ?? null,
+        capabilities: data.capabilities ?? null,
+      })
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao consultar status da Stripe."
+      )
+    } finally {
+      setStripeLoading(false)
+    }
+  }, [getAccessToken, restaurant?.id])
+
+  const handleConnectStripe = useCallback(async () => {
+    if (!restaurant?.id) {
+      toast.error("Restaurante nao encontrado.")
+      return
+    }
+
+    try {
+      setStripeConnecting(true)
+      const token = await getAccessToken()
+
+      const response = await fetch("/api/stripe/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao iniciar onboarding da Stripe.")
+      }
+
+      if (!data?.onboardingUrl) {
+        throw new Error("Stripe nao retornou a URL de onboarding.")
+      }
+
+      window.location.href = data.onboardingUrl
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao conectar com a Stripe."
+      )
+      setStripeConnecting(false)
+    }
+  }, [getAccessToken, restaurant?.id])
+
+  useEffect(() => {
+    fetchStripeStatus()
+  }, [fetchStripeStatus])
+
+  useEffect(() => {
+    const stripeParam = searchParams.get("stripe")
+
+    if (stripeParam === "return") {
+      toast.success("Retorno da Stripe recebido. Atualizando status...")
+      fetchStripeStatus()
+      window.history.replaceState({}, "", "/configuracoes?tab=payments")
+    }
+
+    if (stripeParam === "refresh") {
+      toast.info("Continue o onboarding da Stripe para concluir a integracao.")
+      window.history.replaceState({}, "", "/configuracoes?tab=payments")
+    }
+  }, [fetchStripeStatus, searchParams])
+
   const enabledCount = methods.filter((m) => m.enabled).length
+  const stripeReady =
+    stripeStatus.connected &&
+    stripeStatus.onboardingCompleted &&
+    stripeStatus.chargesEnabled &&
+    stripeStatus.payoutsEnabled
 
   return (
     <div className="space-y-6">
       {restaurant && (
         <div className="rounded-xl border border-border bg-card p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#009ee3]/10">
-                <svg viewBox="0 0 24 24" className="h-7 w-7" fill="#009ee3">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.5 14.5v-5l4.5 2.5-4.5 2.5zm0-8h3v1h-3v-1z" />
-                </svg>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
+                <CreditCard className="h-6 w-6 text-violet-600" />
               </div>
 
               <div>
-                <h3 className="text-base font-bold text-card-foreground">Mercado Pago</h3>
+                <h3 className="text-base font-bold text-card-foreground">
+                  Stripe Connect
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  {mpConnected
-                    ? "Conta conectada - receba pagamentos online"
-                    : "Conecte para receber pagamentos via Pix, cartao e boleto"}
+                  Conecte a conta do restaurante para receber pagamentos online.
                 </p>
+
+                {stripeStatus.stripeAccountId && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Conta Stripe: {stripeStatus.stripeAccountId}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {mpConnected ? (
-                <>
-                  <div className="flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-xs font-semibold text-green-700">Conectado</span>
-                  </div>
-
-                  <button
-                    onClick={handleDisconnectMercadoPago}
-                    className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Desconectar
-                  </button>
-                </>
+            <div className="flex flex-wrap items-center gap-3">
+              {stripeReady ? (
+                <div className="flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="text-xs font-semibold text-green-700">
+                    Conta ativa
+                  </span>
+                </div>
+              ) : stripeStatus.connected ? (
+                <div className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs font-semibold text-amber-700">
+                    Onboarding pendente
+                  </span>
+                </div>
               ) : (
+                <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5">
+                  <AlertCircle className="h-4 w-4 text-gray-500" />
+                  <span className="text-xs font-semibold text-gray-600">
+                    Nao conectada
+                  </span>
+                </div>
+              )}
+
+              <button
+                onClick={fetchStripeStatus}
+                disabled={stripeLoading}
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                {stripeLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Atualizar status
+              </button>
+
+              {!stripeReady && (
                 <button
-                  onClick={handleConnectMercadoPago}
-                  disabled={mpConnecting}
+                  onClick={handleConnectStripe}
+                  disabled={stripeConnecting}
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all",
                     "bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90",
                     "disabled:cursor-not-allowed disabled:opacity-50"
                   )}
                 >
-                  {mpConnecting ? (
+                  {stripeConnecting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Conectando...
@@ -202,7 +325,9 @@ export default function PaymentsTab() {
                   ) : (
                     <>
                       <ExternalLink className="h-4 w-4" />
-                      Conectar Mercado Pago
+                      {stripeStatus.connected
+                        ? "Continuar onboarding"
+                        : "Conectar Stripe"}
                     </>
                   )}
                 </button>
@@ -210,12 +335,118 @@ export default function PaymentsTab() {
             </div>
           </div>
 
-          {!mpConnected && (
-            <div className="mt-4 rounded-lg bg-blue-50 px-4 py-3">
-              <p className="text-xs text-blue-700">
-                Ao conectar, voce autoriza o ClickFood a processar pagamentos em seu nome.
-                Seus dados estao protegidos pela criptografia do Mercado Pago.
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                Dados enviados
               </p>
+              <p className="mt-1 text-sm font-bold text-card-foreground">
+                {stripeStatus.detailsSubmitted ? "Sim" : "Nao"}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                Pagamentos
+              </p>
+              <p className="mt-1 text-sm font-bold text-card-foreground">
+                {stripeStatus.chargesEnabled ? "Liberados" : "Pendente"}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                Repasses
+              </p>
+              <p className="mt-1 text-sm font-bold text-card-foreground">
+                {stripeStatus.payoutsEnabled ? "Liberados" : "Pendente"}
+              </p>
+            </div>
+          </div>
+
+          {!stripeReady && (
+            <div className="mt-4 space-y-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4">
+              <div>
+                <p className="text-sm font-bold text-amber-800">
+                  A conta ainda esta pendente na Stripe
+                </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  Abaixo esta o motivo real retornado pela Stripe para a conta
+                  ainda nao ficar ativa.
+                </p>
+              </div>
+
+              {stripeStatus.requirements?.disabledReason && (
+                <div className="rounded-lg bg-white/80 p-3">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Motivo do bloqueio
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-card-foreground">
+                    {stripeStatus.requirements.disabledReason}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg bg-white/80 p-3">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Capability card_payments
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-card-foreground">
+                    {stripeStatus.capabilities?.card_payments ?? "null"}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-white/80 p-3">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Capability transfers
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-card-foreground">
+                    {stripeStatus.capabilities?.transfers ?? "null"}
+                  </p>
+                </div>
+              </div>
+
+              {stripeStatus.requirements?.currentlyDue?.length ? (
+                <div className="rounded-lg bg-white/80 p-3">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Falta enviar agora
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-card-foreground">
+                    {stripeStatus.requirements.currentlyDue.map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {stripeStatus.requirements?.pendingVerification?.length ? (
+                <div className="rounded-lg bg-white/80 p-3">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Em verificacao
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-card-foreground">
+                    {stripeStatus.requirements.pendingVerification.map(
+                      (item) => (
+                        <li key={item}>• {item}</li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              ) : null}
+
+              {stripeStatus.requirements?.pastDue?.length ? (
+                <div className="rounded-lg bg-white/80 p-3">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Pendencias vencidas
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-card-foreground">
+                    {stripeStatus.requirements.pastDue.map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -227,7 +458,9 @@ export default function PaymentsTab() {
           <span className="text-sm font-bold text-card-foreground">
             {methods.length} formas cadastradas
           </span>
-          <span className="text-xs text-muted-foreground">({enabledCount} ativas)</span>
+          <span className="text-xs text-muted-foreground">
+            ({enabledCount} ativas)
+          </span>
         </div>
 
         <button
@@ -261,7 +494,9 @@ export default function PaymentsTab() {
                   <input
                     type="text"
                     value={method.name}
-                    onChange={(e) => updateMethod(method.id, "name", e.target.value)}
+                    onChange={(e) =>
+                      updateMethod(method.id, "name", e.target.value)
+                    }
                     className="input-field"
                     placeholder="Ex: Pix"
                   />
@@ -278,7 +513,11 @@ export default function PaymentsTab() {
                     step={0.1}
                     value={method.fee}
                     onChange={(e) =>
-                      updateMethod(method.id, "fee", parseFloat(e.target.value) || 0)
+                      updateMethod(
+                        method.id,
+                        "fee",
+                        parseFloat(e.target.value) || 0
+                      )
                     }
                     className="input-field"
                     placeholder="0"
@@ -292,7 +531,9 @@ export default function PaymentsTab() {
                   <input
                     type="text"
                     value={method.notes}
-                    onChange={(e) => updateMethod(method.id, "notes", e.target.value)}
+                    onChange={(e) =>
+                      updateMethod(method.id, "notes", e.target.value)
+                    }
                     className="input-field"
                     placeholder="Opcional"
                   />
@@ -339,7 +580,11 @@ export default function PaymentsTab() {
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-6 py-2.5 text-sm font-semibold text-[hsl(var(--primary-foreground))] shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
           {saving ? "Salvando..." : "Salvar Alteracoes"}
         </button>
       </div>

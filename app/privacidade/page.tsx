@@ -56,7 +56,7 @@ export default function PrivacidadePage() {
                 <li><strong>Dados de cadastro:</strong> nome completo, e-mail, telefone e endereco.</li>
                 <li><strong>Dados de pedidos:</strong> historico de compras, preferencias e itens favoritos.</li>
                 <li><strong>Dados de acesso:</strong> endereco IP, tipo de dispositivo e navegador utilizado.</li>
-                <li><strong>Dados de pagamento:</strong> informacoes processadas por parceiros como Mercado Pago.</li>
+                <li><strong>Dados de pagamento:</strong> informacoes processadas por parceiros e integracoes financeiras utilizadas pela plataforma.</li>
               </ul>
             </section>
 
@@ -90,7 +90,7 @@ export default function PrivacidadePage() {
                 Seus dados podem ser compartilhados com parceiros de confianca, incluindo:
               </p>
               <ul className="list-disc list-inside space-y-1 ml-4">
-                <li><strong>Processadores de pagamento:</strong> como Mercado Pago, para transacoes seguras.</li>
+                <li><strong>Processadores de pagamento:</strong> parceiros e integracoes financeiras utilizados para transacoes seguras.</li>
                 <li><strong>Restaurantes parceiros:</strong> para processamento e entrega de pedidos.</li>
                 <li><strong>Servicos de analise:</strong> para melhorar a plataforma (dados anonimizados).</li>
               </ul>
