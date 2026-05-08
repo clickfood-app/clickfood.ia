@@ -15,6 +15,8 @@ type AsaasWebhookBody = {
   }
 }
 
+const PAID_EVENTS = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"])
+
 export async function POST(req: NextRequest) {
   try {
     const receivedToken = req.headers.get("asaas-access-token")
@@ -44,6 +46,8 @@ export async function POST(req: NextRequest) {
     const billingType = body.payment?.billingType || null
     const description = body.payment?.description || null
 
+    const shouldMarkAsPaid = !!event && PAID_EVENTS.has(event)
+
     console.log("ASAAS WEBHOOK NORMALIZADO:", {
       event,
       paymentId,
@@ -53,11 +57,26 @@ export async function POST(req: NextRequest) {
       netValue,
       billingType,
       description,
+      shouldMarkAsPaid,
     })
+
+    if (!shouldMarkAsPaid) {
+      return NextResponse.json({
+        success: true,
+        received: true,
+        ignored: true,
+        event,
+        paymentId,
+        paymentStatus,
+        externalReference,
+      })
+    }
 
     return NextResponse.json({
       success: true,
       received: true,
+      processed: true,
+      shouldMarkAsPaid: true,
       event,
       paymentId,
       paymentStatus,
