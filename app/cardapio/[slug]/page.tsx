@@ -1080,7 +1080,7 @@ const processOnlinePayment = async () => {
   try {
     const createdOrder = await createPublicOrder("Pix")
 
-    const response = await fetch("/api/stripe/pix", {
+    const response = await fetch("/api/efi/pix", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1504,6 +1504,7 @@ const processOnlinePayment = async () => {
                     { id: "cartao", label: "Cartao na entrega", icon: CreditCard },
                   ].map((method) => (
                     <button
+                    
                       key={method.id}
                       onClick={() => setPaymentMethod(method.label)}
                       className={cn(

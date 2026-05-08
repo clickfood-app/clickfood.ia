@@ -183,8 +183,8 @@ export default function OfertaPage() {
                 )}
               </button>
               <p className="text-xs text-center text-gray-500 mt-3">
-                Pagamento seguro via Stripe. Cancele a qualquer momento.
-              </p>
+  Pagamento seguro. Cancele a qualquer momento.
+</p>
             </div>
           </div>
         </div>
