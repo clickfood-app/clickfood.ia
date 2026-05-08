@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server"
 
 const ASAAS_WEBHOOK_TOKEN = process.env.ASAAS_WEBHOOK_TOKEN
 
+type AsaasWebhookBody = {
+  event?: string
+  payment?: {
+    id?: string
+    status?: string
+    value?: number
+    netValue?: number
+    billingType?: string
+    externalReference?: string | null
+    description?: string | null
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const receivedToken = req.headers.get("asaas-access-token")
@@ -20,13 +33,35 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json()
+    const body = (await req.json()) as AsaasWebhookBody
 
-    console.log("ASAAS WEBHOOK RECEBIDO:", JSON.stringify(body, null, 2))
+    const event = body.event || null
+    const paymentId = body.payment?.id || null
+    const paymentStatus = body.payment?.status || null
+    const externalReference = body.payment?.externalReference || null
+    const value = body.payment?.value || null
+    const netValue = body.payment?.netValue || null
+    const billingType = body.payment?.billingType || null
+    const description = body.payment?.description || null
+
+    console.log("ASAAS WEBHOOK NORMALIZADO:", {
+      event,
+      paymentId,
+      paymentStatus,
+      externalReference,
+      value,
+      netValue,
+      billingType,
+      description,
+    })
 
     return NextResponse.json({
       success: true,
       received: true,
+      event,
+      paymentId,
+      paymentStatus,
+      externalReference,
     })
   } catch (error) {
     return NextResponse.json(
