@@ -1,12 +1,36 @@
 import { NextRequest, NextResponse } from "next/server"
 import { asaasFetch } from "@/lib/asaas"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 
 type CreatePixPaymentBody = {
-  customer: string
-  value: number
-  description?: string
-  dueDate?: string
-  externalReference?: string
+  restaurantId: string
+  orderId: string
+  publicOrderNumber?: string
+  customerName: string
+  customerPhone: string
+  customerEmail?: string
+  customerDocument: string
+  customerAddress?: string
+  customerNeighborhood?: string | null
+  orderType?: "delivery" | "pickup"
+  deliveryFee?: number
+  serviceFee?: number
+  couponCode?: string | null
+}
+
+type OrderRow = {
+  id: string
+  restaurant_id: string
+  public_order_number: string | null
+  total: number | string | null
+  payment_method: string | null
+  payment_status: string | null
+}
+
+type AsaasCustomerResponse = {
+  id: string
+  name: string
+  cpfCnpj: string
 }
 
 type AsaasPaymentResponse = {
@@ -29,6 +53,16 @@ type AsaasPaymentResponse = {
   externalReference?: string | null
 }
 
+type AsaasPixQrCodeResponse = {
+  encodedImage?: string | null
+  payload?: string | null
+  expirationDate?: string | null
+}
+
+function onlyDigits(value: string | undefined | null) {
+  return (value || "").replace(/\D/g, "")
+}
+
 function getTodayAsaasDate() {
   const today = new Date()
   const year = today.getFullYear()
@@ -42,35 +76,127 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as CreatePixPaymentBody
 
-    if (!body.customer?.trim()) {
+    const restaurantId = body.restaurantId?.trim()
+    const orderId = body.orderId?.trim()
+    const customerName = body.customerName?.trim()
+    const customerPhone = onlyDigits(body.customerPhone)
+    const customerDocument = onlyDigits(body.customerDocument)
+    const customerEmail = body.customerEmail?.trim() || undefined
+
+    if (!restaurantId) {
       return NextResponse.json(
-        { success: false, error: "customer é obrigatório." },
+        { success: false, error: "restaurantId é obrigatório." },
         { status: 400 }
       )
     }
 
-    if (!body.value || Number(body.value) <= 0) {
+    if (!orderId) {
       return NextResponse.json(
-        { success: false, error: "value deve ser maior que 0." },
+        { success: false, error: "orderId é obrigatório." },
         { status: 400 }
       )
     }
+
+    if (!customerName) {
+      return NextResponse.json(
+        { success: false, error: "customerName é obrigatório." },
+        { status: 400 }
+      )
+    }
+
+    if (!customerPhone) {
+      return NextResponse.json(
+        { success: false, error: "customerPhone é obrigatório." },
+        { status: 400 }
+      )
+    }
+
+    if (customerDocument.length !== 11) {
+      return NextResponse.json(
+        { success: false, error: "CPF inválido para pagamento Pix." },
+        { status: 400 }
+      )
+    }
+
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from("orders")
+      .select("id, restaurant_id, public_order_number, total, payment_method, payment_status")
+      .eq("id", orderId)
+      .eq("restaurant_id", restaurantId)
+      .single<OrderRow>()
+
+    if (orderError) {
+      return NextResponse.json(
+        { success: false, error: orderError.message || "Erro ao buscar pedido." },
+        { status: 500 }
+      )
+    }
+
+    if (!order) {
+      return NextResponse.json(
+        { success: false, error: "Pedido não encontrado." },
+        { status: 404 }
+      )
+    }
+
+    const orderTotal = Number(order.total || 0)
+
+    if (!Number.isFinite(orderTotal) || orderTotal <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Total do pedido inválido para cobrança Pix." },
+        { status: 400 }
+      )
+    }
+
+    const customer = await asaasFetch<AsaasCustomerResponse>("/customers", {
+      method: "POST",
+      body: {
+        name: customerName,
+        cpfCnpj: customerDocument,
+        email: customerEmail,
+        mobilePhone: customerPhone,
+        externalReference: order.id,
+      },
+    })
 
     const payment = await asaasFetch<AsaasPaymentResponse>("/payments", {
       method: "POST",
       body: {
-        customer: body.customer.trim(),
+        customer: customer.id,
         billingType: "PIX",
-        value: Number(body.value),
-        dueDate: body.dueDate || getTodayAsaasDate(),
-        description: body.description?.trim() || undefined,
-        externalReference: body.externalReference?.trim() || undefined,
+        value: orderTotal,
+        dueDate: getTodayAsaasDate(),
+        description: `Pedido #${order.public_order_number || body.publicOrderNumber || order.id}`,
+        externalReference: order.id,
       },
     })
 
+    const pixQrCode = await asaasFetch<AsaasPixQrCodeResponse>(
+      `/payments/${payment.id}/pixQrCode`,
+      {
+        method: "GET",
+      }
+    )
+
+    await supabaseAdmin
+      .from("orders")
+      .update({
+        payment_status: "pending",
+        mercadopago_payment_id: payment.id,
+      })
+      .eq("id", order.id)
+
     return NextResponse.json({
       success: true,
-      payment,
+      paymentId: payment.id,
+      qrCodeBase64: pixQrCode.encodedImage || null,
+      qrCodeUrl: null,
+      qrCode: pixQrCode.payload || null,
+      pixCopyPaste: pixQrCode.payload || null,
+      ticketUrl: payment.invoiceUrl || null,
+      status: payment.status || null,
+      publicOrderNumber: order.public_order_number || body.publicOrderNumber || null,
+      expiresAt: pixQrCode.expirationDate || null,
     })
   } catch (error) {
     return NextResponse.json(

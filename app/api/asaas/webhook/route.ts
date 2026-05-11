@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 
 const ASAAS_WEBHOOK_TOKEN = process.env.ASAAS_WEBHOOK_TOKEN
 
@@ -20,15 +21,16 @@ const PAID_EVENTS = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"])
 export async function POST(req: NextRequest) {
   try {
     const receivedToken = req.headers.get("asaas-access-token")
+    const isLocalDev = process.env.NODE_ENV !== "production"
 
-    if (!ASAAS_WEBHOOK_TOKEN) {
+    if (!ASAAS_WEBHOOK_TOKEN && !isLocalDev) {
       return NextResponse.json(
         { success: false, error: "ASAAS_WEBHOOK_TOKEN não configurado." },
         { status: 500 }
       )
     }
 
-    if (!receivedToken || receivedToken !== ASAAS_WEBHOOK_TOKEN) {
+    if (!isLocalDev && (!receivedToken || receivedToken !== ASAAS_WEBHOOK_TOKEN)) {
       return NextResponse.json(
         { success: false, error: "Token do webhook inválido." },
         { status: 401 }
@@ -72,10 +74,38 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    if (!externalReference) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "externalReference não enviado no webhook.",
+        },
+        { status: 400 }
+      )
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("orders")
+      .update({
+        payment_status: "paid",
+      })
+      .eq("id", externalReference)
+
+    if (updateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: updateError.message,
+        },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       received: true,
       processed: true,
+      updatedOrder: true,
       shouldMarkAsPaid: true,
       event,
       paymentId,
