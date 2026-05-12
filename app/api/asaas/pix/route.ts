@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { asaasFetch } from "@/lib/asaas"
+import {
+  asaasFetchWithAccount,
+  getRestaurantAsaasAccount,
+} from "@/lib/asaas"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 type CreatePixPaymentBody = {
@@ -59,6 +62,7 @@ type AsaasPixQrCodeResponse = {
   expirationDate?: string | null
 }
 
+// BLOCO 1: normalização
 function onlyDigits(value: string | undefined | null) {
   return (value || "").replace(/\D/g, "")
 }
@@ -74,6 +78,7 @@ function getTodayAsaasDate() {
 
 export async function POST(req: NextRequest) {
   try {
+    // BLOCO 2: leitura e validação do body
     const body = (await req.json()) as CreatePixPaymentBody
 
     const restaurantId = body.restaurantId?.trim()
@@ -118,12 +123,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // BLOCO 3: busca o pedido real no banco
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
-      .select("id, restaurant_id, public_order_number, total, payment_method, payment_status")
+      .select(
+        "id, restaurant_id, public_order_number, total, payment_method, payment_status"
+      )
       .eq("id", orderId)
       .eq("restaurant_id", restaurantId)
-      .single<OrderRow>()
+      .single()
 
     if (orderError) {
       return NextResponse.json(
@@ -132,14 +140,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!order) {
+    const typedOrder = order as OrderRow | null
+
+    if (!typedOrder) {
       return NextResponse.json(
         { success: false, error: "Pedido não encontrado." },
         { status: 404 }
       )
     }
 
-    const orderTotal = Number(order.total || 0)
+    const orderTotal = Number(typedOrder.total || 0)
 
     if (!Number.isFinite(orderTotal) || orderTotal <= 0) {
       return NextResponse.json(
@@ -148,44 +158,70 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const customer = await asaasFetch<AsaasCustomerResponse>("/customers", {
-      method: "POST",
-      body: {
-        name: customerName,
-        cpfCnpj: customerDocument,
-        email: customerEmail,
-        mobilePhone: customerPhone,
-        externalReference: order.id,
-      },
-    })
+    // BLOCO 4: carrega a conta Asaas salva para ESTE restaurante
+    const asaasAccount = await getRestaurantAsaasAccount(restaurantId)
 
-    const payment = await asaasFetch<AsaasPaymentResponse>("/payments", {
-      method: "POST",
-      body: {
-        customer: customer.id,
-        billingType: "PIX",
-        value: orderTotal,
-        dueDate: getTodayAsaasDate(),
-        description: `Pedido #${order.public_order_number || body.publicOrderNumber || order.id}`,
-        externalReference: order.id,
-      },
-    })
+    // BLOCO 5: debug para provar qual conta está sendo usada no runtime
+    const asaasAccountDebug = {
+      environment: asaasAccount.environment,
+      apiKeyLast4: asaasAccount.apiKey.slice(-4),
+      walletId: asaasAccount.walletId ?? null,
+    }
 
-    const pixQrCode = await asaasFetch<AsaasPixQrCodeResponse>(
+    // BLOCO 6: cria/garante o cliente no Asaas da conta do restaurante
+    const customer = await asaasFetchWithAccount<AsaasCustomerResponse>(
+      asaasAccount,
+      "/customers",
+      {
+        method: "POST",
+        body: {
+          name: customerName,
+          cpfCnpj: customerDocument,
+          email: customerEmail,
+          mobilePhone: customerPhone,
+          externalReference: typedOrder.id,
+        },
+      }
+    )
+
+    // BLOCO 7: cria a cobrança Pix na conta do restaurante
+    const payment = await asaasFetchWithAccount<AsaasPaymentResponse>(
+      asaasAccount,
+      "/payments",
+      {
+        method: "POST",
+        body: {
+          customer: customer.id,
+          billingType: "PIX",
+          value: orderTotal,
+          dueDate: getTodayAsaasDate(),
+          description: `Pedido #${
+            typedOrder.public_order_number || body.publicOrderNumber || typedOrder.id
+          }`,
+          externalReference: typedOrder.id,
+        },
+      }
+    )
+
+    // BLOCO 8: busca o QR Code da cobrança criada
+    const pixQrCode = await asaasFetchWithAccount<AsaasPixQrCodeResponse>(
+      asaasAccount,
       `/payments/${payment.id}/pixQrCode`,
       {
         method: "GET",
       }
     )
 
+    // BLOCO 9: salva o id do pagamento no pedido
     await supabaseAdmin
       .from("orders")
       .update({
         payment_status: "pending",
         mercadopago_payment_id: payment.id,
       })
-      .eq("id", order.id)
+      .eq("id", typedOrder.id)
 
+    // BLOCO 10: retorno da rota com debug
     return NextResponse.json({
       success: true,
       paymentId: payment.id,
@@ -195,8 +231,10 @@ export async function POST(req: NextRequest) {
       pixCopyPaste: pixQrCode.payload || null,
       ticketUrl: payment.invoiceUrl || null,
       status: payment.status || null,
-      publicOrderNumber: order.public_order_number || body.publicOrderNumber || null,
+      publicOrderNumber:
+        typedOrder.public_order_number || body.publicOrderNumber || null,
       expiresAt: pixQrCode.expirationDate || null,
+      debug: asaasAccountDebug,
     })
   } catch (error) {
     return NextResponse.json(
