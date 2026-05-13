@@ -62,7 +62,6 @@ type AsaasPixQrCodeResponse = {
   expirationDate?: string | null
 }
 
-// BLOCO 1: normalização
 function onlyDigits(value: string | undefined | null) {
   return (value || "").replace(/\D/g, "")
 }
@@ -78,7 +77,6 @@ function getTodayAsaasDate() {
 
 export async function POST(req: NextRequest) {
   try {
-    // BLOCO 2: leitura e validação do body
     const body = (await req.json()) as CreatePixPaymentBody
 
     const restaurantId = body.restaurantId?.trim()
@@ -123,7 +121,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // BLOCO 3: busca o pedido real no banco
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .select(
@@ -158,17 +155,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // BLOCO 4: carrega a conta Asaas salva para ESTE restaurante
     const asaasAccount = await getRestaurantAsaasAccount(restaurantId)
 
-    // BLOCO 5: debug para provar qual conta está sendo usada no runtime
-    const asaasAccountDebug = {
-      environment: asaasAccount.environment,
-      apiKeyLast4: asaasAccount.apiKey.slice(-4),
-      walletId: asaasAccount.walletId ?? null,
-    }
-
-    // BLOCO 6: cria/garante o cliente no Asaas da conta do restaurante
     const customer = await asaasFetchWithAccount<AsaasCustomerResponse>(
       asaasAccount,
       "/customers",
@@ -184,7 +172,6 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    // BLOCO 7: cria a cobrança Pix na conta do restaurante
     const payment = await asaasFetchWithAccount<AsaasPaymentResponse>(
       asaasAccount,
       "/payments",
@@ -203,7 +190,6 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    // BLOCO 8: busca o QR Code da cobrança criada
     const pixQrCode = await asaasFetchWithAccount<AsaasPixQrCodeResponse>(
       asaasAccount,
       `/payments/${payment.id}/pixQrCode`,
@@ -212,7 +198,6 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    // BLOCO 9: salva o id do pagamento no pedido
     await supabaseAdmin
       .from("orders")
       .update({
@@ -221,7 +206,6 @@ export async function POST(req: NextRequest) {
       })
       .eq("id", typedOrder.id)
 
-    // BLOCO 10: retorno da rota com debug
     return NextResponse.json({
       success: true,
       paymentId: payment.id,
@@ -234,7 +218,6 @@ export async function POST(req: NextRequest) {
       publicOrderNumber:
         typedOrder.public_order_number || body.publicOrderNumber || null,
       expiresAt: pixQrCode.expirationDate || null,
-      debug: asaasAccountDebug,
     })
   } catch (error) {
     return NextResponse.json(
