@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import {
+  AlertCircle,
   CheckCircle2,
   CreditCard,
   GripVertical,
@@ -42,14 +43,9 @@ export default function PaymentsTab() {
   const [saving, setSaving] = useState(false)
 
   const [loadingAsaas, setLoadingAsaas] = useState(true)
-  const [savingAsaas, setSavingAsaas] = useState(false)
   const [asaasConnected, setAsaasConnected] = useState(false)
-  const [savedAccount, setSavedAccount] = useState<AsaasAccountResponse["account"]>(null)
-
-  const [environment, setEnvironment] = useState<"sandbox" | "production">("sandbox")
-  const [apiKey, setApiKey] = useState("")
-  const [webhookToken, setWebhookToken] = useState("")
-  const [walletId, setWalletId] = useState("")
+  const [savedAccount, setSavedAccount] =
+    useState<AsaasAccountResponse["account"]>(null)
 
   const toggleMethod = useCallback((id: string) => {
     setMethods((prev) =>
@@ -84,11 +80,6 @@ export default function PaymentsTab() {
 
       setAsaasConnected(data.connected)
       setSavedAccount(data.account)
-
-      if (data.account) {
-        setEnvironment(data.account.environment || "sandbox")
-        setWalletId(data.account.walletId || "")
-      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Erro ao carregar conta Asaas."
@@ -134,56 +125,6 @@ export default function PaymentsTab() {
     toast.success("Formas de pagamento salvas!")
   }
 
-  async function handleSaveAsaas() {
-    if (!apiKey.trim()) {
-      toast.error("Preencha a API Key do Asaas.")
-      return
-    }
-
-    if (!webhookToken.trim()) {
-      toast.error("Preencha o token do webhook do Asaas.")
-      return
-    }
-
-    try {
-      setSavingAsaas(true)
-
-      const res = await fetch("/api/asaas/account", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          environment,
-          apiKey: apiKey.trim(),
-          webhookToken: webhookToken.trim(),
-          walletId: walletId.trim() || null,
-          userAgent: "clickfood",
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "Erro ao salvar conta Asaas.")
-      }
-
-      toast.success("Conta Asaas salva com sucesso.")
-
-      setApiKey("")
-      setWebhookToken("")
-
-      await loadAsaasAccount()
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao salvar conta Asaas."
-      )
-    } finally {
-      setSavingAsaas(false)
-    }
-  }
-
   const enabledCount = methods.filter((m) => m.enabled).length
 
   return (
@@ -198,7 +139,8 @@ export default function PaymentsTab() {
               </h3>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Conecte a conta do próprio restaurante para gerar Pix direto nela.
+              O recebimento online é feito diretamente na conta Asaas conectada
+              ao restaurante.
             </p>
           </div>
 
@@ -213,135 +155,86 @@ export default function PaymentsTab() {
               Conectada
             </div>
           ) : (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
+              <AlertCircle className="h-4 w-4" />
               Não conectada
             </div>
           )}
         </div>
 
-        {savedAccount && (
-          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Ambiente atual
-              </p>
-              <p className="mt-1 text-sm font-semibold text-foreground">
-                {savedAccount.environment === "production" ? "Produção" : "Sandbox"}
+        {savedAccount ? (
+          <>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ambiente
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {savedAccount.environment === "production"
+                    ? "Produção"
+                    : "Sandbox"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  API Key
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {savedAccount.apiKeyLast4
+                    ? `Final ${savedAccount.apiKeyLast4}`
+                    : "Não informada"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Webhook
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {savedAccount.webhookTokenLast4
+                    ? `Final ${savedAccount.webhookTokenLast4}`
+                    : "Não informado"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Status
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {savedAccount.isActive ? "Ativa" : "Inativa"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-border bg-muted/20 p-4">
+              <p className="text-sm text-muted-foreground">
+                A conexão da conta Asaas é gerenciada internamente pela
+                ClickFood. Se precisar alterar ou reconectar a conta, entre em
+                contato com o suporte.
               </p>
             </div>
 
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                API Key
-              </p>
-              <p className="mt-1 text-sm font-semibold text-foreground">
-                {savedAccount.apiKeyLast4
-                  ? `Final ${savedAccount.apiKeyLast4}`
-                  : "Não salva"}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Webhook
-              </p>
-              <p className="mt-1 text-sm font-semibold text-foreground">
-                {savedAccount.webhookTokenLast4
-                  ? `Final ${savedAccount.webhookTokenLast4}`
-                  : "Não salvo"}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Wallet ID
-              </p>
-              <p className="mt-1 truncate text-sm font-semibold text-foreground">
-                {savedAccount.walletId || "Não informado"}
-              </p>
-            </div>
+            {savedAccount.lastError ? (
+              <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-destructive">
+                  Último erro
+                </p>
+                <p className="mt-1 text-sm text-destructive">
+                  {savedAccount.lastError}
+                </p>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4">
+            <p className="text-sm text-muted-foreground">
+              Nenhuma conta Asaas conectada no momento. Para ativar o Pix
+              online, solicite a conexão da conta ao suporte da ClickFood.
+            </p>
           </div>
         )}
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Ambiente
-            </label>
-            <select
-              value={environment}
-              onChange={(e) =>
-                setEnvironment(e.target.value === "production" ? "production" : "sandbox")
-              }
-              className="input-field"
-            >
-              <option value="sandbox">Sandbox</option>
-              <option value="production">Produção</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Wallet ID (opcional)
-            </label>
-            <input
-              type="text"
-              value={walletId}
-              onChange={(e) => setWalletId(e.target.value)}
-              className="input-field"
-              placeholder="Opcional"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              API Key do Asaas
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="input-field"
-              placeholder={
-                savedAccount?.apiKeyLast4
-                  ? `Já salva • final ${savedAccount.apiKeyLast4}`
-                  : "Cole a API Key"
-              }
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Token do webhook
-            </label>
-            <input
-              type="password"
-              value={webhookToken}
-              onChange={(e) => setWebhookToken(e.target.value)}
-              className="input-field"
-              placeholder={
-                savedAccount?.webhookTokenLast4
-                  ? `Já salvo • final ${savedAccount.webhookTokenLast4}`
-                  : "Cole o token do webhook"
-              }
-            />
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end">
-          <button
-            onClick={handleSaveAsaas}
-            disabled={savingAsaas}
-            className="flex items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-6 py-2.5 text-sm font-semibold text-[hsl(var(--primary-foreground))] shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {savingAsaas ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {savingAsaas ? "Salvando conta..." : "Salvar conta Asaas"}
-          </button>
-        </div>
       </div>
 
       <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
@@ -418,7 +311,7 @@ export default function PaymentsTab() {
 
                 <div className="md:col-span-4">
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Observacao
+                    Observação
                   </label>
                   <input
                     type="text"
@@ -477,7 +370,7 @@ export default function PaymentsTab() {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {saving ? "Salvando..." : "Salvar Alteracoes"}
+          {saving ? "Salvando..." : "Salvar Alterações"}
         </button>
       </div>
     </div>
