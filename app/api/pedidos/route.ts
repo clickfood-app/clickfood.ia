@@ -24,6 +24,7 @@ type CreateOrderBody = {
 
 export async function GET() {
   try {
+    console.log("API PEDIDOS RODANDO")
     const supabase = await createClient()
 
     const {
@@ -66,6 +67,7 @@ export async function GET() {
         status,
         total,
         payment_method,
+        payment_status,
         notes,
         source,
         order_type,
@@ -89,9 +91,20 @@ export async function GET() {
       )
     }
 
+    const visibleOrders = (orders ?? []).filter((order) => {
+      const paymentMethod = String(order.payment_method || "").toLowerCase()
+      const paymentStatus = String(order.payment_status || "").toLowerCase()
+
+      if (paymentMethod !== "pix") {
+        return true
+      }
+
+      return paymentStatus === "paid"
+    })
+
     return NextResponse.json({
       restaurant,
-      orders: orders ?? [],
+      orders: visibleOrders,
     })
   } catch (error) {
     console.error("GET /api/pedidos error:", error)

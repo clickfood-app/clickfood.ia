@@ -868,6 +868,7 @@ function CartSheet({
   accentColor,
   deliveryEnabled,
   pickupEnabled,
+  tableNumber,
 }: {
   items: CartItem[]
   open: boolean
@@ -879,6 +880,7 @@ function CartSheet({
   accentColor: string
   deliveryEnabled: boolean
   pickupEnabled: boolean
+  tableNumber?: string | null
 }) {
   const [step, setStep] = useState<"cart" | "checkout">("cart")
   const [orderType, setOrderType] = useState<"delivery" | "pickup">(
@@ -1039,6 +1041,7 @@ const handleCopyPixCode = async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         restaurantId: restaurant.id,
+        tableId: tableNumber || null,
         customerName,
         customerPhone,
         customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
@@ -1070,8 +1073,7 @@ const handleCopyPixCode = async () => {
       public_order_number: string
     }
   }
-
-const processOnlinePayment = async () => {
+  const processOnlinePayment = async () => {
   if (!validateForm()) return
   if (pixPayment) return
 
@@ -1094,7 +1096,9 @@ const processOnlinePayment = async () => {
         customerDocument: sanitizedCustomerDocument,
         customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
         customerNeighborhood:
-          orderType === "delivery" ? selectedNeighborhoodOption?.neighborhood ?? null : null,
+          orderType === "delivery"
+            ? selectedNeighborhoodOption?.neighborhood ?? null
+            : null,
         orderType,
         deliveryFee,
         serviceFee,
@@ -1102,22 +1106,32 @@ const processOnlinePayment = async () => {
     })
 
     const data = await response.json()
-    if (!response.ok) throw new Error(data.error)
 
-    if (!data?.paymentId) {
-      throw new Error("Pagamento Pix nao retornou os dados esperados.")
+    if (!response.ok) {
+      throw new Error(data?.error || "Erro ao processar pagamento Pix.")
+    }
+
+    const hasPixData = Boolean(
+      data?.qrCodeBase64 || data?.qrCodeUrl || data?.pixCopyPaste || data?.qrCode
+    )
+
+    if (!hasPixData) {
+      throw new Error(
+        data?.error || "Pagamento Pix nao retornou os dados esperados."
+      )
     }
 
     setPixPayment({
-      paymentId: String(data.paymentId),
-      qrCodeBase64: data.qrCodeBase64 ?? null,
-      qrCodeUrl: data.qrCodeUrl ?? null,
-      qrCode: data.qrCode ?? null,
-      pixCopyPaste: data.pixCopyPaste ?? data.qrCode ?? null,
-      ticketUrl: data.ticketUrl ?? null,
-      status: data.status ?? null,
-      publicOrderNumber: data.publicOrderNumber ?? createdOrder.public_order_number ?? null,
-      expiresAt: data.expiresAt ?? null,
+      paymentId: String(data?.paymentId ?? createdOrder.id),
+      qrCodeBase64: data?.qrCodeBase64 ?? null,
+      qrCodeUrl: data?.qrCodeUrl ?? null,
+      qrCode: data?.qrCode ?? null,
+      pixCopyPaste: data?.pixCopyPaste ?? data?.qrCode ?? null,
+      ticketUrl: data?.ticketUrl ?? null,
+      status: data?.status ?? null,
+      publicOrderNumber:
+        data?.publicOrderNumber ?? createdOrder.public_order_number ?? null,
+      expiresAt: data?.expiresAt ?? null,
     })
   } catch (error) {
     alert(error instanceof Error ? error.message : "Erro ao processar pagamento")
@@ -1125,7 +1139,6 @@ const processOnlinePayment = async () => {
     setIsProcessing(false)
   }
 }
-
 
   const sendWhatsAppOrder = async () => {
     if (!validateForm()) return
@@ -2393,6 +2406,7 @@ export default function CardapioPublicoPage() {
   accentColor={themeColor}
   deliveryEnabled={deliveryEnabled}
   pickupEnabled={pickupEnabled}
+  tableNumber={tableNumber}
 />
     </div>
   )

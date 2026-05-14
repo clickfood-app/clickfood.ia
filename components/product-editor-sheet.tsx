@@ -1,7 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { BadgeDollarSign, ImageIcon, Package2, Save } from "lucide-react"
+import {
+  BadgeDollarSign,
+  ImageIcon,
+  Package2,
+  Save,
+  Settings2,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -13,7 +19,12 @@ import {
 } from "@/components/ui/sheet"
 import ImageUpload from "@/components/image-upload"
 import { cn } from "@/lib/utils"
-import { type Category, type Product, getMargin, getProfit } from "@/lib/products-data"
+import {
+  type Category,
+  type Product,
+  getMargin,
+  getProfit,
+} from "@/lib/products-data"
 
 export interface ProductEditorValues {
   name: string
@@ -44,6 +55,13 @@ function formatMoneyInput(value: number): string {
 function parseMoneyInput(value: string): number {
   if (!value.trim()) return 0
   return Number.parseFloat(value.replace(",", "."))
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0))
 }
 
 export default function ProductEditorSheet({
@@ -119,128 +137,84 @@ export default function ProductEditorSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-hidden p-0 sm:max-w-2xl">
-        <div className="flex h-full flex-col">
-          <SheetHeader className="border-b border-border px-6 py-5">
+      <SheetContent
+        side="right"
+        className="w-full overflow-hidden p-0 sm:max-w-3xl"
+      >
+        <div className="flex h-full flex-col bg-slate-50">
+          <SheetHeader className="border-b border-slate-200 bg-white px-6 py-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]">
-                {mode === "create" ? <Package2 className="h-5 w-5" /> : <BadgeDollarSign className="h-5 w-5" />}
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                {mode === "create" ? (
+                  <Package2 className="h-5 w-5" />
+                ) : (
+                  <BadgeDollarSign className="h-5 w-5" />
+                )}
               </div>
+
               <div>
-                <SheetTitle>{mode === "create" ? "Novo Produto" : "Editar Produto"}</SheetTitle>
-                <SheetDescription>
-                  {mode === "create"
-                    ? "Preencha os dados do item para publicar no cardapio."
-                    : "Atualize nome, categoria, status, precificacao e imagem no mesmo fluxo."}
+                <SheetTitle className="text-xl font-black text-slate-950">
+                  {mode === "create" ? "Novo Produto" : "Editar Produto"}
+                </SheetTitle>
+
+                <SheetDescription className="text-sm text-slate-500">
+                  Ajuste nome, preço, custo, margem, categoria, status e imagem.
                 </SheetDescription>
               </div>
             </div>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-6 py-5">
-            <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
               <div className="space-y-5">
-                <section className="rounded-2xl border border-border bg-card/60 p-4">
+                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Apresentacao do produto</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Um cadastro completo ajuda a vender melhor e evita ajustes manuais depois.
+                    <h3 className="text-sm font-black text-slate-950">
+                      Dados do produto
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Informações que aparecem no cardápio do cliente.
                     </p>
                   </div>
 
                   <div className="space-y-4">
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                        Nome do produto <span className="text-destructive">*</span>
+                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                        Nome do produto <span className="text-red-500">*</span>
                       </label>
+
                       <input
                         type="text"
                         value={name}
                         onChange={(event) => setName(event.target.value)}
-                        placeholder="Ex: X-Burger Especial"
-                        className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
+                        placeholder="Ex: X-Bacon"
+                        className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                       />
                     </div>
 
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                        Descricao
+                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                        Descrição
                       </label>
+
                       <textarea
                         value={description}
                         onChange={(event) => setDescription(event.target.value)}
-                        placeholder="Ingredientes, acompanhamentos e diferenciais do produto..."
+                        placeholder="Ex: Pão brioche, hambúrguer bovino, cheddar, bacon e molho especial..."
                         rows={4}
-                        className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
+                        className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                       />
                     </div>
 
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                        Imagem
+                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                        Categoria <span className="text-red-500">*</span>
                       </label>
-                      <ImageUpload value={image} onChange={setImage} />
-                    </div>
-                  </div>
-                </section>
-              </div>
 
-              <div className="space-y-5">
-                <section className="rounded-2xl border border-border bg-card/60 p-4">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Precificacao e operacao</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Defina como o item sera exibido e acompanhe a margem antes de salvar.
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                          Preco de venda <span className="text-destructive">*</span>
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                            R$
-                          </span>
-                          <input
-                            type="text"
-                            value={price}
-                            onChange={(event) => setPrice(event.target.value.replace(/[^0-9,.]/g, ""))}
-                            placeholder="0,00"
-                            className="h-11 w-full rounded-xl border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                          Custo
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                            R$
-                          </span>
-                          <input
-                            type="text"
-                            value={cost}
-                            onChange={(event) => setCost(event.target.value.replace(/[^0-9,.]/g, ""))}
-                            placeholder="0,00"
-                            className="h-11 w-full rounded-xl border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                        Categoria <span className="text-destructive">*</span>
-                      </label>
                       <select
                         value={category}
                         onChange={(event) => setCategory(event.target.value)}
-                        className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
+                        className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                       >
                         {categories.map((item) => (
                           <option key={item.id} value={item.id}>
@@ -249,84 +223,183 @@ export default function ProductEditorSheet({
                         ))}
                       </select>
                     </div>
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-black text-slate-950">
+                      Imagem
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Foto do produto no cardápio.
+                    </p>
+                  </div>
+
+                  <div className="max-w-sm">
+                    <ImageUpload value={image} onChange={setImage} />
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-dashed border-blue-200 bg-blue-50/60 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                      <Settings2 className="h-5 w-5" />
+                    </div>
 
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-                        Status
+                      <h3 className="text-sm font-black text-blue-950">
+                        Complementos e adicionais
+                      </h3>
+                      <p className="mt-1 text-sm leading-6 text-blue-800">
+                        A próxima etapa é ligar os complementos no banco:
+                        adicionais, molhos, ponto da carne, obrigatório/opcional,
+                        mínimo e máximo de escolhas.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <div className="space-y-5">
+                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-black text-slate-950">
+                      Preço e custo
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      O lucro e a margem são calculados automaticamente.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                        Preço de venda <span className="text-red-500">*</span>
                       </label>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => setActive(true)}
-                          className={cn(
-                            "rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                            active
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                              : "border-input bg-background text-muted-foreground hover:bg-secondary"
-                          )}
-                        >
-                          <p className="font-medium">Ativo</p>
-                          <p className="mt-1 text-xs opacity-80">Aparece no cardapio e entra nas buscas.</p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActive(false)}
-                          className={cn(
-                            "rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                            !active
-                              ? "border-amber-300 bg-amber-50 text-amber-700"
-                              : "border-input bg-background text-muted-foreground hover:bg-secondary"
-                          )}
-                        >
-                          <p className="font-medium">Inativo</p>
-                          <p className="mt-1 text-xs opacity-80">Fica salvo, mas some da operacao e do cliente.</p>
-                        </button>
+
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                          R$
+                        </span>
+
+                        <input
+                          type="text"
+                          value={price}
+                          onChange={(event) =>
+                            setPrice(event.target.value.replace(/[^0-9,.]/g, ""))
+                          }
+                          placeholder="0,00"
+                          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                        Custo
+                      </label>
+
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                          R$
+                        </span>
+
+                        <input
+                          type="text"
+                          value={cost}
+                          onChange={(event) =>
+                            setCost(event.target.value.replace(/[^0-9,.]/g, ""))
+                          }
+                          placeholder="0,00"
+                          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                        />
                       </div>
                     </div>
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-border bg-card/60 p-4">
+                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">Resumo de margem</h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Veja o impacto financeiro antes de publicar a alteracao.
+                      <h3 className="text-sm font-black text-slate-950">
+                        Resultado do produto
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Visão rápida antes de salvar.
                       </p>
                     </div>
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-secondary-foreground">
+
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                       <ImageIcon className="h-5 w-5" />
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Preco
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Preço
                       </p>
-                      <p className="mt-2 text-lg font-bold text-foreground">R$ {numericPrice.toFixed(2)}</p>
+                      <p className="mt-1 text-xl font-black text-slate-950">
+                        {formatCurrency(numericPrice)}
+                      </p>
                     </div>
-                    <div className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Custo
+                      </p>
+                      <p className="mt-1 text-xl font-black text-slate-950">
+                        {formatCurrency(numericCost)}
+                      </p>
+                    </div>
+
+                    <div
+                      className={cn(
+                        "rounded-lg border p-4",
+                        previewProfit >= 0
+                          ? "border-emerald-200 bg-emerald-50"
+                          : "border-red-200 bg-red-50"
+                      )}
+                    >
+                      <p
+                        className={cn(
+                          "text-xs font-bold uppercase tracking-wide",
+                          previewProfit >= 0 ? "text-emerald-700" : "text-red-700"
+                        )}
+                      >
                         Lucro estimado
                       </p>
                       <p
                         className={cn(
-                          "mt-2 text-lg font-bold",
-                          previewProfit > 0 ? "text-emerald-600" : "text-destructive"
+                          "mt-1 text-xl font-black",
+                          previewProfit >= 0 ? "text-emerald-700" : "text-red-700"
                         )}
                       >
-                        R$ {previewProfit.toFixed(2)}
+                        {formatCurrency(previewProfit)}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+
+                    <div
+                      className={cn(
+                        "rounded-lg border p-4",
+                        previewMargin >= 20
+                          ? "border-blue-200 bg-blue-50"
+                          : "border-amber-200 bg-amber-50"
+                      )}
+                    >
+                      <p
+                        className={cn(
+                          "text-xs font-bold uppercase tracking-wide",
+                          previewMargin >= 20 ? "text-blue-700" : "text-amber-700"
+                        )}
+                      >
                         Margem
                       </p>
                       <p
                         className={cn(
-                          "mt-2 text-lg font-bold",
-                          previewMargin >= 20 ? "text-[hsl(var(--primary))]" : "text-amber-600"
+                          "mt-1 text-xl font-black",
+                          previewMargin >= 20 ? "text-blue-700" : "text-amber-700"
                         )}
                       >
                         {previewMargin.toFixed(1)}%
@@ -334,24 +407,74 @@ export default function ProductEditorSheet({
                     </div>
                   </div>
                 </section>
+
+                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-sm font-black text-slate-950">
+                    Status no cardápio
+                  </h3>
+
+                  <div className="mt-4 grid gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setActive(true)}
+                      className={cn(
+                        "rounded-lg border px-4 py-3 text-left transition",
+                        active
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      <p className="text-sm font-black">Ativo</p>
+                      <p className="mt-1 text-xs">
+                        Aparece no cardápio e pode ser vendido.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActive(false)}
+                      className={cn(
+                        "rounded-lg border px-4 py-3 text-left transition",
+                        !active
+                          ? "border-amber-400 bg-amber-50 text-amber-700"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      <p className="text-sm font-black">Inativo</p>
+                      <p className="mt-1 text-xs">
+                        Fica salvo, mas não aparece para o cliente.
+                      </p>
+                    </button>
+                  </div>
+                </section>
               </div>
             </div>
           </div>
 
-          <SheetFooter className="border-t border-border px-6 py-4 sm:space-x-0">
+          <SheetFooter className="border-t border-slate-200 bg-white px-6 py-4 sm:space-x-0">
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500">
                 {mode === "create"
-                  ? "Voce pode revisar tudo antes de publicar o novo item."
-                  : "As alteracoes sao aplicadas imediatamente no catalogo interno."}
+                  ? "Revise os dados antes de publicar o item."
+                  : "As alterações são aplicadas no catálogo após salvar."}
               </p>
+
               <div className="flex items-center justify-end gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  className="h-10 rounded-lg border-slate-200 px-4"
+                >
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={!canSave}>
+
+                <Button
+                  onClick={handleSave}
+                  disabled={!canSave}
+                  className="h-10 rounded-lg bg-blue-600 px-5 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
                   <Save className="h-4 w-4" />
-                  {mode === "create" ? "Salvar Produto" : "Salvar Alteracoes"}
+                  {mode === "create" ? "Salvar Produto" : "Salvar Alterações"}
                 </Button>
               </div>
             </div>

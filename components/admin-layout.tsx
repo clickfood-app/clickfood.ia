@@ -2,23 +2,25 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   AlertCircle,
   Bell,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   LogOut,
   Menu,
   PlusCircle,
-  Search,
   Settings,
+  Store,
   User,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import AdminSidebar from "@/components/admin-sidebar"
+import { useAuth } from "@/components/auth/auth-provider"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -35,18 +37,37 @@ type NotificationItem = {
   unread: boolean
 }
 
+type RestaurantWithLogo = {
+  name?: string | null
+  logo_url?: string | null
+}
+
+const breadcrumbMap: Record<string, string> = {
+  "/": "Gestão",
+  "/gestao": "Gestão",
+  "/pedidos": "Pedidos",
+  "/novo-pedido": "Novo Pedido",
+  "/mesas": "Mesas",
+  "/entregadores": "Entregadores",
+  "/produtos": "Produtos",
+  "/clientes": "Clientes",
+  "/cardapio": "Cardápio",
+  "/cupons": "Cupons",
+  "/financeiro": "Financeiro",
+  "/configuracoes": "Configurações",
+}
+
 export default function AdminLayout({
   children,
   title,
-  description,
 }: AdminLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
+  const { restaurant, user } = useAuth()
 
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
-  const [search, setSearch] = useState("")
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -81,7 +102,33 @@ export default function AdminLayout({
   const profileRef = useRef<HTMLDivElement | null>(null)
   const notificationsRef = useRef<HTMLDivElement | null>(null)
 
+  const restaurantWithLogo = restaurant as RestaurantWithLogo | null
+
+  const restaurantName = restaurant?.name || "Meu Restaurante"
+  const restaurantLogoUrl = restaurantWithLogo?.logo_url || null
+
+  const userName =
+    user?.user_metadata?.name ||
+    user?.user_metadata?.full_name ||
+    "Administrador"
+
+  const userEmail = user?.email || "admin@empresa.com"
+
+  const userInitials =
+    userName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word: string) => word[0])
+      .join("")
+      .toUpperCase() || "AD"
+
   const unreadCount = notifications.filter((item) => item.unread).length
+
+  const currentPage =
+    title ||
+    breadcrumbMap[pathname] ||
+    pathname.replace("/", "").charAt(0).toUpperCase() + pathname.slice(2)
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => !prev)
@@ -93,15 +140,6 @@ export default function AdminLayout({
 
   const closeMobileSidebar = () => {
     setIsMobileOpen(false)
-  }
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const value = search.trim()
-    if (!value) return
-
-    router.push(`/busca?q=${encodeURIComponent(value)}`)
   }
 
   const handleLogout = async () => {
@@ -208,49 +246,70 @@ export default function AdminLayout({
           isCollapsed && "md:ml-[72px]"
         )}
       >
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-md">
-          <div className="flex min-h-[76px] items-center justify-between gap-4 px-4 md:px-6">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+          <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
+                aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="min-w-0">
-                {title && (
-                  <h1 className="truncate text-lg font-semibold text-slate-900 md:text-2xl">
-                    {title}
-                  </h1>
-                )}
+              <div className="hidden items-center gap-3 sm:flex">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm">
+                  {restaurantLogoUrl ? (
+                    <img
+                      src={restaurantLogoUrl}
+                      alt={restaurantName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Store className="h-5 w-5" />
+                  )}
+                </div>
 
-                {description && (
-                  <p className="truncate text-sm text-slate-500">
-                    {description}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-900">
+                    {restaurantName}
                   </p>
-                )}
+
+                  <p className="truncate text-xs font-medium text-slate-500">
+                    Operação do restaurante
+                  </p>
+                </div>
+              </div>
+
+              <div className="hidden h-7 w-px bg-slate-200 lg:block" />
+
+              <div className="hidden min-w-0 items-center gap-2 lg:flex">
+                <Link
+                  href="/gestao"
+                  className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                >
+                  Gestão
+                </Link>
+
+                <ChevronRight className="h-4 w-4 text-slate-300" />
+
+                <span className="truncate text-sm font-bold text-slate-900">
+                  {currentPage}
+                </span>
+              </div>
+
+              <div className="min-w-0 sm:hidden">
+                <p className="truncate text-base font-bold text-slate-900">
+                  {currentPage}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3">
-              <form onSubmit={handleSearch} className="hidden lg:flex">
-                <div className="relative w-[320px]">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar pedidos, clientes ou produtos..."
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-                  />
-                </div>
-              </form>
-
-              <div className="hidden xl:flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                <span className="font-medium">Restaurante aberto</span>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="hidden items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 xl:flex">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                <span className="font-semibold">Restaurante aberto</span>
               </div>
 
               <div className="relative" ref={notificationsRef}>
@@ -260,27 +319,26 @@ export default function AdminLayout({
                     setNotificationsOpen((prev) => !prev)
                     setProfileOpen(false)
                   }}
-                  className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                  className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                  aria-label="Notificações"
                 >
                   <Bell className="h-5 w-5" />
 
                   {unreadCount > 0 && (
-                    <>
-                      <span className="absolute right-2 top-2 flex h-2.5 w-2.5 rounded-full bg-red-500" />
-                      <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                        {unreadCount}
-                      </span>
-                    </>
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                      {unreadCount}
+                    </span>
                   )}
                 </button>
 
                 {notificationsOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[360px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
                     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-900">
+                        <h3 className="text-sm font-bold text-slate-900">
                           Notificações
                         </h3>
+
                         <p className="text-xs text-slate-500">
                           {unreadCount} não lida{unreadCount !== 1 ? "s" : ""}
                         </p>
@@ -289,9 +347,9 @@ export default function AdminLayout({
                       <button
                         type="button"
                         onClick={handleMarkAllAsRead}
-                        className="text-xs font-medium text-blue-600 transition hover:text-blue-700"
+                        className="text-xs font-semibold text-blue-600 transition hover:text-blue-700"
                       >
-                        Marcar todas como lidas
+                        Marcar todas
                       </button>
                     </div>
 
@@ -318,7 +376,7 @@ export default function AdminLayout({
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm font-medium text-slate-800">
+                                <p className="text-sm font-semibold text-slate-800">
                                   {notification.title}
                                 </p>
 
@@ -340,7 +398,7 @@ export default function AdminLayout({
                       ) : (
                         <div className="px-4 py-10 text-center">
                           <Bell className="mx-auto h-8 w-8 text-slate-300" />
-                          <p className="mt-3 text-sm font-medium text-slate-600">
+                          <p className="mt-3 text-sm font-semibold text-slate-600">
                             Nenhuma notificação
                           </p>
                           <p className="mt-1 text-xs text-slate-400">
@@ -354,7 +412,7 @@ export default function AdminLayout({
                       <button
                         type="button"
                         onClick={() => setNotificationsOpen(false)}
-                        className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
+                        className="w-full rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
                       >
                         Fechar
                       </button>
@@ -366,7 +424,7 @@ export default function AdminLayout({
               {pathname !== "/novo-pedido" && (
                 <Link
                   href="/novo-pedido"
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 md:px-4"
                 >
                   <PlusCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">Novo Pedido</span>
@@ -380,29 +438,44 @@ export default function AdminLayout({
                     setProfileOpen((prev) => !prev)
                     setNotificationsOpen(false)
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 transition hover:bg-slate-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 transition hover:bg-slate-50"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-                    A
+                    {userInitials}
                   </div>
 
                   <div className="hidden text-left md:block">
-                    <p className="text-sm font-medium text-slate-800">Admin</p>
-                    <p className="text-xs text-slate-500">Gerente</p>
+                    <p className="max-w-[140px] truncate text-sm font-bold leading-none text-slate-800">
+                      {userName}
+                    </p>
+
+                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-slate-500">
+                      {userEmail}
+                    </p>
                   </div>
 
                   <ChevronDown className="hidden h-4 w-4 text-slate-400 md:block" />
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                    <div className="border-b border-slate-100 px-3 py-3">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {userName}
+                      </p>
+
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {userEmail}
+                      </p>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
+                      className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                     >
                       <User className="h-4 w-4" />
                       Perfil
@@ -414,7 +487,7 @@ export default function AdminLayout({
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                     >
                       <Settings className="h-4 w-4" />
                       Configurações
@@ -426,7 +499,7 @@ export default function AdminLayout({
                       type="button"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <LogOut className="h-4 w-4" />
                       {isLoggingOut ? "Saindo..." : "Sair"}
@@ -435,26 +508,6 @@ export default function AdminLayout({
                 )}
               </div>
             </div>
-          </div>
-
-          <div className="border-t border-slate-100 px-4 py-3 lg:hidden md:px-6">
-            <form onSubmit={handleSearch} className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar..."
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-                />
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                <span className="font-medium">Aberto</span>
-              </div>
-            </form>
           </div>
         </header>
 

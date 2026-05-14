@@ -1,36 +1,34 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  AlertCircle,
-  AlertTriangle,
+  CheckCircle2,
+  DollarSign,
+  Edit3,
+  Eye,
+  EyeOff,
   FolderPlus,
   ImageOff,
-  Moon,
+  Loader2,
   Package,
+  Percent,
   Plus,
-  Tag,
+  Search,
   Trash2,
   X,
 } from "lucide-react"
+
 import AdminLayout from "@/components/admin-layout"
-import CategorySection from "@/components/category-section"
-import ConfirmationModal from "@/components/confirmation-modal"
-import ProductEditorSheet, { type ProductEditorValues } from "@/components/product-editor-sheet"
-import ProductsToolbar from "@/components/products-toolbar"
+import ProductEditorSheet, {
+  type ProductEditorValues,
+} from "@/components/product-editor-sheet"
 import { useToast } from "@/hooks/use-toast"
 import {
   type Category,
   type Product,
-  type ProductQuickFilter,
-  type SortOption,
-  type ViewMode,
   getMargin,
-  getProductIndicator,
   getProfit,
   hasImage,
-  hasLowMargin,
-  hasLowSales,
   hasRegisteredCost,
 } from "@/lib/products-data"
 import { cn } from "@/lib/utils"
@@ -45,92 +43,82 @@ type ProductSheetState = {
   preferredCategoryId?: string
 }
 
-function normalizeProductOrders(list: Product[]): Product[] {
-  const orderById = new Map<string, number>()
-  const grouped = new Map<string, Product[]>()
-
-  for (const product of list) {
-    const categoryProducts = grouped.get(product.category) ?? []
-    categoryProducts.push(product)
-    grouped.set(product.category, categoryProducts)
-  }
-
-  for (const categoryProducts of grouped.values()) {
-    [...categoryProducts]
-      .sort((a, b) => a.order - b.order)
-      .forEach((product, index) => {
-        orderById.set(product.id, index)
-      })
-  }
-
-  return list.map((product) => ({
-    ...product,
-    order: orderById.get(product.id) ?? product.order,
-  }))
+type CategoryModalState = {
+  open: boolean
+  mode: "create" | "edit"
+  categoryId: string | null
 }
 
-function sortProducts(list: Product[], sortBy: SortOption): Product[] {
-  const sorted = [...list]
-
-  switch (sortBy) {
-    case "manual":
-      sorted.sort((a, b) => a.order - b.order)
-      break
-    case "name":
-      sorted.sort((a, b) => a.name.localeCompare(b.name))
-      break
-    case "price":
-      sorted.sort((a, b) => b.price - a.price)
-      break
-    case "profit":
-      sorted.sort((a, b) => getProfit(b.price, b.cost) - getProfit(a.price, a.cost))
-      break
-  }
-
-  return sorted
+type DbCategory = {
+  id: string
+  name: string
+  sort_order: number | null
+  is_active: boolean | null
 }
 
-function matchesQuickFilter(product: Product, filter: ProductQuickFilter): boolean {
-  switch (filter) {
-    case "low-margin":
-      return hasLowMargin(product)
-    case "low-sales":
-      return hasLowSales(product)
-    case "no-image":
-      return !hasImage(product)
-    case "no-cost":
-      return !hasRegisteredCost(product)
+type DbProduct = {
+  id: string
+  name: string
+  description: string | null
+  price: number | string | null
+  cost_price: number | string | null
+  category_id: string | null
+  image_url: string | null
+  is_available: boolean | null
+  sort_order: number | null
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0))
+}
+
+function normalizeProduct(product: DbProduct, salesCount = 0): Product {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description ?? "",
+    price: Number(product.price ?? 0),
+    cost: Number(product.cost_price ?? 0),
+    category: product.category_id ?? "",
+    active: product.is_available ?? true,
+    salesCount,
+    order: product.sort_order ?? 0,
+    image: product.image_url ?? null,
+    imageSize: undefined,
   }
+}
+
+function normalizeCategory(category: DbCategory): Category {
+  return {
+    id: category.id,
+    name: category.name,
+    description: undefined,
+    order: category.sort_order ?? 0,
+    active: category.is_active ?? true,
+  }
+}
+
+function sortByOrder<T extends { order: number }>(items: T[]) {
+  return [...items].sort((a, b) => a.order - b.order)
 }
 
 export default function ProdutosPage() {
-
   const supabase = useMemo(() => createClient(), [])
+  const { toast } = useToast()
+
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [loadingData, setLoadingData] = useState(true)
-  const [creatingCategory, setCreatingCategory] = useState(false)
+
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
-  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all")
-  const [quickFilters, setQuickFilters] = useState<Set<ProductQuickFilter>>(new Set())
-  const [sortBy, setSortBy] = useState<SortOption>("manual")
-  const [viewMode, setViewMode] = useState<ViewMode>("management")
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
-
-  const [dragCategoryId, setDragCategoryId] = useState<string | null>(null)
-  const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null)
-  const [dragProductId, setDragProductId] = useState<string | null>(null)
-  const dragOverProductId = useRef<string | null>(null)
-
-  const [showCategoryModal, setShowCategoryModal] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState("")
-  const [newCategoryDescription, setNewCategoryDescription] = useState("")
-  const [newCategoryOrder, setNewCategoryOrder] = useState(0)
-  const [newCategoryActive, setNewCategoryActive] = useState(true)
-
-  
+  const [availabilityFilter, setAvailabilityFilter] =
+    useState<AvailabilityFilter>("all")
 
   const [productSheet, setProductSheet] = useState<ProductSheetState>({
     open: false,
@@ -138,134 +126,64 @@ export default function ProdutosPage() {
     productId: null,
   })
 
-  const [deleteModal, setDeleteModal] = useState<{
-    type: "product" | "category"
-    id: string
-    name: string
-  } | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const { toast } = useToast()
+  const [categoryModal, setCategoryModal] = useState<CategoryModalState>({
+    open: false,
+    mode: "create",
+    categoryId: null,
+  })
 
-  const getAccessToken = useCallback(async () => {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession()
+  const [categoryName, setCategoryName] = useState("")
+  const [categoryActive, setCategoryActive] = useState(true)
+  const [savingCategory, setSavingCategory] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [savingProductId, setSavingProductId] = useState<string | null>(null)
 
-  if (error) throw error
-  if (!session?.access_token) {
-    throw new Error("Sessão inválida. Faça login novamente.")
-  }
+  const sortedCategories = useMemo(() => sortByOrder(categories), [categories])
 
-  return session.access_token
-}, [supabase])
+  const currentSheetProduct = useMemo(() => {
+    if (!productSheet.productId) return null
 
-useEffect(() => {
-  async function loadCatalog() {
-    try {
-      setLoadingData(true)
+    return products.find((product) => product.id === productSheet.productId) ?? null
+  }, [productSheet.productId, products])
 
-      const accessToken = await getAccessToken()
-
-      const response = await fetch("/api/admin/catalog", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || "Não foi possível carregar o catálogo.")
-      }
-
-      const dbCategories: Category[] = (result.categories ?? []).map((category: any) => ({
-        id: category.id,
-        name: category.name,
-        description: undefined,
-        order: category.sort_order ?? 0,
-        active: category.is_active ?? true,
-      }))
-
-      const dbProducts: Product[] = (result.products ?? []).map((product: any) => ({
-        id: product.id,
-        name: product.name,
-        description: product.description ?? "",
-        price: Number(product.price ?? 0),
-        cost: 0,
-        category: product.category_id ?? "",
-        active: product.is_available ?? true,
-        salesCount: 0,
-        order: product.sort_order ?? 0,
-        image: product.image_url ?? null,
-        imageSize: undefined,
-      }))
-
-      setRestaurantId(result.restaurantId ?? null)
-      setCategories(dbCategories)
-      setProducts(dbProducts)
-    } catch (error) {
-      console.error("Erro ao carregar catálogo:", error)
-      toast({
-        title: "Erro ao carregar dados",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível carregar produtos e categorias.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoadingData(false)
-    }
-  }
-
-  loadCatalog()
-}, [getAccessToken, toast])
-
-  const sortedCategories = useMemo(
-    () => [...categories].sort((a, b) => a.order - b.order),
-    [categories]
-  )
-
-  const activeCount = useMemo(() => products.filter((product) => product.active).length, [products])
-  const inactiveCount = products.length - activeCount
-
-  const quickFilterCounts = useMemo(
-    () => ({
-      "low-margin": products.filter(hasLowMargin).length,
-      "low-sales": products.filter(hasLowSales).length,
-      "no-image": products.filter((product) => !hasImage(product)).length,
-      "no-cost": products.filter((product) => !hasRegisteredCost(product)).length,
-    }),
+  const activeProducts = useMemo(
+    () => products.filter((product) => product.active),
     [products]
   )
 
-  const avgMargin = useMemo(() => {
-    const activeProducts = products.filter((product) => product.active && product.price > 0)
-    if (activeProducts.length === 0) return 0
+  const inactiveProducts = useMemo(
+    () => products.filter((product) => !product.active),
+    [products]
+  )
 
-    const totalMargin = activeProducts.reduce(
+  const noImageProducts = useMemo(
+    () => products.filter((product) => !hasImage(product)),
+    [products]
+  )
+
+  const noCostProducts = useMemo(
+    () => products.filter((product) => !hasRegisteredCost(product)),
+    [products]
+  )
+
+  const averageMargin = useMemo(() => {
+    const validProducts = products.filter((product) => product.price > 0)
+
+    if (validProducts.length === 0) return 0
+
+    const marginSum = validProducts.reduce(
       (sum, product) => sum + getMargin(product.price, product.cost),
       0
     )
 
-    return totalMargin / activeProducts.length
+    return marginSum / validProducts.length
   }, [products])
 
-  const categoryProductCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const category of categories) {
-      counts[category.id] = products.filter((product) => product.category === category.id).length
-    }
-    return counts
-  }, [categories, products])
-
   const filteredProducts = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
     return products.filter((product) => {
-      if (search.trim()) {
-        const query = search.toLowerCase()
+      if (query) {
         const matchesSearch =
           product.name.toLowerCase().includes(query) ||
           product.description.toLowerCase().includes(query)
@@ -285,89 +203,42 @@ useEffect(() => {
         return false
       }
 
-      for (const filter of quickFilters) {
-        if (!matchesQuickFilter(product, filter)) {
-          return false
-        }
-      }
-
       return true
     })
-  }, [availabilityFilter, categoryFilter, products, quickFilters, search])
+  }, [availabilityFilter, categoryFilter, products, search])
 
-  const filteredProductsByCategory = useMemo(() => {
-    const map = new Map<string, Product[]>()
+  const productsByCategory = useMemo(() => {
+    const grouped = new Map<string, Product[]>()
 
     for (const category of sortedCategories) {
-      const categoryProducts = filteredProducts.filter((product) => product.category === category.id)
-      map.set(category.id, sortProducts(categoryProducts, sortBy))
+      grouped.set(
+        category.id,
+        filteredProducts
+          .filter((product) => product.category === category.id)
+          .sort((a, b) => a.order - b.order)
+      )
     }
 
-    return map
-  }, [filteredProducts, sortBy, sortedCategories])
+    return grouped
+  }, [filteredProducts, sortedCategories])
 
-  const filteredProductsCount = filteredProducts.length
-  const hasFilteringState =
-    search.trim().length > 0 || availabilityFilter !== "all" || quickFilters.size > 0
-  const allowProductDrag =
-    viewMode === "management" &&
-    sortBy === "manual" &&
-    !hasFilteringState
+  const getAccessToken = useCallback(async () => {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
 
-  const currentSheetProduct = useMemo(() => {
-    if (!productSheet.productId) return null
-    return products.find((product) => product.id === productSheet.productId) ?? null
-  }, [productSheet.productId, products])
+    if (error) throw error
 
-  const getIndicator = useCallback(
-    (product: Product) => getProductIndicator(product, products),
-    [products]
-  )
+    if (!session?.access_token) {
+      throw new Error("Sessão inválida. Faça login novamente.")
+    }
 
-  const clearQuickFilters = useCallback(() => {
-    setQuickFilters(new Set())
-  }, [])
+    return session.access_token
+  }, [supabase])
 
-  const toggleQuickFilter = useCallback((filter: ProductQuickFilter) => {
-    setQuickFilters((prev) => {
-      const next = new Set(prev)
-      if (next.has(filter)) next.delete(filter)
-      else next.add(filter)
-      return next
-    })
-  }, [])
-
-  const setKpiFilter = useCallback(
-    (type: "all" | "active" | "inactive" | ProductQuickFilter) => {
-      if (type === "all") {
-        setAvailabilityFilter("all")
-        setQuickFilters(new Set())
-        return
-      }
-
-      if (type === "active" || type === "inactive") {
-        setAvailabilityFilter((prev) => (prev === type ? "all" : type))
-        return
-      }
-
-      toggleQuickFilter(type)
-    },
-    [toggleQuickFilter]
-  )
-
-  const openCategoryModal = useCallback(() => {
-    setNewCategoryName("")
-    setNewCategoryDescription("")
-    setNewCategoryOrder(categories.length)
-    setNewCategoryActive(true)
-    setShowCategoryModal(true)
-  }, [categories.length])
-
-  const createCategory = useCallback(async () => {
-  if (!newCategoryName.trim()) return
-
-  try {
-    setCreatingCategory(true)
+  const resolveRestaurantId = useCallback(async () => {
+    if (restaurantId) return restaurantId
 
     const {
       data: { user },
@@ -384,95 +255,93 @@ useEffect(() => {
       .single()
 
     if (restaurantError) throw restaurantError
-    if (!restaurant) throw new Error("Restaurante não encontrado.")
+    if (!restaurant?.id) throw new Error("Restaurante não encontrado.")
 
-    const { data, error } = await supabase
-      .from("categories")
-      .insert({
-        restaurant_id: restaurant.id,
-        name: newCategoryName.trim(),
-        sort_order: newCategoryOrder,
-        is_active: newCategoryActive,
+    setRestaurantId(restaurant.id)
+
+    return restaurant.id
+  }, [restaurantId, supabase])
+
+  const loadCatalog = useCallback(async () => {
+    try {
+      setLoadingData(true)
+
+      const accessToken = await getAccessToken()
+
+      const response = await fetch("/api/admin/catalog", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
       })
-      .select("id, name, sort_order, is_active")
-      .single()
 
-    if (error) throw error
+      const result = await response.json()
 
-    const newCategory: Category = {
-      id: data.id,
-      name: data.name,
-      description: newCategoryDescription.trim() || undefined,
-      order: data.sort_order ?? 0,
-      active: data.is_active ?? true,
-    }
+      if (!response.ok) {
+        throw new Error(result.error || "Não foi possível carregar o catálogo.")
+      }
 
-    setCategories((prev) => {
-      const adjusted = prev.map((category) =>
-        category.order >= newCategory.order
-          ? { ...category, order: category.order + 1 }
-          : category
+      const dbCategories: Category[] = (result.categories ?? []).map(
+        (category: DbCategory) => normalizeCategory(category)
       )
 
-      return [...adjusted, newCategory].sort((a, b) => a.order - b.order)
-    })
+      const dbProducts: Product[] = (result.products ?? []).map(
+        (product: DbProduct) => normalizeProduct(product)
+      )
 
-    setShowCategoryModal(false)
+      setRestaurantId(result.restaurantId ?? null)
+      setCategories(sortByOrder(dbCategories))
+      setProducts(sortByOrder(dbProducts))
+    } catch (error) {
+      console.error("Erro ao carregar catálogo:", error)
 
-    toast({
-      title: "Categoria criada",
-      description: `"${newCategory.name}" foi criada com sucesso.`,
-    })
-  } catch (error) {
-    console.error("Erro ao criar categoria:", error)
-    toast({
-      title: "Erro ao criar categoria",
-      description:
-        error instanceof Error ? error.message : "Não foi possível criar a categoria.",
-      variant: "destructive",
-    })
-  } finally {
-    setCreatingCategory(false)
-  }
-}, [
-  supabase,
-  newCategoryName,
-  newCategoryDescription,
-  newCategoryOrder,
-  newCategoryActive,
-  toast,
-])
+      toast({
+        title: "Erro ao carregar dados",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar produtos e categorias.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingData(false)
+    }
+  }, [getAccessToken, toast])
+
+  useEffect(() => {
+    void loadCatalog()
+  }, [loadCatalog])
 
   const openCreateProductSheet = useCallback(
     (preferredCategoryId?: string) => {
       if (categories.length === 0) {
         toast({
           title: "Crie uma categoria primeiro",
-          description: "Voce precisa criar pelo menos uma categoria antes de adicionar produtos.",
+          description:
+            "Você precisa criar pelo menos uma categoria antes de adicionar produtos.",
         })
         return
       }
-
-      const defaultCategoryId =
-        preferredCategoryId ??
-        (categoryFilter !== "all" ? categoryFilter : undefined) ??
-        categories[0]?.id
 
       setProductSheet({
         open: true,
         mode: "create",
         productId: null,
-        preferredCategoryId: defaultCategoryId,
+        preferredCategoryId:
+          preferredCategoryId ??
+          (categoryFilter !== "all" ? categoryFilter : undefined) ??
+          categories[0]?.id,
       })
     },
     [categories, categoryFilter, toast]
   )
 
-  const openEditProductSheet = useCallback((id: string) => {
+  const openEditProductSheet = useCallback((productId: string) => {
     setProductSheet({
       open: true,
       mode: "edit",
-      productId: id,
+      productId,
     })
   }, [])
 
@@ -487,26 +356,16 @@ useEffect(() => {
   const saveProduct = useCallback(
     async (values: ProductEditorValues) => {
       try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
-
-        if (userError) throw userError
-        if (!user) throw new Error("Usuário não autenticado.")
-
-        const { data: restaurant, error: restaurantError } = await supabase
-          .from("restaurants")
-          .select("id")
-          .eq("owner_id", user.id)
-          .single()
-
-        if (restaurantError) throw restaurantError
-        if (!restaurant) throw new Error("Restaurante não encontrado.")
+        const resolvedRestaurantId = await resolveRestaurantId()
 
         if (productSheet.mode === "edit" && productSheet.productId) {
-          const editingProduct = products.find((product) => product.id === productSheet.productId)
+          const editingProduct = products.find(
+            (product) => product.id === productSheet.productId
+          )
+
           if (!editingProduct) return
+
+          setSavingProductId(editingProduct.id)
 
           const targetOrder =
             editingProduct.category === values.category
@@ -523,35 +382,29 @@ useEffect(() => {
               name: values.name,
               description: values.description || null,
               price: values.price,
+              cost_price: values.cost,
               category_id: values.category,
               is_available: values.active,
               image_url: values.image || null,
               sort_order: targetOrder,
             })
             .eq("id", productSheet.productId)
-            .eq("restaurant_id", restaurant.id)
-            .select("id, name, description, price, image_url, is_available, sort_order, category_id")
+            .eq("restaurant_id", resolvedRestaurantId)
+            .select(
+              "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id"
+            )
             .single()
 
           if (error) throw error
           if (!data) throw new Error("Produto não encontrado para atualização.")
 
           const updatedProduct: Product = {
-            id: data.id,
-            name: data.name,
-            description: data.description ?? "",
-            price: Number(data.price ?? 0),
-            cost: values.cost,
-            category: data.category_id ?? "",
-            active: data.is_available ?? true,
-            salesCount: editingProduct.salesCount ?? 0,
-            order: data.sort_order ?? 0,
-            image: data.image_url ?? null,
+            ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0),
             imageSize: values.imageSize,
           }
 
           setProducts((prev) =>
-            normalizeProductOrders(
+            sortByOrder(
               prev.map((product) =>
                 product.id === updatedProduct.id ? updatedProduct : product
               )
@@ -563,43 +416,41 @@ useEffect(() => {
             description: `"${values.name}" foi atualizado com sucesso.`,
           })
         } else {
+          const resolvedCategoryId = values.category
+
+          setSavingProductId("new")
+
           const targetOrder = products.filter(
-            (product) => product.category === values.category
+            (product) => product.category === resolvedCategoryId
           ).length
 
           const { data, error } = await supabase
             .from("products")
             .insert({
-              restaurant_id: restaurant.id,
-              category_id: values.category,
+              restaurant_id: resolvedRestaurantId,
+              category_id: resolvedCategoryId,
               name: values.name,
               description: values.description || null,
               price: values.price,
+              cost_price: values.cost,
               image_url: values.image || null,
               is_available: values.active,
               sort_order: targetOrder,
             })
-            .select("id, name, description, price, image_url, is_available, sort_order, category_id")
+            .select(
+              "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id"
+            )
             .single()
 
           if (error) throw error
           if (!data) throw new Error("Erro ao criar produto.")
 
           const newProduct: Product = {
-            id: data.id,
-            name: data.name,
-            description: data.description ?? "",
-            price: Number(data.price ?? 0),
-            cost: values.cost,
-            category: data.category_id ?? "",
-            active: data.is_available ?? true,
-            salesCount: 0,
-            order: data.sort_order ?? 0,
-            image: data.image_url ?? null,
+            ...normalizeProduct(data as DbProduct, 0),
             imageSize: values.imageSize,
           }
 
-          setProducts((prev) => normalizeProductOrders([...prev, newProduct]))
+          setProducts((prev) => sortByOrder([...prev, newProduct]))
 
           toast({
             title: "Produto criado",
@@ -610,411 +461,327 @@ useEffect(() => {
         closeProductSheet()
       } catch (error) {
         console.error("Erro ao salvar produto:", error)
+
         toast({
           title: "Erro ao salvar produto",
           description:
-            error instanceof Error ? error.message : "Não foi possível salvar o produto.",
+            error instanceof Error
+              ? error.message
+              : "Não foi possível salvar o produto.",
           variant: "destructive",
         })
+      } finally {
+        setSavingProductId(null)
       }
     },
-    [closeProductSheet, productSheet.mode, productSheet.productId, products, supabase, toast]
+    [
+      closeProductSheet,
+      productSheet.mode,
+      productSheet.productId,
+      products,
+      resolveRestaurantId,
+      supabase,
+      toast,
+    ]
   )
 
-  const openDeleteModal = useCallback((type: "product" | "category", id: string, name: string) => {
-    setDeleteModal({ type, id, name })
-  }, [])
+  const toggleProductActive = useCallback(
+    async (productId: string) => {
+      const product = products.find((item) => item.id === productId)
 
-  const closeDeleteModal = useCallback(() => {
-    setDeleteModal(null)
-    setIsDeleting(false)
-  }, [])
+      if (!product) return
 
-  const confirmDelete = useCallback(async () => {
-    if (!deleteModal) return
+      try {
+        const resolvedRestaurantId = await resolveRestaurantId()
+        setSavingProductId(productId)
 
-    try {
-      setIsDeleting(true)
+        const nextActive = !product.active
 
-      const accessToken = await getAccessToken()
+        const { data, error } = await supabase
+          .from("products")
+          .update({
+            is_available: nextActive,
+          })
+          .eq("id", productId)
+          .eq("restaurant_id", resolvedRestaurantId)
+          .select(
+            "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id"
+          )
+          .single()
 
-      if (deleteModal.type === "product") {
-        const response = await fetch(`/api/admin/products/${deleteModal.id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        })
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          throw new Error(result.error || "Não foi possível excluir o produto.")
-        }
+        if (error) throw error
+        if (!data) throw new Error("Produto não encontrado.")
 
         setProducts((prev) =>
-          normalizeProductOrders(prev.filter((product) => product.id !== deleteModal.id))
+          prev.map((item) =>
+            item.id === productId
+              ? {
+                  ...item,
+                  active: data.is_available ?? nextActive,
+                }
+              : item
+          )
         )
 
-        setSelectedProducts((prev) => {
-          const next = new Set(prev)
-          next.delete(deleteModal.id)
-          return next
+        toast({
+          title: nextActive ? "Produto ativado" : "Produto inativado",
+          description: `"${product.name}" foi atualizado.`,
         })
+      } catch (error) {
+        console.error("Erro ao alterar status:", error)
 
-        if (productSheet.productId === deleteModal.id) {
-          closeProductSheet()
-        }
+        toast({
+          title: "Erro ao alterar status",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Não foi possível alterar o status do produto.",
+          variant: "destructive",
+        })
+      } finally {
+        setSavingProductId(null)
+      }
+    },
+    [products, resolveRestaurantId, supabase, toast]
+  )
+
+  const deleteProduct = useCallback(
+    async (productId: string) => {
+      const product = products.find((item) => item.id === productId)
+
+      if (!product) return
+
+      const confirmed = window.confirm(
+        `Tem certeza que deseja excluir "${product.name}"? Essa ação não pode ser desfeita.`
+      )
+
+      if (!confirmed) return
+
+      try {
+        const resolvedRestaurantId = await resolveRestaurantId()
+        setDeletingId(productId)
+
+        const { error } = await supabase
+          .from("products")
+          .delete()
+          .eq("id", productId)
+          .eq("restaurant_id", resolvedRestaurantId)
+
+        if (error) throw error
+
+        setProducts((prev) => prev.filter((item) => item.id !== productId))
 
         toast({
           title: "Produto excluído",
-          description: `"${deleteModal.name}" foi removido com sucesso.`,
+          description: `"${product.name}" foi removido.`,
         })
-      } else {
-        const response = await fetch(`/api/admin/categories/${deleteModal.id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        })
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          throw new Error(result.error || "Não foi possível excluir a categoria.")
-        }
-
-        setCategories((prev) => prev.filter((category) => category.id !== deleteModal.id))
+      } catch (error) {
+        console.error("Erro ao excluir produto:", error)
 
         toast({
-          title: "Categoria excluída",
-          description: `"${deleteModal.name}" foi removida com sucesso.`,
+          title: "Erro ao excluir produto",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Não foi possível excluir o produto.",
+          variant: "destructive",
+        })
+      } finally {
+        setDeletingId(null)
+      }
+    },
+    [products, resolveRestaurantId, supabase, toast]
+  )
+
+  const openCreateCategoryModal = useCallback(() => {
+    setCategoryModal({
+      open: true,
+      mode: "create",
+      categoryId: null,
+    })
+    setCategoryName("")
+    setCategoryActive(true)
+  }, [])
+
+  const openEditCategoryModal = useCallback((category: Category) => {
+    setCategoryModal({
+      open: true,
+      mode: "edit",
+      categoryId: category.id,
+    })
+    setCategoryName(category.name)
+    setCategoryActive(category.active)
+  }, [])
+
+  const closeCategoryModal = useCallback(() => {
+    setCategoryModal({
+      open: false,
+      mode: "create",
+      categoryId: null,
+    })
+    setCategoryName("")
+    setCategoryActive(true)
+  }, [])
+
+  const saveCategory = useCallback(async () => {
+    if (!categoryName.trim()) return
+
+    try {
+      const resolvedRestaurantId = await resolveRestaurantId()
+      setSavingCategory(true)
+
+      if (categoryModal.mode === "edit" && categoryModal.categoryId) {
+        const { data, error } = await supabase
+          .from("categories")
+          .update({
+            name: categoryName.trim(),
+            is_active: categoryActive,
+          })
+          .eq("id", categoryModal.categoryId)
+          .eq("restaurant_id", resolvedRestaurantId)
+          .select("id, name, sort_order, is_active")
+          .single()
+
+        if (error) throw error
+        if (!data) throw new Error("Categoria não encontrada.")
+
+        const updatedCategory = normalizeCategory(data as DbCategory)
+
+        setCategories((prev) =>
+          sortByOrder(
+            prev.map((category) =>
+              category.id === updatedCategory.id ? updatedCategory : category
+            )
+          )
+        )
+
+        toast({
+          title: "Categoria atualizada",
+          description: `"${updatedCategory.name}" foi atualizada.`,
+        })
+      } else {
+        const targetOrder = categories.length
+
+        const { data, error } = await supabase
+          .from("categories")
+          .insert({
+            restaurant_id: resolvedRestaurantId,
+            name: categoryName.trim(),
+            sort_order: targetOrder,
+            is_active: categoryActive,
+          })
+          .select("id, name, sort_order, is_active")
+          .single()
+
+        if (error) throw error
+        if (!data) throw new Error("Erro ao criar categoria.")
+
+        const newCategory = normalizeCategory(data as DbCategory)
+
+        setCategories((prev) => sortByOrder([...prev, newCategory]))
+
+        toast({
+          title: "Categoria criada",
+          description: `"${newCategory.name}" foi criada.`,
         })
       }
 
-      setDeleteModal(null)
+      closeCategoryModal()
     } catch (error) {
-      console.error("Erro ao excluir:", error)
-      toast({
-        title: "Erro ao excluir",
-        description:
-          error instanceof Error ? error.message : "Não foi possível concluir a exclusão.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
-    }
-  }, [closeProductSheet, deleteModal, getAccessToken, productSheet.productId, toast])
-
-  const deleteProduct = useCallback(
-    (id: string) => {
-      const product = products.find((item) => item.id === id)
-      if (product) openDeleteModal("product", id, product.name)
-    },
-    [openDeleteModal, products]
-  )
-
-  const deleteCategory = useCallback(
-    (id: string) => {
-      const category = categories.find((item) => item.id === id)
-      if (category) openDeleteModal("category", id, category.name)
-    },
-    [categories, openDeleteModal]
-  )
-
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedProducts((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
-const toggleProductActive = useCallback(
-  async (id: string) => {
-    try {
-      const accessToken = await getAccessToken()
-      const currentProduct = products.find((product) => product.id === id)
-
-      if (!currentProduct) return
-
-      const response = await fetch(`/api/admin/products/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          is_available: !currentProduct.active,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || "Não foi possível atualizar o status do produto.")
-      }
-
-      setProducts((prev) =>
-        prev.map((product) =>
-          product.id === id
-            ? { ...product, active: result.product?.is_available ?? !product.active }
-            : product
-        )
-      )
+      console.error("Erro ao salvar categoria:", error)
 
       toast({
-        title: "Status atualizado",
-        description: `O produto "${currentProduct.name}" foi ${
-          result.product?.is_available ? "ativado" : "inativado"
-        } com sucesso.`,
-      })
-    } catch (error) {
-      console.error("Erro ao atualizar status:", error)
-      toast({
-        title: "Erro ao atualizar status",
+        title: "Erro ao salvar categoria",
         description:
           error instanceof Error
             ? error.message
-            : "Não foi possível atualizar o status do produto.",
+            : "Não foi possível salvar a categoria.",
         variant: "destructive",
       })
+    } finally {
+      setSavingCategory(false)
     }
-  },
-  [getAccessToken, products, toast]
-)
+  }, [
+    categories.length,
+    categoryActive,
+    categoryModal.categoryId,
+    categoryModal.mode,
+    categoryName,
+    closeCategoryModal,
+    resolveRestaurantId,
+    supabase,
+    toast,
+  ])
 
-  const batchActivate = useCallback(() => {
-    setProducts((prev) =>
-      prev.map((product) =>
-        selectedProducts.has(product.id) ? { ...product, active: true } : product
+  const deleteCategory = useCallback(
+    async (categoryId: string) => {
+      const category = categories.find((item) => item.id === categoryId)
+
+      if (!category) return
+
+      const productsInCategory = products.filter(
+        (product) => product.category === categoryId
       )
-    )
-    setSelectedProducts(new Set())
-  }, [selectedProducts])
 
-  const batchDeactivate = useCallback(() => {
-    setProducts((prev) =>
-      prev.map((product) =>
-        selectedProducts.has(product.id) ? { ...product, active: false } : product
-      )
-    )
-    setSelectedProducts(new Set())
-  }, [selectedProducts])
-
-  const batchCategoryChange = useCallback(
-    (targetCategoryId: string) => {
-      setProducts((prev) => {
-        const moving = prev
-          .filter((product) => selectedProducts.has(product.id))
-          .sort((a, b) => a.order - b.order)
-
-        const targetStart = prev.filter(
-          (product) =>
-            product.category === targetCategoryId && !selectedProducts.has(product.id)
-        ).length
-
-        const movingOrderById = new Map(
-          moving.map((product, index) => [product.id, targetStart + index])
-        )
-
-        const updated = prev.map((product) =>
-          selectedProducts.has(product.id)
-            ? {
-                ...product,
-                category: targetCategoryId,
-                order: movingOrderById.get(product.id) ?? product.order,
-              }
-            : product
-        )
-
-        return normalizeProductOrders(updated)
-      })
-      setSelectedProducts(new Set())
-    },
-    [selectedProducts]
-  )
-
-  const batchPriceAdjust = useCallback(
-    (percent: number) => {
-      setProducts((prev) =>
-        prev.map((product) => {
-          if (!selectedProducts.has(product.id)) return product
-          const factor = 1 + percent / 100
-          return {
-            ...product,
-            price: Math.round(product.price * factor * 100) / 100,
-          }
+      if (productsInCategory.length > 0) {
+        toast({
+          title: "Categoria possui produtos",
+          description:
+            "Mova ou exclua os produtos dessa categoria antes de apagar.",
+          variant: "destructive",
         })
-      )
-      setSelectedProducts(new Set())
-    },
-    [selectedProducts]
-  )
-
-  const handleCategoryDragStart = useCallback((categoryId: string) => {
-    setDragCategoryId(categoryId)
-    setDragProductId(null)
-  }, [])
-
-  const handleCategoryDragOver = useCallback(
-    (event: React.DragEvent, categoryId: string) => {
-      if (!dragCategoryId) return
-      event.preventDefault()
-      setDragOverCategoryId(categoryId)
-    },
-    [dragCategoryId]
-  )
-
-  const handleCategoryDrop = useCallback(
-    (targetCategoryId: string) => {
-      if (!dragCategoryId || dragCategoryId === targetCategoryId) {
-        setDragCategoryId(null)
-        setDragOverCategoryId(null)
         return
       }
 
-      setCategories((prev) => {
-        const next = [...prev]
-        const fromIndex = next.findIndex((category) => category.id === dragCategoryId)
-        const toIndex = next.findIndex((category) => category.id === targetCategoryId)
+      const confirmed = window.confirm(
+        `Tem certeza que deseja excluir a categoria "${category.name}"?`
+      )
 
-        if (fromIndex === -1 || toIndex === -1) return prev
+      if (!confirmed) return
 
-        const [moved] = next.splice(fromIndex, 1)
-        next.splice(toIndex, 0, moved)
+      try {
+        const resolvedRestaurantId = await resolveRestaurantId()
+        setDeletingId(categoryId)
 
-        return next.map((category, index) => ({ ...category, order: index }))
-      })
+        const { error } = await supabase
+          .from("categories")
+          .delete()
+          .eq("id", categoryId)
+          .eq("restaurant_id", resolvedRestaurantId)
 
-      setDragCategoryId(null)
-      setDragOverCategoryId(null)
+        if (error) throw error
+
+        setCategories((prev) => prev.filter((item) => item.id !== categoryId))
+
+        toast({
+          title: "Categoria excluída",
+          description: `"${category.name}" foi removida.`,
+        })
+      } catch (error) {
+        console.error("Erro ao excluir categoria:", error)
+
+        toast({
+          title: "Erro ao excluir categoria",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Não foi possível excluir a categoria.",
+          variant: "destructive",
+        })
+      } finally {
+        setDeletingId(null)
+      }
     },
-    [dragCategoryId]
+    [categories, products, resolveRestaurantId, supabase, toast]
   )
-
-  const handleProductDragStart = useCallback((productId: string) => {
-    setDragProductId(productId)
-    setDragCategoryId(null)
-  }, [])
-
-  const handleProductDragOver = useCallback(
-    (event: React.DragEvent, productId: string) => {
-      if (!dragProductId) return
-      event.preventDefault()
-      dragOverProductId.current = productId
-    },
-    [dragProductId]
-  )
-
-  const handleProductDrop = useCallback(
-    (targetCategoryId: string) => {
-      if (!dragProductId) return
-
-      const overId = dragOverProductId.current
-
-      setProducts((prev) => {
-        const next = [...prev]
-        const dragIndex = next.findIndex((product) => product.id === dragProductId)
-        if (dragIndex === -1) return prev
-
-        next[dragIndex] = { ...next[dragIndex], category: targetCategoryId }
-
-        if (overId && overId !== dragProductId) {
-          const categoryProducts = next
-            .filter((product) => product.category === targetCategoryId)
-            .sort((a, b) => a.order - b.order)
-
-          const fromIndex = categoryProducts.findIndex((product) => product.id === dragProductId)
-          const toIndex = categoryProducts.findIndex((product) => product.id === overId)
-
-          if (fromIndex !== -1 && toIndex !== -1) {
-            const [moved] = categoryProducts.splice(fromIndex, 1)
-            categoryProducts.splice(toIndex, 0, moved)
-
-            categoryProducts.forEach((product, index) => {
-              const productIndex = next.findIndex((item) => item.id === product.id)
-              if (productIndex !== -1) {
-                next[productIndex] = { ...next[productIndex], order: index }
-              }
-            })
-          }
-        } else {
-          const targetCount = next.filter(
-            (product) => product.category === targetCategoryId && product.id !== dragProductId
-          ).length
-          next[dragIndex] = { ...next[dragIndex], category: targetCategoryId, order: targetCount }
-        }
-
-        return normalizeProductOrders(next)
-      })
-
-      setDragProductId(null)
-      dragOverProductId.current = null
-    },
-    [dragProductId]
-  )
-
-  const kpiCards = [
-    {
-      id: "all" as const,
-      title: "Total",
-      description: "Visao geral do catalogo",
-      value: products.length,
-      icon: Package,
-      active: availabilityFilter === "all" && quickFilters.size === 0,
-    },
-    {
-      id: "active" as const,
-      title: "Ativos",
-      description: "Itens prontos para venda",
-      value: activeCount,
-      icon: AlertCircle,
-      active: availabilityFilter === "active",
-    },
-    {
-      id: "inactive" as const,
-      title: "Inativos",
-      description: "Itens fora do cardapio",
-      value: inactiveCount,
-      icon: X,
-      active: availabilityFilter === "inactive",
-    },
-    {
-      id: "low-margin" as const,
-      title: "Margem baixa",
-      description: "Abaixo do alvo de 20%",
-      value: quickFilterCounts["low-margin"],
-      icon: AlertTriangle,
-      active: quickFilters.has("low-margin"),
-    },
-    {
-      id: "no-image" as const,
-      title: "Sem foto",
-      description: "Perdem destaque no cardapio",
-      value: quickFilterCounts["no-image"],
-      icon: ImageOff,
-      active: quickFilters.has("no-image"),
-    },
-    {
-      id: "low-sales" as const,
-      title: "Baixa saida",
-      description: "Menos de 5 vendas registradas",
-      value: quickFilterCounts["low-sales"],
-      icon: Moon,
-      active: quickFilters.has("low-sales"),
-    },
-  ]
 
   if (loadingData) {
     return (
-      <AdminLayout>
-        <div className="min-h-screen p-6">
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <p className="text-sm text-muted-foreground">
-              Carregando catálogo...
-            </p>
+      <AdminLayout title="Produtos">
+        <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-slate-200 bg-white">
+          <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando catálogo...
           </div>
         </div>
       </AdminLayout>
@@ -1022,414 +789,591 @@ const toggleProductActive = useCallback(
   }
 
   return (
-    <AdminLayout>
-      <div className="min-h-screen">
-        <div className="p-6">
-          <div className="mb-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-balance text-xl font-bold tracking-tight text-foreground">
-                  Produtos e Cardapio
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Organize o catalogo, descubra gargalos e ajuste preco, status e imagem sem sair da tela.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={openCategoryModal}
-                  className="flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-                >
-                  <FolderPlus className="h-4 w-4 text-muted-foreground" />
-                  <span className="hidden sm:inline">Nova Categoria</span>
-                </button>
-
-                <button
-                  onClick={() => openCreateProductSheet()}
-                  className="flex items-center gap-1.5 rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] shadow-sm transition-colors hover:bg-[hsl(var(--primary))]/90"
-                >
-                  <Plus className="h-4 w-4" />
-                  Novo Produto
-                </button>
-              </div>
+    <AdminLayout title="Produtos">
+      <div className="space-y-5">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h1 className="text-xl font-black tracking-tight text-slate-950">
+                Produtos e Cardápio
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Edite produtos, categorias, preço, custo, lucro e status do cardápio.
+              </p>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-              {kpiCards.map((card) => {
-                const Icon = card.icon
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={openCreateCategoryModal}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                <FolderPlus className="h-4 w-4" />
+                Nova categoria
+              </button>
 
-                return (
-                  <button
-                    key={card.id}
-                    onClick={() => setKpiFilter(card.id)}
-                    className={cn(
-                      "rounded-2xl border px-4 py-4 text-left transition-all",
-                      card.active
-                        ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/8 shadow-sm"
-                        : "border-border bg-card hover:border-[hsl(var(--primary))]/30 hover:bg-card/80"
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          {card.title}
-                        </p>
-                        <p className="mt-2 text-2xl font-bold text-foreground">{card.value}</p>
-                      </div>
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-2xl",
-                          card.active
-                            ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-                            : "bg-secondary text-secondary-foreground"
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </div>
-                    </div>
-                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                      {card.description}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="rounded-full bg-secondary px-3 py-1 font-medium">
-                Margem media dos ativos: {avgMargin.toFixed(1)}%
-              </span>
-              {sortBy !== "manual" && viewMode === "management" && (
-                <span className="rounded-full bg-secondary px-3 py-1 font-medium">
-                  Troque para ordem manual para reorganizar por arraste.
-                </span>
-              )}
-              {allowProductDrag && (
-                <span className="rounded-full bg-secondary px-3 py-1 font-medium">
-                  Arraste produtos entre categorias para ajustar a ordem manual.
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={() => openCreateProductSheet()}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                Novo produto
+              </button>
             </div>
           </div>
 
-          <div className="mb-6 rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Tag className="h-4 w-4 text-muted-foreground" />
-                Categorias
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                {sortedCategories.length} categorias
-              </span>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Total
+                </p>
+                <Package className="h-4 w-4 text-slate-400" />
+              </div>
+              <p className="mt-2 text-2xl font-black text-slate-950">
+                {products.length}
+              </p>
             </div>
 
-            {sortedCategories.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
-                <p className="text-sm font-medium text-foreground">Nenhuma categoria criada ainda</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Crie sua primeira categoria para comecar a cadastrar produtos.
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                  Ativos
                 </p>
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setCategoryFilter("all")}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    categoryFilter === "all"
-                      ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Package className="h-3.5 w-3.5" />
-                  Todas
-                  <span
+              <p className="mt-2 text-2xl font-black text-emerald-900">
+                {activeProducts.length}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Inativos
+                </p>
+                <EyeOff className="h-4 w-4 text-slate-400" />
+              </div>
+              <p className="mt-2 text-2xl font-black text-slate-950">
+                {inactiveProducts.length}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Sem foto
+                </p>
+                <ImageOff className="h-4 w-4 text-slate-400" />
+              </div>
+              <p className="mt-2 text-2xl font-black text-slate-950">
+                {noImageProducts.length}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Sem custo
+                </p>
+                <DollarSign className="h-4 w-4 text-slate-400" />
+              </div>
+              <p className="mt-2 text-2xl font-black text-slate-950">
+                {noCostProducts.length}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Margem média
+                </p>
+                <Percent className="h-4 w-4 text-slate-400" />
+              </div>
+              <p className="mt-2 text-2xl font-black text-slate-950">
+                {averageMargin.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_180px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar produto por nome ou descrição..."
+                className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+              />
+            </div>
+
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            >
+              <option value="all">Todas categorias</option>
+              {sortedCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={availabilityFilter}
+              onChange={(event) =>
+                setAvailabilityFilter(event.target.value as AvailabilityFilter)
+              }
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            >
+              <option value="all">Todos status</option>
+              <option value="active">Ativos</option>
+              <option value="inactive">Inativos</option>
+            </select>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-base font-black text-slate-950">
+                Categorias
+              </h2>
+              <p className="text-sm text-slate-500">
+                Edite o nome, ative ou inative categorias do cardápio.
+              </p>
+            </div>
+
+            <p className="text-sm font-semibold text-slate-500">
+              {sortedCategories.length} categoria(s)
+            </p>
+          </div>
+
+          {sortedCategories.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+              <p className="text-sm font-bold text-slate-700">
+                Nenhuma categoria cadastrada
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Crie uma categoria para começar a adicionar produtos.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("all")}
+                className={cn(
+                  "inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition",
+                  categoryFilter === "all"
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                )}
+              >
+                Todas
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">
+                  {products.length}
+                </span>
+              </button>
+
+              {sortedCategories.map((category) => {
+                const count = products.filter(
+                  (product) => product.category === category.id
+                ).length
+
+                return (
+                  <div
+                    key={category.id}
                     className={cn(
-                      "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                      categoryFilter === "all" ? "bg-white/20" : "bg-muted"
+                      "inline-flex h-10 items-center overflow-hidden rounded-lg border",
+                      categoryFilter === category.id
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-200 bg-white text-slate-700"
                     )}
                   >
-                    {products.length}
-                  </span>
-                </button>
-
-                {sortedCategories.map((category) => (
-                  <div key={category.id} className="flex items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => setCategoryFilter(category.id)}
-                      className={cn(
-                        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                        categoryFilter === category.id
-                          ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-                          : "bg-secondary text-muted-foreground hover:text-foreground",
-                        !category.active && "opacity-50"
-                      )}
+                      className="flex h-full items-center gap-2 px-3 text-sm font-bold"
                     >
                       {category.name}
                       <span
                         className={cn(
-                          "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                          categoryFilter === category.id ? "bg-white/20" : "bg-muted"
+                          "rounded-full px-2 py-0.5 text-xs",
+                          categoryFilter === category.id
+                            ? "bg-white/20"
+                            : "bg-slate-100 text-slate-500"
                         )}
                       >
-                        {categoryProductCounts[category.id] || 0}
+                        {count}
                       </span>
-                      {!category.active && (
-                        <span className="rounded bg-muted px-1 text-[9px] font-medium text-muted-foreground">
-                          OFF
-                        </span>
-                      )}
                     </button>
 
                     <button
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        deleteCategory(category.id)
-                      }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-600"
-                      aria-label={`Excluir categoria ${category.name}`}
+                      type="button"
+                      onClick={() => openEditCategoryModal(category)}
+                      className={cn(
+                        "flex h-full w-9 items-center justify-center border-l transition",
+                        categoryFilter === category.id
+                          ? "border-white/20 hover:bg-white/10"
+                          : "border-slate-200 hover:bg-slate-50"
+                      )}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void deleteCategory(category.id)}
+                      disabled={deletingId === category.id}
+                      className={cn(
+                        "flex h-full w-9 items-center justify-center border-l transition disabled:opacity-50",
+                        categoryFilter === category.id
+                          ? "border-white/20 hover:bg-white/10"
+                          : "border-slate-200 hover:bg-red-50 hover:text-red-600"
+                      )}
+                    >
+                      {deletingId === category.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
 
-          <ProductsToolbar
-            search={search}
-            onSearchChange={setSearch}
-            categoryFilter={categoryFilter}
-            onCategoryFilterChange={setCategoryFilter}
-            categories={sortedCategories}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            selectedCount={selectedProducts.size}
-            visibleCount={filteredProductsCount}
-            quickFilters={quickFilters}
-            quickFilterCounts={quickFilterCounts}
-            onToggleQuickFilter={toggleQuickFilter}
-            onClearQuickFilters={clearQuickFilters}
-            onBatchActivate={batchActivate}
-            onBatchDeactivate={batchDeactivate}
-            onBatchCategoryChange={batchCategoryChange}
-            onBatchPriceAdjust={batchPriceAdjust}
-          />
+        <section className="space-y-4">
+          {sortedCategories.map((category) => {
+            const categoryProducts = productsByCategory.get(category.id) ?? []
 
-          <div className="mt-6 flex flex-col gap-6">
-            {sortedCategories.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
-                <h2 className="text-lg font-semibold text-foreground">Nenhum produto cadastrado ainda</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Crie uma categoria e depois adicione seus produtos ao cardapio.
-                </p>
-              </div>
-            ) : filteredProductsCount === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
-                <h2 className="text-lg font-semibold text-foreground">Nenhum produto encontrado</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Ajuste a busca ou limpe os filtros para voltar a visualizar o catalogo completo.
-                </p>
-                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            if (categoryFilter !== "all" && categoryFilter !== category.id) {
+              return null
+            }
+
+            if (categoryProducts.length === 0 && search.trim()) {
+              return null
+            }
+
+            return (
+              <div
+                key={category.id}
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+              >
+                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-black uppercase tracking-wide text-slate-950">
+                        {category.name}
+                      </h3>
+
+                      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-600">
+                        {categoryProducts.length}
+                      </span>
+
+                      {!category.active && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+                          Inativa
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Produtos, preço, custo, lucro e margem.
+                    </p>
+                  </div>
+
                   <button
-                    onClick={() => {
-                      setSearch("")
-                      setAvailabilityFilter("all")
-                      setQuickFilters(new Set())
-                      setCategoryFilter("all")
-                    }}
-                    className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    type="button"
+                    onClick={() => openCreateProductSheet(category.id)}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
                   >
-                    Limpar filtros
-                  </button>
-                  <button
-                    onClick={() => openCreateProductSheet()}
-                    className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-colors hover:bg-[hsl(var(--primary))]/90"
-                  >
-                    Novo Produto
+                    <Plus className="h-4 w-4" />
+                    Produto nessa categoria
                   </button>
                 </div>
+
+                {categoryProducts.length === 0 ? (
+                  <div className="p-4">
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                      <p className="text-sm font-bold text-slate-700">
+                        Nenhum produto nessa categoria
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Adicione produtos para montar o cardápio.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {categoryProducts.map((product) => {
+                      const profit = getProfit(product.price, product.cost)
+                      const margin = getMargin(product.price, product.cost)
+                      const isSaving = savingProductId === product.id
+                      const isDeleting = deletingId === product.id
+
+                      return (
+                        <div
+                          key={product.id}
+                          className="grid gap-4 px-4 py-4 transition hover:bg-slate-50/70 xl:grid-cols-[minmax(0,1.5fr)_120px_120px_120px_100px_150px_150px]"
+                        >
+                          <div className="flex min-w-0 gap-3">
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                              {product.image ? (
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ImageOff className="h-5 w-5 text-slate-400" />
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-black text-slate-950">
+                                  {product.name}
+                                </p>
+
+                                {!product.active && (
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
+                                    Inativo
+                                  </span>
+                                )}
+
+                                {!hasRegisteredCost(product) && (
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+                                    Sem custo
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-1 line-clamp-2 text-sm text-slate-500">
+                                {product.description || "Sem descrição cadastrada."}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                              Preço
+                            </p>
+                            <p className="mt-1 text-sm font-black text-slate-950">
+                              {formatCurrency(product.price)}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                              Custo
+                            </p>
+                            <p className="mt-1 text-sm font-black text-slate-950">
+                              {formatCurrency(product.cost)}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                              Lucro
+                            </p>
+                            <p
+                              className={cn(
+                                "mt-1 text-sm font-black",
+                                profit >= 0 ? "text-emerald-600" : "text-red-600"
+                              )}
+                            >
+                              {formatCurrency(profit)}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                              Margem
+                            </p>
+                            <p
+                              className={cn(
+                                "mt-1 text-sm font-black",
+                                margin >= 20 ? "text-emerald-600" : "text-amber-600"
+                              )}
+                            >
+                              {margin.toFixed(1)}%
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                              Status
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => void toggleProductActive(product.id)}
+                              disabled={isSaving}
+                              className={cn(
+                                "mt-1 inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-bold transition disabled:opacity-50",
+                                product.active
+                                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                              )}
+                            >
+                              {isSaving ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : product.active ? (
+                                <Eye className="h-3.5 w-3.5" />
+                              ) : (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              )}
+                              {product.active ? "Ativo" : "Inativo"}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-2 xl:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => openEditProductSheet(product.id)}
+                              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                              Editar
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => void deleteProduct(product.id)}
+                              disabled={isDeleting}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                            >
+                              {isDeleting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-            ) : (
-              sortedCategories
-                .filter((category) => categoryFilter === "all" || categoryFilter === category.id)
-                .map((category) => {
-                  const categoryProducts = filteredProductsByCategory.get(category.id) ?? []
+            )
+          })}
 
-                  if (hasFilteringState && categoryProducts.length === 0) {
-                    return null
-                  }
-
-                  return (
-                    <CategorySection
-  key={category.id}
-  categoryId={category.id}
-  categoryName={category.name}
-  products={categoryProducts}
-  viewMode={viewMode}
-  selectedProducts={selectedProducts}
-  allowProductDrag={allowProductDrag}
-  onToggleSelect={toggleSelect}
-  onToggleProductActive={toggleProductActive}
-  onEditProduct={openEditProductSheet}
-  onDeleteProduct={deleteProduct}
-  onEditCategory={(id) => {
-    toast({
-      title: "Editar categoria",
-      description: "Agora vamos ligar a edição real da categoria.",
-    })
-  }}
-  onDeleteCategory={deleteCategory}
-  getIndicator={getIndicator}
-  onCategoryDragStart={handleCategoryDragStart}
-  onCategoryDragOver={handleCategoryDragOver}
-  onCategoryDrop={handleCategoryDrop}
-  onProductDragStart={handleProductDragStart}
-  onProductDragOver={handleProductDragOver}
-  onProductDrop={handleProductDrop}
-  isDragOverCategory={dragOverCategoryId === category.id}
-/>
-                  )
-                })
-            )}
-          </div>
-        </div>
-
-{showCategoryModal && (
-  <div
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-    onClick={() => setShowCategoryModal(false)}
-  >
-    <div
-      className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
-            <FolderPlus className="h-5 w-5 text-[hsl(var(--primary))]" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-card-foreground">Nova Categoria</h3>
-            <p className="text-xs text-muted-foreground">
-              Crie uma nova categoria para seus produtos
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setShowCategoryModal(false)}
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      <div className="space-y-4 px-6 py-5">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-            Nome da categoria <span className="text-destructive">*</span>
-          </label>
-          <input
-            type="text"
-            value={newCategoryName}
-            onChange={(event) => setNewCategoryName(event.target.value)}
-            placeholder="Ex: Pratos Principais"
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-            Descricao <span className="text-xs text-muted-foreground">(opcional)</span>
-          </label>
-          <textarea
-            value={newCategoryDescription}
-            onChange={(event) => setNewCategoryDescription(event.target.value)}
-            placeholder="Uma breve descricao da categoria..."
-            rows={2}
-            className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-            Ordem de exibicao
-          </label>
-          <select
-            value={newCategoryOrder}
-            onChange={(event) => setNewCategoryOrder(Number(event.target.value))}
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))]"
-          >
-            {sortedCategories.map((category, index) => (
-              <option key={category.id} value={index}>
-                Antes de: {category.name}
-              </option>
-            ))}
-            <option value={sortedCategories.length}>Final da lista</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-card-foreground">
-            Status
-          </label>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setNewCategoryActive(true)}
-              className={cn(
-                "flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
-                newCategoryActive
-                  ? "border-green-300 bg-green-50 text-green-700"
-                  : "border-input bg-background text-muted-foreground hover:bg-secondary"
-              )}
-            >
-              Ativa
-            </button>
-
-            <button
-              onClick={() => setNewCategoryActive(false)}
-              className={cn(
-                "flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
-                !newCategoryActive
-                  ? "border-amber-300 bg-amber-50 text-amber-700"
-                  : "border-input bg-background text-muted-foreground hover:bg-secondary"
-              )}
-            >
-              Inativa
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-end gap-3 border-t border-border bg-muted/30 px-6 py-4">
-        <button
-          onClick={() => setShowCategoryModal(false)}
-          className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-muted"
-        >
-          Cancelar
-        </button>
-
-        <button
-          onClick={createCategory}
-          disabled={!newCategoryName.trim() || creatingCategory}
-          className={cn(
-            "rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors",
-            newCategoryName.trim() && !creatingCategory
-              ? "bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90"
-              : "cursor-not-allowed bg-muted text-muted-foreground"
+          {filteredProducts.length === 0 && products.length > 0 && (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">
+              <p className="text-sm font-bold text-slate-700">
+                Nenhum produto encontrado
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Ajuste a busca ou os filtros para ver os produtos.
+              </p>
+            </div>
           )}
-        >
-          {creatingCategory ? "Salvando..." : "Salvar Categoria"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        </section>
+
+        {categoryModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <div>
+                  <h2 className="text-base font-black text-slate-950">
+                    {categoryModal.mode === "create"
+                      ? "Nova categoria"
+                      : "Editar categoria"}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Organize os produtos do cardápio.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeCategoryModal}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 px-5 py-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                    Nome da categoria
+                  </label>
+                  <input
+                    value={categoryName}
+                    onChange={(event) => setCategoryName(event.target.value)}
+                    placeholder="Ex: Lanches"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                    Status
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCategoryActive(true)}
+                      className={cn(
+                        "h-10 rounded-lg border text-sm font-bold transition",
+                        categoryActive
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      Ativa
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCategoryActive(false)}
+                      className={cn(
+                        "h-10 rounded-lg border text-sm font-bold transition",
+                        !categoryActive
+                          ? "border-amber-300 bg-amber-50 text-amber-700"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      Inativa
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <button
+                  type="button"
+                  onClick={closeCategoryModal}
+                  className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void saveCategory()}
+                  disabled={!categoryName.trim() || savingCategory}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingCategory && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <ProductEditorSheet
           open={productSheet.open}
@@ -1441,22 +1385,6 @@ const toggleProductActive = useCallback(
             if (!open) closeProductSheet()
           }}
           onSave={saveProduct}
-        />
-
-        <ConfirmationModal
-          isOpen={!!deleteModal}
-          onClose={closeDeleteModal}
-          onConfirm={confirmDelete}
-          title={deleteModal?.type === "product" ? "Excluir produto" : "Excluir categoria"}
-          message={
-            deleteModal?.type === "product"
-              ? `Tem certeza que deseja excluir "${deleteModal?.name}"? Essa acao nao pode ser desfeita.`
-              : `Tem certeza que deseja excluir a categoria "${deleteModal?.name}"? Essa acao nao pode ser desfeita.`
-          }
-          confirmLabel="Confirmar exclusao"
-          cancelLabel="Cancelar"
-          variant="danger"
-          isLoading={isDeleting}
         />
       </div>
     </AdminLayout>

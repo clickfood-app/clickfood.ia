@@ -64,18 +64,27 @@ const notifications = [
 ]
 
 const breadcrumbMap: Record<string, string> = {
-  "/": "Visão Geral",
+  "/": "Gestão",
+  "/gestao": "Gestão",
   "/pedidos": "Pedidos",
+  "/novo-pedido": "Novo Pedido",
+  "/mesas": "Mesas",
+  "/entregadores": "Entregadores",
   "/produtos": "Produtos",
   "/clientes": "Clientes",
-  "/cardapio": "Cardapio Digital",
+  "/cardapio": "Cardápio Digital",
   "/cupons": "Cupons",
-  "/funcionarios": "Gestao de Funcionarios",
+  "/funcionarios": "Gestão de Funcionários",
   "/financeiro": "Financeiro",
-  "/relatorios/resumo": "Relatorios / Visao Geral",
-  "/relatorios/vendas": "Relatorios / Vendas",
-  "/relatorios/historico": "Relatorios / Historico",
+  "/relatorios/resumo": "Relatórios / Visão Geral",
+  "/relatorios/vendas": "Relatórios / Vendas",
+  "/relatorios/historico": "Relatórios / Histórico",
   "/configuracoes": "Configurações",
+}
+
+type RestaurantWithLogo = {
+  logo_url?: string | null
+  name?: string | null
 }
 
 export default function AdminHeader({
@@ -88,19 +97,31 @@ export default function AdminHeader({
   const { restaurant, user } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const unreadCount = notifications.filter((n) => n.unread).length
+  const restaurantWithLogo = restaurant as RestaurantWithLogo | null
+
+  const restaurantName = restaurant?.name || "Meu Restaurante"
+  const restaurantLogoUrl = restaurantWithLogo?.logo_url || null
+
+  const userName =
+    user?.user_metadata?.name ||
+    user?.user_metadata?.full_name ||
+    "Administrador"
+
+  const userEmail = user?.email || "admin@empresa.com"
+
+  const unreadCount = notifications.filter((notification) => notification.unread).length
+
   const currentPage =
     breadcrumbMap[pathname] ||
     pathname.replace("/", "").charAt(0).toUpperCase() + pathname.slice(2)
 
-  const userInitials = user?.name
-    ? user.name
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : "AD"
+  const userInitials = userName
+    .split(" ")
+    .filter(Boolean)
+    .map((word: string) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "AD"
 
   const handleLogout = async () => {
     if (isLoggingOut) return
@@ -148,11 +169,11 @@ export default function AdminHeader({
           <div className="hidden h-6 w-px bg-border sm:block" />
 
           <div className="hidden items-center gap-2.5 sm:flex">
-            {restaurant?.logo_url ? (
+            {restaurantLogoUrl ? (
               <div className="relative h-8 w-8 overflow-hidden rounded-lg ring-1 ring-border">
                 <Image
-                  src={restaurant.logo_url}
-                  alt={restaurant.name || "Logo do restaurante"}
+                  src={restaurantLogoUrl}
+                  alt={restaurantName || "Logo do restaurante"}
                   fill
                   className="object-cover"
                 />
@@ -162,8 +183,9 @@ export default function AdminHeader({
                 <Store className="h-4 w-4 text-[hsl(var(--primary))]" />
               </div>
             )}
+
             <span className="text-sm font-semibold text-foreground">
-              {restaurant?.name || "Meu Restaurante"}
+              {restaurantName}
             </span>
           </div>
 
@@ -173,15 +195,17 @@ export default function AdminHeader({
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink
-                  href="#"
+                  href="/gestao"
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  Painel
+                  Gestão
                 </BreadcrumbLink>
               </BreadcrumbItem>
+
               <BreadcrumbSeparator>
                 <ChevronRight className="h-3.5 w-3.5" />
               </BreadcrumbSeparator>
+
               <BreadcrumbItem>
                 <BreadcrumbPage className="font-medium">
                   {currentPage}
@@ -199,6 +223,7 @@ export default function AdminHeader({
                 aria-label="Notificações"
               >
                 <Bell className="h-5 w-5" />
+
                 {unreadCount > 0 && (
                   <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
                     {unreadCount}
@@ -206,6 +231,7 @@ export default function AdminHeader({
                 )}
               </button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end" className="w-80">
               <DropdownMenuLabel className="flex items-center justify-between">
                 <span>Notificações</span>
@@ -213,7 +239,9 @@ export default function AdminHeader({
                   {unreadCount} novas
                 </span>
               </DropdownMenuLabel>
+
               <DropdownMenuSeparator />
+
               {notifications.map((notification) => (
                 <DropdownMenuItem
                   key={notification.id}
@@ -223,19 +251,24 @@ export default function AdminHeader({
                     <p className="text-sm font-medium text-foreground">
                       {notification.title}
                     </p>
+
                     {notification.unread && (
                       <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-[hsl(var(--primary))]" />
                     )}
                   </div>
+
                   <p className="text-xs text-muted-foreground">
                     {notification.description}
                   </p>
+
                   <p className="text-[11px] text-muted-foreground/70">
                     {notification.time}
                   </p>
                 </DropdownMenuItem>
               ))}
+
               <DropdownMenuSeparator />
+
               <DropdownMenuItem className="cursor-pointer justify-center text-sm font-medium text-[hsl(var(--primary))]">
                 Ver todas as notificações
               </DropdownMenuItem>
@@ -252,39 +285,48 @@ export default function AdminHeader({
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
+
                 <div className="hidden text-left sm:block">
                   <p className="text-sm font-medium leading-none text-foreground">
-                    {user?.name || "Administrador"}
+                    {userName}
                   </p>
+
                   <p className="mt-0.5 text-xs leading-none text-muted-foreground">
-                    {user?.email || "admin@empresa.com"}
+                    {userEmail}
                   </p>
                 </div>
               </button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col gap-1">
                   <p className="text-sm font-medium leading-none text-foreground">
-                    {user?.name || "Administrador"}
+                    {userName}
                   </p>
+
                   <p className="text-xs leading-none text-muted-foreground">
-                    {user?.email || "admin@empresa.com"}
+                    {userEmail}
                   </p>
                 </div>
               </DropdownMenuLabel>
+
               <DropdownMenuSeparator />
+
               <DropdownMenuGroup>
                 <DropdownMenuItem className="cursor-pointer gap-2">
                   <User className="h-4 w-4" />
                   Perfil
                 </DropdownMenuItem>
+
                 <DropdownMenuItem className="cursor-pointer gap-2">
                   <Settings className="h-4 w-4" />
                   Configurações
                 </DropdownMenuItem>
               </DropdownMenuGroup>
+
               <DropdownMenuSeparator />
+
               <DropdownMenuItem
                 disabled={isLoggingOut}
                 className="cursor-pointer gap-2 text-destructive focus:text-destructive disabled:cursor-not-allowed disabled:opacity-50"

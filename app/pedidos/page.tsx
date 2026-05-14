@@ -7,6 +7,7 @@ import {
   ChefHat,
   Clock3,
   Loader2,
+  Package,
   RefreshCcw,
   Search,
   Settings2,
@@ -26,7 +27,11 @@ type OrderRow = {
   customer_phone: string | null
   status: string | null
   total: number | string | null
+  subtotal?: number | string | null
+  discount?: number | string | null
+  delivery_fee?: number | string | null
   payment_method: string | null
+  payment_status: string | null
   notes: string | null
   created_at: string
   delivery_person_id: string | null
@@ -36,6 +41,14 @@ type OrderRow = {
   delivered_at: string | null
   cancelled_at: string | null
   accept_by: string | null
+}
+
+type OrderItem = {
+  id: string
+  order_id: string
+  name: string
+  quantity: number
+  total: number
 }
 
 type DeliveryPerson = {
@@ -74,6 +87,42 @@ const OPEN_ORDER_STATUSES = [
   "em rota",
 ]
 
+const columnStyles = {
+  analysis: {
+    title: "PENDENTES",
+    description: "Aguardando confirmação",
+    icon: Clock3,
+    header: "bg-amber-500",
+    body: "bg-amber-50/45",
+    border: "border-amber-200",
+    badge: "bg-amber-100 text-amber-700",
+    button: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    progress: "bg-emerald-500",
+  },
+  preparation: {
+    title: "EM PREPARO",
+    description: "Produção na cozinha",
+    icon: ChefHat,
+    header: "bg-blue-600",
+    body: "bg-blue-50/40",
+    border: "border-blue-200",
+    badge: "bg-blue-100 text-blue-700",
+    button: "bg-blue-600 hover:bg-blue-700 text-white",
+    progress: "bg-blue-500",
+  },
+  on_route: {
+    title: "EM ROTA",
+    description: "Saiu para entrega",
+    icon: Truck,
+    header: "bg-emerald-600",
+    body: "bg-emerald-50/40",
+    border: "border-emerald-200",
+    badge: "bg-emerald-100 text-emerald-700",
+    button: "bg-purple-600 hover:bg-purple-700 text-white",
+    progress: "bg-emerald-500",
+  },
+} satisfies Record<BoardStatus, Record<string, string | typeof Clock3>>
+
 async function ensureSupabaseSession() {
   const {
     data: { session },
@@ -83,13 +132,8 @@ async function ensureSupabaseSession() {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
-  if (typeof error === "string" && error) {
-    return error
-  }
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === "string" && error) return error
 
   if (error && typeof error === "object") {
     const maybeError = error as {
@@ -164,6 +208,7 @@ function getBoardStatus(status: string | null | undefined): BoardStatus | null {
   if (isAnalysisStatus(status)) return "analysis"
   if (isPreparationStatus(status)) return "preparation"
   if (isOnRouteStatus(status)) return "on_route"
+
   return null
 }
 
@@ -172,15 +217,6 @@ function formatBRL(value: number | string | null | undefined) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value || 0))
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value))
 }
 
 function formatTimeOnly(value: string) {
@@ -194,8 +230,8 @@ function formatElapsedTime(value: string, nowMs: number) {
   const createdAt = new Date(value).getTime()
   const diffInMinutes = Math.max(0, Math.floor((nowMs - createdAt) / 60000))
 
-  if (diffInMinutes < 1) return "Agora"
-  if (diffInMinutes < 60) return `${diffInMinutes} min`
+  if (diffInMinutes < 1) return "agora"
+  if (diffInMinutes < 60) return `${diffInMinutes}min`
 
   const hours = Math.floor(diffInMinutes / 60)
   const minutes = diffInMinutes % 60
@@ -233,19 +269,8 @@ function getCustomerPhone(order: OrderRow) {
   return order.customer_phone?.trim() || "Sem telefone"
 }
 
-function getCustomerInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("")
-}
-
 function getAcceptDeadline(order: OrderRow) {
-  if (order.accept_by) {
-    return new Date(order.accept_by)
-  }
+  if (order.accept_by) return new Date(order.accept_by)
 
   const createdAt = new Date(order.created_at)
   return new Date(createdAt.getTime() + 30 * 1000)
@@ -260,11 +285,12 @@ function getPreparationDeadline(order: OrderRow, averagePrepTimeMinutes: number)
   return new Date(base.getTime() + averagePrepTimeMinutes * 60 * 1000)
 }
 
-function getAcceptProgressPercent(order: OrderRow, nowMs: number) {
-  const deadline = getAcceptDeadline(order).getTime()
-  const createdAt = new Date(order.created_at).getTime()
-  const total = Math.max(1, deadline - createdAt)
-  const elapsed = Math.min(Math.max(0, nowMs - createdAt), total)
+function getProgressPercent(startDate: string, endDate: string, nowMs: number) {
+  const start = new Date(startDate).getTime()
+  const end = new Date(endDate).getTime()
+  const total = Math.max(1, end - start)
+  const elapsed = Math.min(Math.max(0, nowMs - start), total)
+
   return Math.min(100, Math.max(0, (elapsed / total) * 100))
 }
 
@@ -273,6 +299,7 @@ function getDeliveryPersonName(
   deliveryPersonId: string | null
 ) {
   if (!deliveryPersonId) return null
+
   return deliveryPeople.find((person) => person.id === deliveryPersonId)?.name || null
 }
 
@@ -281,7 +308,7 @@ function getPaymentLabel(paymentMethod: string | null) {
 
   const normalized = paymentMethod.toLowerCase()
 
-  if (normalized === "pix") return "PIX"
+  if (normalized === "pix") return "Pix"
   if (normalized === "cash" || normalized === "dinheiro") return "Dinheiro"
   if (normalized === "credit_card" || normalized === "credito") return "Crédito"
   if (normalized === "debit_card" || normalized === "debito") return "Débito"
@@ -289,11 +316,445 @@ function getPaymentLabel(paymentMethod: string | null) {
   return paymentMethod
 }
 
+function getPaymentStatusLabel(paymentStatus: string | null) {
+  const normalized = String(paymentStatus || "").toLowerCase()
+
+  if (normalized === "paid") return "Pago"
+  if (normalized === "pending") return "Pendente"
+  if (normalized === "failed") return "Falhou"
+  if (normalized === "cancelled") return "Cancelado"
+
+  return paymentStatus || "—"
+}
+
+function getOrderTypeLabel(order: OrderRow) {
+  const deliveryFee = Number(order.delivery_fee || 0)
+
+  if (deliveryFee > 0) return "Delivery"
+
+  return "Retirada"
+}
+
+function normalizeOrderItem(raw: Record<string, unknown>): OrderItem {
+  const quantity = Number(raw.quantity || raw.qty || 1)
+  const total = Number(
+    raw.total_price ||
+      raw.subtotal ||
+      raw.total ||
+      raw.price ||
+      raw.unit_price ||
+      0
+  )
+
+  const name =
+    String(
+      raw.product_name ||
+        raw.menu_item_name ||
+        raw.item_name ||
+        raw.name ||
+        "Item do pedido"
+    ) || "Item do pedido"
+
+  return {
+    id: String(raw.id || crypto.randomUUID()),
+    order_id: String(raw.order_id || ""),
+    name,
+    quantity,
+    total,
+  }
+}
+
+type OrderCardProps = {
+  order: OrderRow
+  status: BoardStatus
+  items: OrderItem[]
+  deliveryPeople: DeliveryPerson[]
+  averagePrepTimeMinutes: number
+  nowMs: number
+  busyOrderId: string | null
+  onAccept: (order: OrderRow) => void
+  onCancel: (order: OrderRow) => void
+  onSendToRoute: (order: OrderRow) => void
+  onFinish: (order: OrderRow) => void
+  onAssignDeliveryPerson: (orderId: string, deliveryPersonId: string) => void
+}
+
+function OrderCard({
+  order,
+  status,
+  items,
+  deliveryPeople,
+  averagePrepTimeMinutes,
+  nowMs,
+  busyOrderId,
+  onAccept,
+  onCancel,
+  onSendToRoute,
+  onFinish,
+  onAssignDeliveryPerson,
+}: OrderCardProps) {
+  const styles = columnStyles[status]
+  const isBusy = busyOrderId === order.id
+
+  const acceptDeadline = getAcceptDeadline(order)
+  const acceptRemainingMs = acceptDeadline.getTime() - nowMs
+  const acceptProgress = getProgressPercent(
+    order.created_at,
+    acceptDeadline.toISOString(),
+    nowMs
+  )
+
+  const preparationBaseTime = getPreparationBaseTime(order)
+  const preparationDeadline = getPreparationDeadline(order, averagePrepTimeMinutes)
+  const preparationRemainingMs = preparationDeadline.getTime() - nowMs
+  const preparationProgress = getProgressPercent(
+    preparationBaseTime,
+    preparationDeadline.toISOString(),
+    nowMs
+  )
+
+  const deliveryPersonName = getDeliveryPersonName(
+    deliveryPeople,
+    order.delivery_person_id
+  )
+
+  const isLate =
+    (status === "analysis" && acceptRemainingMs <= 0) ||
+    (status === "preparation" && preparationRemainingMs <= 0)
+
+  const visibleItems = items.slice(0, 4)
+  const hiddenItemsCount = Math.max(0, items.length - visibleItems.length)
+
+  return (
+    <article
+      className={[
+        "overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+        isLate ? "border-red-300 ring-1 ring-red-200" : "border-slate-200",
+      ].join(" ")}
+    >
+      {isLate && (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Pedido atrasado
+          </div>
+        </div>
+      )}
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black text-slate-950">
+                #{getOrderNumber(order)}
+              </h3>
+
+              {status === "analysis" && acceptRemainingMs <= 10000 && (
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                  ALTA
+                </span>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+              <UserRound className="h-4 w-4 text-slate-400" />
+              <span className="truncate">{getCustomerName(order)}</span>
+            </div>
+
+            <p className="mt-1 pl-6 text-xs text-slate-400">
+              {getCustomerPhone(order)}
+            </p>
+          </div>
+
+          <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-700">
+            {getOrderTypeLabel(order)}
+          </span>
+        </div>
+
+        <div className="mt-4">
+          {status === "analysis" && (
+            <>
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span
+                  className={[
+                    "inline-flex items-center gap-1 rounded-md border px-2 py-1 font-bold",
+                    acceptRemainingMs <= 0
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : acceptRemainingMs <= 10000
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700",
+                  ].join(" ")}
+                >
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {acceptRemainingMs > 0
+                    ? formatCountdown(acceptRemainingMs)
+                    : "Esgotado"}
+                </span>
+
+                <span className="text-slate-400">
+                  entrou {formatElapsedTime(order.created_at, nowMs)}
+                </span>
+              </div>
+
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={[
+                    "h-full rounded-full",
+                    acceptRemainingMs <= 10000 ? "bg-red-500" : "bg-emerald-500",
+                  ].join(" ")}
+                  style={{ width: `${acceptProgress}%` }}
+                />
+              </div>
+            </>
+          )}
+
+          {status === "preparation" && (
+            <>
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span
+                  className={[
+                    "inline-flex items-center gap-1 rounded-md border px-2 py-1 font-bold",
+                    preparationRemainingMs <= 0
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-700",
+                  ].join(" ")}
+                >
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {preparationRemainingMs > 0
+                    ? `${Math.ceil(preparationRemainingMs / 60000)}min`
+                    : "Atrasado"}
+                </span>
+
+                <span className="text-slate-400">
+                  {averagePrepTimeMinutes}min estimado
+                </span>
+              </div>
+
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={[
+                    "h-full rounded-full",
+                    preparationRemainingMs <= 0 ? "bg-red-500" : String(styles.progress),
+                  ].join(" ")}
+                  style={{ width: `${preparationProgress}%` }}
+                />
+              </div>
+            </>
+          )}
+
+          {status === "on_route" && (
+            <>
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-bold text-emerald-700">
+                  <Truck className="h-3.5 w-3.5" />
+                  {order.out_for_delivery_at
+                    ? formatElapsedTime(order.out_for_delivery_at, nowMs)
+                    : "Em rota"}
+                </span>
+
+                <span className="text-slate-400">
+                  saiu às{" "}
+                  {order.out_for_delivery_at
+                    ? formatTimeOnly(order.out_for_delivery_at)
+                    : "--:--"}
+                </span>
+              </div>
+
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full w-2/3 rounded-full bg-emerald-500" />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-lg bg-slate-50 p-3">
+          {visibleItems.length > 0 ? (
+            <div className="space-y-2">
+              {visibleItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Package className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span className="truncate font-medium text-slate-700">
+                      {item.quantity}x {item.name}
+                    </span>
+                  </div>
+
+                  {item.total > 0 && (
+                    <span className="shrink-0 text-slate-500">
+                      {formatBRL(item.total)}
+                    </span>
+                  )}
+                </div>
+              ))}
+
+              {hiddenItemsCount > 0 && (
+                <p className="text-xs font-medium text-slate-500">
+                  +{hiddenItemsCount} item(ns)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              Itens do pedido não carregados.
+            </p>
+          )}
+        </div>
+
+        {order.notes && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+              Observação
+            </p>
+            <p className="mt-1 text-sm text-amber-900">{order.notes}</p>
+          </div>
+        )}
+
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs text-slate-500">
+              <p>{getPaymentLabel(order.payment_method)}</p>
+              <p className="mt-1 font-semibold text-slate-600">
+                {getPaymentStatusLabel(order.payment_status)}
+              </p>
+            </div>
+
+            <p className="text-lg font-black text-slate-950">
+              {formatBRL(order.total)}
+            </p>
+          </div>
+        </div>
+
+        {(status === "preparation" || status === "on_route") && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-slate-500" />
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Entregador
+                </p>
+              </div>
+
+              {deliveryPersonName && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                  Atribuído
+                </span>
+              )}
+            </div>
+
+            {status === "preparation" ? (
+              <select
+                value={order.delivery_person_id || ""}
+                onChange={(event) =>
+                  onAssignDeliveryPerson(order.id, event.target.value)
+                }
+                disabled={isBusy || deliveryPeople.length === 0}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">
+                  {deliveryPeople.length === 0
+                    ? "Nenhum entregador cadastrado"
+                    : "Selecionar entregador"}
+                </option>
+
+                {deliveryPeople.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                    {person.phone ? ` • ${person.phone}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                  {deliveryPersonName?.charAt(0).toUpperCase() || "E"}
+                </div>
+
+                <div>
+                  <p className="text-sm font-bold text-slate-800">
+                    {deliveryPersonName || "Entregador não definido"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Taxa: {formatBRL(order.delivery_fee)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          {status === "analysis" && (
+            <>
+              <button
+                type="button"
+                onClick={() => onAccept(order)}
+                disabled={isBusy}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Aceitar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onCancel(order)}
+                disabled={isBusy}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <XCircle className="h-4 w-4" />
+                Negar
+              </button>
+            </>
+          )}
+
+          {status === "preparation" && (
+            <button
+              type="button"
+              onClick={() => onSendToRoute(order)}
+              disabled={isBusy || !order.delivery_person_id}
+              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Pronto / Enviar
+            </button>
+          )}
+
+          {status === "on_route" && (
+            <button
+              type="button"
+              onClick={() => onFinish(order)}
+              disabled={isBusy}
+              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 text-sm font-bold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Finalizar
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
+
 type BoardColumnProps = {
-  title: string
-  description: string
   status: BoardStatus
   orders: OrderRow[]
+  orderItemsByOrderId: Record<string, OrderItem[]>
   deliveryPeople: DeliveryPerson[]
   averagePrepTimeMinutes: number
   nowMs: number
@@ -306,10 +767,9 @@ type BoardColumnProps = {
 }
 
 function BoardColumn({
-  title,
-  description,
   status,
   orders,
+  orderItemsByOrderId,
   deliveryPeople,
   averagePrepTimeMinutes,
   nowMs,
@@ -320,397 +780,65 @@ function BoardColumn({
   onFinish,
   onAssignDeliveryPerson,
 }: BoardColumnProps) {
-  const tone =
-    status === "analysis"
-      ? {
-          column: "border-amber-200 bg-amber-50/40",
-          iconWrap: "border-amber-200 bg-amber-100 text-amber-700",
-          card: "border-amber-200/80 bg-white shadow-[0_14px_30px_-20px_rgba(245,158,11,0.55)]",
-          badge: "bg-amber-100 text-amber-800 border-amber-200",
-          line: "bg-amber-500",
-        }
-      : status === "preparation"
-        ? {
-            column: "border-orange-200 bg-orange-50/40",
-            iconWrap: "border-orange-200 bg-orange-100 text-orange-700",
-            card: "border-orange-200/80 bg-white shadow-[0_14px_30px_-20px_rgba(249,115,22,0.55)]",
-            badge: "bg-orange-100 text-orange-800 border-orange-200",
-            line: "bg-orange-500",
-          }
-        : {
-            column: "border-emerald-200 bg-emerald-50/40",
-            iconWrap: "border-emerald-200 bg-emerald-100 text-emerald-700",
-            card: "border-emerald-200/80 bg-white shadow-[0_14px_30px_-20px_rgba(16,185,129,0.55)]",
-            badge: "bg-emerald-100 text-emerald-800 border-emerald-200",
-            line: "bg-emerald-500",
-          }
-
-  const icon =
-    status === "analysis" ? (
-      <Clock3 className="h-5 w-5" />
-    ) : status === "preparation" ? (
-      <ChefHat className="h-5 w-5" />
-    ) : (
-      <Truck className="h-5 w-5" />
-    )
+  const styles = columnStyles[status]
+  const Icon = styles.icon as typeof Clock3
 
   return (
-    <div className={`flex min-h-[720px] min-w-[360px] flex-col rounded-[28px] border ${tone.column}`}>
-      <div className="border-b border-black/5 px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${tone.iconWrap}`}>
-            {icon}
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className={`${styles.header} px-4 py-3 text-white`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
+              <Icon className="h-5 w-5" />
+            </div>
+
+            <div>
+              <h2 className="text-sm font-black tracking-wide">{styles.title}</h2>
+              <p className="text-xs font-medium text-white/80">
+                {styles.description as string}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h3 className="text-base font-bold text-foreground">{title}</h3>
-            <p className="text-sm text-muted-foreground">{description}</p>
-          </div>
-
-          <div className={`ml-auto rounded-full border px-3 py-1 text-xs font-semibold ${tone.badge}`}>
-            {orders.length} pedido(s)
-          </div>
+          <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/20 px-2 text-sm font-black">
+            {orders.length}
+          </span>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className={`${styles.body} min-h-[calc(100vh-245px)] space-y-3 p-3`}>
         {orders.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-[24px] border border-dashed border-border bg-background/70 p-6 text-center">
+          <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/70 p-6 text-center">
             <div>
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-sm font-bold text-slate-700">
                 Nenhum pedido aqui
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Os pedidos vão aparecer em tempo real.
+              <p className="mt-1 text-xs text-slate-500">
+                Os pedidos aparecem automaticamente nessa etapa.
               </p>
             </div>
           </div>
         ) : (
-          orders.map((order) => {
-            const isBusy = busyOrderId === order.id
-            const customerName = getCustomerName(order)
-            const acceptDeadline = getAcceptDeadline(order)
-            const acceptRemainingMs = acceptDeadline.getTime() - nowMs
-            const acceptProgress = getAcceptProgressPercent(order, nowMs)
-
-            const prepDeadline = getPreparationDeadline(order, averagePrepTimeMinutes)
-            const prepRemainingMs = prepDeadline.getTime() - nowMs
-            const deliveryPersonName = getDeliveryPersonName(
-              deliveryPeople,
-              order.delivery_person_id
-            )
-
-            const acceptTone =
-              acceptRemainingMs <= 0
-                ? "border-red-300 bg-red-50 text-red-700"
-                : acceptRemainingMs <= 10000
-                  ? "border-red-300 bg-red-50 text-red-700"
-                  : acceptRemainingMs <= 20000
-                    ? "border-amber-300 bg-amber-50 text-amber-700"
-                    : "border-emerald-300 bg-emerald-50 text-emerald-700"
-
-            const prepTone =
-              prepRemainingMs <= 0
-                ? "border-red-300 bg-red-50 text-red-700"
-                : prepRemainingMs <= 5 * 60 * 1000
-                  ? "border-amber-300 bg-amber-50 text-amber-700"
-                  : "border-emerald-300 bg-emerald-50 text-emerald-700"
-
-            return (
-              <div
-                key={order.id}
-                className={`overflow-hidden rounded-[26px] border ${tone.card}`}
-              >
-                <div className={`h-1.5 w-full ${tone.line}`} />
-
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-lg font-bold text-foreground">
-                          Pedido #{getOrderNumber(order)}
-                        </p>
-                        <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                          {getPaymentLabel(order.payment_method)}
-                        </span>
-                      </div>
-
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Entrou às {formatTimeOnly(order.created_at)} • {formatDateTime(order.created_at)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground">
-                      {formatElapsedTime(order.created_at, nowMs)}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-3 rounded-[22px] border border-border bg-muted/30 p-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary">
-                      {getCustomerInitials(customerName) || "CL"}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-foreground">
-                        {customerName}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {getCustomerPhone(order)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-[20px] border border-border bg-background p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        Total
-                      </p>
-                      <p className="mt-1 text-base font-bold text-foreground">
-                        {formatBRL(order.total)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-[20px] border border-border bg-background p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        Pagamento
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-foreground">
-                        {getPaymentLabel(order.payment_method)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {order.notes ? (
-                    <div className="mt-4 rounded-[20px] border border-border bg-background p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        Observação
-                      </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {order.notes}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {status === "analysis" && (
-                    <div className="mt-4 rounded-[22px] border border-border bg-background p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-amber-600" />
-                          <p className="text-sm font-bold text-foreground">
-                            Prazo para aceitar
-                          </p>
-                        </div>
-
-                        <div className={`rounded-full border px-3 py-1 text-xs font-bold ${acceptTone}`}>
-                          {acceptRemainingMs > 0
-                            ? formatCountdown(acceptRemainingMs)
-                            : "Tempo esgotado"}
-                        </div>
-                      </div>
-
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            acceptRemainingMs <= 0
-                              ? "bg-red-500"
-                              : acceptRemainingMs <= 10000
-                                ? "bg-red-500"
-                                : acceptRemainingMs <= 20000
-                                  ? "bg-amber-500"
-                                  : "bg-emerald-500"
-                          }`}
-                          style={{ width: `${acceptProgress}%` }}
-                        />
-                      </div>
-
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Limite até {formatTimeOnly(acceptDeadline.toISOString())}
-                      </p>
-                    </div>
-                  )}
-
-                  {status === "preparation" && (
-                    <div className="mt-4 space-y-4">
-                      <div className="rounded-[22px] border border-border bg-background p-4">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <ChefHat className="h-4 w-4 text-orange-600" />
-                            <p className="text-sm font-bold text-foreground">
-                              Preparo
-                            </p>
-                          </div>
-
-                          <div className={`rounded-full border px-3 py-1 text-xs font-bold ${prepTone}`}>
-                            {prepRemainingMs > 0
-                              ? `Faltam ${Math.ceil(prepRemainingMs / 60000)} min`
-                              : "Atrasado"}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-[18px] bg-muted/40 p-3">
-                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Início
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-foreground">
-                              {formatTimeOnly(getPreparationBaseTime(order))}
-                            </p>
-                          </div>
-
-                          <div className="rounded-[18px] bg-muted/40 p-3">
-                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Saída prevista
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-foreground">
-                              {formatTimeOnly(prepDeadline.toISOString())}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[22px] border border-border bg-background p-4">
-                        <div className="mb-3 flex items-center gap-2">
-                          <UserRound className="h-4 w-4 text-primary" />
-                          <p className="text-sm font-bold text-foreground">
-                            Entregador
-                          </p>
-                        </div>
-
-                        <select
-                          value={order.delivery_person_id || ""}
-                          onChange={(e) =>
-                            onAssignDeliveryPerson(order.id, e.target.value)
-                          }
-                          disabled={isBusy || deliveryPeople.length === 0}
-                          className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <option value="">
-                            {deliveryPeople.length === 0
-                              ? "Nenhum entregador cadastrado"
-                              : "Selecionar entregador"}
-                          </option>
-
-                          {deliveryPeople.map((person) => (
-                            <option key={person.id} value={person.id}>
-                              {person.name}
-                              {person.phone ? ` • ${person.phone}` : ""}
-                            </option>
-                          ))}
-                        </select>
-
-                        {deliveryPersonName ? (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            Responsável atual: <span className="font-semibold text-foreground">{deliveryPersonName}</span>
-                          </p>
-                        ) : (
-                          <p className="mt-2 text-xs text-amber-700">
-                            Escolha um entregador antes de enviar para rota.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {status === "on_route" && (
-                    <div className="mt-4 rounded-[22px] border border-border bg-background p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Truck className="h-4 w-4 text-emerald-600" />
-                            <p className="text-sm font-bold text-foreground">
-                              Em rota
-                            </p>
-                          </div>
-
-                          <p className="mt-2 text-sm text-foreground">
-                            {deliveryPersonName || "Entregador não definido"}
-                          </p>
-
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Saiu às{" "}
-                            {order.out_for_delivery_at
-                              ? formatTimeOnly(order.out_for_delivery_at)
-                              : "—"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                          {order.out_for_delivery_at
-                            ? `${formatElapsedTime(order.out_for_delivery_at, nowMs)} em rota`
-                            : "Em rota"}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {status === "analysis" && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onAccept(order)}
-                          disabled={isBusy}
-                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isBusy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4" />
-                          )}
-                          Aceitar pedido
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => onCancel(order)}
-                          disabled={isBusy}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <XCircle className="h-4 w-4" />
-                          Cancelar
-                        </button>
-                      </>
-                    )}
-
-                    {status === "preparation" && (
-                      <button
-                        type="button"
-                        onClick={() => onSendToRoute(order)}
-                        disabled={isBusy || !order.delivery_person_id}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Truck className="h-4 w-4" />
-                        )}
-                        Enviar para rota
-                      </button>
-                    )}
-
-                    {status === "on_route" && (
-                      <button
-                        type="button"
-                        onClick={() => onFinish(order)}
-                        disabled={isBusy}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="h-4 w-4" />
-                        )}
-                        Finalizar pedido
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })
+          orders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              status={status}
+              items={orderItemsByOrderId[order.id] || []}
+              deliveryPeople={deliveryPeople}
+              averagePrepTimeMinutes={averagePrepTimeMinutes}
+              nowMs={nowMs}
+              busyOrderId={busyOrderId}
+              onAccept={onAccept}
+              onCancel={onCancel}
+              onSendToRoute={onSendToRoute}
+              onFinish={onFinish}
+              onAssignDeliveryPerson={onAssignDeliveryPerson}
+            />
+          ))
         )}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -718,6 +846,9 @@ export default function PedidosPage() {
   const { restaurant, user, isLoading: authLoading } = useAuth()
 
   const [orders, setOrders] = useState<OrderRow[]>([])
+  const [orderItemsByOrderId, setOrderItemsByOrderId] = useState<
+    Record<string, OrderItem[]>
+  >({})
   const [deliveryPeople, setDeliveryPeople] = useState<DeliveryPerson[]>([])
   const [averagePrepTimeMinutes, setAveragePrepTimeMinutes] = useState(30)
 
@@ -730,6 +861,45 @@ export default function PedidosPage() {
   const [savingPrepTime, setSavingPrepTime] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [nowMs, setNowMs] = useState(Date.now())
+
+  async function loadOrderItems(orderIds: string[]) {
+    if (orderIds.length === 0) {
+      setOrderItemsByOrderId({})
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("order_items")
+        .select("*")
+        .in("order_id", orderIds)
+
+      if (error) {
+        console.warn("Itens dos pedidos não carregados:", error.message)
+        setOrderItemsByOrderId({})
+        return
+      }
+
+      const grouped: Record<string, OrderItem[]> = {}
+
+      for (const rawItem of (data || []) as Record<string, unknown>[]) {
+        const item = normalizeOrderItem(rawItem)
+
+        if (!item.order_id) continue
+
+        if (!grouped[item.order_id]) {
+          grouped[item.order_id] = []
+        }
+
+        grouped[item.order_id].push(item)
+      }
+
+      setOrderItemsByOrderId(grouped)
+    } catch (err) {
+      console.warn("Erro inesperado ao carregar itens dos pedidos:", err)
+      setOrderItemsByOrderId({})
+    }
+  }
 
   async function loadOrders(showRefresh = false) {
     if (!restaurant?.id) return
@@ -754,22 +924,32 @@ export default function PedidosPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, public_order_number, customer_name, customer_phone, status, total, payment_method, notes, created_at, delivery_person_id, accepted_at, preparation_started_at, out_for_delivery_at, delivered_at, cancelled_at, accept_by"
+          "id, public_order_number, customer_name, customer_phone, status, subtotal, discount, delivery_fee, total, payment_method, payment_status, notes, created_at, delivery_person_id, accepted_at, preparation_started_at, out_for_delivery_at, delivered_at, cancelled_at, accept_by"
         )
         .eq("restaurant_id", restaurant.id)
         .in("status", OPEN_ORDER_STATUSES)
         .order("created_at", { ascending: false })
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
-      setOrders((data || []) as OrderRow[])
+      const visibleOrders = ((data || []) as OrderRow[]).filter((order) => {
+        const paymentMethod = String(order.payment_method || "").toLowerCase()
+        const paymentStatus = String(order.payment_status || "").toLowerCase()
+
+        if (paymentMethod !== "pix") return true
+
+        return paymentStatus === "paid"
+      })
+
+      setOrders(visibleOrders)
       setLastUpdatedAt(new Date())
+
+      void loadOrderItems(visibleOrders.map((order) => order.id))
     } catch (err) {
       console.error("Erro ao buscar pedidos:", err)
       setError(getErrorMessage(err, "Erro ao buscar pedidos."))
       setOrders([])
+      setOrderItemsByOrderId({})
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -782,9 +962,7 @@ export default function PedidosPage() {
     try {
       const session = await ensureSupabaseSession()
 
-      if (!session) {
-        return
-      }
+      if (!session) return
 
       const { data, error } = await supabase
         .from("delivery_people")
@@ -793,9 +971,7 @@ export default function PedidosPage() {
         .eq("is_active", true)
         .order("name", { ascending: true })
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
       setDeliveryPeople((data || []) as DeliveryPerson[])
     } catch (err) {
@@ -810,9 +986,7 @@ export default function PedidosPage() {
     try {
       const session = await ensureSupabaseSession()
 
-      if (!session) {
-        return
-      }
+      if (!session) return
 
       const { data, error } = await supabase
         .from("restaurants")
@@ -820,9 +994,7 @@ export default function PedidosPage() {
         .eq("id", restaurant.id)
         .single()
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
       setAveragePrepTimeMinutes(Number(data.average_prep_time_minutes || 30))
     } catch (err) {
@@ -845,9 +1017,7 @@ export default function PedidosPage() {
         .update({ average_prep_time_minutes: nextValue })
         .eq("id", restaurant.id)
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
     } catch (err) {
       console.error("Erro ao salvar tempo médio:", err)
       setAveragePrepTimeMinutes(previousValue)
@@ -905,9 +1075,7 @@ export default function PedidosPage() {
         .eq("id", orderId)
         .eq("restaurant_id", restaurant?.id)
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
     } catch (err) {
       console.error("Erro ao vincular entregador:", err)
       setOrders(previousOrders)
@@ -917,7 +1085,10 @@ export default function PedidosPage() {
     }
   }
 
-  async function updateOrder(order: OrderRow, action: "accept" | "cancel" | "route" | "finish") {
+  async function updateOrder(
+    order: OrderRow,
+    action: "accept" | "cancel" | "route" | "finish"
+  ) {
     const previousOrders = orders
     const nowIso = new Date().toISOString()
 
@@ -944,7 +1115,7 @@ export default function PedidosPage() {
 
       if (action === "route") {
         if (!order.delivery_person_id) {
-          setError("Selecione um entregador antes de enviar para rota.")
+          setError("Selecione um entregador antes de enviar o pedido.")
           return
         }
 
@@ -978,9 +1149,7 @@ export default function PedidosPage() {
         .eq("id", order.id)
         .eq("restaurant_id", restaurant?.id)
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
     } catch (err) {
       console.error("Erro ao atualizar pedido:", err)
       setOrders(previousOrders)
@@ -1008,6 +1177,7 @@ export default function PedidosPage() {
 
     if (!user || !restaurant?.id) {
       setOrders([])
+      setOrderItemsByOrderId({})
       setDeliveryPeople([])
       setLoading(false)
       setRefreshing(false)
@@ -1114,7 +1284,10 @@ export default function PedidosPage() {
   )
 
   const preparationOrders = useMemo(
-    () => filteredOrders.filter((order) => getBoardStatus(order.status) === "preparation"),
+    () =>
+      filteredOrders.filter(
+        (order) => getBoardStatus(order.status) === "preparation"
+      ),
     [filteredOrders]
   )
 
@@ -1123,147 +1296,92 @@ export default function PedidosPage() {
     [filteredOrders]
   )
 
-  const totalOpenOrders =
-    analysisOrders.length + preparationOrders.length + onRouteOrders.length
-
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
-      <div className="flex flex-col gap-6">
-        <div className="overflow-hidden rounded-[30px] border border-border bg-card">
-          <div className="bg-gradient-to-r from-foreground to-foreground/90 px-6 py-6 text-white">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                  </span>
-                  Operação em tempo real
-                </div>
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="grid flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-                <h1 className="text-3xl font-black tracking-tight">
-                  Central de pedidos
-                </h1>
-                <p className="mt-1 text-sm text-white/70">
-                  Aceite rápido, preparo controlado e saída organizada por entregador.
-                </p>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar cliente, telefone ou pedido..."
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/60">
-                    Em análise
-                  </p>
-                  <p className="mt-1 text-2xl font-black">{analysisOrders.length}</p>
-                </div>
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <Settings2 className="h-4 w-4 text-slate-500" />
 
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/60">
-                    Em preparo
-                  </p>
-                  <p className="mt-1 text-2xl font-black">{preparationOrders.length}</p>
-                </div>
+                <span className="text-sm font-medium text-slate-700">
+                  Tempo médio:
+                </span>
 
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/60">
-                    Em rota
-                  </p>
-                  <p className="mt-1 text-2xl font-black">{onRouteOrders.length}</p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/60">
-                    Abertos
-                  </p>
-                  <p className="mt-1 text-2xl font-black">
-                    {loading ? "..." : totalOpenOrders}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-border bg-card px-6 py-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="relative w-full max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar cliente, telefone ou pedido..."
-                    className="h-12 w-full rounded-2xl border border-border bg-background pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2.5">
-                  <Settings2 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-foreground">
-                    Tempo médio:
-                  </span>
-
-                  <select
-                    value={averagePrepTimeMinutes}
-                    onChange={(e) => updateAveragePrepTime(Number(e.target.value))}
-                    disabled={savingPrepTime}
-                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  >
-                    <option value={10}>10 min</option>
-                    <option value={15}>15 min</option>
-                    <option value={20}>20 min</option>
-                    <option value={25}>25 min</option>
-                    <option value={30}>30 min</option>
-                    <option value={35}>35 min</option>
-                    <option value={40}>40 min</option>
-                    <option value={45}>45 min</option>
-                    <option value={50}>50 min</option>
-                    <option value={60}>60 min</option>
-                  </select>
-
-                  {savingPrepTime ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <p className="text-xs text-muted-foreground">
-                  {lastUpdatedAt
-                    ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}`
-                    : "Aguardando dados..."}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => void refreshAll()}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted/40"
+                <select
+                  value={averagePrepTimeMinutes}
+                  onChange={(event) =>
+                    updateAveragePrepTime(Number(event.target.value))
+                  }
+                  disabled={savingPrepTime}
+                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 >
-                  {refreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                  Atualizar
-                </button>
+                  <option value={10}>10 min</option>
+                  <option value={15}>15 min</option>
+                  <option value={20}>20 min</option>
+                  <option value={25}>25 min</option>
+                  <option value={30}>30 min</option>
+                  <option value={35}>35 min</option>
+                  <option value={40}>40 min</option>
+                  <option value={45}>45 min</option>
+                  <option value={50}>50 min</option>
+                  <option value={60}>60 min</option>
+                </select>
+
+                {savingPrepTime && (
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                )}
               </div>
             </div>
 
-            {error && (
-              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xs text-slate-500">
+                {lastUpdatedAt
+                  ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}`
+                  : "Aguardando dados..."}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => void refreshAll()}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {refreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCcw className="h-4 w-4" />
+                )}
+                Atualizar
+              </button>
+            </div>
           </div>
+
+          {error && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-[30px] border border-border bg-card py-20">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando operação...
             </div>
@@ -1272,10 +1390,9 @@ export default function PedidosPage() {
           <div className="overflow-x-auto pb-2">
             <div className="grid min-w-[1140px] grid-cols-3 gap-4">
               <BoardColumn
-                title="Em análise"
-                description="Pedidos aguardando confirmação"
                 status="analysis"
                 orders={analysisOrders}
+                orderItemsByOrderId={orderItemsByOrderId}
                 deliveryPeople={deliveryPeople}
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
@@ -1290,10 +1407,9 @@ export default function PedidosPage() {
               />
 
               <BoardColumn
-                title="Em preparo"
-                description="Pedidos em produção"
                 status="preparation"
                 orders={preparationOrders}
+                orderItemsByOrderId={orderItemsByOrderId}
                 deliveryPeople={deliveryPeople}
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
@@ -1308,10 +1424,9 @@ export default function PedidosPage() {
               />
 
               <BoardColumn
-                title="Em rota"
-                description="Pedidos com entregador"
                 status="on_route"
                 orders={onRouteOrders}
+                orderItemsByOrderId={orderItemsByOrderId}
                 deliveryPeople={deliveryPeople}
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}

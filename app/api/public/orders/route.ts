@@ -30,6 +30,14 @@ type CreateOrderBody = {
   items: CreateOrderItemInput[]
 }
 
+type ValidatedOrderItem = {
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_price: number
+  total_price: number
+}
+
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
 }
@@ -44,6 +52,7 @@ function mapPaymentMethod(value: string) {
 
   if (normalized === "pix") return "pix"
   if (normalized === "dinheiro") return "cash"
+
   if (
     normalized === "cartao" ||
     normalized === "cartão" ||
@@ -58,6 +67,7 @@ function mapPaymentMethod(value: string) {
 function buildPublicOrderNumber() {
   const now = Date.now().toString()
   const random = Math.floor(10 + Math.random() * 90).toString()
+
   return `${now.slice(-6)}${random}`
 }
 
@@ -141,9 +151,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const productIds = items
-      .map((item) => normalizeText(item.product_id))
-      .filter(Boolean)
+    const productIds = Array.from(
+      new Set(items.map((item) => normalizeText(item.product_id)).filter(Boolean))
+    )
 
     const { data: products, error: productsError } = await supabaseAdmin
       .from("products")
@@ -157,9 +167,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const productMap = new Map((products || []).map((product) => [product.id, product]))
+    const productMap = new Map(
+      (products || []).map((product) => [product.id, product])
+    )
 
     let subtotal = 0
+    const validatedOrderItems: ValidatedOrderItem[] = []
 
     for (const item of items) {
       const productId = normalizeText(item.product_id)
@@ -189,10 +202,24 @@ export async function POST(request: Request) {
 
       const basePrice = normalizeNumber(product.price, 0)
       const clientUnitPrice = normalizeNumber(item.unit_price, basePrice)
+
+      /*
+        Mantém segurança:
+        - se o cliente tentar mandar preço menor, usa o preço do banco
+        - se tiver adicional/modificador e o unit_price vier maior, respeita o valor maior
+      */
       const safeUnitPrice = Math.max(basePrice, clientUnitPrice)
       const lineTotal = safeUnitPrice * quantity
 
       subtotal += lineTotal
+
+      validatedOrderItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        quantity,
+        unit_price: safeUnitPrice,
+        total_price: lineTotal,
+      })
     }
 
     const total = subtotal + serviceFee + deliveryFee
@@ -203,13 +230,13 @@ export async function POST(request: Request) {
       public_order_number: publicOrderNumber,
       customer_name: customerName,
       customer_phone: customerPhone,
-      status: "pending",
+      status: paymentMethod === "pix" ? "awaiting_payment" : "pending",
       subtotal,
       discount: 0,
       delivery_fee: deliveryFee,
       total,
       payment_method: paymentMethod,
-      payment_status: paymentMethod === "pix" ? "pending" : "pending",
+      payment_status: "pending",
       notes: customerNote || null,
       order_type: orderType,
       delivery_address: orderType === "delivery" ? customerAddress : null,
@@ -224,9 +251,35 @@ export async function POST(request: Request) {
       )
       .single()
 
-    if (createOrderError) {
+    if (createOrderError || !createdOrder) {
       return NextResponse.json(
-        { error: createOrderError.message || "Erro ao criar pedido." },
+        { error: createOrderError?.message || "Erro ao criar pedido." },
+        { status: 500 }
+      )
+    }
+
+    const orderItemsPayload = validatedOrderItems.map((item) => ({
+      order_id: createdOrder.id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.total_price,
+    }))
+
+    const { error: createOrderItemsError } = await supabaseAdmin
+      .from("order_items")
+      .insert(orderItemsPayload)
+
+    if (createOrderItemsError) {
+      await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
+
+      return NextResponse.json(
+        {
+          error:
+            createOrderItemsError.message ||
+            "Erro ao salvar os itens do pedido.",
+        },
         { status: 500 }
       )
     }
