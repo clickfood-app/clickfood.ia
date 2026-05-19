@@ -150,7 +150,6 @@ export async function POST(req: NextRequest) {
       .from("orders")
       .update({
         payment_status: "paid",
-        status: "pending",
         mercadopago_payment_id: paymentId || typedOrder.mercadopago_payment_id,
       })
       .eq("id", typedOrder.id)
