@@ -168,6 +168,7 @@ export async function POST(req: NextRequest) {
           email: customerEmail,
           mobilePhone: customerPhone,
           externalReference: typedOrder.id,
+          notificationDisabled: true,
         },
       }
     )
