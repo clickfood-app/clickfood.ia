@@ -19,7 +19,6 @@ type OrderRow = {
   id: string
   restaurant_id: string
   payment_status: string | null
-  status: string | null
   mercadopago_payment_id: string | null
 }
 
@@ -66,9 +65,7 @@ export async function POST(req: NextRequest) {
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
-      .select(
-        "id, restaurant_id, payment_status, status, mercadopago_payment_id"
-      )
+      .select("id, restaurant_id, payment_status, mercadopago_payment_id")
       .eq("id", externalReference)
       .maybeSingle()
 
@@ -76,6 +73,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          step: "buscar_pedido",
           error: orderError.message || "Erro ao buscar pedido do webhook.",
         },
         { status: 500 }
@@ -88,7 +86,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          step: "pedido_nao_encontrado",
           error: "Pedido do webhook não encontrado.",
+          externalReference,
         },
         { status: 404 }
       )
@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          step: "buscar_conta_asaas",
           error:
             accountError.message ||
             "Erro ao buscar conta Asaas do restaurante.",
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          step: "conta_asaas_inativa",
           error: "Conta Asaas do restaurante não encontrada ou inativa.",
         },
         { status: 404 }
@@ -128,6 +130,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          step: "token_nao_configurado",
           error: "Token do webhook do restaurante não configurado.",
         },
         { status: 400 }
@@ -140,25 +143,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          step: "token_invalido",
           error: "Token do webhook inválido.",
         },
         { status: 401 }
       )
     }
 
-    const { error: updateError } = await supabaseAdmin
+    if (typedOrder.payment_status === "paid") {
+      return NextResponse.json({
+        success: true,
+        received: true,
+        processed: true,
+        alreadyPaid: true,
+        updatedOrder: false,
+        event,
+        paymentId,
+        paymentStatus,
+        externalReference,
+      })
+    }
+
+    const { data: updatedOrder, error: updateError } = await supabaseAdmin
       .from("orders")
       .update({
         payment_status: "paid",
         mercadopago_payment_id: paymentId || typedOrder.mercadopago_payment_id,
       })
       .eq("id", typedOrder.id)
+      .select("id, payment_status, mercadopago_payment_id")
+      .maybeSingle()
 
     if (updateError) {
       return NextResponse.json(
         {
           success: false,
+          step: "atualizar_pedido",
           error: updateError.message || "Erro ao atualizar pedido.",
+          details: updateError.details || null,
+          hint: updateError.hint || null,
+          code: updateError.code || null,
         },
         { status: 500 }
       )
@@ -174,11 +198,13 @@ export async function POST(req: NextRequest) {
       paymentId,
       paymentStatus,
       externalReference,
+      order: updatedOrder,
     })
   } catch (error) {
     return NextResponse.json(
       {
         success: false,
+        step: "erro_geral",
         error:
           error instanceof Error
             ? error.message
