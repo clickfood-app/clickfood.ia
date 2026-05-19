@@ -4,7 +4,9 @@ import React, { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  ArrowLeftRight,
   BarChart3,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Globe,
@@ -14,9 +16,10 @@ import {
   Settings,
   ShoppingCart,
   TicketPercent,
+  TrendingDown,
   Truck,
   Users,
-  Wallet
+  Wallet,
 } from "lucide-react"
 
 import {
@@ -29,10 +32,17 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
+interface NavSubItem {
+  label: string
+  href: string
+  icon: React.ReactNode
+}
+
 interface NavItem {
   label: string
   href: string
   icon: React.ReactNode
+  children?: NavSubItem[]
 }
 
 interface AdminSidebarProps {
@@ -51,7 +61,17 @@ const navItems: NavItem[] = [
   { label: "Mesas", icon: <Users className="h-5 w-5" />, href: "/mesas" },
   { label: "Pedidos", icon: <ShoppingCart className="h-5 w-5" />, href: "/pedidos" },
   { label: "Entregadores", icon: <Truck className="h-5 w-5" />, href: "/entregadores" },
-  { label: "Financeiro", icon: <Wallet className="h-5 w-5" />, href: "/financeiro" },
+  {
+    label: "Financeiro",
+    icon: <Wallet className="h-5 w-5" />,
+    href: "/financeiro",
+    children: [
+      { label: "Finanças", icon: <Wallet className="h-4 w-4" />, href: "/financeiro" },
+      { label: "Perdas", icon: <TrendingDown className="h-4 w-4" />, href: "/financeiro/perdas" },
+      { label: "Entrada e saída", icon: <ArrowLeftRight className="h-4 w-4" />, href: "/financeiro/entrada-saida" },
+      { label: "Controle de estoque", icon: <Package className="h-4 w-4" />, href: "/financeiro/controle-estoque" },
+    ],
+  },
   { label: "Produtos", icon: <Package className="h-5 w-5" />, href: "/produtos" },
   { label: "Clientes", icon: <Users className="h-5 w-5" />, href: "/clientes" },
   { label: "Cupons", icon: <TicketPercent className="h-5 w-5" />, href: "/cupons" },
@@ -59,17 +79,110 @@ const navItems: NavItem[] = [
   { label: "Configurações", icon: <Settings className="h-5 w-5" />, href: "/configuracoes" },
 ]
 
+function isHrefActive(pathname: string, href: string) {
+  if (href === "/gestao") {
+    return pathname === "/gestao" || pathname === "/"
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
+function isSubHrefActive(pathname: string, href: string) {
+  if (href === "/financeiro") {
+    return pathname === "/financeiro"
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
 function SidebarItem({
   item,
   isCollapsed,
   pathname,
+  isOpen,
+  onToggle,
 }: {
   item: NavItem
   isCollapsed: boolean
   pathname: string
+  isOpen: boolean
+  onToggle: () => void
 }) {
-  const isActive =
-    pathname === item.href || (item.href !== "/gestao" && pathname.startsWith(item.href))
+  const hasChildren = Boolean(item.children?.length)
+  const isActive = isHrefActive(pathname, item.href)
+
+  if (hasChildren && !isCollapsed) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={cn(
+            "group relative flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200",
+            isActive
+              ? "bg-blue-600 text-white shadow-lg shadow-blue-950/30"
+              : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
+          )}
+        >
+          {isActive && (
+            <span className="absolute -left-3 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-blue-400" />
+          )}
+
+          <span
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center transition",
+              isActive ? "text-white" : "text-slate-400 group-hover:text-white"
+            )}
+          >
+            {item.icon}
+          </span>
+
+          <span className="flex-1 truncate text-left">{item.label}</span>
+
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 transition-transform duration-200",
+              isOpen && "rotate-180"
+            )}
+          />
+        </button>
+
+        {isOpen && (
+          <div className="ml-5 mt-1 space-y-1 border-l border-slate-800 pl-3">
+            {item.children?.map((child) => {
+              const isChildActive = isSubHrefActive(pathname, child.href)
+
+              return (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  className={cn(
+                    "group flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200",
+                    isChildActive
+                      ? "bg-blue-500/10 text-blue-200"
+                      : "text-slate-500 hover:bg-slate-800/70 hover:text-white"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center transition",
+                      isChildActive
+                        ? "text-blue-300"
+                        : "text-slate-500 group-hover:text-white"
+                    )}
+                  >
+                    {child.icon}
+                  </span>
+
+                  <span className="truncate">{child.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const link = (
     <Link
@@ -119,6 +232,15 @@ export default function AdminSidebar({
 
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [restaurant, setRestaurant] = useState<RestaurantData | null>(null)
+  const [openMenuHref, setOpenMenuHref] = useState<string | null>(null)
+
+  useEffect(() => {
+    const activeMenuWithChildren = navItems.find((item) => {
+      return Boolean(item.children?.length) && isHrefActive(pathname, item.href)
+    })
+
+    setOpenMenuHref(activeMenuWithChildren?.href ?? null)
+  }, [pathname])
 
   useEffect(() => {
     const loadRestaurant = async () => {
@@ -240,6 +362,12 @@ export default function AdminSidebar({
                 item={item}
                 isCollapsed={isCollapsed}
                 pathname={pathname}
+                isOpen={openMenuHref === item.href}
+                onToggle={() => {
+                  setOpenMenuHref((current) =>
+                    current === item.href ? null : item.href
+                  )
+                }}
               />
             ))}
           </nav>

@@ -2,286 +2,237 @@
 
 import AuthCard from "@/components/auth/auth-card"
 import {
-  Sparkles,
-  TrendingUp,
-  ShieldCheck,
-  Wallet,
-  BarChart3,
-  Store,
-  Zap,
   ArrowUpRight,
+  BarChart3,
+  CheckCircle2,
+  LockKeyhole,
+  Store,
+  TrendingUp,
+  Zap,
 } from "lucide-react"
 import { motion } from "framer-motion"
 
-const features = [
+const benefits = [
   {
-    icon: BarChart3,
-    title: "Mais clareza",
-    description: "Veja os números do restaurante sem depender de planilhas confusas.",
-  },
-  {
-    icon: Wallet,
-    title: "Mais controle",
-    description: "Entenda receitas, despesas e oportunidades de lucro com facilidade.",
+    icon: TrendingUp,
+    title: "Cresça mais",
+    description: "com inteligência",
   },
   {
     icon: Store,
-    title: "Mais crescimento",
-    description: "Use dados reais para tomar decisões melhores no dia a dia.",
-  },
-]
-
-const floatingCards = [
-  {
-    title: "Faturamento hoje",
-    value: "R$ 3.480",
-    badge: "+12,4%",
-    icon: TrendingUp,
+    title: "Opere com",
+    description: "eficiência",
   },
   {
-    title: "Insight da semana",
-    value: "Combo premium",
-    badge: "Em alta",
+    icon: BarChart3,
+    title: "Tenha controle",
+    description: "financeiro",
+  },
+  {
     icon: Zap,
-  },
-  {
-    title: "Segurança",
-    value: "Acesso protegido",
-    badge: "Confiável",
-    icon: ShieldCheck,
+    title: "Modernidade",
+    description: "que transforma",
   },
 ]
 
 export default function AuthPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#081225] text-white">
-      {/* Fundo animado */}
+<main className="relative min-h-dvh overflow-x-hidden bg-[#06152D] text-white">      {/* Fundo */}
       <div className="absolute inset-0 -z-20">
-        <div className="absolute left-[-120px] top-[-100px] h-[420px] w-[420px] rounded-full bg-violet-600/30 blur-[120px] animate-pulse" />
-        <div className="absolute right-[-100px] top-[20%] h-[380px] w-[380px] rounded-full bg-fuchsia-500/20 blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-120px] left-[20%] h-[340px] w-[340px] rounded-full bg-indigo-500/20 blur-[120px] animate-pulse" />
+        <div className="absolute inset-y-0 left-0 w-full bg-[radial-gradient(circle_at_18%_20%,rgba(11,86,217,0.32),transparent_34%),linear-gradient(90deg,#06152D_0%,#06152D_58%,#F8FAFF_58%,#FFFFFF_100%)]" />
+        <div className="absolute left-[-160px] top-[-160px] h-[420px] w-[420px] rounded-full bg-[#0B56D9]/25 blur-[120px]" />
+        <div className="absolute bottom-[-160px] left-[8%] h-[420px] w-[420px] rounded-full bg-[#FF6B1A]/18 blur-[120px]" />
       </div>
 
-      {/* Pontinhos/grid */}
+      {/* Textura */}
       <div
-        className="absolute inset-0 -z-10 opacity-20"
+        className="absolute inset-0 -z-10 opacity-[0.18]"
         style={{
-          backgroundImage: `
-            radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)
-          `,
-          backgroundSize: "24px 24px",
+          backgroundImage:
+            "radial-gradient(rgba(255,255,255,0.16) 1px, transparent 1px)",
+          backgroundSize: "26px 26px",
         }}
       />
 
-      {/* bolhas decorativas */}
-      <motion.div
-        animate={{ y: [0, -18, 0] }}
-        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute left-[8%] top-[22%] h-5 w-5 rounded-full bg-violet-400/60 blur-[1px]"
-      />
-      <motion.div
-        animate={{ y: [0, 22, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute right-[12%] top-[18%] h-4 w-4 rounded-full bg-fuchsia-400/70 blur-[1px]"
-      />
-      <motion.div
-        animate={{ y: [0, -14, 0] }}
-        transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-[18%] left-[42%] h-3 w-3 rounded-full bg-cyan-300/70 blur-[1px]"
-      />
+      {/* Linhas decorativas */}
+      <div className="pointer-events-none absolute bottom-[-260px] left-[-170px] h-[620px] w-[620px] rounded-full border border-[#FF6B1A]/22" />
+      <div className="pointer-events-none absolute bottom-[-290px] left-[-120px] h-[700px] w-[700px] rounded-full border border-[#0B56D9]/22" />
+      <div className="pointer-events-none absolute bottom-[14%] left-[3.5%] h-3 w-3 rounded-full bg-[#FF6B1A] shadow-[0_0_35px_rgba(255,107,26,0.95)]" />
 
-      <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col lg:flex-row">
-        {/* Lado esquerdo */}
-        <section className="relative flex w-full items-center px-6 py-14 sm:px-10 lg:w-[57%] lg:px-14 xl:px-20">
-          <div className="w-full max-w-3xl">
+<div className="mx-auto grid min-h-dvh max-w-[1440px] lg:grid-cols-[0.58fr_0.42fr]">        {/* ESQUERDA */}
+        <section className="relative flex items-center px-6 py-8 sm:px-10 lg:px-14 xl:px-20">
+          <div className="w-full max-w-[760px]">
+            {/* Logo */}
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="mb-8 flex items-center gap-4"
+              transition={{ duration: 0.45 }}
+              className="mb-9"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_12px_40px_rgba(139,92,246,0.45)]">
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
-
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-violet-300">
-                  ClickFood
-                </p>
-                <p className="text-sm text-slate-300">
-                  Gestão inteligente para restaurantes
-                </p>
-              </div>
+              <img
+                src="/logo.jpg"
+                alt="ClickFood"
+                className="h-12 w-auto object-contain sm:h-14"
+              />
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.05 }}
+              transition={{ duration: 0.45, delay: 0.05 }}
             >
-              <span className="inline-flex items-center gap-2 rounded-full border border-violet-400/30 bg-white/5 px-4 py-2 text-sm font-medium text-violet-200 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.18)]">
-                <ArrowUpRight className="h-4 w-4" />
-                Uma plataforma jovem, moderna e feita para crescer com o seu negócio
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.055] px-4 py-2 text-xs font-semibold text-slate-100 backdrop-blur-xl">
+                <ArrowUpRight className="h-4 w-4 text-[#FF6B1A]" />
+                Plataforma moderna para restaurantes que querem crescer
               </span>
             </motion.div>
 
             <motion.h1
-              initial={{ opacity: 0, y: 22 }}
+              initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.12 }}
-              className="mt-8 text-4xl font-black leading-[0.98] tracking-tight text-white sm:text-5xl xl:text-7xl"
+              transition={{ duration: 0.55, delay: 0.1 }}
+              className="mt-7 max-w-[720px] text-[42px] font-black leading-[0.98] tracking-tight text-white sm:text-[52px] xl:text-[64px]"
             >
-              A nova geração da gestão para
-              <span className="block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent">
-                restaurantes que querem crescer
-              </span>
+              A gestão inteligente que impulsiona{" "}
+              <span className="text-[#FF6B1A]">restaurantes.</span>
             </motion.h1>
 
+            <motion.div
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 86 }}
+              transition={{ duration: 0.5, delay: 0.22 }}
+              className="mt-4 h-1 rounded-full bg-[#FF6B1A]"
+            />
+
             <motion.p
-              initial={{ opacity: 0, y: 18 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.18 }}
-              className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg"
+              transition={{ duration: 0.55, delay: 0.15 }}
+              className="mt-6 max-w-[620px] text-[15px] leading-7 text-slate-200 sm:text-base"
             >
-              A ClickFood nasceu para ajudar restaurantes e operações food service a
-              saírem do achismo. Nossa missão é transformar números, rotina e operação
-              em decisões mais inteligentes, com uma plataforma visual, prática e feita
-              para quem quer controlar melhor o presente e crescer no futuro.
+              A plataforma completa para quem quer crescer com mais{" "}
+              <strong className="font-bold text-white">controle</strong>,{" "}
+              <strong className="font-bold text-white">eficiência</strong> e{" "}
+              <strong className="font-bold text-white">resultado</strong>.
             </motion.p>
 
+            {/* Benefícios em linha */}
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.26 }}
-              className="mt-8 flex flex-wrap gap-3"
+              transition={{ duration: 0.55, delay: 0.22 }}
+              className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
             >
-              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 backdrop-blur-md">
-                Financeiro
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 backdrop-blur-md">
-                Operação
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 backdrop-blur-md">
-                Crescimento
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 backdrop-blur-md">
-                Insights
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 backdrop-blur-md">
-                Gestão moderna
-              </span>
-            </motion.div>
-
-            {/* Features */}
-            <motion.div
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, delay: 0.34 }}
-              className="mt-12 grid gap-4 sm:grid-cols-3"
-            >
-              {features.map((item, index) => {
+              {benefits.map((item) => {
                 const Icon = item.icon
 
                 return (
-                  <motion.div
+                  <div
                     key={item.title}
-                    animate={{ y: [0, -5, 0] }}
-                    transition={{
-                      duration: 4 + index,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.22)]"
+                    className="flex items-center gap-3 border-white/10 xl:border-r xl:pr-4 last:xl:border-r-0"
                   >
-                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-300">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#FF6B1A]/45 bg-[#FF6B1A]/10 text-[#FF6B1A]">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                      {item.description}
-                    </p>
-                  </motion.div>
+
+                    <div>
+                      <p className="text-sm text-slate-300">{item.title}</p>
+                      <p className="text-sm font-black text-white">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
                 )
               })}
             </motion.div>
 
-            {/* Floating cards */}
-            <div className="relative mt-14 hidden min-h-[220px] lg:block">
-              {floatingCards.map((card, index) => {
-                const Icon = card.icon
+            {/* Asaas */}
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.3 }}
+              className="mt-8 max-w-[680px] rounded-[28px] border border-[#0B56D9]/40 bg-[#08214A]/72 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl"
+            >
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-[#0B56D9] shadow-[0_16px_45px_rgba(11,86,217,0.35)]">
+                  <span className="text-xl font-semibold tracking-wide text-white">
+                    ASAAS
+                  </span>
+                </div>
 
-                const positions = [
-                  "left-0 top-6",
-                  "left-[220px] top-0",
-                  "left-[460px] top-10",
-                ]
+                <div className="flex-1">
+                  <span className="inline-flex items-center rounded-full bg-[#0B56D9]/45 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-blue-100">
+                    Pagamentos com Asaas
+                  </span>
 
-                return (
-                  <motion.div
-                    key={card.title}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: [0, -10, 0] }}
-                    transition={{
-                      opacity: { duration: 0.5, delay: 0.45 + index * 0.1 },
-                      y: {
-                        duration: 4.5 + index,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      },
-                    }}
-                    className={`absolute ${positions[index]} w-[210px] rounded-3xl border border-white/10 bg-white/8 p-5 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)]`}
-                  >
-                    <div className="flex items-center gap-2 text-violet-300">
-                      <Icon className="h-4 w-4" />
-                      <span className="text-sm font-medium">{card.badge}</span>
+                  <h2 className="mt-3 text-lg font-black text-white sm:text-xl">
+                    Pix e cobranças com praticidade e segurança.
+                  </h2>
+
+                  <div className="mt-4 grid gap-3 text-xs text-slate-200 sm:grid-cols-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-[#0B78FF]" />
+                      Receba via Pix
                     </div>
 
-                    <p className="mt-4 text-xl font-bold text-white">{card.value}</p>
-                    <p className="mt-1 text-sm text-slate-300">{card.title}</p>
-                  </motion.div>
-                )
-              })}
-            </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-[#0B78FF]" />
+                      Mais controle
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-[#0B78FF]" />
+                      Conciliação automática
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-xs leading-6 text-slate-300">
+                    ClickFood integrada ao Asaas para facilitar pagamentos,
+                    organização financeira e confirmação de cobranças.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </section>
 
-        {/* Lado direito */}
-        <section className="relative flex w-full items-center justify-center px-6 py-10 sm:px-10 lg:w-[43%] lg:px-12">
-          <div className="absolute inset-0 bg-white/[0.04] backdrop-blur-[2px]" />
+        {/* DIREITA */}
+        <section className="relative flex min-h-dvh items-center justify-center bg-[#F8FAFF] px-6 py-10 sm:px-10 lg:min-h-0 lg:py-8">
+          <div className="absolute right-8 top-8 h-40 w-40 rounded-full bg-[#0B56D9]/5 blur-3xl" />
 
           <motion.div
-            initial={{ opacity: 0, x: 22 }}
+            initial={{ opacity: 0, x: 18 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.75, delay: 0.12 }}
-            className="relative z-10 w-full max-w-md"
+            transition={{ duration: 0.55, delay: 0.1 }}
+            className="relative z-10 w-full max-w-[430px]"
           >
-            <div className="rounded-[34px] border border-white/10 bg-white/95 p-3 text-slate-900 shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 sm:p-8">
-                <div className="mb-6">
-                  <p className="text-sm font-semibold uppercase tracking-[0.28em] text-violet-600">
+            <div className="rounded-[36px] border border-white/80 bg-white/90 p-3 shadow-[0_30px_90px_rgba(6,21,45,0.18)] backdrop-blur-2xl">
+              <div className="rounded-[28px] border border-slate-200/80 bg-white px-6 py-8 text-slate-900 sm:px-8">
+                <div className="mb-7 text-center">
+                  <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#F1F6FF] text-[#FF6B1A]">
+                    <LockKeyhole className="h-6 w-6" />
+                  </div>
+
+                  <p className="text-[11px] font-black uppercase tracking-[0.32em] text-[#0B56D9]">
                     Área de acesso
                   </p>
-                  <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+
+                  <h2 className="mt-3 text-3xl font-black tracking-tight text-[#06152D]">
                     Entre na sua conta
                   </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    Entre na plataforma da ClickFood e acompanhe sua operação com uma
-                    visão mais moderna, prática e inteligente.
+
+                  <p className="mx-auto mt-3 max-w-[320px] text-sm leading-6 text-slate-500">
+                    Acesse sua plataforma ClickFood e continue gerenciando seu
+                    restaurante com eficiência.
                   </p>
                 </div>
 
                 <AuthCard />
-
-                <div className="mt-5 rounded-2xl bg-violet-50 px-4 py-3 text-center">
-                  <p className="text-xs font-medium text-violet-700">
-                    ClickFood • tecnologia, gestão e crescimento para restaurantes
-                  </p>
-                </div>
               </div>
             </div>
           </motion.div>
         </section>
       </div>
-    </div>
+    </main>
   )
 }

@@ -1,52 +1,38 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 import {
-  ArrowUpRight,
-  BarChart3,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
   Clock3,
-  DollarSign,
   Flame,
   Loader2,
+  MapPin,
   Package,
+  PlusCircle,
   RefreshCcw,
+  Route,
   ShoppingCart,
-  TrendingUp,
-  Trophy,
+  Sparkles,
+  Timer,
+  Truck,
+  Utensils,
+  Zap,
 } from "lucide-react"
 
-type PeriodKey = "7d" | "30d" | "60d"
-
-type ProductMetric = {
-  name: string
-  total: number
-}
-
-type SeriesMetric = {
-  label: string
-  total: number
-}
-
-type DashboardData = {
-  revenue: number
-  orders: number
-  averageTicket: number
-  bestProduct: string
-  bestProductUnits: number
-  topHour: string
-  topProducts: ProductMetric[]
-  revenueSeries: SeriesMetric[]
-  ordersSeries: SeriesMetric[]
-  orderHeatmap: SeriesMetric[]
-  revenueTrend: number | null
-  ordersTrend: number | null
-  ticketTrend: number | null
-}
+type PeriodKey = "today" | "7d" | "30d"
 
 type OrderRow = {
   id: string
+  public_order_number: string | null
+  customer_name: string | null
+  customer_neighborhood: string | null
   total: number | string | null
   created_at: string
   status: string | null
@@ -60,262 +46,327 @@ type OrderItemRow = {
   quantity: number | string | null
 }
 
+type StatusBucket =
+  | "analysis"
+  | "preparing"
+  | "route"
+  | "finished"
+  | "cancelled"
+  | "other"
+
+type HourPoint = {
+  hour: string
+  count: number
+}
+
+type ProductRank = {
+  name: string
+  quantity: number
+}
+
+type AreaRank = {
+  name: string
+  orders: number
+  revenue: number
+}
+
+type OperationalAlert = {
+  title: string
+  description: string
+  tone: "red" | "amber" | "blue" | "green" | "slate"
+  icon: React.ReactNode
+}
+
+type DashboardData = {
+  totalOrders: number
+  openOrders: number
+  analysisOrders: number
+  preparingOrders: number
+  routeOrders: number
+  finishedOrders: number
+  delayedOrders: number
+  pendingPixOrders: number
+  topHour: string
+  topProducts: ProductRank[]
+  topAreas: AreaRank[]
+  hourSeries: HourPoint[]
+  openQueue: OrderRow[]
+  alerts: OperationalAlert[]
+}
+
 const emptyDashboard: DashboardData = {
-  revenue: 0,
-  orders: 0,
-  averageTicket: 0,
-  bestProduct: "-",
-  bestProductUnits: 0,
+  totalOrders: 0,
+  openOrders: 0,
+  analysisOrders: 0,
+  preparingOrders: 0,
+  routeOrders: 0,
+  finishedOrders: 0,
+  delayedOrders: 0,
+  pendingPixOrders: 0,
   topHour: "-",
   topProducts: [],
-  revenueSeries: [],
-  ordersSeries: [],
-  orderHeatmap: [],
-  revenueTrend: null,
-  ordersTrend: null,
-  ticketTrend: null,
+  topAreas: [],
+  hourSeries: [],
+  openQueue: [],
+  alerts: [],
 }
 
 const periodOptions: { key: PeriodKey; label: string }[] = [
+  { key: "today", label: "Hoje" },
   { key: "7d", label: "7 dias" },
   { key: "30d", label: "30 dias" },
-  { key: "60d", label: "60 dias" },
 ]
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(value)
-}
-
-function formatCompactCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value)
-}
-
-function formatPercent(value: number | null) {
-  if (value === null || Number.isNaN(value)) return "Sem histórico"
-
-  const sign = value > 0 ? "+" : ""
-  return `${sign}${value.toFixed(1)}%`
-}
-
-function getPeriodDays(period: PeriodKey) {
-  if (period === "7d") return 7
-  if (period === "30d") return 30
-  return 60
+  }).format(Number(value || 0))
 }
 
 function getPeriodStart(period: PeriodKey) {
-  const now = new Date()
-  now.setDate(now.getDate() - (getPeriodDays(period) - 1))
-  now.setHours(0, 0, 0, 0)
+  const date = new Date()
 
-  return now.toISOString()
+  if (period === "today") {
+    date.setHours(0, 0, 0, 0)
+    return date.toISOString()
+  }
+
+  if (period === "7d") {
+    date.setDate(date.getDate() - 6)
+    date.setHours(0, 0, 0, 0)
+    return date.toISOString()
+  }
+
+  date.setDate(date.getDate() - 29)
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
 }
 
-function isValidOrderForDashboard(order: OrderRow) {
-  const status = String(order.status || "").toLowerCase()
-  const paymentMethod = String(order.payment_method || "").toLowerCase()
-  const paymentStatus = String(order.payment_status || "").toLowerCase()
+function getPeriodLabel(period: PeriodKey) {
+  return periodOptions.find((option) => option.key === period)?.label || "Hoje"
+}
 
-  const cancelledStatuses = [
-    "cancelled",
-    "canceled",
-    "cancelado",
-    "recusado",
-    "refused",
+function getStatusBucket(status: string | null): StatusBucket {
+  const normalized = String(status || "").toLowerCase()
+
+  if (
+    ["cancelled", "canceled", "cancelado", "recusado", "refused"].includes(
+      normalized
+    )
+  ) {
+    return "cancelled"
+  }
+
+  if (
+    [
+      "pending",
+      "new",
+      "novo",
+      "received",
+      "em_analise",
+      "analysis",
+      "aguardando",
+    ].includes(normalized)
+  ) {
+    return "analysis"
+  }
+
+  if (
+    [
+      "accepted",
+      "confirmed",
+      "preparing",
+      "in_preparation",
+      "em_preparo",
+      "preparo",
+      "cozinha",
+    ].includes(normalized)
+  ) {
+    return "preparing"
+  }
+
+  if (
+    [
+      "delivering",
+      "on_route",
+      "out_for_delivery",
+      "em_rota",
+      "rota",
+      "saiu_para_entrega",
+    ].includes(normalized)
+  ) {
+    return "route"
+  }
+
+  if (
+    ["completed", "done", "finished", "finalizado", "delivered", "entregue"].includes(
+      normalized
+    )
+  ) {
+    return "finished"
+  }
+
+  return "other"
+}
+
+function getStatusLabel(status: string | null) {
+  const bucket = getStatusBucket(status)
+
+  if (bucket === "analysis") return "Em análise"
+  if (bucket === "preparing") return "Em preparo"
+  if (bucket === "route") return "Em rota"
+  if (bucket === "finished") return "Finalizado"
+  if (bucket === "cancelled") return "Cancelado"
+
+  return status || "Pendente"
+}
+
+function getOrderAgeMinutes(createdAt: string) {
+  const created = new Date(createdAt).getTime()
+  const now = Date.now()
+
+  return Math.max(0, Math.floor((now - created) / 1000 / 60))
+}
+
+function isDelayed(order: OrderRow) {
+  const bucket = getStatusBucket(order.status)
+  const age = getOrderAgeMinutes(order.created_at)
+
+  if (bucket === "analysis") return age >= 10
+  if (bucket === "preparing") return age >= 30
+  if (bucket === "route") return age >= 50
+  if (bucket === "other") return age >= 25
+
+  return false
+}
+
+function isOpenOrder(order: OrderRow) {
+  const bucket = getStatusBucket(order.status)
+  const status = String(order.status || "").toLowerCase()
+  const paymentStatus = String(order.payment_status || "").toLowerCase()
+  const paymentMethod = String(order.payment_method || "").toLowerCase()
+  const age = getOrderAgeMinutes(order.created_at)
+
+  const ignoredStatuses = [
+    "awaiting_payment",
+    "payment_pending",
+    "pending_payment",
+    "aguardando_pagamento",
+    "deleted",
+    "removed",
+    "excluido",
   ]
 
-  if (cancelledStatuses.includes(status)) {
+  if (ignoredStatuses.includes(status)) return false
+  if (bucket === "finished" || bucket === "cancelled") return false
+
+  if (
+    paymentMethod === "pix" &&
+    ["pending", "awaiting_payment", "unpaid"].includes(paymentStatus)
+  ) {
     return false
   }
 
-  if (paymentMethod === "pix") {
-    return ["paid", "received", "confirmed"].includes(paymentStatus)
-  }
-
-  return true
+  return age <= 720
 }
 
-function calculateTrend(values: number[]) {
-  if (values.length < 2) return null
+function isPendingPix(order: OrderRow) {
+  const method = String(order.payment_method || "").toLowerCase()
+  const paymentStatus = String(order.payment_status || "").toLowerCase()
 
-  const midpoint = Math.ceil(values.length / 2)
-  const firstHalf = values.slice(0, midpoint).reduce((sum, value) => sum + value, 0)
-  const secondHalf = values.slice(midpoint).reduce((sum, value) => sum + value, 0)
+  if (method !== "pix") return false
 
-  if (firstHalf === 0 && secondHalf === 0) return null
-  if (firstHalf === 0) return 100
-
-  return ((secondHalf - firstHalf) / firstHalf) * 100
+  return !["paid", "received", "confirmed"].includes(paymentStatus)
 }
 
-function calculateTicketTrend(orders: OrderRow[]) {
-  if (orders.length < 2) return null
-
-  const sortedOrders = [...orders].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  )
-
-  const midpoint = Math.ceil(sortedOrders.length / 2)
-  const firstHalf = sortedOrders.slice(0, midpoint)
-  const secondHalf = sortedOrders.slice(midpoint)
-
-  const firstAverage =
-    firstHalf.length > 0
-      ? firstHalf.reduce((sum, order) => sum + Number(order.total || 0), 0) /
-        firstHalf.length
-      : 0
-
-  const secondAverage =
-    secondHalf.length > 0
-      ? secondHalf.reduce((sum, order) => sum + Number(order.total || 0), 0) /
-        secondHalf.length
-      : 0
-
-  if (firstAverage === 0 && secondAverage === 0) return null
-  if (firstAverage === 0) return 100
-
-  return ((secondAverage - firstAverage) / firstAverage) * 100
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
 }
 
-function buildRevenueSeries(orders: OrderRow[], period: PeriodKey): SeriesMetric[] {
-  const days = getPeriodDays(period)
-
-  if (period === "7d") {
-    const formatter = new Intl.DateTimeFormat("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-    })
-
-    const labels: string[] = []
-    const grouped = new Map<string, number>()
-
-    for (let index = days - 1; index >= 0; index--) {
-      const date = new Date()
-      date.setDate(date.getDate() - index)
-
-      const label = formatter.format(date)
-      labels.push(label)
-      grouped.set(label, 0)
-    }
-
-    for (const order of orders) {
-      const label = formatter.format(new Date(order.created_at))
-      grouped.set(label, (grouped.get(label) ?? 0) + Number(order.total || 0))
-    }
-
-    return labels.map((label) => ({
-      label,
-      total: grouped.get(label) ?? 0,
-    }))
-  }
-
-  const weeks = Math.ceil(days / 7)
-  const labels = Array.from({ length: weeks }, (_, index) => `Sem ${index + 1}`)
-  const grouped = new Map<string, number>(labels.map((label) => [label, 0]))
-  const startDate = new Date(getPeriodStart(period)).getTime()
-
-  for (const order of orders) {
-    const orderDate = new Date(order.created_at).getTime()
-    const diffDays = Math.max(0, Math.floor((orderDate - startDate) / 86400000))
-    const weekIndex = Math.min(Math.floor(diffDays / 7), weeks - 1)
-    const label = labels[weekIndex]
-
-    grouped.set(label, (grouped.get(label) ?? 0) + Number(order.total || 0))
-  }
-
-  return labels.map((label) => ({
-    label,
-    total: grouped.get(label) ?? 0,
+function buildHourSeries(orders: OrderRow[]) {
+  const points: HourPoint[] = Array.from({ length: 24 }).map((_, index) => ({
+    hour: `${String(index).padStart(2, "0")}h`,
+    count: 0,
   }))
-}
-
-function buildOrdersSeries(orders: OrderRow[], period: PeriodKey): SeriesMetric[] {
-  const revenueSeries = buildRevenueSeries(
-    orders.map((order) => ({
-      ...order,
-      total: 1,
-    })),
-    period
-  )
-
-  return revenueSeries
-}
-
-function buildHeatmap(orders: OrderRow[]) {
-  const buckets = [
-    { label: "00h - 10h", match: (hour: number) => hour < 10 },
-    { label: "10h - 12h", match: (hour: number) => hour >= 10 && hour < 12 },
-    { label: "12h - 15h", match: (hour: number) => hour >= 12 && hour < 15 },
-    { label: "15h - 18h", match: (hour: number) => hour >= 15 && hour < 18 },
-    { label: "18h - 21h", match: (hour: number) => hour >= 18 && hour < 21 },
-    { label: "21h - 00h", match: (hour: number) => hour >= 21 },
-  ]
-
-  const grouped = new Map<string, number>(buckets.map((bucket) => [bucket.label, 0]))
 
   for (const order of orders) {
     const hour = new Date(order.created_at).getHours()
-    const matchedBucket = buckets.find((bucket) => bucket.match(hour))
-
-    if (matchedBucket) {
-      grouped.set(matchedBucket.label, (grouped.get(matchedBucket.label) ?? 0) + 1)
-    }
+    points[hour].count += 1
   }
 
-  return buckets.map((bucket) => ({
-    label: bucket.label,
-    total: grouped.get(bucket.label) ?? 0,
-  }))
+  return points
 }
 
-function PeriodButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "h-10 rounded-lg px-4 text-sm font-bold transition",
-        active
-          ? "bg-slate-950 text-white shadow-sm"
-          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-      ].join(" ")}
-    >
-      {label}
-    </button>
-  )
+function buildTopProducts(items: OrderItemRow[]) {
+  const productMap = new Map<string, number>()
+
+  for (const item of items) {
+    const name = item.product_name || "Produto sem nome"
+    const quantity = Number(item.quantity || 0)
+
+    productMap.set(name, Number(productMap.get(name) || 0) + quantity)
+  }
+
+  return Array.from(productMap.entries())
+    .map(([name, quantity]) => ({ name, quantity }))
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 6)
 }
 
-function TrendPill({ value }: { value: number | null }) {
-  const isPositive = (value ?? 0) >= 0
+function buildTopAreas(orders: OrderRow[]) {
+  const areaMap = new Map<string, AreaRank>()
+
+  for (const order of orders) {
+    const neighborhood = String(order.customer_neighborhood || "").trim()
+
+    if (!neighborhood) continue
+
+    const current =
+      areaMap.get(neighborhood) ??
+      ({
+        name: neighborhood,
+        orders: 0,
+        revenue: 0,
+      } satisfies AreaRank)
+
+    current.orders += 1
+    current.revenue += Number(order.total || 0)
+
+    areaMap.set(neighborhood, current)
+  }
+
+  return Array.from(areaMap.values())
+    .sort((a, b) => {
+      if (b.orders !== a.orders) return b.orders - a.orders
+      return b.revenue - a.revenue
+    })
+    .slice(0, 6)
+}
+
+function StatusBadge({ status }: { status: string | null }) {
+  const bucket = getStatusBucket(status)
+
+  const className = {
+    analysis: "bg-blue-50 text-blue-700 ring-blue-100",
+    preparing: "bg-amber-50 text-amber-700 ring-amber-100",
+    route: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    finished: "bg-slate-100 text-slate-700 ring-slate-200",
+    cancelled: "bg-red-50 text-red-700 ring-red-100",
+    other: "bg-slate-100 text-slate-700 ring-slate-200",
+  }[bucket]
 
   return (
     <span
-      className={[
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold",
-        value === null
-          ? "bg-slate-100 text-slate-500"
-          : isPositive
-            ? "bg-emerald-50 text-emerald-700"
-            : "bg-red-50 text-red-600",
-      ].join(" ")}
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-black ring-1",
+        className
+      )}
     >
-      {formatPercent(value)}
+      {getStatusLabel(status)}
     </span>
   )
 }
@@ -325,289 +376,170 @@ function MetricCard({
   value,
   subtitle,
   icon,
-  trend,
+  tone,
+  delay = 0,
 }: {
   title: string
   value: string
   subtitle: string
-  icon: ReactNode
-  trend?: number | null
+  icon: React.ReactNode
+  tone: "blue" | "amber" | "green" | "red"
+  delay?: number
 }) {
+  const toneClass = {
+    blue: "bg-blue-50 text-blue-700 ring-blue-100",
+    amber: "bg-amber-50 text-amber-700 ring-amber-100",
+    green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    red: "bg-red-50 text-red-700 ring-red-100",
+  }[tone]
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div
+      className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div>
           <p className="text-sm font-semibold text-slate-500">{title}</p>
-          <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
+          <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             {value}
           </p>
-          <p className="mt-2 text-sm leading-5 text-slate-500">{subtitle}</p>
+          <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+            {subtitle}
+          </p>
         </div>
 
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm">
+        <div
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1",
+            toneClass
+          )}
+        >
           {icon}
         </div>
       </div>
-
-      {trend !== undefined && (
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <TrendPill value={trend} />
-          <span className="text-xs font-medium text-slate-400">comparação interna</span>
-        </div>
-      )}
     </div>
   )
 }
 
-function SectionTitle({
-  icon,
+function Panel({
   title,
   subtitle,
+  icon,
+  children,
+  className,
 }: {
-  icon: ReactNode
   title: string
-  subtitle: string
+  subtitle?: string
+  icon?: React.ReactNode
+  children: React.ReactNode
+  className?: string
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-        {icon}
+    <section
+      className={cn(
+        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+        className
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-black tracking-tight text-slate-950">
+            {title}
+          </h2>
+
+          {subtitle && (
+            <p className="mt-1 text-sm leading-5 text-slate-500">{subtitle}</p>
+          )}
+        </div>
+
+        {icon && (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+            {icon}
+          </div>
+        )}
       </div>
 
-      <div>
-        <h2 className="text-base font-black text-slate-950">{title}</h2>
-        <p className="text-sm text-slate-500">{subtitle}</p>
+      <div className="mt-5">{children}</div>
+    </section>
+  )
+}
+
+function OperationStep({
+  title,
+  value,
+  subtitle,
+  tone,
+  icon,
+}: {
+  title: string
+  value: number
+  subtitle: string
+  tone: "blue" | "amber" | "green" | "slate"
+  icon: React.ReactNode
+}) {
+  const toneClass = {
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    green: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    slate: "bg-slate-50 text-slate-700 border-slate-200",
+  }[tone]
+
+  return (
+    <div className={cn("rounded-2xl border p-4", toneClass)}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/70">
+          {icon}
+        </div>
+
+        <p className="text-3xl font-black">{value}</p>
       </div>
+
+      <p className="mt-4 text-sm font-black">{title}</p>
+      <p className="mt-1 text-xs font-semibold opacity-75">{subtitle}</p>
     </div>
   )
 }
 
-function RevenueChart({
-  data,
-  total,
-}: {
-  data: SeriesMetric[]
-  total: number
-}) {
-  const width = 760
-  const height = 250
-  const paddingX = 24
-  const paddingTop = 20
-  const chartBottom = height - 35
-  const maxValue = Math.max(...data.map((item) => item.total), 1)
-  const hasData = data.some((item) => item.total > 0)
-
-  if (!hasData) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <SectionTitle
-            icon={<TrendingUp className="h-5 w-5" />}
-            title="Faturamento no período"
-            subtitle="Evolução de receita conforme o filtro escolhido"
-          />
-
-          <div className="rounded-xl bg-slate-100 px-4 py-3 text-right">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-              Total
-            </p>
-            <p className="mt-1 text-lg font-black text-slate-950">
-              {formatCurrency(total)}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 flex min-h-[280px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
-          Ainda não tem faturamento suficiente para gerar o gráfico.
-        </div>
-      </div>
-    )
-  }
-
-  const points = data.map((item, index) => {
-    const x =
-      paddingX + (index * (width - paddingX * 2)) / Math.max(data.length - 1, 1)
-
-    const y =
-      chartBottom - (item.total / maxValue) * (chartBottom - paddingTop)
-
-    return { x, y, label: item.label, total: item.total }
-  })
-
-  const linePath = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ")
-
-  const areaPath = `${linePath} L ${points[points.length - 1].x} ${chartBottom} L ${points[0].x} ${chartBottom} Z`
+function HourChart({ data }: { data: HourPoint[] }) {
+  const maxValue = Math.max(...data.map((item) => item.count), 1)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <SectionTitle
-          icon={<TrendingUp className="h-5 w-5" />}
-          title="Faturamento no período"
-          subtitle="Evolução de receita conforme o filtro escolhido"
-        />
+    <div className="rounded-2xl bg-slate-50 px-4 pb-4 pt-6">
+      <div className="flex h-[220px] items-end gap-1.5">
+        {data.map((item, index) => {
+          const height =
+            item.count === 0 ? 6 : Math.max(12, (item.count / maxValue) * 100)
+          const showLabel = index % 3 === 0
 
-        <div className="rounded-xl bg-slate-100 px-4 py-3 text-right">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-            Total
-          </p>
-          <p className="mt-1 text-lg font-black text-slate-950">
-            {formatCurrency(total)}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 overflow-hidden rounded-xl border border-slate-100 bg-slate-50 p-4">
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-[270px] w-full">
-          <defs>
-            <linearGradient id="revenueArea" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#2563EB" stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
-
-          {[0, 1, 2, 3].map((line) => {
-            const y = paddingTop + ((chartBottom - paddingTop) / 3) * line
-
-            return (
-              <line
-                key={line}
-                x1={paddingX}
-                x2={width - paddingX}
-                y1={y}
-                y2={y}
-                stroke="#E2E8F0"
-                strokeDasharray="5 5"
-              />
-            )
-          })}
-
-          <path d={areaPath} fill="url(#revenueArea)" />
-
-          <path
-            d={linePath}
-            fill="none"
-            stroke="#2563EB"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {points.map((point) => (
-            <g key={point.label}>
-              <circle cx={point.x} cy={point.y} r="5" fill="#2563EB" />
-              <circle cx={point.x} cy={point.y} r="11" fill="#2563EB" fillOpacity="0.12" />
-            </g>
-          ))}
-        </svg>
-
-        <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
-          {data.map((item) => (
+          return (
             <div
-              key={item.label}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center"
+              key={item.hour}
+              className="group flex h-full min-w-0 flex-1 flex-col justify-end gap-2"
             >
-              <p className="text-xs font-semibold text-slate-500">{item.label}</p>
-              <p className="mt-1 text-sm font-black text-slate-950">
-                {item.total > 0 ? formatCompactCurrency(item.total) : "R$ 0"}
+              <div className="relative flex flex-1 items-end">
+                <div
+                  className={cn(
+                    "w-full rounded-t-lg transition-all duration-700 ease-out",
+                    item.count > 0
+                      ? "bg-slate-950 group-hover:bg-blue-600"
+                      : "bg-slate-200"
+                  )}
+                  style={{
+                    height: `${height}%`,
+                    animationDelay: `${index * 35}ms`,
+                  }}
+                />
+
+                <div className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700 shadow-lg group-hover:block">
+                  {item.count} pedido(s)
+                </div>
+              </div>
+
+              <p className="h-4 truncate text-center text-[10px] font-bold text-slate-400">
+                {showLabel ? item.hour : ""}
               </p>
             </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ProductChart({ products }: { products: ProductMetric[] }) {
-  const maxValue = Math.max(...products.map((item) => item.total), 1)
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <SectionTitle
-        icon={<Trophy className="h-5 w-5" />}
-        title="Produtos que mais saíram"
-        subtitle="Ranking por quantidade vendida no período"
-      />
-
-      {products.length === 0 ? (
-        <div className="mt-5 flex min-h-[280px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
-          Nenhum produto vendido nesse período.
-        </div>
-      ) : (
-        <div className="mt-5 space-y-4">
-          {products.map((product, index) => {
-            const width = (product.total / maxValue) * 100
-
-            return (
-              <div key={product.name} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-sm font-black text-white">
-                      {index + 1}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-slate-950">
-                        {product.name}
-                      </p>
-                      <p className="text-xs text-slate-500">Produto vendido no filtro atual</p>
-                    </div>
-                  </div>
-
-                  <span className="shrink-0 text-sm font-black text-slate-950">
-                    {product.total} un.
-                  </span>
-                </div>
-
-                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
-                  <div
-                    className="h-full rounded-full bg-blue-600"
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MovementMap({ items }: { items: SeriesMetric[] }) {
-  const maxValue = Math.max(...items.map((item) => item.total), 1)
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <SectionTitle
-        icon={<Clock3 className="h-5 w-5" />}
-        title="Horários fortes"
-        subtitle="Onde o restaurante concentra mais pedidos"
-      />
-
-      <div className="mt-5 space-y-4">
-        {items.map((item) => {
-          const width = (item.total / maxValue) * 100
-
-          return (
-            <div key={item.label}>
-              <div className="mb-1.5 flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-slate-700">{item.label}</span>
-                <span className="text-sm font-black text-slate-950">
-                  {item.total} pedido(s)
-                </span>
-              </div>
-
-              <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-emerald-600"
-                  style={{ width: `${width}%` }}
-                />
-              </div>
-            </div>
           )
         })}
       </div>
@@ -615,296 +547,684 @@ function MovementMap({ items }: { items: SeriesMetric[] }) {
   )
 }
 
-function OrdersChart({ items }: { items: SeriesMetric[] }) {
-  const maxValue = Math.max(...items.map((item) => item.total), 1)
-
+function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <SectionTitle
-        icon={<BarChart3 className="h-5 w-5" />}
-        title="Volume de pedidos"
-        subtitle="Quantidade de pedidos dentro do filtro"
-      />
-
-      <div className="mt-5 flex h-[260px] items-end gap-2 rounded-xl border border-slate-100 bg-slate-50 p-4">
-        {items.map((item) => {
-          const height = Math.max(8, (item.total / maxValue) * 100)
-
-          return (
-            <div key={item.label} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-2">
-              <div className="flex flex-1 items-end">
-                <div
-                  className="w-full rounded-t-lg bg-slate-950"
-                  style={{ height: `${height}%` }}
-                />
-              </div>
-
-              <div className="text-center">
-                <p className="truncate text-[11px] font-semibold text-slate-500">
-                  {item.label}
-                </p>
-                <p className="text-xs font-black text-slate-950">{item.total}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+      {message}
     </div>
   )
 }
 
 export default function GestaoPage() {
   const supabase = useMemo(() => createClient(), [])
-  const [period, setPeriod] = useState<PeriodKey>("7d")
+  const { toast } = useToast()
+
+  const [period, setPeriod] = useState<PeriodKey>("today")
+  const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [data, setData] = useState<DashboardData>(emptyDashboard)
   const [isLoading, setIsLoading] = useState(true)
-  const [pageError, setPageError] = useState("")
-  const [restaurantName, setRestaurantName] = useState("Seu restaurante")
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
-  const loadDashboard = useCallback(async () => {
+  const resolveRestaurant = useCallback(async () => {
+    if (restaurantId) return restaurantId
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError) throw userError
+    if (!user) throw new Error("Usuário não autenticado.")
+
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from("restaurants")
+      .select("id")
+      .eq("owner_id", user.id)
+      .single()
+
+    if (restaurantError) throw restaurantError
+    if (!restaurant?.id) throw new Error("Restaurante não encontrado.")
+
+    setRestaurantId(restaurant.id)
+
+    return restaurant.id
+  }, [restaurantId, supabase])
+
+  const loadGestao = useCallback(async () => {
     try {
       setIsLoading(true)
-      setPageError("")
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) throw userError
-      if (!user) throw new Error("Usuário não autenticado.")
-
-      const { data: restaurant, error: restaurantError } = await supabase
-        .from("restaurants")
-        .select("id, name")
-        .eq("owner_id", user.id)
-        .single()
-
-      if (restaurantError || !restaurant) {
-        throw new Error("Restaurante não encontrado para esse usuário.")
-      }
-
-      setRestaurantName(restaurant.name || "Seu restaurante")
-
-      const periodStart = getPeriodStart(period)
+      const resolvedRestaurantId = await resolveRestaurant()
+      const startDate = getPeriodStart(period)
 
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
-        .select("id, total, created_at, status, payment_method, payment_status")
-        .eq("restaurant_id", restaurant.id)
-        .gte("created_at", periodStart)
-        .order("created_at", { ascending: true })
+        .select(
+          "id, public_order_number, customer_name, customer_neighborhood, total, created_at, status, payment_method, payment_status"
+        )
+        .eq("restaurant_id", resolvedRestaurantId)
+        .gte("created_at", startDate)
+        .order("created_at", { ascending: false })
 
       if (ordersError) throw ordersError
 
-      const validOrders = ((ordersData ?? []) as OrderRow[]).filter(isValidOrderForDashboard)
+      const orders = (ordersData ?? []) as OrderRow[]
+      const validOrders = orders.filter(
+        (order) => getStatusBucket(order.status) !== "cancelled"
+      )
+
       const orderIds = validOrders.map((order) => order.id)
 
       let orderItems: OrderItemRow[] = []
 
       if (orderIds.length > 0) {
-        const { data: orderItemsData, error: orderItemsError } = await supabase
+        const { data: itemsData, error: itemsError } = await supabase
           .from("order_items")
           .select("order_id, product_name, quantity")
           .in("order_id", orderIds)
 
-        if (orderItemsError) throw orderItemsError
+        if (itemsError) throw itemsError
 
-        orderItems = (orderItemsData ?? []) as OrderItemRow[]
+        orderItems = (itemsData ?? []) as OrderItemRow[]
       }
 
-      const revenue = validOrders.reduce(
-        (sum, order) => sum + Number(order.total || 0),
-        0
+      const openOrders = validOrders.filter(isOpenOrder)
+
+      const analysisOrders = validOrders.filter(
+        (order) => getStatusBucket(order.status) === "analysis"
       )
 
-      const ordersCount = validOrders.length
-      const averageTicket = ordersCount > 0 ? revenue / ordersCount : 0
+      const preparingOrders = validOrders.filter(
+        (order) => getStatusBucket(order.status) === "preparing"
+      )
 
-      const productMap = new Map<string, number>()
+      const routeOrders = validOrders.filter(
+        (order) => getStatusBucket(order.status) === "route"
+      )
 
-      for (const item of orderItems) {
-        const name = item.product_name?.trim() || "Produto sem nome"
-        const quantity = Number(item.quantity || 0)
+      const finishedOrders = validOrders.filter(
+        (order) => getStatusBucket(order.status) === "finished"
+      )
 
-        productMap.set(name, (productMap.get(name) ?? 0) + quantity)
+      const delayedOrders = openOrders.filter(isDelayed)
+      const pendingPixOrders = validOrders.filter(isPendingPix)
+      const hourSeries = buildHourSeries(validOrders)
+      const topProducts = buildTopProducts(orderItems)
+      const topAreas = buildTopAreas(validOrders)
+
+      const topHourPoint = hourSeries.reduce(
+        (best, current) => (current.count > best.count ? current : best),
+        { hour: "-", count: 0 }
+      )
+
+      const alerts: OperationalAlert[] = []
+
+      if (delayedOrders.length > 0) {
+        alerts.push({
+          title: `${delayedOrders.length} pedido(s) precisam de atenção`,
+          description: "Existem pedidos parados há mais tempo que o ideal.",
+          tone: "red",
+          icon: <AlertTriangle className="h-4 w-4" />,
+        })
       }
 
-      const topProducts = Array.from(productMap.entries())
-        .map(([name, total]) => ({ name, total }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 8)
+      if (pendingPixOrders.length > 0) {
+        alerts.push({
+          title: `${pendingPixOrders.length} Pix pendente(s)`,
+          description:
+            "Confira os pedidos aguardando confirmação de pagamento.",
+          tone: "amber",
+          icon: <Clock3 className="h-4 w-4" />,
+        })
+      }
 
-      const revenueSeries = buildRevenueSeries(validOrders, period)
-      const ordersSeries = buildOrdersSeries(validOrders, period)
-      const orderHeatmap = buildHeatmap(validOrders)
-      const sortedHeatmap = [...orderHeatmap].sort((a, b) => b.total - a.total)
+      if (analysisOrders.length > 0) {
+        alerts.push({
+          title: `${analysisOrders.length} pedido(s) aguardando análise`,
+          description:
+            "Aceite ou recuse rapidamente para não travar a operação.",
+          tone: "blue",
+          icon: <Zap className="h-4 w-4" />,
+        })
+      }
+
+      if (topProducts[0]) {
+        alerts.push({
+          title: `${topProducts[0].name} está em alta`,
+          description: `${topProducts[0].quantity} unidade(s) vendidas no período. Confira estoque e preparo.`,
+          tone: "green",
+          icon: <Flame className="h-4 w-4" />,
+        })
+      }
+
+      if (topAreas[0]) {
+        alerts.push({
+          title: `${topAreas[0].name} está movimentando mais pedidos`,
+          description: `${topAreas[0].orders} pedido(s) vieram dessa área no período.`,
+          tone: "blue",
+          icon: <MapPin className="h-4 w-4" />,
+        })
+      }
+
+      if (topHourPoint.count > 0) {
+        alerts.push({
+          title: `Horário mais movimentado: ${topHourPoint.hour}`,
+          description: `${topHourPoint.count} pedido(s) concentrados nesse horário.`,
+          tone: "slate",
+          icon: <Timer className="h-4 w-4" />,
+        })
+      }
+
+      if (alerts.length === 0) {
+        alerts.push({
+          title: "Operação tranquila",
+          description: "Nenhum alerta importante encontrado nesse período.",
+          tone: "green",
+          icon: <CheckCircle2 className="h-4 w-4" />,
+        })
+      }
 
       setData({
-        revenue,
-        orders: ordersCount,
-        averageTicket,
-        bestProduct: topProducts[0]?.name ?? "-",
-        bestProductUnits: topProducts[0]?.total ?? 0,
-        topHour: sortedHeatmap[0]?.total > 0 ? sortedHeatmap[0].label : "-",
+        totalOrders: validOrders.length,
+        openOrders: openOrders.length,
+        analysisOrders: analysisOrders.length,
+        preparingOrders: preparingOrders.length,
+        routeOrders: routeOrders.length,
+        finishedOrders: finishedOrders.length,
+        delayedOrders: delayedOrders.length,
+        pendingPixOrders: pendingPixOrders.length,
+        topHour: topHourPoint.count > 0 ? topHourPoint.hour : "-",
         topProducts,
-        revenueSeries,
-        ordersSeries,
-        orderHeatmap,
-        revenueTrend: calculateTrend(revenueSeries.map((item) => item.total)),
-        ordersTrend: calculateTrend(ordersSeries.map((item) => item.total)),
-        ticketTrend: calculateTicketTrend(validOrders),
+        topAreas,
+        hourSeries,
+        openQueue: openOrders
+          .sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
+          )
+          .slice(0, 6),
+        alerts: alerts.slice(0, 5),
+      })
+    } catch (error) {
+      console.error("Erro ao carregar gestão:", error)
+
+      toast({
+        title: "Erro ao carregar gestão",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar os dados da operação.",
+        variant: "destructive",
       })
 
-      setLastUpdatedAt(new Date())
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Erro ao carregar dados da gestão."
-
-      setPageError(message)
       setData(emptyDashboard)
     } finally {
       setIsLoading(false)
     }
-  }, [period, supabase])
+  }, [period, resolveRestaurant, supabase, toast])
 
   useEffect(() => {
-    void loadDashboard()
-  }, [loadDashboard])
+    void loadGestao()
+  }, [loadGestao])
+
+  const maxPipeline = Math.max(
+    data.analysisOrders,
+    data.preparingOrders,
+    data.routeOrders,
+    data.finishedOrders,
+    1
+  )
+
+  const maxAreaOrders = Math.max(...data.topAreas.map((area) => area.orders), 1)
 
   return (
     <AdminLayout title="Gestão">
       <div className="space-y-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-slate-500">
-                Gestão do restaurante
-              </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-950">
+              Gestão
+            </h1>
 
-              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                {restaurantName}
-              </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Acompanhe a operação do restaurante em tempo real.
+            </p>
+          </div>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Métricas reais de faturamento, pedidos e produtos mais vendidos.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {periodOptions.map((option) => (
-                <PeriodButton
-                  key={option.key}
-                  label={option.label}
-                  active={period === option.key}
-                  onClick={() => setPeriod(option.key)}
-                />
-              ))}
-
+          <div className="flex flex-wrap items-center gap-2">
+            {periodOptions.map((option) => (
               <button
+                key={option.key}
                 type="button"
-                onClick={() => void loadDashboard()}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                onClick={() => setPeriod(option.key)}
+                className={cn(
+                  "h-10 rounded-xl px-4 text-sm font-bold transition",
+                  period === option.key
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                )}
               >
-                <RefreshCcw className="h-4 w-4" />
-                Atualizar
+                {option.label}
               </button>
-            </div>
-          </div>
+            ))}
 
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            <span>
-              Filtro atual:{" "}
-              <strong className="text-slate-800">
-                {periodOptions.find((option) => option.key === period)?.label}
-              </strong>
-            </span>
-
-            {lastUpdatedAt && (
-              <span>
-                Atualizado às{" "}
-                {lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </span>
-            )}
+            <button
+              type="button"
+              onClick={() => void loadGestao()}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Atualizar
+            </button>
           </div>
-        </section>
-
-        {pageError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {pageError}
-          </div>
-        ) : null}
+        </div>
 
         {isLoading ? (
-          <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Carregando gestão...
+              Carregando operação...
             </div>
           </div>
         ) : (
           <>
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard
-                title="Faturamento"
-                value={formatCurrency(data.revenue)}
-                subtitle="Receita registrada no período"
-                trend={data.revenueTrend}
-                icon={<DollarSign className="h-5 w-5" />}
-              />
-
-              <MetricCard
-                title="Pedidos"
-                value={String(data.orders)}
-                subtitle="Pedidos válidos no período"
-                trend={data.ordersTrend}
+                title="Pedidos abertos"
+                value={String(data.openOrders)}
+                subtitle="Pedidos em andamento agora"
+                tone="blue"
+                delay={0}
                 icon={<ShoppingCart className="h-5 w-5" />}
               />
 
               <MetricCard
-                title="Ticket médio"
-                value={formatCurrency(data.averageTicket)}
-                subtitle="Média de valor por pedido"
-                trend={data.ticketTrend}
-                icon={<ArrowUpRight className="h-5 w-5" />}
+                title="Em preparo"
+                value={String(data.preparingOrders)}
+                subtitle="Pedidos dentro da cozinha"
+                tone="amber"
+                delay={70}
+                icon={<Utensils className="h-5 w-5" />}
               />
 
               <MetricCard
-                title="Produto líder"
-                value={data.bestProduct !== "-" ? data.bestProduct : "Sem vendas"}
-                subtitle={
-                  data.bestProductUnits > 0
-                    ? `${data.bestProductUnits} unidades vendidas`
-                    : "Nenhum produto vendido no filtro"
-                }
-                icon={<Package className="h-5 w-5" />}
+                title="Em rota"
+                value={String(data.routeOrders)}
+                subtitle="Pedidos com entrega em andamento"
+                tone="green"
+                delay={140}
+                icon={<Truck className="h-5 w-5" />}
+              />
+
+              <MetricCard
+                title="Atrasados"
+                value={String(data.delayedOrders)}
+                subtitle="Pedidos que exigem atenção"
+                tone={data.delayedOrders > 0 ? "red" : "green"}
+                delay={210}
+                icon={<AlertTriangle className="h-5 w-5" />}
               />
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[1.35fr_0.85fr]">
-              <RevenueChart data={data.revenueSeries} total={data.revenue} />
+            <section className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+              <Panel
+                title="Esteira da operação"
+                subtitle={`Resumo dos pedidos em ${getPeriodLabel(
+                  period
+                ).toLowerCase()}`}
+                icon={<Route className="h-5 w-5" />}
+              >
+                <div className="grid gap-3 md:grid-cols-4">
+                  <OperationStep
+                    title="Em análise"
+                    value={data.analysisOrders}
+                    subtitle="Aguardando ação"
+                    tone="blue"
+                    icon={<Clock3 className="h-5 w-5" />}
+                  />
 
-              <div className="grid gap-5">
-                <MovementMap items={data.orderHeatmap} />
+                  <OperationStep
+                    title="Em preparo"
+                    value={data.preparingOrders}
+                    subtitle="Na cozinha"
+                    tone="amber"
+                    icon={<Utensils className="h-5 w-5" />}
+                  />
 
-                <MetricCard
-                  title="Horário forte"
-                  value={data.topHour !== "-" ? data.topHour : "Sem pico"}
-                  subtitle="Janela com maior movimento"
-                  icon={<Flame className="h-5 w-5" />}
-                />
-              </div>
+                  <OperationStep
+                    title="Em rota"
+                    value={data.routeOrders}
+                    subtitle="Com entregador"
+                    tone="green"
+                    icon={<Truck className="h-5 w-5" />}
+                  />
+
+                  <OperationStep
+                    title="Finalizados"
+                    value={data.finishedOrders}
+                    subtitle="Concluídos"
+                    tone="slate"
+                    icon={<CheckCircle2 className="h-5 w-5" />}
+                  />
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {[
+                    ["Em análise", data.analysisOrders, "bg-blue-600"],
+                    ["Em preparo", data.preparingOrders, "bg-amber-500"],
+                    ["Em rota", data.routeOrders, "bg-emerald-600"],
+                    ["Finalizados", data.finishedOrders, "bg-slate-950"],
+                  ].map(([label, value, color]) => (
+                    <div key={String(label)}>
+                      <div className="mb-1.5 flex items-center justify-between text-xs font-bold text-slate-500">
+                        <span>{label}</span>
+                        <span>{value}</span>
+                      </div>
+
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-700",
+                            String(color)
+                          )}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (Number(value) / maxPipeline) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+
+              <Panel
+                title="Alertas operacionais"
+                subtitle="Pontos que merecem atenção"
+                icon={<Sparkles className="h-5 w-5" />}
+              >
+                <div className="space-y-3">
+                  {data.alerts.map((alert) => {
+                    const toneClass = {
+                      red: "bg-red-50 text-red-700 border-red-100",
+                      amber: "bg-amber-50 text-amber-700 border-amber-100",
+                      blue: "bg-blue-50 text-blue-700 border-blue-100",
+                      green: "bg-emerald-50 text-emerald-700 border-emerald-100",
+                      slate: "bg-slate-50 text-slate-700 border-slate-200",
+                    }[alert.tone]
+
+                    return (
+                      <div
+                        key={alert.title}
+                        className="flex gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3"
+                      >
+                        <div
+                          className={cn(
+                            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                            toneClass
+                          )}
+                        >
+                          {alert.icon}
+                        </div>
+
+                        <div>
+                          <p className="text-sm font-black text-slate-900">
+                            {alert.title}
+                          </p>
+                          <p className="mt-1 text-sm leading-5 text-slate-500">
+                            {alert.description}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Panel>
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-              <OrdersChart items={data.ordersSeries} />
+            <section className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+              <Panel
+                title="Movimento por horário"
+                subtitle="Volume de pedidos ao longo do dia"
+                icon={<Timer className="h-5 w-5" />}
+              >
+                <HourChart data={data.hourSeries} />
 
-              <ProductChart products={data.topProducts} />
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5">
+                    Total no período: {data.totalOrders} pedido(s)
+                  </span>
+
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5">
+                    Horário mais forte: {data.topHour}
+                  </span>
+                </div>
+              </Panel>
+
+              <Panel
+                title="Produtos em alta"
+                subtitle="Itens mais pedidos no período"
+                icon={<Flame className="h-5 w-5" />}
+              >
+                <div className="space-y-3">
+                  {data.topProducts.length === 0 ? (
+                    <EmptyState message="Nenhum produto vendido nesse período." />
+                  ) : (
+                    data.topProducts.map((product, index) => (
+                      <div
+                        key={product.name}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={cn(
+                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black",
+                              index === 0
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-white text-slate-700"
+                            )}
+                          >
+                            {index + 1}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-slate-900">
+                              {product.name}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500">
+                              Produto mais movimentado
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="shrink-0 text-sm font-black text-slate-950">
+                          {product.quantity}x
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Panel>
+            </section>
+
+            <Panel
+              title="Áreas mais atendidas"
+              subtitle="Bairros com maior volume de pedidos no período"
+              icon={<MapPin className="h-5 w-5" />}
+            >
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {data.topAreas.length === 0 ? (
+                  <div className="md:col-span-2 xl:col-span-3">
+                    <EmptyState message="Nenhuma área registrada nos pedidos desse período." />
+                  </div>
+                ) : (
+                  data.topAreas.map((area, index) => (
+                    <div
+                      key={area.name}
+                      className="rounded-xl bg-slate-50 px-3 py-3"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={cn(
+                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black",
+                              index === 0
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-white text-slate-700"
+                            )}
+                          >
+                            {index + 1}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-slate-950">
+                              {area.name}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500">
+                              {area.orders} pedido(s) •{" "}
+                              {formatCurrency(area.revenue)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="shrink-0 text-sm font-black text-slate-950">
+                          {area.orders}x
+                        </p>
+                      </div>
+
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-blue-600 transition-all duration-700"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (area.orders / maxAreaOrders) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Panel>
+
+            <section className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+              <Panel
+                title="Fila em andamento"
+                subtitle="Pedidos abertos mais antigos primeiro"
+                icon={<Package className="h-5 w-5" />}
+              >
+                <div className="space-y-3">
+                  {data.openQueue.length === 0 ? (
+                    <EmptyState message="Nenhum pedido em andamento agora." />
+                  ) : (
+                    data.openQueue.map((order) => {
+                      const age = getOrderAgeMinutes(order.created_at)
+                      const delayed = isDelayed(order)
+
+                      return (
+                        <div
+                          key={order.id}
+                          className={cn(
+                            "flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
+                            delayed
+                              ? "border-red-200 bg-red-50"
+                              : "border-slate-200 bg-slate-50"
+                          )}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-black text-slate-950">
+                                Pedido #
+                                {order.public_order_number || order.id.slice(0, 6)}
+                              </p>
+
+                              <StatusBadge status={order.status} />
+                            </div>
+
+                            <p className="mt-1 truncate text-sm font-medium text-slate-500">
+                              {order.customer_name || "Cliente sem nome"} • criado
+                              às {formatTime(order.created_at)}
+                            </p>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span
+                              className={cn(
+                                "rounded-full px-3 py-1.5 text-xs font-black",
+                                delayed
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-white text-slate-700"
+                              )}
+                            >
+                              {age} min
+                            </span>
+
+                            <span className="inline-flex h-9 items-center rounded-lg bg-slate-100 px-3 text-xs font-black text-slate-600">
+                              Em andamento
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </Panel>
+
+              <Panel
+                title="Ações rápidas"
+                subtitle="Atalhos para tocar a operação"
+                icon={<Zap className="h-5 w-5" />}
+              >
+                <div className="grid gap-3">
+                  <Link
+                    href="/novo-pedido"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <PlusCircle className="h-4 w-4" />
+                      Novo pedido
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+
+                  <Link
+                    href="/pedidos"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4" />
+                      Ver pedidos
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+
+                  <Link
+                    href="/mesas"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Utensils className="h-4 w-4" />
+                      Mesas
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+
+                  <Link
+                    href="/produtos"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Produtos
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </Panel>
             </section>
           </>
         )}
