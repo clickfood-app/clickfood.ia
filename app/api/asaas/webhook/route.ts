@@ -19,7 +19,6 @@ type OrderRow = {
   id: string
   restaurant_id: string
   payment_status: string | null
-  mercadopago_payment_id: string | null
 }
 
 type RestaurantAsaasAccountRow = {
@@ -57,6 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          step: "external_reference_ausente",
           error: "externalReference não enviado no webhook.",
         },
         { status: 400 }
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
-      .select("id, restaurant_id, payment_status, mercadopago_payment_id")
+      .select("id, restaurant_id, payment_status")
       .eq("id", externalReference)
       .maybeSingle()
 
@@ -75,6 +75,9 @@ export async function POST(req: NextRequest) {
           success: false,
           step: "buscar_pedido",
           error: orderError.message || "Erro ao buscar pedido do webhook.",
+          details: orderError.details || null,
+          hint: orderError.hint || null,
+          code: orderError.code || null,
         },
         { status: 500 }
       )
@@ -108,6 +111,9 @@ export async function POST(req: NextRequest) {
           error:
             accountError.message ||
             "Erro ao buscar conta Asaas do restaurante.",
+          details: accountError.details || null,
+          hint: accountError.hint || null,
+          code: accountError.code || null,
         },
         { status: 500 }
       )
@@ -168,10 +174,9 @@ export async function POST(req: NextRequest) {
       .from("orders")
       .update({
         payment_status: "paid",
-        mercadopago_payment_id: paymentId || typedOrder.mercadopago_payment_id,
       })
       .eq("id", typedOrder.id)
-      .select("id, payment_status, mercadopago_payment_id")
+      .select("id, payment_status")
       .maybeSingle()
 
     if (updateError) {
