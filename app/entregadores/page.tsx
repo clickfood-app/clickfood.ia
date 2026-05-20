@@ -5,13 +5,15 @@ import {
   Bike,
   CheckCircle2,
   Clock3,
+  Copy,
   Loader2,
+  MessageCircle,
   Phone,
   Plus,
   RefreshCcw,
   Search,
   ShieldCheck,
-  Truck,
+  Trash2,
   UserRound,
   Wallet,
   XCircle,
@@ -26,7 +28,11 @@ type DeliveryPersonRow = {
   restaurant_id: string
   name: string
   phone: string | null
+  pix_key: string | null
+  pix_key_type: string | null
+  notes: string | null
   is_active: boolean
+  deleted_at: string | null
   created_at: string
 }
 
@@ -41,6 +47,20 @@ type OrderRow = {
   out_for_delivery_at: string | null
   delivered_at: string | null
   cancelled_at: string | null
+}
+type DeliverySettlementRow = {
+  id: string
+  restaurant_id: string
+  delivery_person_id: string
+  settlement_date: string
+  total_amount: number | string
+  total_orders: number
+  order_ids: string[]
+  payment_method: string
+  status: string
+  paid_at: string
+  notes: string | null
+  created_at: string
 }
 
 type CourierFilter = "all" | "active" | "inactive"
@@ -63,6 +83,8 @@ type DeliveryPersonWithStats = DeliveryPersonRow & {
   totalToReceiveToday: number
   lastRouteAt: string | null
   ordersToday: CourierOrderItem[]
+  settlementToday: DeliverySettlementRow | null
+  isPaidToday: boolean
 }
 
 const supabase = createClient()
@@ -142,6 +164,35 @@ function formatPhone(phone: string | null) {
   return phone
 }
 
+function formatPixKeyType(type: string | null) {
+  if (type === "cpf") return "CPF"
+  if (type === "phone") return "Telefone"
+  if (type === "email") return "E-mail"
+  if (type === "random") return "Aleatória"
+
+  return "Não informado"
+}
+
+function normalizeWhatsappPhone(phone: string | null) {
+  if (!phone) return null
+
+  const digits = phone.replace(/\D/g, "")
+
+  if (!digits) return null
+
+  if (digits.startsWith("55")) return digits
+
+  return `55${digits}`
+}
+
+function getWhatsappUrl(phone: string | null) {
+  const normalizedPhone = normalizeWhatsappPhone(phone)
+
+  if (!normalizedPhone) return null
+
+  return `https://wa.me/${normalizedPhone}`
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -199,6 +250,15 @@ function getTodayStartIso() {
   return start.toISOString()
 }
 
+function getTodayDateString() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, "0")
+  const day = String(now.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
 function getStatusLabel(status: string | null | undefined) {
   if (isOnRouteStatus(status)) return "Em rota"
   if (isDeliveredStatus(status)) return "Entregue"
@@ -218,12 +278,15 @@ export default function EntregadoresPage() {
 
   const [deliveryPeople, setDeliveryPeople] = useState<DeliveryPersonRow[]>([])
   const [orders, setOrders] = useState<OrderRow[]>([])
+  const [settlements, setSettlements] = useState<DeliverySettlementRow[]>([])
 
   const [loadingPage, setLoadingPage] = useState(true)
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [busyCourierId, setBusyCourierId] = useState<string | null>(null)
+  const [settlingCourierId, setSettlingCourierId] = useState<string | null>(null)
+  const [settlementsLoading, setSettlementsLoading] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
@@ -234,11 +297,17 @@ export default function EntregadoresPage() {
   const [editingCourierId, setEditingCourierId] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
+  const [pixKeyType, setPixKeyType] = useState("")
+  const [pixKey, setPixKey] = useState("")
+  const [notes, setNotes] = useState("")
 
   function resetForm() {
     setEditingCourierId(null)
     setName("")
     setPhone("")
+    setPixKeyType("")
+    setPixKey("")
+    setNotes("")
   }
 
   async function loadDeliveryPeople(showRefresh = false) {
@@ -261,8 +330,9 @@ export default function EntregadoresPage() {
 
       const { data, error } = await supabase
         .from("delivery_people")
-        .select("id, restaurant_id, name, phone, is_active, created_at")
+        .select("id, restaurant_id, name, phone, pix_key, pix_key_type, notes, is_active, deleted_at, created_at")
         .eq("restaurant_id", restaurant.id)
+        .is("deleted_at", null)
         .order("is_active", { ascending: false })
         .order("created_at", { ascending: false })
 
@@ -316,12 +386,46 @@ export default function EntregadoresPage() {
     }
   }
 
+  async function loadSettlementsToday() {
+  if (!restaurant?.id) return
+
+  try {
+    setSettlementsLoading(true)
+
+    const session = await ensureSupabaseSession()
+
+    if (!session) {
+      setSettlementsLoading(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("delivery_settlements")
+      .select(
+        "id, restaurant_id, delivery_person_id, settlement_date, total_amount, total_orders, order_ids, payment_method, status, paid_at, notes, created_at"
+      )
+      .eq("restaurant_id", restaurant.id)
+      .eq("settlement_date", getTodayDateString())
+      .eq("status", "paid")
+
+    if (error) throw error
+
+    setSettlements((data || []) as DeliverySettlementRow[])
+  } catch (err) {
+    console.error("Erro ao carregar repasses pagos:", err)
+    setError(getErrorMessage(err, "Erro ao carregar repasses pagos."))
+  } finally {
+    setSettlementsLoading(false)
+  }
+}
+
   async function loadInitialData() {
     if (!restaurant?.id) return
 
     setError(null)
     await loadDeliveryPeople()
     void loadOrdersToday()
+    void loadSettlementsToday()
   }
 
   async function refreshAll() {
@@ -331,8 +435,11 @@ export default function EntregadoresPage() {
     setRefreshing(true)
 
     try {
-      await Promise.all([loadDeliveryPeople(true), loadOrdersToday()])
-    } finally {
+await Promise.all([
+  loadDeliveryPeople(true),
+  loadOrdersToday(),
+  loadSettlementsToday(),
+])    } finally {
       setRefreshing(false)
     }
   }
@@ -342,6 +449,9 @@ export default function EntregadoresPage() {
 
     const trimmedName = name.trim()
     const trimmedPhone = phone.trim()
+    const trimmedPixKeyType = pixKeyType.trim()
+    const trimmedPixKey = pixKey.trim()
+    const trimmedNotes = notes.trim()
 
     if (!trimmedName) {
       setError("Digite o nome do motoboy.")
@@ -358,6 +468,9 @@ export default function EntregadoresPage() {
           .update({
             name: trimmedName,
             phone: trimmedPhone || null,
+            pix_key_type: trimmedPixKeyType || null,
+            pix_key: trimmedPixKey || null,
+            notes: trimmedNotes || null,
           })
           .eq("id", editingCourierId)
           .eq("restaurant_id", restaurant.id)
@@ -370,6 +483,9 @@ export default function EntregadoresPage() {
             restaurant_id: restaurant.id,
             name: trimmedName,
             phone: trimmedPhone || null,
+            pix_key_type: trimmedPixKeyType || null,
+            pix_key: trimmedPixKey || null,
+            notes: trimmedNotes || null,
           })
 
         if (error) throw error
@@ -416,10 +532,128 @@ export default function EntregadoresPage() {
     }
   }
 
+  async function handleDeleteCourier(courier: DeliveryPersonWithStats) {
+    if (!restaurant?.id) return
+
+    if (courier.onRouteOrders > 0) {
+      setError("Esse motoboy está em rota. Finalize a entrega antes de excluir.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Excluir ${courier.name}? Ele será removido da tela, mas o histórico dos pedidos continua salvo.`
+    )
+
+    if (!confirmed) return
+
+    try {
+      setBusyCourierId(courier.id)
+      setError(null)
+
+      const { error } = await supabase
+        .from("delivery_people")
+        .update({
+          is_active: false,
+          deleted_at: new Date().toISOString(),
+        })
+        .eq("id", courier.id)
+        .eq("restaurant_id", restaurant.id)
+
+      if (error) throw error
+
+      if (selectedCourierId === courier.id) {
+        setSelectedCourierId(null)
+      }
+
+      if (editingCourierId === courier.id) {
+        resetForm()
+      }
+
+      await loadDeliveryPeople(true)
+    } catch (err) {
+      console.error("Erro ao excluir motoboy:", err)
+      setError(getErrorMessage(err, "Erro ao excluir motoboy."))
+    } finally {
+      setBusyCourierId(null)
+    }
+  }
+
+  async function handleCopyPix(courier: DeliveryPersonWithStats) {
+    if (!courier.pix_key) {
+      setError("Esse motoboy ainda não tem chave Pix cadastrada.")
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(courier.pix_key)
+      setError(null)
+    } catch (err) {
+      console.error("Erro ao copiar Pix:", err)
+      setError("Não foi possível copiar a chave Pix.")
+    }
+  }
+
+  async function handleMarkSettlementPaid(courier: DeliveryPersonWithStats) {
+  if (!restaurant?.id) return
+
+  if (courier.isPaidToday) {
+    setError("Esse repasse já foi marcado como pago hoje.")
+    return
+  }
+
+  if (courier.ordersToday.length === 0 || courier.totalToReceiveToday <= 0) {
+    setError("Esse motoboy não tem valor para repassar hoje.")
+    return
+  }
+
+  const confirmed = window.confirm(
+    `Marcar ${formatCurrency(courier.totalToReceiveToday)} como pago para ${courier.name}?`
+  )
+
+  if (!confirmed) return
+
+  try {
+    setSettlingCourierId(courier.id)
+    setError(null)
+
+    const orderIds = courier.ordersToday.map((order) => order.id)
+
+    const { error } = await supabase.from("delivery_settlements").insert({
+      restaurant_id: restaurant.id,
+      delivery_person_id: courier.id,
+      settlement_date: getTodayDateString(),
+      total_amount: courier.totalToReceiveToday,
+      total_orders: courier.ordersToday.length,
+      order_ids: orderIds,
+      payment_method: "pix",
+      status: "paid",
+      paid_at: new Date().toISOString(),
+    })
+
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error("Esse repasse já foi marcado como pago hoje.")
+      }
+
+      throw error
+    }
+
+    await loadSettlementsToday()
+  } catch (err) {
+    console.error("Erro ao marcar repasse como pago:", err)
+    setError(getErrorMessage(err, "Erro ao marcar repasse como pago."))
+  } finally {
+    setSettlingCourierId(null)
+  }
+}
+
   function handleEditCourier(courier: DeliveryPersonRow) {
     setEditingCourierId(courier.id)
     setName(courier.name)
     setPhone(courier.phone || "")
+    setPixKeyType(courier.pix_key_type || "")
+    setPixKey(courier.pix_key || "")
+    setNotes(courier.notes || "")
   }
 
   useEffect(() => {
@@ -545,15 +779,24 @@ export default function EntregadoresPage() {
           .filter(Boolean)
           .sort((a, b) => new Date(b as string).getTime() - new Date(a as string).getTime())
 
-        return {
-          ...courier,
-          openOrders,
-          onRouteOrders,
-          deliveredToday,
-          totalToReceiveToday,
-          lastRouteAt: (sortedRouteDates[0] as string | undefined) || null,
-          ordersToday: courierOrders,
-        }
+        const settlementToday =
+  settlements.find(
+    (settlement) =>
+      settlement.delivery_person_id === courier.id &&
+      settlement.status === "paid"
+  ) || null
+
+return {
+  ...courier,
+  openOrders,
+  onRouteOrders,
+  deliveredToday,
+  totalToReceiveToday,
+  lastRouteAt: (sortedRouteDates[0] as string | undefined) || null,
+  ordersToday: courierOrders,
+  settlementToday,
+  isPaidToday: Boolean(settlementToday),
+}
       })
       .sort((a, b) => {
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
@@ -563,7 +806,7 @@ export default function EntregadoresPage() {
         if (a.onRouteOrders !== b.onRouteOrders) return b.onRouteOrders - a.onRouteOrders
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       })
-  }, [deliveryPeople, orders])
+}, [deliveryPeople, orders, settlements])
 
   const filteredCouriers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
@@ -580,7 +823,9 @@ export default function EntregadoresPage() {
 
       return (
         courier.name.toLowerCase().includes(normalizedSearch) ||
-        (courier.phone || "").toLowerCase().includes(normalizedSearch)
+        (courier.phone || "").toLowerCase().includes(normalizedSearch) ||
+        (courier.pix_key || "").toLowerCase().includes(normalizedSearch) ||
+        (courier.notes || "").toLowerCase().includes(normalizedSearch)
       )
     })
   }, [deliveryPeopleWithStats, filter, search])
@@ -600,656 +845,590 @@ export default function EntregadoresPage() {
     }
   }, [filteredCouriers, selectedCourierId])
 
-  const selectedCourier =
-    filteredCouriers.find((courier) => courier.id === selectedCourierId) || null
-
   const totalCouriers = deliveryPeopleWithStats.length
-  const activeCouriers = deliveryPeopleWithStats.filter((item) => item.is_active).length
-  const onRouteCouriers = deliveryPeopleWithStats.filter(
-    (item) => item.onRouteOrders > 0
-  ).length
-  const totalToPayToday = deliveryPeopleWithStats.reduce(
-    (sum, item) => sum + item.totalToReceiveToday,
-    0
-  )
+const activeCouriers = deliveryPeopleWithStats.filter((item) => item.is_active).length
+const onRouteCouriers = deliveryPeopleWithStats.filter(
+  (item) => item.onRouteOrders > 0
+).length
+const totalOrdersToday = deliveryPeopleWithStats.reduce(
+  (sum, item) => sum + item.ordersToday.length,
+  0
+)
+const totalToPayToday = deliveryPeopleWithStats.reduce(
+  (sum, item) => sum + item.totalToReceiveToday,
+  0
+)
+const couriersWithoutPix = deliveryPeopleWithStats.filter(
+  (item) => item.is_active && !item.pix_key
+).length
 
-  return (
-    <AdminLayout>
-      <div className="flex flex-col gap-6 p-6">
-        <div className="overflow-hidden rounded-[28px] border border-border bg-card">
-          <div className="bg-gradient-to-r from-[#11131a] via-[#171b24] to-[#1f2430] px-6 py-6 text-white">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+return (
+  <AdminLayout>
+    <div className="space-y-4 p-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">
+            Entregadores
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Controle os motoboys, pedidos vinculados e repasses do dia em uma tela só.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+            <Clock3 className="h-4 w-4" />
+            {lastUpdatedAt
+              ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}`
+              : "Aguardando dados"}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void refreshAll()}
+            disabled={refreshing}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {refreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCcw className="h-4 w-4" />
+            )}
+            Atualizar
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700/70">
+              Total a repassar
+            </p>
+            <Wallet className="h-4 w-4 text-emerald-700" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-emerald-700">
+            {ordersLoading ? "..." : formatCurrency(totalToPayToday)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Motoboys
+          </p>
+          <p className="mt-2 text-2xl font-black text-foreground">
+            {loadingPage ? "..." : totalCouriers}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Ativos
+          </p>
+          <p className="mt-2 text-2xl font-black text-foreground">
+            {loadingPage ? "..." : activeCouriers}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Pedidos vinculados
+          </p>
+          <p className="mt-2 text-2xl font-black text-foreground">
+            {ordersLoading ? "..." : totalOrdersToday}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Em rota
+          </p>
+          <p className="mt-2 text-2xl font-black text-foreground">
+            {ordersLoading ? "..." : onRouteCouriers}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                  </span>
-                  Fechamento em tempo real
-                </div>
-
-                <h1 className="text-3xl font-black tracking-tight">
-                  Motoboys e repasses
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-white/70">
-                  Veja quanto cada motoboy tem para receber e quais pedidos estão vinculados a ele hoje.
+                <h2 className="text-base font-black text-foreground">
+                  {editingCourierId ? "Editar motoboy" : "Novo motoboy"}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Dados usados no fechamento e contato rápido.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/55">
-                    Motoboys
-                  </p>
-                  <p className="mt-2 text-3xl font-black">{totalCouriers}</p>
+              {editingCourierId ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border border-border px-3 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              ) : null}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex: João da Moto"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Telefone
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Ex: 31999999999"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)] xl:grid-cols-1">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    Tipo Pix
+                  </label>
+                  <select
+                    value={pixKeyType}
+                    onChange={(e) => setPixKeyType(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  >
+                    <option value="">Selecione</option>
+                    <option value="cpf">CPF</option>
+                    <option value="phone">Telefone</option>
+                    <option value="email">E-mail</option>
+                    <option value="random">Aleatória</option>
+                  </select>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/55">
-                    Ativos
-                  </p>
-                  <p className="mt-2 text-3xl font-black">{activeCouriers}</p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/55">
-                    Em rota
-                  </p>
-                  <p className="mt-2 text-3xl font-black">{onRouteCouriers}</p>
-                </div>
-
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-emerald-100/70">
-                    Total do dia
-                  </p>
-                  <p className="mt-2 text-3xl font-black text-emerald-300">
-                    {formatCurrency(totalToPayToday)}
-                  </p>
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    Chave Pix
+                  </label>
+                  <input
+                    type="text"
+                    value={pixKey}
+                    onChange={(e) => setPixKey(e.target.value)}
+                    placeholder="CPF, telefone, e-mail ou aleatória"
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
                 </div>
               </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Observação
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ex: atende só à noite, bairros próximos..."
+                  rows={2}
+                  className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleSaveCourier()}
+                disabled={saving}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : editingCourierId ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {editingCourierId ? "Salvar alterações" : "Cadastrar motoboy"}
+              </button>
             </div>
           </div>
 
-          <div className="border-t border-border bg-card px-6 py-4">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="relative w-full max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar motoboy..."
-                    className="h-12 w-full rounded-2xl border border-border bg-background pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 rounded-2xl border border-border bg-background p-1">
-                  <button
-                    type="button"
-                    onClick={() => setFilter("all")}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                      filter === "all"
-                        ? "bg-foreground text-white"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Todos
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFilter("active")}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                      filter === "active"
-                        ? "bg-foreground text-white"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Ativos
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFilter("inactive")}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                      filter === "inactive"
-                        ? "bg-foreground text-white"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Inativos
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <p className="text-xs text-muted-foreground">
-                  {lastUpdatedAt
-                    ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}`
-                    : "Aguardando dados..."}
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-600" />
+              <div>
+                <p className="text-sm font-bold text-foreground">
+                  Regra do fechamento
                 </p>
-
-                <button
-                  type="button"
-                  onClick={() => void refreshAll()}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted/40"
-                >
-                  {refreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                  Atualizar
-                </button>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  O total de cada motoboy é calculado pela soma das taxas dos pedidos vinculados a ele hoje.
+                </p>
+                {couriersWithoutPix > 0 ? (
+                  <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                    {couriersWithoutPix} motoboy(s) ativo(s) sem Pix cadastrado.
+                  </p>
+                ) : null}
               </div>
             </div>
-
-            {error && (
-              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-          <div className="space-y-6">
-            <div className="rounded-[24px] border border-border bg-card p-5">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  {editingCourierId ? (
-                    <UserRound className="h-5 w-5" />
-                  ) : (
-                    <Plus className="h-5 w-5" />
-                  )}
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-foreground">
-                    {editingCourierId ? "Editar motoboy" : "Cadastrar motoboy"}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Cadastro real conectado ao Supabase.
-                  </p>
-                </div>
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="border-b border-border p-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="relative w-full xl:max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por nome, telefone, Pix ou observação..."
+                  className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-foreground">
-                    Nome
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ex: João da Moto"
-                    className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  />
-                </div>
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1">
+                <button
+                  type="button"
+                  onClick={() => setFilter("all")}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                    filter === "all"
+                      ? "bg-foreground text-white"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Todos
+                </button>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-foreground">
-                    Telefone
-                  </label>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Ex: 31999999999"
-                    className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setFilter("active")}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                    filter === "active"
+                      ? "bg-foreground text-white"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Ativos
+                </button>
 
-                <div className="flex flex-col gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveCourier()}
-                    disabled={saving}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {saving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : editingCourierId ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    {editingCourierId ? "Salvar alterações" : "Cadastrar motoboy"}
-                  </button>
-
-                  {editingCourierId ? (
-                    <button
-                      type="button"
-                      onClick={resetForm}
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Cancelar edição
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-[20px] border border-border bg-muted/30 p-4">
-                <div className="flex items-start gap-3">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      Regra do fechamento
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      O total do motoboy é a soma das taxas de entrega dos pedidos vinculados a ele no dia.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-border bg-card p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-bold text-foreground">
-                    Motoboys
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Selecione um motoboy para ver os detalhes.
-                  </p>
-                </div>
-
-                {loadingPage ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                {loadingPage ? (
-                  <div className="rounded-2xl border border-dashed border-border bg-background px-4 py-10 text-center text-sm text-muted-foreground">
-                    Carregando motoboys...
-                  </div>
-                ) : filteredCouriers.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border bg-background px-4 py-10 text-center text-sm text-muted-foreground">
-                    Nenhum motoboy encontrado.
-                  </div>
-                ) : (
-                  filteredCouriers.map((courier) => (
-                    <button
-                      key={courier.id}
-                      type="button"
-                      onClick={() => setSelectedCourierId(courier.id)}
-                      className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
-                        selectedCourierId === courier.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border bg-background hover:bg-muted/30"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary">
-                            {getInitials(courier.name) || "MB"}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-foreground">
-                              {courier.name}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {courier.phone ? formatPhone(courier.phone) : "Sem telefone"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                            courier.onRouteOrders > 0
-                              ? "bg-emerald-100 text-emerald-700"
-                              : courier.is_active
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-zinc-100 text-zinc-600"
-                          }`}
-                        >
-                          {courier.onRouteOrders > 0
-                            ? "Em rota"
-                            : courier.is_active
-                              ? "Ativo"
-                              : "Inativo"}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between gap-3 text-xs">
-                        <span className="text-muted-foreground">
-                          {courier.ordersToday.length} pedido(s) hoje
-                        </span>
-                        <span className="font-bold text-emerald-700">
-                          {ordersLoading ? "..." : formatCurrency(courier.totalToReceiveToday)}
-                        </span>
-                      </div>
-                    </button>
-                  ))
-                )}
+                <button
+                  type="button"
+                  onClick={() => setFilter("inactive")}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                    filter === "inactive"
+                      ? "bg-foreground text-white"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Inativos
+                </button>
               </div>
             </div>
           </div>
 
-          <div>
-            {!selectedCourier ? (
-              <div className="flex min-h-[500px] items-center justify-center rounded-[24px] border border-border bg-card">
-                <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-muted">
-                    <Bike className="h-7 w-7 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    Selecione um motoboy
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Escolha um motoboy na lista para ver os pedidos e o total a receber.
-                  </p>
-                </div>
+          <div className="p-4">
+            {loadingPage ? (
+              <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-dashed border-border bg-background text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Carregando motoboys...
+              </div>
+            ) : filteredCouriers.length === 0 ? (
+              <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background px-6 text-center">
+                <Bike className="mb-3 h-8 w-8 text-muted-foreground" />
+                <p className="text-sm font-bold text-foreground">
+                  Nenhum motoboy encontrado
+                </p>
+                <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                  Cadastre um motoboy ou altere o filtro de busca para visualizar os repasses.
+                </p>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="overflow-hidden rounded-[24px] border border-border bg-card">
-                  <div className="border-b border-border px-5 py-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-lg font-black text-primary">
-                          {getInitials(selectedCourier.name) || "MB"}
+              <div className="space-y-3">
+                {filteredCouriers.map((courier) => {
+                  const whatsappUrl = getWhatsappUrl(courier.phone)
+                  const isSelected = selectedCourierId === courier.id
+                  const isBusy = busyCourierId === courier.id
+
+                  return (
+                    <div
+                      key={courier.id}
+                      onClick={() => setSelectedCourierId(courier.id)}
+                      className={`rounded-2xl border bg-background p-4 transition ${
+                        isSelected
+                          ? "border-primary/40 ring-2 ring-primary/10"
+                          : "border-border hover:border-primary/25"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-sm font-black text-primary">
+                              {getInitials(courier.name) || "MB"}
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="truncate text-lg font-black text-foreground">
+                                  {courier.name}
+                                </h3>
+
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                                    courier.onRouteOrders > 0
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : courier.is_active
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-zinc-100 text-zinc-600"
+                                  }`}
+                                >
+                                  {courier.onRouteOrders > 0
+                                    ? "Em rota"
+                                    : courier.is_active
+                                      ? "Ativo"
+                                      : "Inativo"}
+                                </span>
+                              </div>
+
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <span className="inline-flex items-center gap-1">
+                                  <Phone className="h-3.5 w-3.5" />
+                                  {courier.phone ? formatPhone(courier.phone) : "Sem telefone"}
+                                </span>
+                                <span>
+                                  Pix: {courier.pix_key ? formatPixKeyType(courier.pix_key_type) : "não cadastrado"}
+                                </span>
+                                <span>
+                                  Desde {formatDate(courier.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {courier.notes ? (
+                            <p className="mt-3 rounded-xl bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                              {courier.notes}
+                            </p>
+                          ) : null}
                         </div>
 
-                        <div>
-                          <h2 className="text-2xl font-black text-foreground">
-                            {selectedCourier.name}
-                          </h2>
-                          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                            <Phone className="h-4 w-4" />
-                            {selectedCourier.phone
-                              ? formatPhone(selectedCourier.phone)
-                              : "Sem telefone"}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {whatsappUrl ? (
+                            <a
+                              href={whatsappUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(event) => event.stopPropagation()}
+                              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              WhatsApp
+                            </a>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void handleCopyPix(courier)
+                            }}
+                            disabled={!courier.pix_key}
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Copy className="h-4 w-4" />
+                            Pix
+                          </button>
+
+                          <button
+  type="button"
+  onClick={(event) => {
+    event.stopPropagation()
+    void handleMarkSettlementPaid(courier)
+  }}
+  disabled={
+    courier.isPaidToday ||
+    settlingCourierId === courier.id ||
+    settlementsLoading ||
+    courier.totalToReceiveToday <= 0
+  }
+  className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+    courier.isPaidToday
+      ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+  }`}
+>
+  {settlingCourierId === courier.id ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : (
+    <CheckCircle2 className="h-4 w-4" />
+  )}
+  {courier.isPaidToday ? "Pago" : "Marcar pago"}
+</button>
+
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleEditCourier(courier)
+                            }}
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                          >
+                            <UserRound className="h-4 w-4" />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void handleToggleActive(courier)
+                            }}
+                            disabled={isBusy}
+                            className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                              courier.is_active
+                                ? "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                                : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            }`}
+                          >
+                            {isBusy ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : courier.is_active ? (
+                              <XCircle className="h-4 w-4" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
+                            )}
+                            {courier.is_active ? "Desativar" : "Ativar"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void handleDeleteCourier(courier)
+                            }}
+                            disabled={isBusy}
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isBusy ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl border border-border bg-card p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Pedidos hoje
+                          </p>
+                          <p className="mt-1 text-xl font-black text-foreground">
+                            {ordersLoading ? "..." : courier.ordersToday.length}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-border bg-card p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Em rota
+                          </p>
+                          <p className="mt-1 text-xl font-black text-foreground">
+                            {ordersLoading ? "..." : courier.onRouteOrders}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/70">
+                            A receber
+                          </p>
+                          <p className="mt-1 text-xl font-black text-emerald-700">
+                            {ordersLoading ? "..." : formatCurrency(courier.totalToReceiveToday)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div
-                          className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-                            selectedCourier.onRouteOrders > 0
-                              ? "bg-emerald-100 text-emerald-700"
-                              : selectedCourier.is_active
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-zinc-100 text-zinc-600"
-                          }`}
-                        >
-                          {selectedCourier.onRouteOrders > 0
-                            ? "Em rota"
-                            : selectedCourier.is_active
-                              ? "Ativo"
-                              : "Inativo"}
+                      <div className="mt-4 rounded-xl border border-border bg-card p-3">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                              Pedidos vinculados
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Número do pedido e taxa de entrega para conferência do fechamento.
+                            </p>
+                          </div>
+
+                          <p className="text-xs text-muted-foreground">
+                            Última saída: {ordersLoading
+                              ? "..."
+                              : courier.lastRouteAt
+                                ? formatTime(courier.lastRouteAt)
+                                : "—"}
+                          </p>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleEditCourier(selectedCourier)}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted/40"
-                        >
-                          <UserRound className="h-4 w-4" />
-                          Editar
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleActive(selectedCourier)}
-                          disabled={busyCourierId === selectedCourier.id}
-                          className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                            selectedCourier.is_active
-                              ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                              : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          }`}
-                        >
-                          {busyCourierId === selectedCourier.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : selectedCourier.is_active ? (
-                            <XCircle className="h-4 w-4" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4" />
-                          )}
-                          {selectedCourier.is_active ? "Desativar" : "Ativar"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        Pedidos hoje
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-foreground">
-                        {ordersLoading ? "..." : selectedCourier.ordersToday.length}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        Abertos
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-foreground">
-                        {ordersLoading ? "..." : selectedCourier.openOrders}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        Em rota
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-foreground">
-                        {ordersLoading ? "..." : selectedCourier.onRouteOrders}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-emerald-700/70">
-                        Total a receber
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-emerald-700">
-                        {ordersLoading ? "..." : formatCurrency(selectedCourier.totalToReceiveToday)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_320px]">
-                  <div className="rounded-[24px] border border-border bg-card p-5">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-bold text-foreground">
-                          Pedidos do dia
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          Número do pedido e taxa vinculada ao motoboy.
-                        </p>
-                      </div>
-
-                      <div className="text-right text-xs text-muted-foreground">
-                        <p>
-                          Última saída:{" "}
-                          {ordersLoading
-                            ? "..."
-                            : selectedCourier.lastRouteAt
-                              ? formatTime(selectedCourier.lastRouteAt)
-                              : "—"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {ordersLoading ? (
-                      <div className="rounded-2xl border border-dashed border-border bg-background px-4 py-12 text-center text-sm text-muted-foreground">
-                        Carregando pedidos do dia...
-                      </div>
-                    ) : selectedCourier.ordersToday.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-border bg-background px-4 py-12 text-center text-sm text-muted-foreground">
-                        Nenhum pedido vinculado hoje.
-                      </div>
-                    ) : (
-                      <div className="overflow-hidden rounded-2xl border border-border">
-                        <div className="grid grid-cols-[1.1fr_1.2fr_120px_120px] gap-3 border-b border-border bg-muted/40 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                          <span>Pedido</span>
-                          <span>Cliente</span>
-                          <span>Taxa</span>
-                          <span>Status</span>
-                        </div>
-
-                        <div className="divide-y divide-border">
-                          {selectedCourier.ordersToday.map((order) => (
-                            <div
-                              key={order.id}
-                              className="grid grid-cols-[1.1fr_1.2fr_120px_120px] gap-3 px-4 py-4"
-                            >
-                              <div>
-                                <p className="text-sm font-bold text-foreground">
+                        {ordersLoading ? (
+                          <div className="mt-3 rounded-xl border border-dashed border-border bg-background px-3 py-6 text-center text-xs text-muted-foreground">
+                            Carregando pedidos...
+                          </div>
+                        ) : courier.ordersToday.length === 0 ? (
+                          <div className="mt-3 rounded-xl border border-dashed border-border bg-background px-3 py-6 text-center text-xs text-muted-foreground">
+                            Nenhum pedido vinculado hoje.
+                          </div>
+                        ) : (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {courier.ordersToday.map((order) => (
+                              <div
+                                key={order.id}
+                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs"
+                              >
+                                <span className="font-black text-foreground">
                                   #{getOrderNumber(order)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatTime(order.created_at)}
-                                </p>
-                              </div>
-
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-foreground">
-                                  {order.customer_name || "Cliente sem nome"}
-                                </p>
-                              </div>
-
-                              <div className="text-sm font-black text-foreground">
-                                {formatCurrency(order.delivery_fee)}
-                              </div>
-
-                              <div>
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {formatCurrency(order.delivery_fee)}
+                                </span>
                                 <span
-                                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${getStatusTone(order.status)}`}
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getStatusTone(order.status)}`}
                                 >
                                   {getStatusLabel(order.status)}
                                 </span>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-[24px] border border-border bg-card p-5">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="h-4 w-4 text-emerald-700" />
-                        <p className="text-sm font-bold text-foreground">
-                          Resumo do repasse
-                        </p>
-                      </div>
-
-                      <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                        <p className="text-[11px] uppercase tracking-wide text-emerald-700/70">
-                          Total a receber hoje
-                        </p>
-                        <p className="mt-2 text-3xl font-black text-emerald-700">
-                          {ordersLoading ? "..." : formatCurrency(selectedCourier.totalToReceiveToday)}
-                        </p>
-                      </div>
-
-                      <div className="mt-4 space-y-3 text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Pedidos hoje</span>
-                          <span className="font-semibold text-foreground">
-                            {ordersLoading ? "..." : selectedCourier.ordersToday.length}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Pedidos abertos</span>
-                          <span className="font-semibold text-foreground">
-                            {ordersLoading ? "..." : selectedCourier.openOrders}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Pedidos em rota</span>
-                          <span className="font-semibold text-foreground">
-                            {ordersLoading ? "..." : selectedCourier.onRouteOrders}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Entregues hoje</span>
-                          <span className="font-semibold text-foreground">
-                            {ordersLoading ? "..." : selectedCourier.deliveredToday}
-                          </span>
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    <div className="rounded-[24px] border border-border bg-card p-5">
-                      <div className="flex items-center gap-2">
-                        <Clock3 className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-sm font-bold text-foreground">
-                          Dados do motoboy
-                        </p>
-                      </div>
-
-                      <div className="mt-4 space-y-3 text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Telefone</span>
-                          <span className="font-semibold text-foreground">
-                            {selectedCourier.phone
-                              ? formatPhone(selectedCourier.phone)
-                              : "Sem telefone"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Cadastrado em</span>
-                          <span className="font-semibold text-foreground">
-                            {formatDate(selectedCourier.created_at)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Última saída</span>
-                          <span className="font-semibold text-foreground">
-                            {ordersLoading
-                              ? "..."
-                              : selectedCourier.lastRouteAt
-                                ? formatTime(selectedCourier.lastRouteAt)
-                                : "—"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[24px] border border-border bg-card p-5">
-                      <div className="flex items-start gap-3">
-                        <ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-600" />
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">
-                            Regra da operação
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                            O valor mostrado aqui é a soma das taxas dos pedidos atribuídos a esse motoboy no dia.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  )
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
-    </AdminLayout>
-  )
+    </div>
+  </AdminLayout>
+)
 }
