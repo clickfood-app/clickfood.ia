@@ -8,6 +8,7 @@ import {
   Clock3,
   Loader2,
   Package,
+  Printer,
   RefreshCcw,
   Search,
   Settings2,
@@ -327,12 +328,83 @@ function getPaymentStatusLabel(paymentStatus: string | null) {
   return paymentStatus || "—"
 }
 
-function getOrderTypeLabel(order: OrderRow) {
+function isDeliveryOrder(order: OrderRow) {
   const deliveryFee = Number(order.delivery_fee || 0)
+  const notes = normalizeStatus(order.notes)
 
-  if (deliveryFee > 0) return "Delivery"
+  const isLocalOrPickup =
+    notes.includes("retirada") ||
+    notes.includes("retirar") ||
+    notes.includes("balcao") ||
+    notes.includes("balcão") ||
+    notes.includes("pedido local") ||
+    notes.includes("mesa") ||
+    notes.includes("comanda") ||
+    notes.includes("consumo local")
 
-  return "Retirada"
+  if (isLocalOrPickup) return false
+
+  const hasDeliverySignal =
+    deliveryFee > 0 ||
+    Boolean(order.delivery_person_id) ||
+    notes.includes("delivery") ||
+    notes.includes("entrega") ||
+    notes.includes("entregar") ||
+    notes.includes("endereco") ||
+    notes.includes("endereço") ||
+    notes.includes("bairro") ||
+    notes.includes("rua")
+
+  return hasDeliverySignal
+}
+
+function getOrderTypeLabel(order: OrderRow) {
+  return isDeliveryOrder(order) ? "Entrega" : "Retirada"
+}
+
+function isPaidOrder(order: OrderRow) {
+  return normalizeStatus(order.payment_status) === "paid"
+}
+
+function getPaymentBadgeClasses(paymentStatus: string | null) {
+  const normalized = normalizeStatus(paymentStatus)
+
+  if (normalized === "paid") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700"
+  }
+
+  if (normalized === "failed" || normalized === "cancelled") {
+    return "border-red-200 bg-red-50 text-red-700"
+  }
+
+  return "border-amber-200 bg-amber-50 text-amber-700"
+}
+
+function getOrderTypeClasses(order: OrderRow) {
+  if (isDeliveryOrder(order)) {
+    return "border-blue-200 bg-blue-50 text-blue-700"
+  }
+
+  return "border-purple-200 bg-purple-50 text-purple-700"
+}
+
+function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
+  const isDelivery = isDeliveryOrder(order)
+  const isPaid = isPaidOrder(order)
+
+  if (status === "analysis") {
+    if (isPaid) return "Pedido pago. Pode aceitar com segurança."
+    return "Pagamento pendente. Confira a forma de pagamento."
+  }
+
+  if (status === "preparation") {
+    if (isDelivery) return "Entrega: selecione o motoboy antes de enviar."
+    return "Retirada: não precisa selecionar motoboy."
+  }
+
+  if (isDelivery) return "Pedido em rota com entregador vinculado."
+
+  return "Retirada pronta para finalizar."
 }
 
 function normalizeOrderItem(raw: Record<string, unknown>): OrderItem {
@@ -364,6 +436,221 @@ function normalizeOrderItem(raw: Record<string, unknown>): OrderItem {
   }
 }
 
+
+
+function escapeReceiptText(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function printOrderReceipt(
+  order: OrderRow,
+  items: OrderItem[],
+  deliveryPeople: DeliveryPerson[]
+) {
+  const receiptWindow = window.open("", "_blank", "width=420,height=700")
+
+  if (!receiptWindow) {
+    alert("Não foi possível abrir a impressão. Libere pop-ups para imprimir o pedido.")
+    return
+  }
+
+  const isDelivery = isDeliveryOrder(order)
+  const deliveryPersonName = getDeliveryPersonName(
+    deliveryPeople,
+    order.delivery_person_id
+  )
+
+  const itemsHtml =
+    items.length > 0
+      ? items
+          .map(
+            (item) => `
+              <tr>
+                <td>${escapeReceiptText(item.quantity)}x ${escapeReceiptText(item.name)}</td>
+                <td class="right">${escapeReceiptText(formatBRL(item.total))}</td>
+              </tr>
+            `
+          )
+          .join("")
+      : `<tr><td colspan="2">Itens não carregados</td></tr>`
+
+  const html = `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8" />
+        <title>Pedido #${escapeReceiptText(getOrderNumber(order))}</title>
+        <style>
+          @page {
+            size: 80mm auto;
+            margin: 4mm;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            width: 72mm;
+            margin: 0 auto;
+            color: #000;
+            background: #fff;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 11px;
+            line-height: 1.35;
+          }
+
+          .center {
+            text-align: center;
+          }
+
+          .title {
+            font-size: 16px;
+            font-weight: 900;
+            margin: 0 0 2mm;
+          }
+
+          .muted {
+            font-size: 10px;
+          }
+
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 3mm 0;
+          }
+
+          .row {
+            display: flex;
+            justify-content: space-between;
+            gap: 3mm;
+            margin: 1mm 0;
+          }
+
+          .label {
+            font-weight: 900;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          td {
+            padding: 1mm 0;
+            vertical-align: top;
+          }
+
+          .right {
+            text-align: right;
+            white-space: nowrap;
+          }
+
+          .total {
+            font-size: 15px;
+            font-weight: 900;
+          }
+
+          .obs {
+            white-space: pre-wrap;
+            word-break: break-word;
+          }
+
+          @media print {
+            button {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="center">
+          <p class="title">PEDIDO #${escapeReceiptText(getOrderNumber(order))}</p>
+          <p class="muted">${escapeReceiptText(new Date(order.created_at).toLocaleString("pt-BR"))}</p>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <span class="label">Tipo:</span>
+          <span>${escapeReceiptText(isDelivery ? "Entrega" : "Retirada / Local")}</span>
+        </div>
+        <div class="row">
+          <span class="label">Pagamento:</span>
+          <span>${escapeReceiptText(getPaymentLabel(order.payment_method))} - ${escapeReceiptText(getPaymentStatusLabel(order.payment_status))}</span>
+        </div>
+        <div class="row">
+          <span class="label">Cliente:</span>
+          <span>${escapeReceiptText(getCustomerName(order))}</span>
+        </div>
+        <div class="row">
+          <span class="label">Telefone:</span>
+          <span>${escapeReceiptText(getCustomerPhone(order))}</span>
+        </div>
+        ${
+          isDelivery
+            ? `
+              <div class="row">
+                <span class="label">Motoboy:</span>
+                <span>${escapeReceiptText(deliveryPersonName || "Não selecionado")}</span>
+              </div>
+              <div class="row">
+                <span class="label">Taxa entrega:</span>
+                <span>${escapeReceiptText(formatBRL(order.delivery_fee))}</span>
+              </div>
+            `
+            : ""
+        }
+
+        <div class="divider"></div>
+
+        <table>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div class="divider"></div>
+
+        <div class="row total">
+          <span>TOTAL</span>
+          <span>${escapeReceiptText(formatBRL(order.total))}</span>
+        </div>
+
+        ${
+          order.notes
+            ? `
+              <div class="divider"></div>
+              <div>
+                <p class="label">OBSERVAÇÃO:</p>
+                <p class="obs">${escapeReceiptText(order.notes)}</p>
+              </div>
+            `
+            : ""
+        }
+
+        <div class="divider"></div>
+        <p class="center muted">ClickFood</p>
+
+        <script>
+          window.onload = function () {
+            window.focus();
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `
+
+  receiptWindow.document.open()
+  receiptWindow.document.write(html)
+  receiptWindow.document.close()
+}
+
 type OrderCardProps = {
   order: OrderRow
   status: BoardStatus
@@ -376,6 +663,7 @@ type OrderCardProps = {
   onCancel: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
+  onPrint: (order: OrderRow, items: OrderItem[]) => void
   onAssignDeliveryPerson: (orderId: string, deliveryPersonId: string) => void
 }
 
@@ -391,10 +679,14 @@ function OrderCard({
   onCancel,
   onSendToRoute,
   onFinish,
+  onPrint,
   onAssignDeliveryPerson,
 }: OrderCardProps) {
   const styles = columnStyles[status]
   const isBusy = busyOrderId === order.id
+  const isDelivery = isDeliveryOrder(order)
+  const isPaid = isPaidOrder(order)
+  const TypeIcon = isDelivery ? Truck : Package
 
   const acceptDeadline = getAcceptDeadline(order)
   const acceptRemainingMs = acceptDeadline.getTime() - nowMs
@@ -422,70 +714,119 @@ function OrderCard({
     (status === "analysis" && acceptRemainingMs <= 0) ||
     (status === "preparation" && preparationRemainingMs <= 0)
 
-  const visibleItems = items.slice(0, 4)
+  const visibleItems = items.slice(0, 3)
   const hiddenItemsCount = Math.max(0, items.length - visibleItems.length)
 
   return (
     <article
       className={[
-        "overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
-        isLate ? "border-red-300 ring-1 ring-red-200" : "border-slate-200",
+        "group overflow-hidden rounded-xl border bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        isLate ? "border-red-300 ring-1 ring-red-100" : "border-slate-200/80",
       ].join(" ")}
     >
+      <div
+        className={[
+          "h-1",
+          isLate
+            ? "bg-red-500"
+            : status === "analysis"
+              ? "bg-amber-500"
+              : status === "preparation"
+                ? "bg-blue-600"
+                : "bg-emerald-600",
+        ].join(" ")}
+      />
+
       {isLate && (
-        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
+        <div className="border-b border-red-100 bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
             Pedido atrasado
           </div>
         </div>
       )}
 
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black text-slate-950">
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h3 className="text-base font-black leading-none text-slate-950">
                 #{getOrderNumber(order)}
               </h3>
 
               {status === "analysis" && acceptRemainingMs <= 10000 && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
-                  ALTA
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700">
+                  Alta
                 </span>
               )}
             </div>
 
-            <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-              <UserRound className="h-4 w-4 text-slate-400" />
-              <span className="truncate">{getCustomerName(order)}</span>
-            </div>
+            <div className="mt-2 flex min-w-0 items-center gap-2 text-xs text-slate-700">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100">
+                <UserRound className="h-3.5 w-3.5 text-slate-500" />
+              </div>
 
-            <p className="mt-1 pl-6 text-xs text-slate-400">
-              {getCustomerPhone(order)}
-            </p>
+              <div className="min-w-0">
+                <p className="truncate font-bold text-slate-900">
+                  {getCustomerName(order)}
+                </p>
+                <p className="truncate text-[11px] font-medium text-slate-500">
+                  {getCustomerPhone(order)}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-700">
-            {getOrderTypeLabel(order)}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span
+              className={[
+                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
+                getOrderTypeClasses(order),
+              ].join(" ")}
+            >
+              <TypeIcon className="h-3 w-3" />
+              {getOrderTypeLabel(order)}
+            </span>
+
+            <span
+              className={[
+                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
+                getPaymentBadgeClasses(order.payment_status),
+              ].join(" ")}
+            >
+              {isPaid ? (
+                <CheckCircle2 className="h-3 w-3" />
+              ) : (
+                <Clock3 className="h-3 w-3" />
+              )}
+              {getPaymentStatusLabel(order.payment_status)}
+            </span>
+          </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1.5">
+          <p className="min-w-0 truncate text-[11px] font-semibold text-slate-700">
+            {getOrderFlowHint(order, status)}
+          </p>
+
+          <p className="shrink-0 text-[11px] font-black text-slate-800">
+            {getPaymentLabel(order.payment_method)}
+          </p>
+        </div>
+
+        <div className="mt-2">
           {status === "analysis" && (
             <>
-              <div className="mb-1.5 flex items-center justify-between text-xs">
+              <div className="mb-1 flex items-center justify-between text-[11px]">
                 <span
                   className={[
-                    "inline-flex items-center gap-1 rounded-md border px-2 py-1 font-bold",
-                    acceptRemainingMs <= 0
+                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold",
+                    acceptRemainingMs <= 10000
                       ? "border-red-200 bg-red-50 text-red-700"
-                      : acceptRemainingMs <= 10000
-                        ? "border-red-200 bg-red-50 text-red-700"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-700",
+                      : "border-emerald-200 bg-emerald-50 text-emerald-700",
                   ].join(" ")}
                 >
-                  <Clock3 className="h-3.5 w-3.5" />
+                  <Clock3 className="h-3 w-3" />
                   {acceptRemainingMs > 0
                     ? formatCountdown(acceptRemainingMs)
                     : "Esgotado"}
@@ -499,7 +840,7 @@ function OrderCard({
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className={[
-                    "h-full rounded-full",
+                    "h-full rounded-full transition-all",
                     acceptRemainingMs <= 10000 ? "bg-red-500" : "bg-emerald-500",
                   ].join(" ")}
                   style={{ width: `${acceptProgress}%` }}
@@ -510,16 +851,16 @@ function OrderCard({
 
           {status === "preparation" && (
             <>
-              <div className="mb-1.5 flex items-center justify-between text-xs">
+              <div className="mb-1 flex items-center justify-between text-[11px]">
                 <span
                   className={[
-                    "inline-flex items-center gap-1 rounded-md border px-2 py-1 font-bold",
+                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold",
                     preparationRemainingMs <= 0
                       ? "border-red-200 bg-red-50 text-red-700"
                       : "border-emerald-200 bg-emerald-50 text-emerald-700",
                   ].join(" ")}
                 >
-                  <Clock3 className="h-3.5 w-3.5" />
+                  <Clock3 className="h-3 w-3" />
                   {preparationRemainingMs > 0
                     ? `${Math.ceil(preparationRemainingMs / 60000)}min`
                     : "Atrasado"}
@@ -533,7 +874,7 @@ function OrderCard({
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className={[
-                    "h-full rounded-full",
+                    "h-full rounded-full transition-all",
                     preparationRemainingMs <= 0 ? "bg-red-500" : String(styles.progress),
                   ].join(" ")}
                   style={{ width: `${preparationProgress}%` }}
@@ -544,19 +885,16 @@ function OrderCard({
 
           {status === "on_route" && (
             <>
-              <div className="mb-1.5 flex items-center justify-between text-xs">
-                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-bold text-emerald-700">
-                  <Truck className="h-3.5 w-3.5" />
+              <div className="mb-1 flex items-center justify-between text-[11px]">
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700">
+                  <Truck className="h-3 w-3" />
                   {order.out_for_delivery_at
                     ? formatElapsedTime(order.out_for_delivery_at, nowMs)
                     : "Em rota"}
                 </span>
 
                 <span className="text-slate-400">
-                  saiu às{" "}
-                  {order.out_for_delivery_at
-                    ? formatTimeOnly(order.out_for_delivery_at)
-                    : "--:--"}
+                  saiu às {order.out_for_delivery_at ? formatTimeOnly(order.out_for_delivery_at) : "--:--"}
                 </span>
               </div>
 
@@ -567,23 +905,36 @@ function OrderCard({
           )}
         </div>
 
-        <div className="mt-4 rounded-lg bg-slate-50 p-3">
+        <div className="mt-2 rounded-lg border border-slate-100 bg-white p-2 shadow-inner">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+              Itens
+            </p>
+
+            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+              {items.length} item(ns)
+            </span>
+          </div>
+
           {visibleItems.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {visibleItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between gap-3 text-sm"
+                  className="flex items-center justify-between gap-2 text-xs"
                 >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Package className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    <span className="truncate font-medium text-slate-700">
-                      {item.quantity}x {item.name}
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 px-1 text-[10px] font-black text-slate-600">
+                      {item.quantity}x
+                    </span>
+
+                    <span className="truncate font-semibold text-slate-700">
+                      {item.name}
                     </span>
                   </div>
 
                   {item.total > 0 && (
-                    <span className="shrink-0 text-slate-500">
+                    <span className="shrink-0 text-[11px] font-bold text-slate-500">
                       {formatBRL(item.total)}
                     </span>
                   )}
@@ -591,55 +942,44 @@ function OrderCard({
               ))}
 
               {hiddenItemsCount > 0 && (
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-[11px] font-medium text-slate-500">
                   +{hiddenItemsCount} item(ns)
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-slate-500">
+            <p className="text-xs text-slate-500">
               Itens do pedido não carregados.
             </p>
           )}
         </div>
 
         {order.notes && (
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+          <div className="mt-2 max-h-14 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
+            <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">
               Observação
             </p>
-            <p className="mt-1 text-sm text-amber-900">{order.notes}</p>
+            <p className="mt-0.5 text-xs text-amber-900">{order.notes}</p>
           </div>
         )}
 
-        <div className="mt-4 border-t border-slate-100 pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs text-slate-500">
-              <p>{getPaymentLabel(order.payment_method)}</p>
-              <p className="mt-1 font-semibold text-slate-600">
-                {getPaymentStatusLabel(order.payment_status)}
-              </p>
-            </div>
-
-            <p className="text-lg font-black text-slate-950">
-              {formatBRL(order.total)}
-            </p>
-          </div>
-        </div>
-
-        {(status === "preparation" || status === "on_route") && (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-slate-500" />
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Entregador
+        {isDelivery && (status === "preparation" || status === "on_route") && (
+          <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/70 p-2">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Truck className="h-3.5 w-3.5 text-blue-600" />
+                <p className="text-[10px] font-black uppercase tracking-wide text-blue-700">
+                  Motoboy
                 </p>
               </div>
 
-              {deliveryPersonName && (
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+              {deliveryPersonName ? (
+                <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
                   Atribuído
+                </span>
+              ) : (
+                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                  Necessário
                 </span>
               )}
             </div>
@@ -651,12 +991,12 @@ function OrderCard({
                   onAssignDeliveryPerson(order.id, event.target.value)
                 }
                 disabled={isBusy || deliveryPeople.length === 0}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-9 w-full rounded-lg border border-blue-100 bg-white px-2.5 text-xs font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="">
                   {deliveryPeople.length === 0
                     ? "Nenhum entregador cadastrado"
-                    : "Selecionar entregador"}
+                    : "Selecionar motoboy"}
                 </option>
 
                 {deliveryPeople.map((person) => (
@@ -667,16 +1007,16 @@ function OrderCard({
                 ))}
               </select>
             ) : (
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
-                  {deliveryPersonName?.charAt(0).toUpperCase() || "E"}
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">
+                  {deliveryPersonName?.charAt(0).toUpperCase() || "M"}
                 </div>
 
                 <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {deliveryPersonName || "Entregador não definido"}
+                  <p className="text-xs font-bold text-slate-800">
+                    {deliveryPersonName || "Motoboy não definido"}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[11px] text-slate-500">
                     Taxa: {formatBRL(order.delivery_fee)}
                   </p>
                 </div>
@@ -685,19 +1025,47 @@ function OrderCard({
           </div>
         )}
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-2 border-t border-slate-100 pt-2">
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Total
+              </p>
+              <p className="text-lg font-black text-slate-950">
+                {formatBRL(order.total)}
+              </p>
+            </div>
+
+            {isDelivery && Number(order.delivery_fee || 0) > 0 && (
+              <p className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                Entrega {formatBRL(order.delivery_fee)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            onClick={() => onPrint(order, items)}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+            title="Imprimir pedido"
+          >
+            <Printer className="h-4 w-4" />
+          </button>
+
           {status === "analysis" && (
             <>
               <button
                 type="button"
                 onClick={() => onAccept(order)}
                 disabled={isBusy}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                 )}
                 Aceitar
               </button>
@@ -706,9 +1074,9 @@ function OrderCard({
                 type="button"
                 onClick={() => onCancel(order)}
                 disabled={isBusy}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <XCircle className="h-4 w-4" />
+                <XCircle className="h-3.5 w-3.5" />
                 Negar
               </button>
             </>
@@ -717,16 +1085,18 @@ function OrderCard({
           {status === "preparation" && (
             <button
               type="button"
-              onClick={() => onSendToRoute(order)}
-              disabled={isBusy || !order.delivery_person_id}
-              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => (isDelivery ? onSendToRoute(order) : onFinish(order))}
+              disabled={isBusy || (isDelivery && !order.delivery_person_id)}
+              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : isDelivery ? (
+                <Truck className="h-3.5 w-3.5" />
               ) : (
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 className="h-3.5 w-3.5" />
               )}
-              Pronto / Enviar
+              {isDelivery ? "Enviar" : "Finalizar"}
             </button>
           )}
 
@@ -735,12 +1105,12 @@ function OrderCard({
               type="button"
               onClick={() => onFinish(order)}
               disabled={isBusy}
-              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 text-sm font-bold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 className="h-3.5 w-3.5" />
               )}
               Finalizar
             </button>
@@ -763,6 +1133,7 @@ type BoardColumnProps = {
   onCancel: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
+  onPrint: (order: OrderRow, items: OrderItem[]) => void
   onAssignDeliveryPerson: (orderId: string, deliveryPersonId: string) => void
 }
 
@@ -778,6 +1149,7 @@ function BoardColumn({
   onCancel,
   onSendToRoute,
   onFinish,
+  onPrint,
   onAssignDeliveryPerson,
 }: BoardColumnProps) {
   const styles = columnStyles[status]
@@ -833,6 +1205,7 @@ function BoardColumn({
               onCancel={onCancel}
               onSendToRoute={onSendToRoute}
               onFinish={onFinish}
+              onPrint={onPrint}
               onAssignDeliveryPerson={onAssignDeliveryPerson}
             />
           ))
@@ -1114,14 +1487,21 @@ export default function PedidosPage() {
       }
 
       if (action === "route") {
-        if (!order.delivery_person_id) {
-          setError("Selecione um entregador antes de enviar o pedido.")
-          return
-        }
+        if (!isDeliveryOrder(order)) {
+          payload = {
+            status: "delivered",
+            delivered_at: nowIso,
+          }
+        } else {
+          if (!order.delivery_person_id) {
+            setError("Selecione um motoboy antes de enviar o pedido para entrega.")
+            return
+          }
 
-        payload = {
-          status: "out_for_delivery",
-          out_for_delivery_at: nowIso,
+          payload = {
+            status: "out_for_delivery",
+            out_for_delivery_at: nowIso,
+          }
         }
       }
 
@@ -1401,6 +1781,7 @@ export default function PedidosPage() {
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
+                onPrint={(order, items) => printOrderReceipt(order, items, deliveryPeople)}
                 onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
                   void assignDeliveryPerson(orderId, deliveryPersonId)
                 }
@@ -1418,6 +1799,7 @@ export default function PedidosPage() {
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
+                onPrint={(order, items) => printOrderReceipt(order, items, deliveryPeople)}
                 onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
                   void assignDeliveryPerson(orderId, deliveryPersonId)
                 }
@@ -1435,6 +1817,7 @@ export default function PedidosPage() {
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
+                onPrint={(order, items) => printOrderReceipt(order, items, deliveryPeople)}
                 onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
                   void assignDeliveryPerson(orderId, deliveryPersonId)
                 }

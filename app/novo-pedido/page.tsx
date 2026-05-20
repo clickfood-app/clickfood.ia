@@ -7,11 +7,10 @@ import OrderTypeSelector from "@/components/manual-order/order-type-selector"
 import TableSelector from "@/components/manual-order/table-selector"
 import ProductSearch from "@/components/manual-order/product-search"
 import OrderSummary from "@/components/manual-order/order-summary"
-// import PaymentSelector from "@/components/manual-order/payment-selector" // Você pode remover/comentar esse componente se não for mais usar em outro lugar
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { initialProducts, initialCategories, type Product } from "@/lib/products-data"
+import { initialCategories, type Product } from "@/lib/products-data"
 import {
   type OrderType,
   type PaymentMethod,
@@ -21,53 +20,165 @@ import {
   type DeliveryAddress,
   initialTables,
 } from "@/lib/order-types"
-import { ShoppingCart, User, MapPin, Check, Wallet, QrCode, CreditCard, Clock, X } from "lucide-react"
+import {
+  ShoppingCart,
+  User,
+  MapPin,
+  Check,
+  Wallet,
+  QrCode,
+  CreditCard,
+  Clock,
+  X,
+  Users,
+} from "lucide-react"
+
+type RestaurantTableRow = {
+  id: string
+  restaurant_id: string
+  number: string
+  name: string | null
+  capacity: number | null
+  is_active: boolean | null
+}
+
+function getSupabaseErrorMessage(error: unknown, fallback: string) {
+  if (!error) return fallback
+  if (typeof error === "string") return error
+  if (error instanceof Error) return error.message
+
+  if (typeof error === "object") {
+    const err = error as {
+      message?: string
+      details?: string
+      hint?: string
+      code?: string
+    }
+
+    const parts = [
+      err.message ? `message: ${err.message}` : "",
+      err.details ? `details: ${err.details}` : "",
+      err.hint ? `hint: ${err.hint}` : "",
+      err.code ? `code: ${err.code}` : "",
+    ].filter(Boolean)
+
+    if (parts.length > 0) return parts.join(" | ")
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return fallback
+    }
+  }
+
+  return fallback
+}
+
+function isUuid(value: string | null | undefined) {
+  if (!value) return false
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  )
+}
+
+function normalizeDefaultTables() {
+  return (initialTables || []).map((table, index) => {
+    const rawTable = table as unknown as {
+      id?: string
+      number?: string | number
+      name?: string
+      capacity?: number
+      status?: string
+    }
+
+    const number = Number(rawTable.number || index + 1)
+
+    return {
+      ...table,
+      id: String(rawTable.id || `table-${number}`),
+      number,
+      name: rawTable.name || `Mesa ${number}`,
+      capacity: Number(rawTable.capacity || 4),
+      status: "available",
+    } as Table
+  })
+}
+
+function mapRestaurantTableToTable(table: RestaurantTableRow): Table {
+  const number = Number(table.number)
+
+  return {
+    id: table.id,
+    number,
+    name: table.name || `Mesa ${number}`,
+    capacity: Number(table.capacity || 4),
+    status: "available",
+  } as Table
+}
+
+function mergeTables(defaultTables: Table[], databaseTables: Table[]) {
+  const map = new Map<string, Table>()
+
+  defaultTables.forEach((table) => {
+    const number = String(
+      (table as unknown as { number?: string | number }).number || table.id
+    )
+
+    map.set(number, table)
+  })
+
+  databaseTables.forEach((table) => {
+    const number = String(
+      (table as unknown as { number?: string | number }).number || table.id
+    )
+
+    map.set(number, table)
+  })
+
+  return Array.from(map.values()).sort((a, b) => {
+    const aNumber = Number(
+      (a as unknown as { number?: string | number }).number || 0
+    )
+    const bNumber = Number(
+      (b as unknown as { number?: string | number }).number || 0
+    )
+
+    if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+      return aNumber - bNumber
+    }
+
+    return String(a.number).localeCompare(String(b.number))
+  })
+}
 
 export default function NovoPedidoPage() {
   const router = useRouter()
   const { toast } = useToast()
   const supabase = useMemo(() => createClient(), [])
 
-  // Order state
   const [orderType, setOrderType] = useState<OrderType>("local")
   const [selectedTable, setSelectedTable] = useState<string>("")
-  const [tables, setTables] = useState<Table[]>(initialTables)
+  const [tables, setTables] = useState<Table[]>(normalizeDefaultTables())
+  const [guestCount, setGuestCount] = useState(1)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pending")
   const [items, setItems] = useState<OrderItem[]>([])
   const [discount, setDiscount] = useState(0)
   const [deliveryFee] = useState(8.0)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  // NOVO ESTADO: Controle do Modal de Pagamento
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
 
-  // NOVO ESTADO: ID do Restaurante logado
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [restaurantId, setRestaurantId] = useState<string>("")
 
-  // Busca o ID do restaurante logado
-  useEffect(() => {
-    const fetchRestaurant = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
-          .from("restaurants")
-          .select("id")
-          .eq("owner_id", user.id)
-          .single()
-        if (data) setRestaurantId(data.id)
-      }
-    }
-    fetchRestaurant()
-  }, [supabase])
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState(initialCategories)
 
-  // Customer data
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
     phone: "",
     observation: "",
   })
 
-  // Delivery address
   const [address, setAddress] = useState<DeliveryAddress>({
     street: "",
     number: "",
@@ -77,32 +188,191 @@ export default function NovoPedidoPage() {
     zipCode: "",
   })
 
-  // Products data
-  const [products] = useState<Product[]>(initialProducts)
-  const [categories] = useState(initialCategories)
+  useEffect(() => {
+    const fetchRestaurantProductsAndTables = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
 
-  // Opções de Pagamento para o Modal
+      if (userError || !user) {
+        toast({
+          title: "Sessão não encontrada",
+          description: "Faça login novamente para carregar os produtos.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { data: restaurant, error: restaurantError } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("owner_id", user.id)
+        .single()
+
+      if (restaurantError || !restaurant?.id) {
+        toast({
+          title: "Restaurante não encontrado",
+          description: "Não foi possível encontrar o restaurante da conta logada.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setRestaurantId(restaurant.id)
+
+      const [
+        { data: productsData, error: productsError },
+        { data: tablesData, error: tablesError },
+      ] = await Promise.all([
+        supabase.from("products").select("*").eq("restaurant_id", restaurant.id),
+        supabase
+          .from("restaurant_tables")
+          .select("id, restaurant_id, number, name, capacity, is_active")
+          .eq("restaurant_id", restaurant.id)
+          .eq("is_active", true),
+      ])
+
+      if (productsError) {
+        console.error("Erro ao buscar produtos:", productsError)
+
+        toast({
+          title: "Erro ao carregar produtos",
+          description: "Não foi possível buscar os produtos do cardápio.",
+          variant: "destructive",
+        })
+      }
+
+      if (tablesError) {
+        console.error("Erro ao buscar mesas:", tablesError)
+
+        toast({
+          title: "Erro ao carregar mesas",
+          description: "Não foi possível buscar as mesas salvas.",
+          variant: "destructive",
+        })
+      }
+
+      const availableProducts = (productsData || [])
+        .filter((product) => {
+          return (
+            product.is_active !== false &&
+            product.is_available !== false &&
+            product.available !== false &&
+            product.status !== "inactive" &&
+            product.status !== "archived"
+          )
+        })
+        .map((product) => {
+          const category =
+            product.category ||
+            product.category_name ||
+            product.category_title ||
+            "Sem categoria"
+
+          return {
+            id: String(product.id),
+            name: product.name || "Produto sem nome",
+            description: product.description || "",
+            price: Number(product.price || 0),
+            cost: Number(product.cost || 0),
+            category,
+            image: product.image_url || product.image || "/placeholder.svg",
+            active: true,
+            available: true,
+            salesCount: Number(product.sales_count || product.salesCount || 0),
+            order: Number(product.sort_order || product.order || 0),
+          } as Product
+        })
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+      const productCategories = Array.from(
+        new Set(
+          availableProducts
+            .map((product) => product.category || "Sem categoria")
+            .filter(Boolean)
+        )
+      )
+
+      const categoryTemplate =
+        initialCategories[0] || {
+          id: "all",
+          name: "Todos",
+          active: true,
+          order: 0,
+        }
+
+      const databaseTables = ((tablesData || []) as RestaurantTableRow[]).map(
+        mapRestaurantTableToTable
+      )
+
+      setProducts(availableProducts)
+      setCategories([
+        {
+          ...categoryTemplate,
+          id: "all",
+          name: "Todos",
+          active: true,
+          order: 0,
+        },
+        ...productCategories.map((category, index) => ({
+          ...categoryTemplate,
+          id: category,
+          name: category,
+          active: true,
+          order: index + 1,
+        })),
+      ])
+      setTables(mergeTables(normalizeDefaultTables(), databaseTables))
+    }
+
+    fetchRestaurantProductsAndTables()
+  }, [supabase, toast])
+
   const paymentOptions = [
-    { id: 'dinheiro', name: 'Dinheiro', icon: <Wallet className="h-8 w-8 mb-2" /> },
-    { id: 'pix', name: 'PIX', icon: <QrCode className="h-8 w-8 mb-2" /> },
-    { id: 'credito', name: 'Crédito', icon: <CreditCard className="h-8 w-8 mb-2" /> },
-    { id: 'debito', name: 'Débito', icon: <CreditCard className="h-8 w-8 mb-2" /> },
-    { id: 'pending', name: 'Pendente', icon: <Clock className="h-8 w-8 mb-2" /> },
+    {
+      id: "dinheiro",
+      name: "Dinheiro",
+      icon: <Wallet className="mb-2 h-8 w-8" />,
+    },
+    {
+      id: "pix",
+      name: "PIX",
+      icon: <QrCode className="mb-2 h-8 w-8" />,
+    },
+    {
+      id: "credito",
+      name: "Crédito",
+      icon: <CreditCard className="mb-2 h-8 w-8" />,
+    },
+    {
+      id: "debito",
+      name: "Débito",
+      icon: <CreditCard className="mb-2 h-8 w-8" />,
+    },
+    {
+      id: "pending",
+      name: "Pendente",
+      icon: <Clock className="mb-2 h-8 w-8" />,
+    },
   ]
 
-  // Add product to order
   const handleAddProduct = useCallback((product: Product) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === product.id)
+      const existing = prev.find((item) => item.productId === product.id)
+
       if (existing) {
-        return prev.map((i) =>
-          i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i
+        return prev.map((item) =>
+          item.productId === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         )
       }
+
       return [
         ...prev,
         {
-          id: `item-${Date.now()}`,
+          id: `item-${Date.now()}-${product.id}`,
           productId: product.id,
           name: product.name,
           price: product.price,
@@ -113,86 +383,238 @@ export default function NovoPedidoPage() {
     })
   }, [])
 
-  // Update item quantity
   const handleUpdateQuantity = useCallback((itemId: string, quantity: number) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, quantity } : i))
-    )
-  }, [])
-
-  // Update item observation
-  const handleUpdateObservation = useCallback((itemId: string, observation: string) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, observation } : i))
-    )
-  }, [])
-
-  // Remove item
-  const handleRemoveItem = useCallback((itemId: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== itemId))
-  }, [])
-
-  // Create new table
-  const handleCreateTable = useCallback((table: Omit<Table, "id">) => {
-    const newTable: Table = {
-      ...table,
-      id: `table-${Date.now()}`,
+    if (quantity <= 0) {
+      setItems((prev) => prev.filter((item) => item.id !== itemId))
+      return
     }
-    setTables((prev) => [...prev, newTable])
-    setSelectedTable(newTable.id)
+
+    setItems((prev) =>
+      prev.map((item) => (item.id === itemId ? { ...item, quantity } : item))
+    )
   }, [])
 
-  // Calculate total
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const handleUpdateObservation = useCallback(
+    (itemId: string, observation: string) => {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, observation } : item
+        )
+      )
+    },
+    []
+  )
+
+  const handleRemoveItem = useCallback((itemId: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== itemId))
+  }, [])
+
+  const handleCreateTable = useCallback(
+    async (table: Omit<Table, "id">) => {
+      if (!restaurantId) {
+        toast({
+          title: "Restaurante não encontrado",
+          description: "Não foi possível salvar a mesa agora.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const rawTable = table as unknown as {
+        number?: string | number
+        name?: string
+        capacity?: number
+      }
+
+      const number = String(rawTable.number || "").trim()
+
+      if (!number) {
+        toast({
+          title: "Número da mesa obrigatório",
+          description: "Informe o número da mesa para cadastrar.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("restaurant_tables")
+        .insert({
+          restaurant_id: restaurantId,
+          number,
+          name: rawTable.name || `Mesa ${number}`,
+          capacity: Number(rawTable.capacity || 4),
+          is_active: true,
+        })
+        .select("id, restaurant_id, number, name, capacity, is_active")
+        .single()
+
+      if (error) {
+        toast({
+          title: "Erro ao criar mesa",
+          description: getSupabaseErrorMessage(
+            error,
+            "Não foi possível salvar a nova mesa."
+          ),
+          variant: "destructive",
+        })
+        return
+      }
+
+      const newTable = mapRestaurantTableToTable(data as RestaurantTableRow)
+
+      setTables((prev) => mergeTables(prev, [newTable]))
+      setSelectedTable(newTable.id)
+
+      toast({
+        title: "Mesa criada",
+        description: `Mesa ${newTable.number} foi salva no sistema.`,
+      })
+    },
+    [restaurantId, supabase, toast]
+  )
+
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  )
+
   const finalDeliveryFee = orderType === "delivery" ? deliveryFee : 0
   const total = Math.max(0, subtotal + finalDeliveryFee - discount)
 
-  // Validate form
+  const selectedTableData = tables.find((table) => table.id === selectedTable)
+
+  const selectedTableId =
+    orderType === "local" && selectedTableData && isUuid(selectedTableData.id)
+      ? selectedTableData.id
+      : null
+
+  const selectedTableNumber =
+    orderType === "local" && selectedTableData
+      ? String(
+          (selectedTableData as unknown as { number?: string | number }).number ||
+            selectedTableData.id
+        )
+      : null
+
   const canSubmit = () => {
     if (items.length === 0) return false
     if (orderType === "local" && !selectedTable) return false
+    if (orderType === "local" && guestCount < 1) return false
+
     if (orderType === "delivery") {
-      if (!address.street || !address.number || !address.neighborhood) return false
+      if (!address.street || !address.number || !address.neighborhood) {
+        return false
+      }
     }
+
     return true
   }
 
-  // Submit order
   const handleSubmit = async () => {
     if (!canSubmit()) return
 
-    setIsSubmitting(true)
-    setIsPaymentModalOpen(false) // Fecha o modal ao iniciar o envio
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    const orderStatus = orderType === "delivery" ? "delivering" : "preparing"
-
-    const order = {
-      type: orderType,
-      tableId: orderType === "local" ? selectedTable : undefined,
-      customer,
-      address: orderType === "delivery" ? address : undefined,
-      items,
-      subtotal,
-      deliveryFee: finalDeliveryFee,
-      discount,
-      total,
-      paymentMethod,
-      status: orderStatus,
-      createdAt: new Date(),
+    if (!restaurantId) {
+      toast({
+        title: "Restaurante não encontrado",
+        description: "Não foi possível identificar o restaurante logado.",
+        variant: "destructive",
+      })
+      return
     }
 
-    console.log("[v0] Order created:", order)
+    try {
+      setIsSubmitting(true)
+      setIsPaymentModalOpen(false)
 
-    toast({
-      title: "Pedido criado com sucesso!",
-      description: `Pedido #${Date.now().toString().slice(-6)} foi enviado para a cozinha.`,
-    })
+      const publicOrderNumber = Date.now().toString().slice(-6)
 
-    setIsSubmitting(false)
-    router.push("/pedidos")
+      const addressText =
+        orderType === "delivery"
+          ? `${address.street}, ${address.number}${
+              address.complement ? ` - ${address.complement}` : ""
+            } - ${address.neighborhood}${address.city ? `, ${address.city}` : ""}`
+          : ""
+
+      const orderNotes = [
+        customer.observation ? `Obs: ${customer.observation}` : "",
+        orderType === "local"
+          ? `Pedido local | Mesa: ${
+              selectedTableNumber || selectedTable || "não informada"
+            } | Pessoas: ${guestCount}`
+          : "",
+        orderType === "delivery" ? `Endereço: ${addressText}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+
+      const { data: createdOrder, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          restaurant_id: restaurantId,
+          public_order_number: publicOrderNumber,
+          customer_name: customer.name || "Cliente balcão",
+          customer_phone: customer.phone || "Não informado",
+          status: "pending",
+          subtotal,
+          discount,
+          delivery_fee: finalDeliveryFee,
+          total,
+          payment_method: paymentMethod,
+          payment_status: paymentMethod === "pending" ? "pending" : "paid",
+          notes: orderNotes || null,
+          table_id: selectedTableId,
+          table_number: selectedTableNumber,
+          guest_count: orderType === "local" ? guestCount : null,
+        })
+        .select("id, public_order_number")
+        .single()
+
+      if (orderError) {
+        throw orderError
+      }
+
+      const orderItemsPayload = items.map((item) => ({
+        order_id: createdOrder.id,
+        product_id: item.productId,
+        product_name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+      }))
+
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItemsPayload)
+
+      if (itemsError) {
+        await supabase.from("orders").delete().eq("id", createdOrder.id)
+        throw itemsError
+      }
+
+      toast({
+        title: "Pedido criado com sucesso!",
+        description: `Pedido #${createdOrder.public_order_number} foi enviado para a tela de pedidos.`,
+      })
+
+      router.push("/pedidos")
+    } catch (err) {
+      const errorMessage = getSupabaseErrorMessage(
+        err,
+        "Não foi possível salvar o pedido no sistema."
+      )
+
+      console.error("Erro ao criar pedido manual:", errorMessage)
+      console.error("Erro bruto:", err)
+
+      toast({
+        title: "Erro ao criar pedido",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -201,23 +623,24 @@ export default function NovoPedidoPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-6">
             <h1 className="text-xl font-bold text-foreground">Novo Pedido</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Crie um pedido manualmente para mesa, balcao ou delivery.
+            <p className="mt-1 text-sm text-muted-foreground">
+              Crie um pedido manualmente para mesa, balcão ou delivery.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div className="xl:col-span-2 space-y-6">
+            <div className="space-y-6 xl:col-span-2">
               <div className="rounded-xl border border-border bg-card p-5">
-                <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
                   <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                   Tipo de Pedido
                 </h2>
+
                 <OrderTypeSelector value={orderType} onChange={setOrderType} />
               </div>
 
               {orderType === "local" && (
-                <div className="rounded-xl border border-border bg-card p-5">
+                <div className="space-y-4 rounded-xl border border-border bg-card p-5">
                   <TableSelector
                     tables={tables}
                     value={selectedTable}
@@ -225,45 +648,110 @@ export default function NovoPedidoPage() {
                     onCreateTable={handleCreateTable}
                     restaurantId={restaurantId}
                   />
+
+                  <div className="rounded-xl border border-border bg-background p-4">
+                    <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      Pessoas na mesa
+                    </label>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGuestCount((prev) => Math.max(1, prev - 1))
+                        }
+                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-lg font-bold transition hover:bg-muted"
+                      >
+                        -
+                      </button>
+
+                      <input
+                        type="number"
+                        min={1}
+                        value={guestCount}
+                        onChange={(event) =>
+                          setGuestCount(
+                            Math.max(1, Number(event.target.value || 1))
+                          )
+                        }
+                        className="h-10 w-24 rounded-lg border border-input bg-background px-3 text-center text-sm font-bold"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setGuestCount((prev) => prev + 1)}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-lg font-bold transition hover:bg-muted"
+                      >
+                        +
+                      </button>
+
+                      <p className="text-xs text-muted-foreground">
+                        Usado para calcular ticket médio por pessoa na comanda.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
               <div className="rounded-xl border border-border bg-card p-5">
-                <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
                   <User className="h-4 w-4 text-muted-foreground" />
                   Dados do Cliente
                 </h2>
+
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">Nome</label>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">
+                      Nome
+                    </label>
                     <input
                       type="text"
                       value={customer.name}
-                      onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+                      onChange={(event) =>
+                        setCustomer({
+                          ...customer,
+                          name: event.target.value,
+                        })
+                      }
                       placeholder="Nome do cliente"
                       className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">Telefone</label>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">
+                      Telefone
+                    </label>
                     <input
                       type="tel"
                       value={customer.phone}
-                      onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+                      onChange={(event) =>
+                        setCustomer({
+                          ...customer,
+                          phone: event.target.value,
+                        })
+                      }
                       placeholder="(00) 00000-0000"
                       className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                     />
                   </div>
+
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Observacao do Pedido
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">
+                      Observação do Pedido
                     </label>
                     <textarea
                       value={customer.observation || ""}
-                      onChange={(e) => setCustomer({ ...customer, observation: e.target.value })}
-                      placeholder="Observacoes gerais do pedido..."
+                      onChange={(event) =>
+                        setCustomer({
+                          ...customer,
+                          observation: event.target.value,
+                        })
+                      }
+                      placeholder="Observações gerais do pedido..."
                       rows={2}
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none"
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
@@ -271,63 +759,97 @@ export default function NovoPedidoPage() {
 
               {orderType === "delivery" && (
                 <div className="rounded-xl border border-border bg-card p-5">
-                  <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    Endereco de Entrega
+                    Endereço de Entrega
                   </h2>
+
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
+                      <label className="mb-1.5 block text-sm font-medium text-foreground">
                         Rua <span className="text-destructive">*</span>
                       </label>
                       <input
                         type="text"
                         value={address.street}
-                        onChange={(e) => setAddress({ ...address, street: e.target.value })}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            street: event.target.value,
+                          })
+                        }
                         placeholder="Nome da rua"
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Numero <span className="text-destructive">*</span>
+                      <label className="mb-1.5 block text-sm font-medium text-foreground">
+                        Número <span className="text-destructive">*</span>
                       </label>
                       <input
                         type="text"
                         value={address.number}
-                        onChange={(e) => setAddress({ ...address, number: e.target.value })}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            number: event.target.value,
+                          })
+                        }
                         placeholder="123"
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Complemento</label>
+                      <label className="mb-1.5 block text-sm font-medium text-foreground">
+                        Complemento
+                      </label>
                       <input
                         type="text"
                         value={address.complement || ""}
-                        onChange={(e) => setAddress({ ...address, complement: e.target.value })}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            complement: event.target.value,
+                          })
+                        }
                         placeholder="Apto, bloco..."
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
+                      <label className="mb-1.5 block text-sm font-medium text-foreground">
                         Bairro <span className="text-destructive">*</span>
                       </label>
                       <input
                         type="text"
                         value={address.neighborhood}
-                        onChange={(e) => setAddress({ ...address, neighborhood: e.target.value })}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            neighborhood: event.target.value,
+                          })
+                        }
                         placeholder="Bairro"
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Cidade</label>
+                      <label className="mb-1.5 block text-sm font-medium text-foreground">
+                        Cidade
+                      </label>
                       <input
                         type="text"
                         value={address.city}
-                        onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            city: event.target.value,
+                          })
+                        }
                         placeholder="Cidade"
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       />
@@ -337,7 +859,10 @@ export default function NovoPedidoPage() {
               )}
 
               <div className="rounded-xl border border-border bg-card p-5">
-                <h2 className="text-sm font-semibold text-foreground mb-4">Adicionar Produtos</h2>
+                <h2 className="mb-4 text-sm font-semibold text-foreground">
+                  Adicionar Produtos
+                </h2>
+
                 <ProductSearch
                   products={products}
                   categories={categories}
@@ -347,10 +872,12 @@ export default function NovoPedidoPage() {
             </div>
 
             <div className="xl:col-span-1">
-              <div className="sticky top-6 rounded-xl border border-border bg-card p-5 flex flex-col h-[calc(100vh-100px)]">
-                <h2 className="text-sm font-semibold text-foreground mb-4">Resumo do Pedido</h2>
-                
-                <div className="flex-1 overflow-hidden min-h-[320px]">
+              <div className="sticky top-6 flex h-[calc(100vh-100px)] flex-col rounded-xl border border-border bg-card p-5">
+                <h2 className="mb-4 text-sm font-semibold text-foreground">
+                  Resumo do Pedido
+                </h2>
+
+                <div className="min-h-[320px] flex-1 overflow-hidden">
                   <OrderSummary
                     items={items}
                     orderType={orderType}
@@ -363,24 +890,34 @@ export default function NovoPedidoPage() {
                   />
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border">
+                <div className="mt-4 border-t border-border pt-4">
                   <button
                     onClick={() => setIsPaymentModalOpen(true)}
                     disabled={!canSubmit() || isSubmitting}
                     className={cn(
-                      "flex w-full items-center justify-center gap-2 rounded-lg py-4 text-sm font-bold transition-all shadow-md",
+                      "flex w-full items-center justify-center gap-2 rounded-lg py-4 text-sm font-bold shadow-md transition-all",
                       canSubmit() && !isSubmitting
                         ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90"
-                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                        : "cursor-not-allowed bg-muted text-muted-foreground"
                     )}
                   >
                     Cobrar Pedido
                   </button>
 
                   {!canSubmit() && items.length > 0 && (
-                    <p className="mt-2 text-xs text-center text-muted-foreground">
-                      {orderType === "local" && !selectedTable && "Selecione uma mesa"}
-                      {orderType === "delivery" && (!address.street || !address.number || !address.neighborhood) && "Preencha o endereco completo"}
+                    <p className="mt-2 text-center text-xs text-muted-foreground">
+                      {orderType === "local" &&
+                        !selectedTable &&
+                        "Selecione uma mesa"}
+                      {orderType === "local" &&
+                        selectedTable &&
+                        guestCount < 1 &&
+                        "Informe a quantidade de pessoas"}
+                      {orderType === "delivery" &&
+                        (!address.street ||
+                          !address.number ||
+                          !address.neighborhood) &&
+                        "Preencha o endereço completo"}
                     </p>
                   )}
                 </div>
@@ -391,35 +928,45 @@ export default function NovoPedidoPage() {
       </div>
 
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm transition-opacity">
-          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-2xl p-8 transform transition-all">
-            <div className="flex justify-between items-center mb-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-8 shadow-2xl">
+            <div className="mb-8 flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-bold text-foreground">Forma de Pagamento</h3>
-                <p className="text-muted-foreground mt-1">Selecione como o cliente deseja pagar</p>
+                <h3 className="text-2xl font-bold text-foreground">
+                  Forma de Pagamento
+                </h3>
+                <p className="mt-1 text-muted-foreground">
+                  Selecione como o cliente deseja pagar
+                </p>
               </div>
-              <button 
+
+              <button
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-accent transition"
+                className="rounded-full p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
-            <div className="bg-accent/50 border border-border rounded-xl p-6 text-center mb-8">
-              <span className="block text-muted-foreground text-sm font-semibold uppercase tracking-wider mb-1">Total a Cobrar</span>
-              <span className="text-4xl font-bold text-foreground">R$ {total.toFixed(2).replace('.', ',')}</span>
+            <div className="mb-8 rounded-xl border border-border bg-accent/50 p-6 text-center">
+              <span className="mb-1 block text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Total a Cobrar
+              </span>
+
+              <span className="text-4xl font-bold text-foreground">
+                R$ {total.toFixed(2).replace(".", ",")}
+              </span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3">
               {paymentOptions.map((method) => (
                 <button
                   key={method.id}
                   onClick={() => setPaymentMethod(method.id as PaymentMethod)}
-                  className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all duration-200 ${
+                  className={`flex flex-col items-center justify-center rounded-xl border-2 p-6 transition-all duration-200 ${
                     paymentMethod === method.id
-                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] shadow-sm'
-                      : 'border-border hover:border-border/80 hover:bg-accent text-muted-foreground'
+                      ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] shadow-sm"
+                      : "border-border text-muted-foreground hover:border-border/80 hover:bg-accent"
                   }`}
                 >
                   {method.icon}
@@ -429,16 +976,17 @@ export default function NovoPedidoPage() {
             </div>
 
             <div className="flex justify-end gap-4 border-t border-border pt-6">
-              <button 
+              <button
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="px-6 py-3 font-semibold text-muted-foreground hover:bg-accent rounded-xl transition"
+                className="rounded-xl px-6 py-3 font-semibold text-muted-foreground transition hover:bg-accent"
               >
                 Cancelar
               </button>
-              <button 
+
+              <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-8 py-3 font-bold text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 rounded-xl transition shadow-md flex items-center gap-2"
+                className="flex items-center gap-2 rounded-xl bg-[hsl(var(--primary))] px-8 py-3 font-bold text-[hsl(var(--primary-foreground))] shadow-md transition hover:bg-[hsl(var(--primary))]/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>

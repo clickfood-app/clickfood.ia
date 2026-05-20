@@ -1,513 +1,1732 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import AdminLayout from "@/components/admin-layout"
-import { QRCodeSVG } from "qrcode.react"
+import { useEffect, useMemo, useState } from "react"
 import {
-  Clock,
+  AlertTriangle,
+  Armchair,
+  Check,
+  Clock3,
+  CreditCard,
+  Loader2,
+  Minus,
+  Pencil,
+  Plus,
   QrCode,
-  Receipt,
+  RefreshCcw,
+  Search,
+  ShoppingBag,
+  Timer,
+  Users,
   Wallet,
   X,
 } from "lucide-react"
-import { formatPrice } from "@/lib/menu-data"
-import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
 
-const TOTAL_MESAS = 20
+import AdminLayout from "@/components/admin-layout"
+import { useAuth } from "@/components/auth/auth-provider"
+import { createClient } from "@/lib/supabase/client"
+import { initialTables } from "@/lib/order-types"
 
-type Restaurant = {
+type TableStatus = "available" | "occupied"
+
+type PaymentMethod = "dinheiro" | "pix" | "credito" | "debito"
+
+type TableView = {
   id: string
+  number: string
   name: string
-  slug: string | null
+  capacity: number
+  status: TableStatus
 }
 
-type OrderItem = {
-  id: string
-  order_id: string
-  product_id: string | null
-  product_name: string | null
-  quantity: number
-  unit_price: number | string | null
-  total_price: number | string | null
-}
-
-type TableOrder = {
+type RestaurantTableRow = {
   id: string
   restaurant_id: string
-  table_id: string | null
-  public_order_number: string | null
+  number: string
+  name: string | null
+  capacity: number | null
+  is_active: boolean | null
+}
+
+type OrderRow = {
+  id: string
+  public_order_number: string | number | null
   customer_name: string | null
   customer_phone: string | null
   status: string | null
   payment_status: string | null
   payment_method: string | null
   total: number | string | null
+  notes: string | null
+  table_id: string | null
+  table_number: string | null
+  guest_count: number | null
   created_at: string
-  items?: OrderItem[]
 }
 
-const OPEN_TABLE_STATUSES = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready",
-  "delivering",
-  "out_for_delivery",
-]
+type ProductRow = {
+  id: string
+  name: string
+  price: number
+  isAvailable: boolean
+}
+
+type SelectedProductItem = ProductRow & {
+  quantity: number
+  total: number
+}
+
+type TableWithOrders = TableView & {
+  orders: OrderRow[]
+  totalOpen: number
+  totalAmount: number
+  firstOrderAt: string | null
+  latestOrderAt: string | null
+  guestCount: number | null
+  ticketPerPerson: number | null
+  occupiedMinutes: number | null
+  idleMinutes: number | null
+  isIdle: boolean
+}
+
+const supabase = createClient()
+const IDLE_LIMIT_MINUTES = 30
+
+function normalizeStatus(status: string | null | undefined) {
+  return (status || "").trim().toLowerCase()
+}
+
+function isUuid(value: string | null | undefined) {
+  if (!value) return false
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  )
+}
+
+function getStatusLabel(status: string | null | undefined) {
+  const value = normalizeStatus(status)
+
+  if (value === "pending") return "Pendente"
+  if (value === "accepted") return "Aceito"
+  if (value === "preparing") return "Preparando"
+  if (value === "ready") return "Pronto"
+  if (value === "delivering" || value === "out_for_delivery") return "Em rota"
+  if (value === "delivered") return "Entregue"
+  if (value === "finished" || value === "completed" || value === "finalizado") {
+    return "Finalizado"
+  }
+  if (value === "cancelled" || value === "canceled" || value === "cancelado") {
+    return "Cancelado"
+  }
+
+  return status || "Aberto"
+}
+
+function getOrderNumber(order: OrderRow) {
+  if (order.public_order_number !== null && order.public_order_number !== undefined) {
+    return String(order.public_order_number)
+  }
+
+  return order.id.slice(0, 8)
+}
+
+function formatCurrency(value: number | string | null | undefined) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0))
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
+}
+
+function formatDuration(minutes: number | null | undefined) {
+  if (minutes === null || minutes === undefined) return "—"
+
+  const safeMinutes = Math.max(0, Math.floor(minutes))
+  const hours = Math.floor(safeMinutes / 60)
+  const mins = safeMinutes % 60
+
+  if (hours <= 0) return `${mins}min`
+  if (mins <= 0) return `${hours}h`
+
+  return `${hours}h ${mins}min`
+}
+
+function minutesSince(date: string | null) {
+  if (!date) return null
+
+  const diff = Date.now() - new Date(date).getTime()
+
+  return Math.max(0, Math.floor(diff / 60000))
+}
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message
+  if (!error) return fallback
+  if (typeof error === "string") return error
+  if (error instanceof Error) return error.message
 
-  if (error && typeof error === "object") {
-    const maybeError = error as {
+  if (typeof error === "object") {
+    const err = error as {
       message?: string
       details?: string
       hint?: string
       code?: string
     }
 
-    return (
-      [maybeError.message, maybeError.details, maybeError.hint, maybeError.code]
-        .filter(Boolean)
-        .join(" • ") || fallback
-    )
+    const parts = [
+      err.message ? `message: ${err.message}` : "",
+      err.details ? `details: ${err.details}` : "",
+      err.hint ? `hint: ${err.hint}` : "",
+      err.code ? `code: ${err.code}` : "",
+    ].filter(Boolean)
+
+    if (parts.length > 0) return parts.join(" | ")
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return fallback
+    }
   }
 
   return fallback
 }
 
-function normalizePaymentStatus(status: "paid" | "pending") {
-  return status
+function extractTableNumberFromNotes(notes: string | null | undefined) {
+  if (!notes) return null
+
+  const match = notes.match(/mesa:\s*([^\n|]+)/i)
+
+  if (!match?.[1]) return null
+
+  return match[1].trim()
+}
+
+function buildInitialTables(): TableView[] {
+  const parsedTables = (initialTables || []).map((table, index) => {
+    const rawTable = table as unknown as {
+      id?: string
+      number?: string | number
+      name?: string
+      capacity?: number
+      status?: string
+    }
+
+    const number = String(rawTable.number || index + 1)
+
+    return {
+      id: String(rawTable.id || `table-${number}`),
+      number,
+      name: rawTable.name || `Mesa ${number}`,
+      capacity: Number(rawTable.capacity || 4),
+      status: "available" as TableStatus,
+    }
+  })
+
+  if (parsedTables.length > 0) {
+    return parsedTables
+  }
+
+  return Array.from({ length: 12 }).map((_, index) => {
+    const number = String(index + 1)
+
+    return {
+      id: `table-${number}`,
+      number,
+      name: `Mesa ${number}`,
+      capacity: 4,
+      status: "available" as TableStatus,
+    }
+  })
+}
+
+function mapRestaurantTableToTable(table: RestaurantTableRow): TableView {
+  return {
+    id: table.id,
+    number: String(table.number),
+    name: table.name || `Mesa ${table.number}`,
+    capacity: Number(table.capacity || 4),
+    status: "available",
+  }
+}
+
+function mergeTables(defaultTables: TableView[], databaseTables: TableView[]) {
+  const map = new Map<string, TableView>()
+
+  defaultTables.forEach((table) => {
+    map.set(table.number, table)
+  })
+
+  databaseTables.forEach((table) => {
+    map.set(table.number, table)
+  })
+
+  return Array.from(map.values()).sort((a, b) => {
+    const aNumber = Number(a.number)
+    const bNumber = Number(b.number)
+
+    if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+      return aNumber - bNumber
+    }
+
+    return a.number.localeCompare(b.number)
+  })
+}
+
+function getPaymentMethodLabel(method: PaymentMethod) {
+  if (method === "dinheiro") return "Dinheiro"
+  if (method === "pix") return "Pix"
+  if (method === "credito") return "Crédito"
+  if (method === "debito") return "Débito"
+
+  return method
+}
+
+function normalizeProduct(raw: Record<string, unknown>): ProductRow | null {
+  const id = String(raw.id || "")
+  const name = String(raw.name || raw.product_name || "").trim()
+  const price = Number(raw.price || raw.sale_price || raw.value || 0)
+  const status = normalizeStatus(String(raw.status || ""))
+
+  if (!id || !name) return null
+
+  const isAvailable =
+    raw.is_available !== false &&
+    raw.is_active !== false &&
+    status !== "inactive" &&
+    status !== "inativo" &&
+    status !== "unavailable" &&
+    status !== "indisponivel"
+
+  return {
+    id,
+    name,
+    price,
+    isAvailable,
+  }
+}
+
+function generatePublicOrderNumber() {
+  return String(Date.now()).slice(-6)
 }
 
 export default function MesasPage() {
-  const supabase = useMemo(() => createClient(), [])
-  const { toast } = useToast()
+  const { restaurant, isLoading: authLoading } = useAuth()
 
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
-  const [activeOrders, setActiveOrders] = useState<TableOrder[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [orders, setOrders] = useState<OrderRow[]>([])
+  const [databaseTables, setDatabaseTables] = useState<TableView[]>([])
+  const [products, setProducts] = useState<ProductRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [savingTable, setSavingTable] = useState(false)
+  const [savingGuests, setSavingGuests] = useState(false)
+  const [savingItems, setSavingItems] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
-  const [qrCodeModal, setQrCodeModal] = useState<{
-    isOpen: boolean
-    mesa: number | null
-  }>({
-    isOpen: false,
-    mesa: null,
-  })
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [selectedTableToPay, setSelectedTableToPay] =
+    useState<TableWithOrders | null>(null)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] =
+    useState<PaymentMethod>("pix")
 
-  const [comandaModal, setComandaModal] = useState<{
-    isOpen: boolean
-    order: TableOrder | null
-    mesa: number | null
-  }>({
-    isOpen: false,
-    order: null,
-    mesa: null,
-  })
+  const [tableEditModalOpen, setTableEditModalOpen] = useState(false)
+  const [selectedTableToEdit, setSelectedTableToEdit] =
+    useState<TableWithOrders | null>(null)
+  const [editTableName, setEditTableName] = useState("")
+  const [editTableCapacity, setEditTableCapacity] = useState(4)
 
-  const [isClosing, setIsClosing] = useState(false)
+  const [guestModalOpen, setGuestModalOpen] = useState(false)
+  const [selectedTableToAdjustGuests, setSelectedTableToAdjustGuests] =
+    useState<TableWithOrders | null>(null)
+  const [editGuestCount, setEditGuestCount] = useState(1)
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+  const [addItemsModalOpen, setAddItemsModalOpen] = useState(false)
+  const [selectedTableToAddItems, setSelectedTableToAddItems] =
+    useState<TableWithOrders | null>(null)
+  const [selectedProductQuantities, setSelectedProductQuantities] = useState<
+    Record<string, number>
+  >({})
+  const [productSearch, setProductSearch] = useState("")
 
-  const fetchData = async () => {
+  const defaultTables = useMemo(() => buildInitialTables(), [])
+
+  const baseTables = useMemo(() => {
+    return mergeTables(defaultTables, databaseTables)
+  }, [defaultTables, databaseTables])
+
+  async function loadData(showRefresh = false) {
+    if (!restaurant?.id) return
+
     try {
-      setIsLoading(true)
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) throw userError
-
-      if (!user) {
-        setRestaurant(null)
-        setActiveOrders([])
-        return
+      if (showRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
       }
 
-      const { data: restData, error: restaurantError } = await supabase
-        .from("restaurants")
-        .select("id, name, slug")
-        .eq("owner_id", user.id)
-        .single()
+      setError(null)
 
-      if (restaurantError) throw restaurantError
-
-      if (!restData) {
-        setRestaurant(null)
-        setActiveOrders([])
-        return
-      }
-
-      setRestaurant(restData as Restaurant)
-
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select(
-          `
-          id,
-          restaurant_id,
-          table_id,
-          public_order_number,
-          customer_name,
-          customer_phone,
-          status,
-          payment_status,
-          payment_method,
-          total,
-          created_at,
-          items:order_items (
-            id,
-            order_id,
-            product_id,
-            product_name,
-            quantity,
-            unit_price,
-            total_price
+      const [
+        { data: ordersData, error: ordersError },
+        { data: tablesData, error: tablesError },
+        { data: productsData, error: productsError },
+      ] = await Promise.all([
+        supabase
+          .from("orders")
+          .select(
+            "id, public_order_number, customer_name, customer_phone, status, payment_status, payment_method, total, notes, table_id, table_number, guest_count, created_at"
           )
-        `
-        )
-        .eq("restaurant_id", restData.id)
-        .not("table_id", "is", null)
-        .in("status", OPEN_TABLE_STATUSES)
-        .order("created_at", { ascending: false })
+          .eq("restaurant_id", restaurant.id)
+          .order("created_at", { ascending: false })
+          .limit(300),
 
-      if (ordersError) {
-        console.error("Erro ao buscar comandas:", {
-          message: ordersError.message,
-          details: ordersError.details,
-          hint: ordersError.hint,
-          code: ordersError.code,
-        })
+        supabase
+          .from("restaurant_tables")
+          .select("id, restaurant_id, number, name, capacity, is_active")
+          .eq("restaurant_id", restaurant.id)
+          .eq("is_active", true),
 
-        throw ordersError
-      }
+        supabase
+          .from("products")
+          .select("*")
+          .eq("restaurant_id", restaurant.id)
+          .order("name", { ascending: true }),
+      ])
 
-      setActiveOrders((ordersData || []) as TableOrder[])
-    } catch (error) {
-      console.error("Erro ao carregar mesas:", error)
+      if (ordersError) throw ordersError
+      if (tablesError) throw tablesError
+      if (productsError) throw productsError
 
-      toast({
-        title: "Erro ao carregar mesas",
-        description: getErrorMessage(error, "Não foi possível carregar as comandas."),
-        variant: "destructive",
-      })
-
-      setActiveOrders([])
+      setOrders((ordersData || []) as OrderRow[])
+      setDatabaseTables(
+        ((tablesData || []) as RestaurantTableRow[]).map(mapRestaurantTableToTable)
+      )
+      setProducts(
+        ((productsData || []) as Record<string, unknown>[])
+          .map(normalizeProduct)
+          .filter((product): product is ProductRow => Boolean(product))
+      )
+      setLastUpdatedAt(new Date())
+    } catch (err) {
+      console.error("Erro ao buscar mesas/comandas:", err)
+      setError(getErrorMessage(err, "Erro ao buscar mesas/comandas."))
     } finally {
-      setIsLoading(false)
+      setLoading(false)
+      setRefreshing(false)
     }
   }
 
   useEffect(() => {
-    void fetchData()
+    if (authLoading) return
 
-    const interval = window.setInterval(() => {
-      void fetchData()
-    }, 10000)
-
-    return () => {
-      window.clearInterval(interval)
+    if (!restaurant?.id) {
+      setLoading(false)
+      return
     }
-  }, [supabase])
 
-  const handleEncerrarComanda = async (paymentStatus: "paid" | "pending") => {
-    if (!comandaModal.order) return
+    void loadData()
+  }, [authLoading, restaurant?.id])
+
+  const openLocalOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const tableNumber =
+        order.table_number || extractTableNumberFromNotes(order.notes)
+      const paymentStatus = normalizeStatus(order.payment_status)
+
+      return (order.table_id || tableNumber) && paymentStatus !== "paid"
+    })
+  }, [orders])
+
+  const tablesWithOrders = useMemo<TableWithOrders[]>(() => {
+    return baseTables.map((table) => {
+      const tableOrders = openLocalOrders.filter((order) => {
+        const noteTableNumber = extractTableNumberFromNotes(order.notes)
+
+        return (
+          order.table_id === table.id ||
+          order.table_number === table.number ||
+          noteTableNumber === table.number ||
+          noteTableNumber === table.id
+        )
+      })
+
+      const totalAmount = tableOrders.reduce(
+        (sum, order) => sum + Number(order.total || 0),
+        0
+      )
+
+      const sortedOldestFirst = [...tableOrders].sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+
+      const sortedNewestFirst = [...tableOrders].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+
+      const firstOrderAt = sortedOldestFirst[0]?.created_at || null
+      const latestOrderAt = sortedNewestFirst[0]?.created_at || null
+
+      const latestGuestOrder = sortedNewestFirst.find(
+        (order) => Number(order.guest_count || 0) > 0
+      )
+
+      const guestCount = latestGuestOrder
+        ? Number(latestGuestOrder.guest_count || 0)
+        : null
+
+      const ticketPerPerson =
+        guestCount && guestCount > 0 ? totalAmount / guestCount : null
+
+      const occupiedMinutes = minutesSince(firstOrderAt)
+      const idleMinutes = minutesSince(latestOrderAt)
+
+      return {
+        ...table,
+        status: tableOrders.length > 0 ? "occupied" : "available",
+        orders: tableOrders,
+        totalOpen: tableOrders.length,
+        totalAmount,
+        firstOrderAt,
+        latestOrderAt,
+        guestCount,
+        ticketPerPerson,
+        occupiedMinutes,
+        idleMinutes,
+        isIdle:
+          tableOrders.length > 0 &&
+          idleMinutes !== null &&
+          idleMinutes >= IDLE_LIMIT_MINUTES,
+      }
+    })
+  }, [baseTables, openLocalOrders])
+
+  const filteredTables = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
+    if (!query) return tablesWithOrders
+
+    return tablesWithOrders.filter((table) => {
+      const orderNumbers = table.orders
+        .map((order) => getOrderNumber(order))
+        .join(" ")
+        .toLowerCase()
+
+      const customers = table.orders
+        .map((order) => order.customer_name || "")
+        .join(" ")
+        .toLowerCase()
+
+      return (
+        table.number.toLowerCase().includes(query) ||
+        table.name.toLowerCase().includes(query) ||
+        orderNumbers.includes(query) ||
+        customers.includes(query)
+      )
+    })
+  }, [search, tablesWithOrders])
+
+  const totalTables = tablesWithOrders.length
+  const occupiedTables = tablesWithOrders.filter(
+    (table) => table.status === "occupied"
+  ).length
+  const idleTables = tablesWithOrders.filter((table) => table.isIdle).length
+  const availableTables = totalTables - occupiedTables
+  const totalOpenOrders = openLocalOrders.length
+  const totalConsumption = openLocalOrders.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0
+  )
+
+  const availableProducts = useMemo(() => {
+    return products.filter((product) => product.isAvailable)
+  }, [products])
+
+  const filteredProducts = useMemo(() => {
+    const query = productSearch.trim().toLowerCase()
+
+    if (!query) return availableProducts
+
+    return availableProducts.filter((product) =>
+      product.name.toLowerCase().includes(query)
+    )
+  }, [availableProducts, productSearch])
+
+  const selectedAddItems = useMemo<SelectedProductItem[]>(() => {
+    return availableProducts
+      .map((product) => {
+        const quantity = Number(selectedProductQuantities[product.id] || 0)
+
+        return {
+          ...product,
+          quantity,
+          total: quantity * product.price,
+        }
+      })
+      .filter((item) => item.quantity > 0)
+  }, [availableProducts, selectedProductQuantities])
+
+  const selectedAddItemsTotal = selectedAddItems.reduce(
+    (sum, item) => sum + item.total,
+    0
+  )
+
+  function openPaymentModal(table: TableWithOrders) {
+    setSelectedTableToPay(table)
+    setSelectedPaymentMethod("pix")
+    setPaymentModalOpen(true)
+    setError(null)
+  }
+
+  function closePaymentModal() {
+    if (paying) return
+
+    setPaymentModalOpen(false)
+    setSelectedTableToPay(null)
+    setSelectedPaymentMethod("pix")
+  }
+
+  function openTableEditModal(table: TableWithOrders) {
+    setSelectedTableToEdit(table)
+    setEditTableName(table.name)
+    setEditTableCapacity(table.capacity || 4)
+    setTableEditModalOpen(true)
+    setError(null)
+  }
+
+  function closeTableEditModal() {
+    if (savingTable) return
+
+    setSelectedTableToEdit(null)
+    setEditTableName("")
+    setEditTableCapacity(4)
+    setTableEditModalOpen(false)
+  }
+
+  function openGuestModal(table: TableWithOrders) {
+    setSelectedTableToAdjustGuests(table)
+    setEditGuestCount(table.guestCount || 1)
+    setGuestModalOpen(true)
+    setError(null)
+  }
+
+  function closeGuestModal() {
+    if (savingGuests) return
+
+    setSelectedTableToAdjustGuests(null)
+    setEditGuestCount(1)
+    setGuestModalOpen(false)
+  }
+
+  function openAddItemsModal(table: TableWithOrders) {
+    setSelectedTableToAddItems(table)
+    setSelectedProductQuantities({})
+    setProductSearch("")
+    setAddItemsModalOpen(true)
+    setError(null)
+  }
+
+  function closeAddItemsModal() {
+    if (savingItems) return
+
+    setSelectedTableToAddItems(null)
+    setSelectedProductQuantities({})
+    setProductSearch("")
+    setAddItemsModalOpen(false)
+  }
+
+  function updateProductQuantity(productId: string, quantity: number) {
+    setSelectedProductQuantities((prev) => {
+      const nextQuantity = Math.max(0, quantity)
+      const next = { ...prev }
+
+      if (nextQuantity <= 0) {
+        delete next[productId]
+      } else {
+        next[productId] = nextQuantity
+      }
+
+      return next
+    })
+  }
+
+  async function handleAddItemsToTable() {
+    if (!selectedTableToAddItems || !restaurant?.id) return
+
+    if (selectedAddItems.length === 0) {
+      setError("Selecione pelo menos um item para adicionar na comanda.")
+      return
+    }
 
     try {
-      setIsClosing(true)
+      setSavingItems(true)
+      setError(null)
 
-      const { error } = await supabase
+      const nowIso = new Date().toISOString()
+      const guestCount = selectedTableToAddItems.guestCount || 1
+      const customerName =
+        selectedTableToAddItems.orders[0]?.customer_name ||
+        `Mesa ${selectedTableToAddItems.number}`
+      const customerPhone =
+        selectedTableToAddItems.orders[0]?.customer_phone || "Não informado"
+      const notes = `Pedido local | Mesa: ${selectedTableToAddItems.number} | Pessoas: ${guestCount}`
+
+      const { data: createdOrder, error: orderError } = await supabase
         .from("orders")
-        .update({
-          status: "delivered",
-          payment_status: normalizePaymentStatus(paymentStatus),
-          delivered_at: new Date().toISOString(),
+        .insert({
+          restaurant_id: restaurant.id,
+          public_order_number: generatePublicOrderNumber(),
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          status: "accepted",
+          payment_status: "pending",
+          payment_method: null,
+          subtotal: selectedAddItemsTotal,
+          discount: 0,
+          delivery_fee: 0,
+          total: selectedAddItemsTotal,
+          notes,
+          table_id: isUuid(selectedTableToAddItems.id)
+            ? selectedTableToAddItems.id
+            : null,
+          table_number: selectedTableToAddItems.number,
+          guest_count: guestCount,
+          accepted_at: nowIso,
+          preparation_started_at: nowIso,
         })
-        .eq("id", comandaModal.order.id)
+        .select(
+          "id, public_order_number, customer_name, customer_phone, status, payment_status, payment_method, total, notes, table_id, table_number, guest_count, created_at"
+        )
+        .single()
 
-      if (error) throw error
+      if (orderError) throw orderError
+      if (!createdOrder) throw new Error("Pedido criado sem retorno do banco.")
 
-      toast({
-        title: "Mesa encerrada",
-        description: `A comanda da Mesa ${comandaModal.mesa} foi finalizada com sucesso.`,
-      })
+      const orderItems = selectedAddItems.map((item) => ({
+        order_id: createdOrder.id,
+        product_id: item.id,
+        product_name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.total,
+      }))
 
-      setComandaModal({ isOpen: false, order: null, mesa: null })
-      await fetchData()
-    } catch (error) {
-      console.error("Erro ao encerrar comanda:", error)
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems)
 
-      toast({
-        title: "Erro ao encerrar",
-        description: getErrorMessage(error, "Não foi possível encerrar a comanda."),
-        variant: "destructive",
-      })
+      if (itemsError) throw itemsError
+
+      setOrders((prev) => [createdOrder as OrderRow, ...prev])
+      closeAddItemsModal()
+      setLastUpdatedAt(new Date())
+    } catch (err) {
+      console.error("Erro ao adicionar itens na comanda:", err)
+      setError(getErrorMessage(err, "Erro ao adicionar itens na comanda."))
     } finally {
-      setIsClosing(false)
+      setSavingItems(false)
     }
   }
 
-  const mesas = Array.from({ length: TOTAL_MESAS }, (_, index) => index + 1)
+  async function handlePayTable() {
+    if (!selectedTableToPay) return
+
+    const orderIds = selectedTableToPay.orders.map((order) => order.id)
+
+    if (orderIds.length === 0) {
+      setError("Não existem pedidos abertos para pagar nessa mesa.")
+      return
+    }
+
+    try {
+      setPaying(true)
+      setError(null)
+
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({
+          payment_status: "paid",
+          payment_method: selectedPaymentMethod,
+        })
+        .in("id", orderIds)
+
+      if (updateError) throw updateError
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          orderIds.includes(order.id)
+            ? {
+                ...order,
+                payment_status: "paid",
+                payment_method: selectedPaymentMethod,
+              }
+            : order
+        )
+      )
+
+      setPaymentModalOpen(false)
+      setSelectedTableToPay(null)
+      setSelectedPaymentMethod("pix")
+      setLastUpdatedAt(new Date())
+    } catch (err) {
+      console.error("Erro ao pagar comanda:", err)
+      setError(getErrorMessage(err, "Erro ao pagar comanda."))
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  async function handleSaveTableEdit() {
+    if (!selectedTableToEdit || !restaurant?.id) return
+
+    const name = editTableName.trim() || `Mesa ${selectedTableToEdit.number}`
+    const capacity = Math.max(1, Number(editTableCapacity || 1))
+
+    try {
+      setSavingTable(true)
+      setError(null)
+
+      if (isUuid(selectedTableToEdit.id)) {
+        const { data, error: updateError } = await supabase
+          .from("restaurant_tables")
+          .update({
+            name,
+            capacity,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", selectedTableToEdit.id)
+          .eq("restaurant_id", restaurant.id)
+          .select("id, restaurant_id, number, name, capacity, is_active")
+          .single()
+
+        if (updateError) throw updateError
+
+        const updatedTable = mapRestaurantTableToTable(data as RestaurantTableRow)
+
+        setDatabaseTables((prev) =>
+          mergeTables(
+            prev.filter((table) => table.id !== updatedTable.id),
+            [updatedTable]
+          )
+        )
+      } else {
+        const { data, error: insertError } = await supabase
+          .from("restaurant_tables")
+          .insert({
+            restaurant_id: restaurant.id,
+            number: selectedTableToEdit.number,
+            name,
+            capacity,
+            is_active: true,
+          })
+          .select("id, restaurant_id, number, name, capacity, is_active")
+          .single()
+
+        if (insertError) throw insertError
+
+        const createdTable = mapRestaurantTableToTable(data as RestaurantTableRow)
+
+        setDatabaseTables((prev) => mergeTables(prev, [createdTable]))
+      }
+
+      closeTableEditModal()
+      setLastUpdatedAt(new Date())
+    } catch (err) {
+      console.error("Erro ao editar mesa:", err)
+      setError(getErrorMessage(err, "Erro ao editar mesa."))
+    } finally {
+      setSavingTable(false)
+    }
+  }
+
+  async function handleSaveGuestCount() {
+    if (!selectedTableToAdjustGuests) return
+
+    const orderIds = selectedTableToAdjustGuests.orders.map((order) => order.id)
+
+    if (orderIds.length === 0) {
+      setError("Essa mesa não possui comanda aberta para ajustar pessoas.")
+      return
+    }
+
+    const guestCount = Math.max(1, Number(editGuestCount || 1))
+
+    try {
+      setSavingGuests(true)
+      setError(null)
+
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({
+          guest_count: guestCount,
+        })
+        .in("id", orderIds)
+
+      if (updateError) throw updateError
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          orderIds.includes(order.id)
+            ? {
+                ...order,
+                guest_count: guestCount,
+              }
+            : order
+        )
+      )
+
+      closeGuestModal()
+      setLastUpdatedAt(new Date())
+    } catch (err) {
+      console.error("Erro ao ajustar pessoas:", err)
+      setError(getErrorMessage(err, "Erro ao ajustar pessoas."))
+    } finally {
+      setSavingGuests(false)
+    }
+  }
 
   return (
-    <AdminLayout title="Gestão de Mesas">
-      <div className="space-y-6">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h1 className="text-xl font-black text-slate-950">Mesas</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Gere QR Codes e acompanhe comandas abertas no salão.
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                <span className="h-3 w-3 rounded-full bg-emerald-500 shadow-sm" />
-                Livre
-              </div>
-
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                <span className="h-3 w-3 rounded-full bg-rose-500 shadow-sm" />
-                Ocupada
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {isLoading ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-500">
-            Carregando mesas...
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
-            {mesas.map((numeroMesa) => {
-              const orderForTable = activeOrders.find(
-                (order) => String(order.table_id) === String(numeroMesa)
-              )
-
-              const isOcupada = Boolean(orderForTable)
-
-              return (
-                <div
-                  key={numeroMesa}
-                  onClick={() => {
-                    if (isOcupada && orderForTable) {
-                      setComandaModal({
-                        isOpen: true,
-                        order: orderForTable,
-                        mesa: numeroMesa,
-                      })
-                      return
-                    }
-
-                    toast({
-                      title: `Mesa ${numeroMesa} livre`,
-                      description: "Nenhuma comanda aberta nesta mesa.",
-                    })
-                  }}
-                  className={cn(
-                    "relative flex h-40 cursor-pointer flex-col items-center justify-center rounded-xl border p-5 text-center shadow-sm transition hover:-translate-y-1 hover:shadow-md",
-                    isOcupada
-                      ? "border-rose-200 bg-rose-50"
-                      : "border-slate-200 bg-white hover:border-emerald-300"
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      setQrCodeModal({ isOpen: true, mesa: numeroMesa })
-                    }}
-                    className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-                    title="Ver QR Code"
-                  >
-                    <QrCode className="h-4 w-4" />
-                  </button>
-
-                  <h3
-                    className={cn(
-                      "mb-1 text-3xl font-black",
-                      isOcupada ? "text-rose-900" : "text-slate-800"
-                    )}
-                  >
-                    {numeroMesa}
-                  </h3>
-
-                  {isOcupada && orderForTable ? (
-                    <>
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-rose-600">
-                        Ocupada
-                      </p>
-
-                      <p className="mb-2 text-sm font-black text-rose-700">
-                        {formatPrice(Number(orderForTable.total || 0))}
-                      </p>
-
-                      <div className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1 text-xs font-bold text-white">
-                        <Receipt className="h-3.5 w-3.5" />
-                        Ver Comanda
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">
-                      Livre
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {qrCodeModal.isOpen && restaurant && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setQrCodeModal({ isOpen: false, mesa: null })}
-              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-100"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <h2 className="mb-2 text-2xl font-black text-slate-900">
-              Mesa {qrCodeModal.mesa}
-            </h2>
-
-            <p className="mb-6 text-sm text-slate-500">
-              Imprima este QR Code para o cliente acessar o cardápio desta mesa.
+    <AdminLayout>
+      <div className="space-y-4 p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-foreground">
+              Mesas
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Acompanhe mesas livres, comandas abertas, pessoas e pagamentos do salão.
             </p>
+          </div>
 
-            <div className="mb-6 inline-block rounded-2xl border-2 border-slate-100 bg-white p-4 shadow-sm">
-              <QRCodeSVG
-                value={`${baseUrl}/cardapio/${restaurant.slug}?mesa=${qrCodeModal.mesa}`}
-                size={200}
-                level="H"
-                includeMargin={false}
-              />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs text-muted-foreground">
+              <Clock3 className="h-4 w-4" />
+              {lastUpdatedAt
+                ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}`
+                : "Aguardando dados"}
             </div>
 
             <button
               type="button"
-              onClick={() => window.print()}
-              className="w-full rounded-xl bg-blue-600 py-3 font-bold text-white transition hover:bg-blue-700"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Imprimir QR Code
+              {refreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="h-4 w-4" />
+              )}
+              Atualizar
             </button>
           </div>
         </div>
-      )}
 
-      {comandaModal.isOpen && comandaModal.order && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 p-6">
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Total de mesas
+            </p>
+            <p className="mt-2 text-2xl font-black text-foreground">
+              {loading ? "..." : totalTables}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700/70">
+              Livres
+            </p>
+            <p className="mt-2 text-2xl font-black text-emerald-700">
+              {loading ? "..." : availableTables}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-700/70">
+              Ocupadas
+            </p>
+            <p className="mt-2 text-2xl font-black text-amber-700">
+              {loading ? "..." : occupiedTables}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-orange-700/70">
+              Ociosas
+            </p>
+            <p className="mt-2 text-2xl font-black text-orange-700">
+              {loading ? "..." : idleTables}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Pedidos na comanda
+            </p>
+            <p className="mt-2 text-2xl font-black text-foreground">
+              {loading ? "..." : totalOpenOrders}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-violet-700/70">
+              A receber
+            </p>
+            <p className="mt-2 text-2xl font-black text-violet-700">
+              {loading ? "..." : formatCurrency(totalConsumption)}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="border-b border-border p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-xl font-black text-slate-900">
-                  Comanda - Mesa {comandaModal.mesa}
+                <h2 className="text-base font-black text-foreground">
+                  Comandas por mesa
                 </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Cliente:{" "}
-                  <span className="font-semibold text-slate-700">
-                    {comandaModal.order.customer_name || "Não informado"}
-                  </span>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A mesa só libera quando a comanda for paga.
                 </p>
+              </div>
 
-                {comandaModal.order.public_order_number && (
-                  <p className="mt-1 text-xs font-semibold text-slate-400">
-                    Pedido #{comandaModal.order.public_order_number}
-                  </p>
-                )}
+              <div className="relative w-full lg:max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar mesa, cliente ou pedido..."
+                  className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4">
+            {loading ? (
+              <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-dashed border-border bg-background text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Carregando mesas...
+              </div>
+            ) : filteredTables.length === 0 ? (
+              <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background px-6 text-center">
+                <Armchair className="mb-3 h-8 w-8 text-muted-foreground" />
+                <p className="text-sm font-bold text-foreground">
+                  Nenhuma mesa encontrada
+                </p>
+                <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                  Tente buscar por outro número de mesa, cliente ou pedido.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {filteredTables.map((table) => {
+                  const isOccupied = table.status === "occupied"
+
+                  return (
+                    <div
+                      key={table.id}
+                      className={`rounded-2xl border p-4 transition ${
+                        isOccupied
+                          ? table.isIdle
+                            ? "border-orange-200 bg-orange-50/70"
+                            : "border-amber-200 bg-amber-50/60"
+                          : "border-emerald-200 bg-emerald-50/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                              isOccupied
+                                ? table.isIdle
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-amber-100 text-amber-700"
+                                : "bg-emerald-100 text-emerald-700"
+                            }`}
+                          >
+                            <Armchair className="h-5 w-5" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-lg font-black text-foreground">
+                              Mesa {table.number}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              {table.name} • Capacidade: {table.capacity}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                            isOccupied
+                              ? table.isIdle
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-amber-100 text-amber-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {isOccupied ? (table.isIdle ? "Ociosa" : "Ocupada") : "Livre"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openTableEditModal(table)}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-white/70 text-xs font-bold text-foreground transition hover:bg-white"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar mesa
+                        </button>
+
+                        {isOccupied ? (
+                          <button
+                            type="button"
+                            onClick={() => openGuestModal(table)}
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-white/70 text-xs font-bold text-foreground transition hover:bg-white"
+                          >
+                            <Users className="h-3.5 w-3.5" />
+                            Pessoas
+                          </button>
+                        ) : null}
+
+                        {isOccupied ? (
+                          <button
+                            type="button"
+                            onClick={() => openAddItemsModal(table)}
+                            className="col-span-2 inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-primary text-xs font-black text-primary-foreground transition hover:opacity-90"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Adicionar itens
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {isOccupied ? (
+                        <div className="mt-4 space-y-3">
+                          {table.isIdle ? (
+                            <div className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-100/70 p-3 text-xs text-orange-800">
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                              <div>
+                                <p className="font-black">Possível mesa ociosa</p>
+                                <p className="mt-0.5">
+                                  Sem novo pedido há {formatDuration(table.idleMinutes)}.
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                Pessoas
+                              </p>
+                              <p className="mt-1 text-xl font-black text-foreground">
+                                {table.guestCount || "—"}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                Ticket/pessoa
+                              </p>
+                              <p className="mt-1 text-lg font-black text-foreground">
+                                {table.ticketPerPerson
+                                  ? formatCurrency(table.ticketPerPerson)
+                                  : "—"}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                Ocupada há
+                              </p>
+                              <p className="mt-1 text-lg font-black text-foreground">
+                                {formatDuration(table.occupiedMinutes)}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                Total
+                              </p>
+                              <p className="mt-1 text-lg font-black text-foreground">
+                                {formatCurrency(table.totalAmount)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl border border-border bg-white/70 p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                Pedidos vinculados
+                              </p>
+
+                              {table.latestOrderAt ? (
+                                <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                                  <Timer className="h-3 w-3" />
+                                  Último {formatTime(table.latestOrderAt)}
+                                </p>
+                              ) : null}
+                            </div>
+
+                            <div className="mt-3 space-y-2">
+                              {table.orders.map((order) => (
+                                <div
+                                  key={order.id}
+                                  className="rounded-xl border border-border bg-background px-3 py-2"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-sm font-black text-foreground">
+                                      #{getOrderNumber(order)}
+                                    </p>
+                                    <p className="text-sm font-black text-foreground">
+                                      {formatCurrency(order.total)}
+                                    </p>
+                                  </div>
+
+                                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                    <span>
+                                      {order.customer_name || "Cliente balcão"}
+                                    </span>
+                                    <span>•</span>
+                                    <span>{getStatusLabel(order.status)}</span>
+                                    <span>•</span>
+                                    <span>Pagamento pendente</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => openPaymentModal(table)}
+                            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
+                          >
+                            <Wallet className="h-4 w-4" />
+                            Pagar comanda
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-xl border border-emerald-200 bg-white/70 p-4 text-center">
+                          <p className="text-sm font-bold text-emerald-700">
+                            Mesa disponível
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Nenhuma comanda em aberto nesta mesa.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {paymentModalOpen && selectedTableToPay ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-black text-foreground">
+                  Pagar comanda - Mesa {selectedTableToPay.number}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Selecione a forma de pagamento usada pelo cliente.
+                </p>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  setComandaModal({ isOpen: false, order: null, mesa: null })
-                }
-                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100"
+                onClick={closePaymentModal}
+                disabled={paying}
+                className="rounded-full p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
-              <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
-                Itens consumidos
-              </h3>
+            <div className="mb-5 rounded-2xl border border-border bg-muted/30 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Total da comanda
+              </p>
+              <p className="mt-1 text-3xl font-black text-foreground">
+                {formatCurrency(selectedTableToPay.totalAmount)}
+              </p>
 
-              <div className="space-y-3">
-                {comandaModal.order.items?.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start justify-between rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedTableToPay.orders.map((order) => (
+                  <span
+                    key={order.id}
+                    className="rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-foreground"
                   >
-                    <div>
-                      <p className="font-bold text-slate-900">
-                        <span className="mr-2 text-blue-600">{item.quantity}x</span>
-                        {item.product_name || "Item do cardápio"}
-                      </p>
-                    </div>
-
-                    <span className="font-bold text-slate-700">
-                      {formatPrice(Number(item.total_price || 0))}
-                    </span>
-                  </div>
+                    #{getOrderNumber(order)}
+                  </span>
                 ))}
-
-                {(!comandaModal.order.items ||
-                  comandaModal.order.items.length === 0) && (
-                  <p className="py-4 text-center text-sm text-slate-500">
-                    Nenhum item detalhado encontrado nesta comanda.
-                  </p>
-                )}
               </div>
             </div>
 
-            <div className="rounded-b-3xl border-t border-slate-100 bg-white p-6 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
-              <div className="mb-6 flex items-center justify-between">
-                <span className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                  Total a cobrar
-                </span>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("dinheiro")}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  selectedPaymentMethod === "dinheiro"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                <Wallet className="mb-2 h-5 w-5" />
+                <p className="text-sm font-black">Dinheiro</p>
+              </button>
 
-                <span className="text-3xl font-black text-rose-600">
-                  {formatPrice(Number(comandaModal.order.total || 0))}
-                </span>
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("pix")}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  selectedPaymentMethod === "pix"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                <QrCode className="mb-2 h-5 w-5" />
+                <p className="text-sm font-black">Pix</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("debito")}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  selectedPaymentMethod === "debito"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                <CreditCard className="mb-2 h-5 w-5" />
+                <p className="text-sm font-black">Débito</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("credito")}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  selectedPaymentMethod === "credito"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                <CreditCard className="mb-2 h-5 w-5" />
+                <p className="text-sm font-black">Crédito</p>
+              </button>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closePaymentModal}
+                disabled={paying}
+                className="h-11 rounded-xl border border-border px-5 text-sm font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handlePayTable()}
+                disabled={paying}
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {paying ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Confirmar pagamento em {getPaymentMethodLabel(selectedPaymentMethod)}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tableEditModalOpen && selectedTableToEdit ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-black text-foreground">
+                  Editar Mesa {selectedTableToEdit.number}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Altere o nome e a capacidade da mesa.
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={closeTableEditModal}
+                disabled={savingTable}
+                className="rounded-full p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-bold text-foreground">
+                  Nome da mesa
+                </label>
+                <input
+                  type="text"
+                  value={editTableName}
+                  onChange={(event) => setEditTableName(event.target.value)}
+                  placeholder={`Mesa ${selectedTableToEdit.number}`}
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-bold text-foreground">
+                  Capacidade
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={editTableCapacity}
+                  onChange={(event) =>
+                    setEditTableCapacity(
+                      Math.max(1, Number(event.target.value || 1))
+                    )
+                  }
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeTableEditModal}
+                disabled={savingTable}
+                className="h-11 rounded-xl border border-border px-5 text-sm font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleSaveTableEdit()}
+                disabled={savingTable}
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingTable ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Salvar mesa
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {addItemsModalOpen && selectedTableToAddItems ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="border-b border-border p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-black text-foreground">
+                    Adicionar itens - Mesa {selectedTableToAddItems.number}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Crie um novo lançamento dentro da mesma comanda.
+                  </p>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleEncerrarComanda("paid")}
-                  disabled={isClosing}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 font-bold text-white transition hover:bg-emerald-600 disabled:opacity-50"
+                  onClick={closeAddItemsModal}
+                  disabled={savingItems}
+                  className="rounded-full p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Wallet className="h-4 w-4" />
-                  Pagar e Encerrar
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(event) => setProductSearch(event.target.value)}
+                    placeholder="Buscar produto..."
+                    className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-right">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-violet-700/70">
+                    Total novo
+                  </p>
+                  <p className="text-lg font-black text-violet-700">
+                    {formatCurrency(selectedAddItemsTotal)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {availableProducts.length === 0 ? (
+                <div className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-6 text-center">
+                  <ShoppingBag className="mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm font-black text-foreground">
+                    Nenhum produto disponível
+                  </p>
+                  <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                    Cadastre produtos ativos no cardápio para adicionar itens na comanda.
+                  </p>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-6 text-center">
+                  <Search className="mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm font-black text-foreground">
+                    Nenhum produto encontrado
+                  </p>
+                  <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                    Tente buscar por outro nome.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {filteredProducts.map((product) => {
+                    const quantity = selectedProductQuantities[product.id] || 0
+
+                    return (
+                      <div
+                        key={product.id}
+                        className={`rounded-2xl border p-3 transition ${
+                          quantity > 0
+                            ? "border-primary bg-primary/5"
+                            : "border-border bg-background"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-foreground">
+                              {product.name}
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-muted-foreground">
+                              {formatCurrency(product.price)}
+                            </p>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateProductQuantity(product.id, quantity - 1)
+                              }
+                              disabled={quantity <= 0}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+
+                            <span className="w-7 text-center text-sm font-black text-foreground">
+                              {quantity}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateProductQuantity(product.id, quantity + 1)
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition hover:opacity-90"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border p-5">
+              {selectedAddItems.length > 0 ? (
+                <div className="mb-4 rounded-2xl border border-border bg-muted/20 p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    Itens selecionados
+                  </p>
+
+                  <div className="space-y-1">
+                    {selectedAddItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="font-semibold text-foreground">
+                          {item.quantity}x {item.name}
+                        </span>
+                        <span className="font-black text-foreground">
+                          {formatCurrency(item.total)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeAddItemsModal}
+                  disabled={savingItems}
+                  className="h-11 rounded-xl border border-border px-5 text-sm font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancelar
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleEncerrarComanda("pending")}
-                  disabled={isClosing}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-800 py-3.5 font-bold text-white transition hover:bg-slate-900 disabled:opacity-50"
+                  onClick={() => void handleAddItemsToTable()}
+                  disabled={savingItems || selectedAddItems.length === 0}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Clock className="h-4 w-4" />
-                  Encerrar Pendente
+                  {savingItems ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Adicionar à comanda
                 </button>
               </div>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
+
+      {guestModalOpen && selectedTableToAdjustGuests ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-black text-foreground">
+                  Pessoas - Mesa {selectedTableToAdjustGuests.number}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Ajuste a quantidade de pessoas na comanda.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeGuestModal}
+                disabled={savingGuests}
+                className="rounded-full p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-muted/30 p-4">
+              <label className="mb-3 block text-sm font-bold text-foreground">
+                Quantidade de pessoas
+              </label>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditGuestCount((prev) => Math.max(1, prev - 1))}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-lg font-black transition hover:bg-muted"
+                >
+                  -
+                </button>
+
+                <input
+                  type="number"
+                  min={1}
+                  value={editGuestCount}
+                  onChange={(event) =>
+                    setEditGuestCount(
+                      Math.max(1, Number(event.target.value || 1))
+                    )
+                  }
+                  className="h-11 flex-1 rounded-xl border border-border bg-background px-3 text-center text-lg font-black outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setEditGuestCount((prev) => prev + 1)}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-lg font-black transition hover:bg-muted"
+                >
+                  +
+                </button>
+              </div>
+
+              <p className="mt-3 text-xs text-muted-foreground">
+                Isso recalcula o ticket médio por pessoa dessa mesa.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeGuestModal}
+                disabled={savingGuests}
+                className="h-11 rounded-xl border border-border px-5 text-sm font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleSaveGuestCount()}
+                disabled={savingGuests}
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingGuests ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Salvar pessoas
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AdminLayout>
   )
 }

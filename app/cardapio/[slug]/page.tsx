@@ -2200,17 +2200,21 @@ export default function CardapioPublicoPage() {
     )
   }
 
-  const themeColor = restaurant.themeColor || "#7c3aed"
-  const isDarkMode = false
-  const minimumOrder = restaurant.minimumOrder ?? 0
-  const estimatedDeliveryTime = formatPrepTimeLabel(restaurant)
-  const deliveryEnabled = restaurant.deliveryEnabled ?? true
-  const pickupEnabled = restaurant.pickupEnabled ?? true
-  const startingDeliveryFee = getStartingDeliveryFee(restaurant)
-  const floatingCartBgColor = restaurant.floatingCartBgColor || themeColor
-  const floatingCartTextColor = restaurant.floatingCartTextColor || "#ffffff"
-  const floatingCartNumberColor = restaurant.floatingCartNumberColor || "#ffffff"
-  const restaurantIsOpen = isOpenNow(restaurant)
+ const CLICKFOOD_BLUE = "#2563eb"
+const CLICKFOOD_ORANGE = "#f97316"
+
+const themeColor = CLICKFOOD_BLUE
+const accentColor = CLICKFOOD_ORANGE
+const isDarkMode = false
+const minimumOrder = restaurant.minimumOrder ?? 0
+const estimatedDeliveryTime = formatPrepTimeLabel(restaurant)
+const deliveryEnabled = restaurant.deliveryEnabled ?? true
+const pickupEnabled = restaurant.pickupEnabled ?? true
+const startingDeliveryFee = getStartingDeliveryFee(restaurant)
+const floatingCartBgColor = accentColor
+const floatingCartTextColor = "#ffffff"
+const floatingCartNumberColor = "#ffffff"
+const restaurantIsOpen = isOpenNow(restaurant)
 
   return (
     <div className={cn("min-h-screen pb-32", isDarkMode ? "bg-neutral-950" : "bg-gray-50")}>
