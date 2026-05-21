@@ -933,6 +933,38 @@ type CustomerVisibleOrder = {
   }> | null
 }
 
+type LoyaltyCampaignSummary = {
+  id: string
+  title: string
+  reward_description: string
+  required_orders: number
+  is_active: boolean
+}
+
+type CustomerLoyaltyProgress = {
+  id: string
+  restaurant_id: string
+  campaign_id: string
+  customer_phone: string
+  customer_name: string | null
+  current_orders: number
+  required_orders: number
+  reward_available: boolean
+  reward_redeemed: boolean
+  last_order_id: string | null
+  created_at: string
+  updated_at: string
+  loyalty_campaigns: LoyaltyCampaignSummary | null
+}
+
+type LoyaltyStatusResponse = {
+  success: boolean
+  has_loyalty: boolean
+  order_status?: string | null
+  loyalty?: CustomerLoyaltyProgress | null
+  error?: string
+}
+
 type OrderStep = {
   key: string
   label: string
@@ -1197,6 +1229,165 @@ function getOrderStatusLabel(
   return "Em análise"
 }
 
+function LoyaltyProgressCard({
+  loyalty,
+  accentColor,
+}: {
+  loyalty: CustomerLoyaltyProgress
+  accentColor: string
+}) {
+  const campaign = loyalty.loyalty_campaigns
+
+  const requiredOrders = Math.max(
+    1,
+    Number(campaign?.required_orders ?? loyalty.required_orders ?? 10)
+  )
+
+  const currentOrders = Math.min(
+    Number(loyalty.current_orders ?? 0),
+    requiredOrders
+  )
+
+  const remainingOrders = Math.max(requiredOrders - currentOrders, 0)
+
+  const rewardDescription =
+    campaign?.reward_description?.trim() || "uma recompensa especial"
+
+  const rewardAvailable =
+    loyalty.reward_available && !loyalty.reward_redeemed
+
+  const progressPercentage = Math.min(
+    (currentOrders / requiredOrders) * 100,
+    100
+  )
+
+  return (
+    <div className="relative overflow-hidden rounded-[28px] border border-orange-300/30 bg-[#111827] text-white shadow-[0_24px_70px_-35px_rgba(0,0,0,0.75)]">
+      <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-orange-500/25 blur-3xl" />
+      <div className="absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-blue-600/20 blur-3xl" />
+
+      <div className="relative p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
+              {rewardAvailable ? (
+                <Sparkles className="h-6 w-6 text-orange-300" />
+              ) : (
+                <Receipt className="h-6 w-6 text-orange-300" />
+              )}
+            </div>
+
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-300">
+                Card Fidelidade
+              </p>
+
+              <h4 className="mt-1 text-xl font-black leading-tight">
+                {rewardAvailable
+                  ? "Prêmio desbloqueado"
+                  : `${currentOrders}/${requiredOrders} selos acumulados`}
+              </h4>
+
+              <p className="mt-1 max-w-[260px] text-sm leading-relaxed text-white/70">
+                {rewardAvailable
+                  ? "Seu benefício já está liberado para resgate."
+                  : remainingOrders === 1
+                    ? "Falta 1 pedido para liberar sua recompensa."
+                    : `Faltam ${remainingOrders} pedidos para liberar sua recompensa.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-right backdrop-blur-md">
+            <p className="text-[10px] font-bold uppercase text-white/50">
+              Progresso
+            </p>
+
+            <p className="text-lg font-black text-white">
+              {Math.round(progressPercentage)}%
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-md">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wide text-white/45">
+                Recompensa
+              </p>
+
+              <p className="mt-1 text-base font-black text-white">
+                {rewardDescription}
+              </p>
+            </div>
+
+            <div className="rounded-full bg-orange-400/15 px-3 py-1 text-xs font-black text-orange-300 ring-1 ring-orange-300/20">
+              {currentOrders}/{requiredOrders}
+            </div>
+          </div>
+
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full shadow-[0_0_18px_rgba(249,115,22,0.65)] transition-all duration-700"
+              style={{
+                width: `${progressPercentage}%`,
+                background: rewardAvailable
+                  ? "linear-gradient(to right, #facc15, #f97316)"
+                  : `linear-gradient(to right, ${accentColor}, #fb923c)`,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-5 gap-2.5">
+          {Array.from({ length: requiredOrders }).map((_, index) => {
+            const isFilled = index < currentOrders
+
+            return (
+              <div
+                key={index}
+                className={cn(
+                  "relative flex aspect-square items-center justify-center rounded-2xl border text-sm font-black transition-all",
+                  isFilled
+                    ? "border-orange-300/30 bg-orange-500 text-white shadow-[0_12px_28px_-14px_rgba(249,115,22,0.9)]"
+                    : "border-white/10 bg-white/[0.06] text-white/30"
+                )}
+              >
+                {isFilled ? (
+                  <>
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent" />
+                    <Check className="relative h-4 w-4" strokeWidth={3} />
+                  </>
+                ) : (
+                  <span>{index + 1}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {rewardAvailable ? (
+          <div className="mt-5 rounded-3xl border border-yellow-300/25 bg-yellow-300/10 p-4 text-center">
+            <p className="text-sm font-black text-yellow-200">
+              Seu prêmio está liberado.
+            </p>
+
+            <p className="mt-1 text-xs font-medium text-yellow-100/75">
+              Mostre este card ao restaurante no próximo pedido.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.06] p-4 text-center">
+            <p className="text-xs font-semibold text-white/60">
+              Continue comprando para completar seu card e liberar sua recompensa.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function OrderTrackingCard({
   order,
   accentColor,
@@ -1211,6 +1402,8 @@ function OrderTrackingCard({
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [rating, setRating] = useState(order.customer_rating ?? 0)
   const [review, setReview] = useState(order.customer_review ?? "")
+  const [loyalty, setLoyalty] = useState<CustomerLoyaltyProgress | null>(null)
+  const [isLoadingLoyalty, setIsLoadingLoyalty] = useState(false)
 
   useEffect(() => {
     setRating(order.customer_rating ?? 0)
@@ -1229,6 +1422,57 @@ function OrderTrackingCard({
   const canConfirmReceived = !isCancelled && progressIndex >= 2
   const alreadyReceived = Boolean(order.customer_received_at)
   const whatsappPhone = restaurantWhatsApp?.replace(/\D/g, "") || ""
+  const shouldLoadLoyalty = alreadyReceived && Boolean(order.id)
+
+useEffect(() => {
+  let cancelled = false
+
+  async function fetchLoyaltyStatus() {
+    if (!shouldLoadLoyalty || !order.id) {
+      setLoyalty(null)
+      return
+    }
+
+    try {
+      setIsLoadingLoyalty(true)
+
+      const params = new URLSearchParams({
+        order_id: order.id,
+        _: String(Date.now()),
+      })
+
+      const response = await fetch(`/api/public/loyalty/status?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+      })
+
+      const data = (await response.json()) as LoyaltyStatusResponse
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Erro ao buscar card fidelidade.")
+      }
+
+      if (cancelled) return
+
+      setLoyalty(data.has_loyalty ? data.loyalty ?? null : null)
+    } catch (error) {
+      if (!cancelled) {
+        console.error("Erro ao buscar card fidelidade:", error)
+        setLoyalty(null)
+      }
+    } finally {
+      if (!cancelled) {
+        setIsLoadingLoyalty(false)
+      }
+    }
+  }
+
+  void fetchLoyaltyStatus()
+
+  return () => {
+    cancelled = true
+  }
+}, [shouldLoadLoyalty, order.id])
 
   const handleSubmitReview = () => {
     if (rating <= 0) {
@@ -1399,6 +1643,17 @@ function OrderTrackingCard({
               O restaurante vai atualizar o andamento por aqui.
             </div>
           )}
+
+{alreadyReceived && (
+  isLoadingLoyalty ? (
+    <div className="flex items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold text-blue-700">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Carregando seu card fidelidade...
+    </div>
+  ) : loyalty ? (
+    <LoyaltyProgressCard loyalty={loyalty} accentColor={accentColor} />
+  ) : null
+)}
 
           {whatsappPhone ? (
             <a

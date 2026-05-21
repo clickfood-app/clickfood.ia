@@ -1458,87 +1458,131 @@ export default function PedidosPage() {
     }
   }
 
+  async function registerLoyaltyOrder(orderId: string) {
+  const session = await ensureSupabaseSession()
+
+  if (!session?.access_token) {
+    throw new Error("Sessão expirada. Entre novamente para registrar fidelidade.")
+  }
+
+  const response = await fetch("/api/loyalty/register-order", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      order_id: orderId,
+    }),
+  })
+
+  const result = await response.json().catch(() => null)
+
+  if (!response.ok || result?.success === false) {
+    throw new Error(result?.error || "Erro ao registrar fidelidade.")
+  }
+
+  return result
+}
+
   async function updateOrder(
-    order: OrderRow,
-    action: "accept" | "cancel" | "route" | "finish"
-  ) {
-    const previousOrders = orders
-    const nowIso = new Date().toISOString()
+  order: OrderRow,
+  action: "accept" | "cancel" | "route" | "finish"
+) {
+  const previousOrders = orders
+  const nowIso = new Date().toISOString()
 
-    try {
-      setBusyOrderId(order.id)
-      setError(null)
+  try {
+    setBusyOrderId(order.id)
+    setError(null)
 
-      let payload: Partial<OrderRow> = {}
+    let payload: Partial<OrderRow> = {}
 
-      if (action === "accept") {
-        payload = {
-          status: "accepted",
-          accepted_at: nowIso,
-          preparation_started_at: nowIso,
-        }
+    if (action === "accept") {
+      payload = {
+        status: "accepted",
+        accepted_at: nowIso,
+        preparation_started_at: nowIso,
       }
+    }
 
-      if (action === "cancel") {
-        payload = {
-          status: "cancelled",
-          cancelled_at: nowIso,
-        }
+    if (action === "cancel") {
+      payload = {
+        status: "cancelled",
+        cancelled_at: nowIso,
       }
+    }
 
-      if (action === "route") {
-        if (!isDeliveryOrder(order)) {
-          payload = {
-            status: "delivered",
-            delivered_at: nowIso,
-          }
-        } else {
-          if (!order.delivery_person_id) {
-            setError("Selecione um motoboy antes de enviar o pedido para entrega.")
-            return
-          }
-
-          payload = {
-            status: "out_for_delivery",
-            out_for_delivery_at: nowIso,
-          }
-        }
-      }
-
-      if (action === "finish") {
+    if (action === "route") {
+      if (!isDeliveryOrder(order)) {
         payload = {
           status: "delivered",
           delivered_at: nowIso,
         }
+      } else {
+        if (!order.delivery_person_id) {
+          setError("Selecione um motoboy antes de enviar o pedido para entrega.")
+          return
+        }
+
+        payload = {
+          status: "out_for_delivery",
+          out_for_delivery_at: nowIso,
+        }
       }
-
-      setOrders((current) =>
-        current.map((item) =>
-          item.id === order.id
-            ? {
-                ...item,
-                ...payload,
-              }
-            : item
-        )
-      )
-
-      const { error } = await supabase
-        .from("orders")
-        .update(payload)
-        .eq("id", order.id)
-        .eq("restaurant_id", restaurant?.id)
-
-      if (error) throw error
-    } catch (err) {
-      console.error("Erro ao atualizar pedido:", err)
-      setOrders(previousOrders)
-      setError(getErrorMessage(err, "Erro ao atualizar pedido."))
-    } finally {
-      setBusyOrderId(null)
     }
-  }
 
+    if (action === "finish") {
+      payload = {
+        status: "delivered",
+        delivered_at: nowIso,
+      }
+    }
+
+    setOrders((current) =>
+      current.map((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              ...payload,
+            }
+          : item
+      )
+    )
+
+    const { error } = await supabase
+      .from("orders")
+      .update(payload)
+      .eq("id", order.id)
+      .eq("restaurant_id", restaurant?.id)
+
+    if (error) throw error
+
+    if (payload.status === "delivered") {
+      try {
+        await registerLoyaltyOrder(order.id)
+      } catch (loyaltyError) {
+        console.error(
+          "Pedido finalizado, mas fidelidade não registrada:",
+          loyaltyError
+        )
+
+        setError(
+          getErrorMessage(
+            loyaltyError,
+            "Pedido finalizado, mas não foi possível registrar a fidelidade."
+          )
+        )
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar pedido:", err)
+    setOrders(previousOrders)
+    setError(getErrorMessage(err, "Erro ao atualizar pedido."))
+  } finally {
+    setBusyOrderId(null)
+  }
+}
   useEffect(() => {
     const interval = window.setInterval(() => {
       setNowMs(Date.now())
