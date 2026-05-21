@@ -193,6 +193,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const { data: loyaltyStampResult, error: loyaltyStampError } =
+      await supabaseAdmin.rpc("process_loyalty_stamp_for_order", {
+        p_order_id: typedOrder.id,
+      })
+
+    if (loyaltyStampError) {
+      console.error("Erro ao processar selo de fidelidade:", loyaltyStampError)
+    }
+
     return NextResponse.json({
       success: true,
       received: true,
@@ -204,6 +213,11 @@ export async function POST(req: NextRequest) {
       paymentStatus,
       externalReference,
       order: updatedOrder,
+      loyaltyStamp: {
+        processed: !loyaltyStampError,
+        result: loyaltyStampResult || null,
+        error: loyaltyStampError?.message || null,
+      },
     })
   } catch (error) {
     return NextResponse.json(

@@ -5,12 +5,16 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   ArrowLeftRight,
+  BadgeDollarSign,
   BarChart3,
+  ChefHat,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Gift,
   Globe,
   LogOut,
+  Megaphone,
   Package,
   PlusCircle,
   Settings,
@@ -75,6 +79,16 @@ const navItems: NavItem[] = [
   { label: "Produtos", icon: <Package className="h-5 w-5" />, href: "/produtos" },
   { label: "Clientes", icon: <Users className="h-5 w-5" />, href: "/clientes" },
   { label: "Cupons", icon: <TicketPercent className="h-5 w-5" />, href: "/cupons" },
+  {
+    label: "Campanhas",
+    icon: <Megaphone className="h-5 w-5" />,
+    href: "/campanhas",
+    children: [
+      { label: "Card Fidelidade", icon: <Gift className="h-4 w-4" />, href: "/campanhas/fidelidade" },
+      { label: "Saldo Promocional", icon: <BadgeDollarSign className="h-4 w-4" />, href: "/campanhas/saldo-promocional" },
+      { label: "Meu Lanche", icon: <ChefHat className="h-4 w-4" />, href: "/campanhas/meu-lanche" },
+    ],
+  },
   { label: "Cardápio", icon: <Globe className="h-5 w-5" />, href: "/divulgar-cardapio" },
   { label: "Configurações", icon: <Settings className="h-5 w-5" />, href: "/configuracoes" },
 ]

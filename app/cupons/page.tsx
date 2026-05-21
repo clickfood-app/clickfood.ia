@@ -18,6 +18,11 @@ import {
 
 type CouponType = "percentage" | "fixed"
 type CouponStatus = "active" | "scheduled" | "expired"
+type CouponAudienceType =
+  | "all"
+  | "specific_customer"
+  | "returning_customer"
+  | "min_orders"
 
 interface Coupon {
   id: string
@@ -31,6 +36,9 @@ interface Coupon {
   used_count: number
   valid_until: string
   status: CouponStatus
+  audience_type: CouponAudienceType
+  customer_phone: string | null
+  min_customer_orders: number
   created_at: string
 }
 
@@ -42,6 +50,9 @@ interface CouponFormData {
   minimumOrder: string
   usageLimit: string
   validUntil: string
+  audienceType: CouponAudienceType
+  customerPhone: string
+  minCustomerOrders: string
 }
 
 const initialFormData: CouponFormData = {
@@ -52,6 +63,9 @@ const initialFormData: CouponFormData = {
   minimumOrder: "",
   usageLimit: "",
   validUntil: "",
+  audienceType: "all",
+  customerPhone: "",
+  minCustomerOrders: "",
 }
 
 function formatCurrency(value: number) {
@@ -65,6 +79,10 @@ function formatDate(date: string) {
   return new Intl.DateTimeFormat("pt-BR").format(new Date(date))
 }
 
+function normalizePhone(phone: string) {
+  return phone.replace(/\D/g, "")
+}
+
 function getStatusLabel(status: CouponStatus) {
   if (status === "active") return "Ativo"
   if (status === "scheduled") return "Agendado"
@@ -75,6 +93,24 @@ function getStatusClass(status: CouponStatus) {
   if (status === "active") return "bg-emerald-100 text-emerald-700"
   if (status === "scheduled") return "bg-amber-100 text-amber-700"
   return "bg-slate-200 text-slate-600"
+}
+
+function getAudienceLabel(coupon: Coupon) {
+  if (coupon.audience_type === "specific_customer") {
+    return coupon.customer_phone
+      ? `Cliente específico: ${coupon.customer_phone}`
+      : "Cliente específico"
+  }
+
+  if (coupon.audience_type === "returning_customer") {
+    return "Apenas clientes que já compraram"
+  }
+
+  if (coupon.audience_type === "min_orders") {
+    return `Clientes com ${coupon.min_customer_orders} compra(s) ou mais`
+  }
+
+  return "Todos os clientes"
 }
 
 function CreateCouponModal({
@@ -98,7 +134,7 @@ function CreateCouponModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Novo cupom</h2>
@@ -116,106 +152,168 @@ function CreateCouponModal({
           </button>
         </div>
 
-        <div className="grid gap-4 p-5 md:grid-cols-2">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Código do cupom
-            </label>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e) => onChange("code", e.target.value.toUpperCase())}
-              placeholder="Ex: BEMVINDO10"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Nome do cupom
-            </label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => onChange("title", e.target.value)}
-              placeholder="Ex: Cupom de boas-vindas"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Tipo de desconto
-            </label>
-            <select
-              value={formData.type}
-              onChange={(e) => onChange("type", e.target.value as CouponType)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-            >
-              <option value="percentage">Porcentagem</option>
-              <option value="fixed">Valor fixo</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Valor do desconto
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={formData.value}
-              onChange={(e) => onChange("value", e.target.value)}
-              placeholder={formData.type === "percentage" ? "Ex: 10" : "Ex: 5"}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Pedido mínimo
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={formData.minimumOrder}
-              onChange={(e) => onChange("minimumOrder", e.target.value)}
-              placeholder="Ex: 30"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Limite de uso
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={formData.usageLimit}
-              onChange={(e) => onChange("usageLimit", e.target.value)}
-              placeholder="Ex: 100"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Data de validade
-            </label>
-            <input
-              type="date"
-              value={formData.validUntil}
-              onChange={(e) => onChange("validUntil", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-            />
-          </div>
-
-          {error ? (
-            <div className="md:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
+        <div className="max-h-[calc(92vh-145px)] overflow-y-auto">
+          <div className="grid gap-4 p-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Código do cupom
+              </label>
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => onChange("code", e.target.value.toUpperCase())}
+                placeholder="Ex: BEMVINDO10"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              />
             </div>
-          ) : null}
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Nome do cupom
+              </label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => onChange("title", e.target.value)}
+                placeholder="Ex: Cupom de boas-vindas"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Tipo de desconto
+              </label>
+              <select
+                value={formData.type}
+                onChange={(e) => onChange("type", e.target.value as CouponType)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              >
+                <option value="percentage">Porcentagem</option>
+                <option value="fixed">Valor fixo</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Valor do desconto
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.value}
+                onChange={(e) => onChange("value", e.target.value)}
+                placeholder={formData.type === "percentage" ? "Ex: 10" : "Ex: 5"}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Pedido mínimo
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.minimumOrder}
+                onChange={(e) => onChange("minimumOrder", e.target.value)}
+                placeholder="Ex: 30"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Limite de uso
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={formData.usageLimit}
+                onChange={(e) => onChange("usageLimit", e.target.value)}
+                placeholder="Ex: 100"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Data de validade
+              </label>
+              <input
+                type="date"
+                value={formData.validUntil}
+                onChange={(e) => onChange("validUntil", e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Quem pode usar esse cupom?
+              </label>
+
+              <select
+                value={formData.audienceType}
+                onChange={(e) =>
+                  onChange("audienceType", e.target.value as CouponAudienceType)
+                }
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              >
+                <option value="all">Todos os clientes</option>
+                <option value="specific_customer">
+                  Cliente específico pelo telefone
+                </option>
+                <option value="returning_customer">
+                  Apenas clientes que já compraram
+                </option>
+                <option value="min_orders">
+                  Clientes com X compras ou mais
+                </option>
+              </select>
+
+              <p className="mt-2 text-xs text-slate-500">
+                Essa regra será usada no checkout para bloquear quem não tiver direito ao cupom.
+              </p>
+            </div>
+
+            {formData.audienceType === "specific_customer" ? (
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Telefone do cliente
+                </label>
+                <input
+                  type="tel"
+                  value={formData.customerPhone}
+                  onChange={(e) => onChange("customerPhone", e.target.value)}
+                  placeholder="Ex: 31999999999"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                />
+              </div>
+            ) : null}
+
+            {formData.audienceType === "min_orders" ? (
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Mínimo de compras do cliente
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.minCustomerOrders}
+                  onChange={(e) => onChange("minCustomerOrders", e.target.value)}
+                  placeholder="Ex: 3"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                />
+              </div>
+            ) : null}
+
+            {error ? (
+              <div className="md:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                {error}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
@@ -246,7 +344,7 @@ function CreateCouponModal({
 }
 
 export default function CuponsPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [search, setSearch] = useState("")
   const [coupons, setCoupons] = useState<Coupon[]>([])
@@ -268,18 +366,23 @@ export default function CuponsPage() {
     return coupons.filter(
       (coupon) =>
         coupon.code.toLowerCase().includes(query) ||
-        coupon.title.toLowerCase().includes(query)
+        coupon.title.toLowerCase().includes(query) ||
+        getAudienceLabel(coupon).toLowerCase().includes(query)
     )
   }, [coupons, search])
 
   const stats = useMemo(() => {
     const active = coupons.filter((coupon) => coupon.status === "active").length
     const totalUses = coupons.reduce((sum, coupon) => sum + coupon.used_count, 0)
+    const exclusive = coupons.filter(
+      (coupon) => coupon.audience_type !== "all"
+    ).length
 
     return {
       total: coupons.length,
       active,
       totalUses,
+      exclusive,
     }
   }, [coupons])
 
@@ -338,7 +441,13 @@ export default function CuponsPage() {
     const previousCoupons = coupons
     setCoupons((current) => current.filter((coupon) => coupon.id !== couponId))
 
-    const { error } = await supabase.from("coupons").delete().eq("id", couponId)
+    let query = supabase.from("coupons").delete().eq("id", couponId)
+
+    if (restaurantId) {
+      query = query.eq("restaurant_id", restaurantId)
+    }
+
+    const { error } = await query
 
     if (error) {
       setCoupons(previousCoupons)
@@ -371,13 +480,23 @@ export default function CuponsPage() {
     const minimumOrder = Number(formData.minimumOrder)
     const usageLimit = Number(formData.usageLimit)
     const validUntil = formData.validUntil
+    const audienceType = formData.audienceType
+    const customerPhone = normalizePhone(formData.customerPhone)
+    const minCustomerOrders = Number(formData.minCustomerOrders || 0)
 
     if (!restaurantId) {
       setFormError("Restaurante não encontrado.")
       return
     }
 
-    if (!code || !title || !formData.value || !formData.minimumOrder || !formData.usageLimit || !validUntil) {
+    if (
+      !code ||
+      !title ||
+      !formData.value ||
+      !formData.minimumOrder ||
+      !formData.usageLimit ||
+      !validUntil
+    ) {
       setFormError("Preencha todos os campos.")
       return
     }
@@ -394,6 +513,16 @@ export default function CuponsPage() {
 
     if (value <= 0 || minimumOrder < 0 || usageLimit <= 0) {
       setFormError("Preencha valores válidos.")
+      return
+    }
+
+    if (audienceType === "specific_customer" && customerPhone.length < 10) {
+      setFormError("Informe um telefone válido para o cliente específico.")
+      return
+    }
+
+    if (audienceType === "min_orders" && minCustomerOrders <= 0) {
+      setFormError("Informe a quantidade mínima de compras.")
       return
     }
 
@@ -418,6 +547,11 @@ export default function CuponsPage() {
           used_count: 0,
           valid_until: validUntil,
           status,
+          audience_type: audienceType,
+          customer_phone:
+            audienceType === "specific_customer" ? customerPhone : null,
+          min_customer_orders:
+            audienceType === "min_orders" ? minCustomerOrders : 0,
         })
         .select("*")
         .single()
@@ -467,29 +601,53 @@ export default function CuponsPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center gap-2">
               <Ticket className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">Total de cupons</span>
+              <span className="text-sm font-medium text-slate-600">
+                Total de cupons
+              </span>
             </div>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">{stats.total}</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">
+              {stats.total}
+            </p>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center gap-2">
               <BadgePercent className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">Cupons ativos</span>
+              <span className="text-sm font-medium text-slate-600">
+                Cupons ativos
+              </span>
             </div>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">{stats.active}</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">
+              {stats.active}
+            </p>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">Usos totais</span>
+              <span className="text-sm font-medium text-slate-600">
+                Cupons exclusivos
+              </span>
             </div>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">{stats.totalUses}</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">
+              {stats.exclusive}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-slate-500" />
+              <span className="text-sm font-medium text-slate-600">
+                Usos totais
+              </span>
+            </div>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">
+              {stats.totalUses}
+            </p>
           </div>
         </div>
 
@@ -499,7 +657,7 @@ export default function CuponsPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar cupom por código ou nome..."
+                placeholder="Buscar cupom por código, nome ou público..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
@@ -522,7 +680,7 @@ export default function CuponsPage() {
                   Nenhum cupom encontrado
                 </h2>
                 <p className="mt-1 max-w-md text-sm text-slate-500">
-                  Crie seu primeiro cupom para aumentar conversão e incentivar novos pedidos.
+                  Crie seu primeiro cupom para aumentar conversão, fidelizar clientes e incentivar novos pedidos.
                 </p>
               </div>
             ) : (
@@ -538,6 +696,7 @@ export default function CuponsPage() {
                           <span className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold tracking-wide text-white">
                             {coupon.code}
                           </span>
+
                           <span
                             className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
                               coupon.status
@@ -545,6 +704,12 @@ export default function CuponsPage() {
                           >
                             {getStatusLabel(coupon.status)}
                           </span>
+
+                          {coupon.audience_type !== "all" ? (
+                            <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">
+                              Exclusivo
+                            </span>
+                          ) : null}
                         </div>
 
                         <div>
@@ -556,11 +721,16 @@ export default function CuponsPage() {
                               ? `${coupon.value}% de desconto`
                               : `${formatCurrency(coupon.value)} de desconto`}
                           </p>
+                          <p className="mt-1 text-sm font-medium text-slate-700">
+                            {getAudienceLabel(coupon)}
+                          </p>
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-3">
                           <div className="rounded-lg bg-slate-50 p-3">
-                            <p className="text-xs text-slate-500">Pedido mínimo</p>
+                            <p className="text-xs text-slate-500">
+                              Pedido mínimo
+                            </p>
                             <p className="mt-1 text-sm font-semibold text-slate-900">
                               {formatCurrency(coupon.minimum_order)}
                             </p>

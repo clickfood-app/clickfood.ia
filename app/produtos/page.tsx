@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   DollarSign,
   Edit3,
   Eye,
@@ -35,6 +37,13 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
 type AvailabilityFilter = "all" | "active" | "inactive"
+type PromotionType = "none" | "fixed" | "percentage"
+
+type CatalogProduct = Product & {
+  promotionActive: boolean
+  promotionType: PromotionType
+  promotionValue: number
+}
 
 type ProductSheetState = {
   open: boolean
@@ -66,7 +75,13 @@ type DbProduct = {
   image_url: string | null
   is_available: boolean | null
   sort_order: number | null
+  promotion_active: boolean | null
+  promotion_type: string | null
+  promotion_value: number | string | null
 }
+
+const PRODUCT_SELECT =
+  "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id, promotion_active, promotion_type, promotion_value"
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -75,7 +90,46 @@ function formatCurrency(value: number) {
   }).format(Number(value || 0))
 }
 
-function normalizeProduct(product: DbProduct, salesCount = 0): Product {
+function getNormalizedPromotionType(value: string | null | undefined): PromotionType {
+  if (value === "fixed" || value === "percentage") return value
+
+  return "none"
+}
+
+function getPromotionDiscount(product: CatalogProduct) {
+  if (!product.promotionActive || product.promotionType === "none") return 0
+
+  if (product.promotionType === "percentage") {
+    return Math.min(product.price, product.price * (product.promotionValue / 100))
+  }
+
+  return Math.min(product.price, product.promotionValue)
+}
+
+function getPromotionalPrice(product: CatalogProduct) {
+  return Math.max(product.price - getPromotionDiscount(product), 0)
+}
+
+function getPromotionLabel(product: CatalogProduct) {
+  if (!product.promotionActive || product.promotionType === "none") {
+    return "Sem promoção"
+  }
+
+  if (product.promotionType === "percentage") {
+    return `${product.promotionValue}% OFF`
+  }
+
+  return `${formatCurrency(product.promotionValue)} OFF`
+}
+
+function normalizeProduct(product: DbProduct, salesCount = 0): CatalogProduct {
+  const promotionType = getNormalizedPromotionType(product.promotion_type)
+  const promotionValue = Number(product.promotion_value ?? 0)
+  const promotionActive =
+    Boolean(product.promotion_active) &&
+    promotionType !== "none" &&
+    promotionValue > 0
+
   return {
     id: product.id,
     name: product.name,
@@ -88,6 +142,9 @@ function normalizeProduct(product: DbProduct, salesCount = 0): Product {
     order: product.sort_order ?? 0,
     image: product.image_url ?? null,
     imageSize: undefined,
+    promotionActive,
+    promotionType: promotionActive ? promotionType : "none",
+    promotionValue: promotionActive ? promotionValue : 0,
   }
 }
 
@@ -112,7 +169,7 @@ export default function ProdutosPage() {
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [loadingData, setLoadingData] = useState(true)
 
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<CatalogProduct[]>([])
   const [categories, setCategories] = useState<Category[]>([])
 
   const [search, setSearch] = useState("")
@@ -137,6 +194,7 @@ export default function ProdutosPage() {
   const [savingCategory, setSavingCategory] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [savingProductId, setSavingProductId] = useState<string | null>(null)
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null)
 
   const sortedCategories = useMemo(() => sortByOrder(categories), [categories])
 
@@ -207,20 +265,20 @@ export default function ProdutosPage() {
     })
   }, [availabilityFilter, categoryFilter, products, search])
 
-  const productsByCategory = useMemo(() => {
-    const grouped = new Map<string, Product[]>()
+const productsByCategory = useMemo(() => {
+  const grouped = new Map<string, CatalogProduct[]>()
 
-    for (const category of sortedCategories) {
-      grouped.set(
-        category.id,
-        filteredProducts
-          .filter((product) => product.category === category.id)
-          .sort((a, b) => a.order - b.order)
-      )
-    }
+  for (const category of sortedCategories) {
+    grouped.set(
+      category.id,
+      filteredProducts
+        .filter((product) => product.category === category.id)
+        .sort((a, b) => a.order - b.order)
+    )
+  }
 
-    return grouped
-  }, [filteredProducts, sortedCategories])
+  return grouped
+}, [filteredProducts, sortedCategories])
 
   const getAccessToken = useCallback(async () => {
     const {
@@ -286,7 +344,7 @@ export default function ProdutosPage() {
         (category: DbCategory) => normalizeCategory(category)
       )
 
-      const dbProducts: Product[] = (result.products ?? []).map(
+      const dbProducts: CatalogProduct[] = (result.products ?? []).map(
         (product: DbProduct) => normalizeProduct(product)
       )
 
@@ -357,6 +415,14 @@ export default function ProdutosPage() {
     async (values: ProductEditorValues) => {
       try {
         const resolvedRestaurantId = await resolveRestaurantId()
+        const promotionActive =
+          values.promotionActive &&
+          values.promotionType !== "none" &&
+          values.promotionValue > 0
+        const promotionType: PromotionType = promotionActive
+          ? values.promotionType
+          : "none"
+        const promotionValue = promotionActive ? values.promotionValue : 0
 
         if (productSheet.mode === "edit" && productSheet.productId) {
           const editingProduct = products.find(
@@ -387,18 +453,19 @@ export default function ProdutosPage() {
               is_available: values.active,
               image_url: values.image || null,
               sort_order: targetOrder,
+              promotion_active: promotionActive,
+              promotion_type: promotionType,
+              promotion_value: promotionValue,
             })
             .eq("id", productSheet.productId)
             .eq("restaurant_id", resolvedRestaurantId)
-            .select(
-              "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id"
-            )
+            .select(PRODUCT_SELECT)
             .single()
 
           if (error) throw error
           if (!data) throw new Error("Produto não encontrado para atualização.")
 
-          const updatedProduct: Product = {
+          const updatedProduct: CatalogProduct = {
             ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0),
             imageSize: values.imageSize,
           }
@@ -436,16 +503,17 @@ export default function ProdutosPage() {
               image_url: values.image || null,
               is_available: values.active,
               sort_order: targetOrder,
+              promotion_active: promotionActive,
+              promotion_type: promotionType,
+              promotion_value: promotionValue,
             })
-            .select(
-              "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id"
-            )
+            .select(PRODUCT_SELECT)
             .single()
 
           if (error) throw error
           if (!data) throw new Error("Erro ao criar produto.")
 
-          const newProduct: Product = {
+          const newProduct: CatalogProduct = {
             ...normalizeProduct(data as DbProduct, 0),
             imageSize: values.imageSize,
           }
@@ -504,9 +572,7 @@ export default function ProdutosPage() {
           })
           .eq("id", productId)
           .eq("restaurant_id", resolvedRestaurantId)
-          .select(
-            "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id"
-          )
+          .select(PRODUCT_SELECT)
           .single()
 
         if (error) throw error
@@ -798,7 +864,7 @@ export default function ProdutosPage() {
                 Produtos e Cardápio
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Edite produtos, categorias, preço, custo, lucro e status do cardápio.
+                Edite produtos, categorias, preço, promoção e status do cardápio.
               </p>
             </div>
 
@@ -1086,7 +1152,7 @@ export default function ProdutosPage() {
                     </div>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Produtos, preço, custo, lucro e margem.
+                      Produtos do cardápio. Abra os detalhes para ver financeiro e promoção.
                     </p>
                   </div>
 
@@ -1112,151 +1178,282 @@ export default function ProdutosPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100">
+                  <div>
                     {categoryProducts.map((product) => {
-                      const profit = getProfit(product.price, product.cost)
-                      const margin = getMargin(product.price, product.cost)
+                      const baseProfit = getProfit(product.price, product.cost)
+                      const baseMargin = getMargin(product.price, product.cost)
+                      const promotionDiscount = getPromotionDiscount(product)
+                      const finalPrice = getPromotionalPrice(product)
+                      const salePrice = product.promotionActive ? finalPrice : product.price
+                      const finalProfit = getProfit(salePrice, product.cost)
+                      const finalMargin = getMargin(salePrice, product.cost)
                       const isSaving = savingProductId === product.id
                       const isDeleting = deletingId === product.id
+                      const isExpanded = expandedProductId === product.id
 
                       return (
                         <div
                           key={product.id}
-                          className="grid gap-4 px-4 py-4 transition hover:bg-slate-50/70 xl:grid-cols-[minmax(0,1.5fr)_120px_120px_120px_100px_150px_150px]"
+                          className="border-b border-slate-100 last:border-b-0"
                         >
-                          <div className="flex min-w-0 gap-3">
-                            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-                              {product.image ? (
-                                <img
-                                  src={product.image}
-                                  alt={product.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <ImageOff className="h-5 w-5 text-slate-400" />
-                              )}
-                            </div>
-
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-sm font-black text-slate-950">
-                                  {product.name}
-                                </p>
-
-                                {!product.active && (
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
-                                    Inativo
-                                  </span>
-                                )}
-
-                                {!hasRegisteredCost(product) && (
-                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
-                                    Sem custo
-                                  </span>
+                          <div className="grid gap-4 px-4 py-4 transition hover:bg-slate-50/70 xl:grid-cols-[minmax(0,1.6fr)_150px_140px_260px] xl:items-center">
+                            <div className="flex min-w-0 gap-3">
+                              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                                {product.image ? (
+                                  <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <ImageOff className="h-5 w-5 text-slate-400" />
                                 )}
                               </div>
 
-                              <p className="mt-1 line-clamp-2 text-sm text-slate-500">
-                                {product.description || "Sem descrição cadastrada."}
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-black text-slate-950">
+                                    {product.name}
+                                  </p>
+
+                                  {product.promotionActive && (
+                                    <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-black text-orange-700">
+                                      Promoção
+                                    </span>
+                                  )}
+
+                                  {!product.active && (
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
+                                      Inativo
+                                    </span>
+                                  )}
+
+                                  {!hasRegisteredCost(product) && (
+                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+                                      Sem custo
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="mt-1 line-clamp-2 text-sm text-slate-500">
+                                  {product.description || "Sem descrição cadastrada."}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Preço no cardápio
                               </p>
+
+                              {product.promotionActive ? (
+                                <div className="mt-1">
+                                  <p className="text-sm font-black text-emerald-600">
+                                    {formatCurrency(finalPrice)}
+                                  </p>
+                                  <p className="text-xs font-semibold text-slate-400 line-through">
+                                    {formatCurrency(product.price)}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="mt-1 text-sm font-black text-slate-950">
+                                  {formatCurrency(product.price)}
+                                </p>
+                              )}
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Status
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => void toggleProductActive(product.id)}
+                                disabled={isSaving}
+                                className={cn(
+                                  "mt-1 inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-bold transition disabled:opacity-50",
+                                  product.active
+                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                )}
+                              >
+                                {isSaving ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : product.active ? (
+                                  <Eye className="h-3.5 w-3.5" />
+                                ) : (
+                                  <EyeOff className="h-3.5 w-3.5" />
+                                )}
+                                {product.active ? "Ativo" : "Inativo"}
+                              </button>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedProductId((current) =>
+                                    current === product.id ? null : product.id
+                                  )
+                                }
+                                className={cn(
+                                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition",
+                                  isExpanded
+                                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                                )}
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                                Detalhes
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => openEditProductSheet(product.id)}
+                                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                                Editar
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => void deleteProduct(product.id)}
+                                disabled={isDeleting}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                              >
+                                {isDeleting ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
                             </div>
                           </div>
 
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                              Preço
-                            </p>
-                            <p className="mt-1 text-sm font-black text-slate-950">
-                              {formatCurrency(product.price)}
-                            </p>
-                          </div>
+                          {isExpanded && (
+                            <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4">
+                              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm font-black text-slate-950">
+                                    Resumo financeiro do produto
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    Aqui ficam custo, lucro, margem e promoção sem poluir a lista.
+                                  </p>
+                                </div>
 
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                              Custo
-                            </p>
-                            <p className="mt-1 text-sm font-black text-slate-950">
-                              {formatCurrency(product.cost)}
-                            </p>
-                          </div>
+                                <span
+                                  className={cn(
+                                    "inline-flex w-fit rounded-full px-3 py-1 text-xs font-black",
+                                    product.promotionActive
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-slate-100 text-slate-500"
+                                  )}
+                                >
+                                  {getPromotionLabel(product)}
+                                </span>
+                              </div>
 
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                              Lucro
-                            </p>
-                            <p
-                              className={cn(
-                                "mt-1 text-sm font-black",
-                                profit >= 0 ? "text-emerald-600" : "text-red-600"
-                              )}
-                            >
-                              {formatCurrency(profit)}
-                            </p>
-                          </div>
+                              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Preço base
+                                  </p>
+                                  <p className="mt-1 text-lg font-black text-slate-950">
+                                    {formatCurrency(product.price)}
+                                  </p>
+                                </div>
 
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                              Margem
-                            </p>
-                            <p
-                              className={cn(
-                                "mt-1 text-sm font-black",
-                                margin >= 20 ? "text-emerald-600" : "text-amber-600"
-                              )}
-                            >
-                              {margin.toFixed(1)}%
-                            </p>
-                          </div>
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Custo
+                                  </p>
+                                  <p className="mt-1 text-lg font-black text-slate-950">
+                                    {formatCurrency(product.cost)}
+                                  </p>
+                                </div>
 
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                              Status
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => void toggleProductActive(product.id)}
-                              disabled={isSaving}
-                              className={cn(
-                                "mt-1 inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-bold transition disabled:opacity-50",
-                                product.active
-                                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                              )}
-                            >
-                              {isSaving ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : product.active ? (
-                                <Eye className="h-3.5 w-3.5" />
-                              ) : (
-                                <EyeOff className="h-3.5 w-3.5" />
-                              )}
-                              {product.active ? "Ativo" : "Inativo"}
-                            </button>
-                          </div>
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Desconto
+                                  </p>
+                                  <p className="mt-1 text-lg font-black text-orange-600">
+                                    {formatCurrency(promotionDiscount)}
+                                  </p>
+                                </div>
 
-                          <div className="flex items-center gap-2 xl:justify-end">
-                            <button
-                              type="button"
-                              onClick={() => openEditProductSheet(product.id)}
-                              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                              Editar
-                            </button>
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Preço final
+                                  </p>
+                                  <p className="mt-1 text-lg font-black text-emerald-600">
+                                    {formatCurrency(salePrice)}
+                                  </p>
+                                </div>
 
-                            <button
-                              type="button"
-                              onClick={() => void deleteProduct(product.id)}
-                              disabled={isDeleting}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
-                            >
-                              {isDeleting ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Lucro base
+                                  </p>
+                                  <p
+                                    className={cn(
+                                      "mt-1 text-lg font-black",
+                                      baseProfit >= 0 ? "text-emerald-600" : "text-red-600"
+                                    )}
+                                  >
+                                    {formatCurrency(baseProfit)}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Lucro final
+                                  </p>
+                                  <p
+                                    className={cn(
+                                      "mt-1 text-lg font-black",
+                                      finalProfit >= 0 ? "text-emerald-600" : "text-red-600"
+                                    )}
+                                  >
+                                    {formatCurrency(finalProfit)}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Margem base
+                                  </p>
+                                  <p
+                                    className={cn(
+                                      "mt-1 text-lg font-black",
+                                      baseMargin >= 20 ? "text-emerald-600" : "text-amber-600"
+                                    )}
+                                  >
+                                    {baseMargin.toFixed(1)}%
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Margem final
+                                  </p>
+                                  <p
+                                    className={cn(
+                                      "mt-1 text-lg font-black",
+                                      finalMargin >= 20 ? "text-emerald-600" : "text-amber-600"
+                                    )}
+                                  >
+                                    {finalMargin.toFixed(1)}%
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}

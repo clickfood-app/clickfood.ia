@@ -2792,9 +2792,14 @@ export default function CardapioPublicoPage() {
 
   useEffect(() => {
     if (!restaurant?.id || (!activeOrderId && !activeOrderPublicNumber)) return
+    if (activeOrder?.customer_received_at) return
+
+    let cancelled = false
 
     const refreshActiveOrder = async () => {
       try {
+        if (typeof navigator !== "undefined" && !navigator.onLine) return
+
         const params = new URLSearchParams({
           restaurantId: restaurant.id,
           _: String(Date.now()),
@@ -2814,9 +2819,11 @@ export default function CardapioPublicoPage() {
           },
         })
 
+        if (!response.ok) return
+
         const data = (await response.json()) as OrderPaymentStatusResponse
 
-        if (!response.ok || !data.order) return
+        if (cancelled || !data.order) return
 
         setActiveOrder((currentOrder) => {
           if (!currentOrder) return currentOrder
@@ -2833,7 +2840,7 @@ export default function CardapioPublicoPage() {
             items: currentOrder.items ?? null,
           }
 
-          if (restaurant?.id && !tableNumber) {
+          if (restaurant?.id && !tableNumber && !nextOrder.customer_received_at) {
             window.localStorage.setItem(
               `clickfood_active_order_${restaurant.id}`,
               JSON.stringify(nextOrder)
@@ -2843,6 +2850,10 @@ export default function CardapioPublicoPage() {
           return nextOrder
         })
       } catch (error) {
+        if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
+          return
+        }
+
         console.error("Erro ao atualizar acompanhamento do pedido:", error)
       }
     }
@@ -2853,8 +2864,17 @@ export default function CardapioPublicoPage() {
       void refreshActiveOrder()
     }, 2500)
 
-    return () => window.clearInterval(intervalId)
-  }, [restaurant?.id, activeOrderId, activeOrderPublicNumber, tableNumber])
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [
+    restaurant?.id,
+    activeOrderId,
+    activeOrderPublicNumber,
+    tableNumber,
+    activeOrder?.customer_received_at,
+  ])
 
   useEffect(() => {
     if (categories.length > 0 && !activeCategory) {

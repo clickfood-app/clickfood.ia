@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       supabaseAdmin
         .from("products")
         .select(
-          "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id"
+          "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id, promotion_active, promotion_type, promotion_value"
         )
         .eq("restaurant_id", restaurant.id)
         .order("sort_order", { ascending: true }),

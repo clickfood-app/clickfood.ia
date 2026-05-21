@@ -5,6 +5,7 @@ import {
   BadgeDollarSign,
   ImageIcon,
   Package2,
+  Percent,
   Save,
   Settings2,
 } from "lucide-react"
@@ -26,6 +27,14 @@ import {
   getProfit,
 } from "@/lib/products-data"
 
+type PromotionType = "none" | "fixed" | "percentage"
+
+type ProductWithPromotion = Product & {
+  promotionActive?: boolean
+  promotionType?: PromotionType
+  promotionValue?: number
+}
+
 export interface ProductEditorValues {
   name: string
   description: string
@@ -35,6 +44,9 @@ export interface ProductEditorValues {
   active: boolean
   image: string | null
   imageSize?: number
+  promotionActive: boolean
+  promotionType: PromotionType
+  promotionValue: number
 }
 
 interface ProductEditorSheetProps {
@@ -42,7 +54,7 @@ interface ProductEditorSheetProps {
   mode: "create" | "edit"
   categories: Category[]
   defaultCategoryId?: string
-  product?: Product | null
+  product?: ProductWithPromotion | null
   onOpenChange: (open: boolean) => void
   onSave: (values: ProductEditorValues) => void
 }
@@ -64,6 +76,22 @@ function formatCurrency(value: number) {
   }).format(Number(value || 0))
 }
 
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+function getDiscountValue(price: number, type: PromotionType, value: number) {
+  if (type === "percentage") {
+    return Math.min(price, price * (value / 100))
+  }
+
+  if (type === "fixed") {
+    return Math.min(price, value)
+  }
+
+  return 0
+}
+
 export default function ProductEditorSheet({
   open,
   mode,
@@ -80,6 +108,9 @@ export default function ProductEditorSheet({
   const [category, setCategory] = useState("")
   const [active, setActive] = useState(true)
   const [image, setImage] = useState<string | null>(null)
+  const [promotionActive, setPromotionActive] = useState(false)
+  const [promotionType, setPromotionType] = useState<PromotionType>("none")
+  const [promotionValue, setPromotionValue] = useState("")
 
   useEffect(() => {
     if (!open) return
@@ -92,6 +123,9 @@ export default function ProductEditorSheet({
       setCategory(product.category)
       setActive(product.active)
       setImage(product.image)
+      setPromotionActive(Boolean(product.promotionActive))
+      setPromotionType(product.promotionType ?? "none")
+      setPromotionValue(formatMoneyInput(product.promotionValue ?? 0))
       return
     }
 
@@ -102,23 +136,55 @@ export default function ProductEditorSheet({
     setCategory(defaultCategoryId ?? categories[0]?.id ?? "")
     setActive(true)
     setImage(null)
+    setPromotionActive(false)
+    setPromotionType("none")
+    setPromotionValue("")
   }, [categories, defaultCategoryId, mode, open, product])
 
   const numericPrice = parseMoneyInput(price)
   const numericCost = parseMoneyInput(cost)
-  const previewProfit = getProfit(numericPrice, numericCost)
-  const previewMargin = getMargin(numericPrice, numericCost)
+  const numericPromotionValue = parseMoneyInput(promotionValue)
+  const normalizedPromotionActive =
+    promotionActive && promotionType !== "none" && numericPromotionValue > 0
+
+  const promotionDiscount = normalizedPromotionActive
+    ? getDiscountValue(numericPrice, promotionType, numericPromotionValue)
+    : 0
+
+  const finalPrice = Math.max(numericPrice - promotionDiscount, 0)
+  const previewProfit = getProfit(finalPrice, numericCost)
+  const previewMargin = getMargin(finalPrice, numericCost)
+  const baseProfit = getProfit(numericPrice, numericCost)
+  const baseMargin = getMargin(numericPrice, numericCost)
 
   const canSave = useMemo(() => {
+    const validPromotion =
+      !promotionActive ||
+      (promotionType !== "none" &&
+        Number.isFinite(numericPromotionValue) &&
+        numericPromotionValue > 0 &&
+        (promotionType !== "percentage" || numericPromotionValue <= 100) &&
+        finalPrice > 0)
+
     return (
       name.trim().length > 0 &&
       category.trim().length > 0 &&
       Number.isFinite(numericPrice) &&
       numericPrice > 0 &&
       Number.isFinite(numericCost) &&
-      numericCost >= 0
+      numericCost >= 0 &&
+      validPromotion
     )
-  }, [category, name, numericCost, numericPrice])
+  }, [
+    category,
+    finalPrice,
+    name,
+    numericCost,
+    numericPrice,
+    numericPromotionValue,
+    promotionActive,
+    promotionType,
+  ])
 
   const handleSave = () => {
     if (!canSave) return
@@ -132,6 +198,9 @@ export default function ProductEditorSheet({
       active,
       image,
       imageSize: product?.image === image ? product.imageSize : undefined,
+      promotionActive: normalizedPromotionActive,
+      promotionType: normalizedPromotionActive ? promotionType : "none",
+      promotionValue: normalizedPromotionActive ? roundMoney(numericPromotionValue) : 0,
     })
   }
 
@@ -158,7 +227,7 @@ export default function ProductEditorSheet({
                 </SheetTitle>
 
                 <SheetDescription className="text-sm text-slate-500">
-                  Ajuste nome, preço, custo, margem, categoria, status e imagem.
+                  Ajuste nome, preço, custo, promoção, categoria, status e imagem.
                 </SheetDescription>
               </div>
             </div>
@@ -320,6 +389,131 @@ export default function ProductEditorSheet({
                 </section>
 
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-950">
+                        Promoção fixa
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Desconto direto no produto, em valor fixo ou porcentagem.
+                      </p>
+                    </div>
+
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                      <Percent className="h-5 w-5" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextActive = !promotionActive
+                      setPromotionActive(nextActive)
+
+                      if (nextActive && promotionType === "none") {
+                        setPromotionType("fixed")
+                      }
+
+                      if (!nextActive) {
+                        setPromotionType("none")
+                        setPromotionValue("")
+                      }
+                    }}
+                    className={cn(
+                      "mb-4 flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition",
+                      promotionActive
+                        ? "border-orange-300 bg-orange-50 text-orange-700"
+                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                    )}
+                  >
+                    <div>
+                      <p className="text-sm font-black">
+                        {promotionActive ? "Promoção ativa" : "Sem promoção"}
+                      </p>
+                      <p className="mt-1 text-xs">
+                        {promotionActive
+                          ? "O preço promocional será usado no cardápio."
+                          : "Ative para aplicar desconto nesse produto."}
+                      </p>
+                    </div>
+
+                    <span
+                      className={cn(
+                        "h-6 w-11 rounded-full p-0.5 transition",
+                        promotionActive ? "bg-orange-500" : "bg-slate-300"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "block h-5 w-5 rounded-full bg-white shadow transition",
+                          promotionActive && "translate-x-5"
+                        )}
+                      />
+                    </span>
+                  </button>
+
+                  {promotionActive && (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                          Tipo
+                        </label>
+
+                        <select
+                          value={promotionType}
+                          onChange={(event) =>
+                            setPromotionType(event.target.value as PromotionType)
+                          }
+                          className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                        >
+                          <option value="fixed">Valor fixo</option>
+                          <option value="percentage">Porcentagem</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                          Valor
+                        </label>
+
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                            {promotionType === "percentage" ? "%" : "R$"}
+                          </span>
+
+                          <input
+                            type="text"
+                            value={promotionValue}
+                            onChange={(event) =>
+                              setPromotionValue(
+                                event.target.value.replace(/[^0-9,.]/g, "")
+                              )
+                            }
+                            placeholder={
+                              promotionType === "percentage" ? "10" : "5,00"
+                            }
+                            className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                          />
+                        </div>
+
+                        {promotionType === "percentage" &&
+                          numericPromotionValue > 100 && (
+                            <p className="mt-1 text-xs font-semibold text-red-600">
+                              A porcentagem não pode passar de 100%.
+                            </p>
+                          )}
+
+                        {finalPrice <= 0 && numericPrice > 0 && (
+                          <p className="mt-1 text-xs font-semibold text-red-600">
+                            O desconto não pode zerar o preço do produto.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-black text-slate-950">
@@ -338,12 +532,34 @@ export default function ProductEditorSheet({
                   <div className="space-y-3">
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Preço
+                        Preço base
                       </p>
                       <p className="mt-1 text-xl font-black text-slate-950">
                         {formatCurrency(numericPrice)}
                       </p>
                     </div>
+
+                    {normalizedPromotionActive && (
+                      <>
+                        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-orange-700">
+                            Desconto
+                          </p>
+                          <p className="mt-1 text-xl font-black text-orange-700">
+                            {formatCurrency(promotionDiscount)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                            Preço final
+                          </p>
+                          <p className="mt-1 text-xl font-black text-emerald-700">
+                            {formatCurrency(finalPrice)}
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -378,6 +594,12 @@ export default function ProductEditorSheet({
                       >
                         {formatCurrency(previewProfit)}
                       </p>
+
+                      {normalizedPromotionActive && (
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          Lucro base: {formatCurrency(baseProfit)}
+                        </p>
+                      )}
                     </div>
 
                     <div
@@ -404,6 +626,12 @@ export default function ProductEditorSheet({
                       >
                         {previewMargin.toFixed(1)}%
                       </p>
+
+                      {normalizedPromotionActive && (
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          Margem base: {baseMargin.toFixed(1)}%
+                        </p>
+                      )}
                     </div>
                   </div>
                 </section>
