@@ -11,7 +11,6 @@ type CreatePixPaymentBody = {
   publicOrderNumber?: string
   customerName: string
   customerPhone: string
-  customerEmail?: string
   customerDocument: string
   customerAddress?: string
   customerNeighborhood?: string | null
@@ -84,7 +83,6 @@ export async function POST(req: NextRequest) {
     const customerName = body.customerName?.trim()
     const customerPhone = onlyDigits(body.customerPhone)
     const customerDocument = onlyDigits(body.customerDocument)
-    const customerEmail = body.customerEmail?.trim() || undefined
 
     if (!restaurantId) {
       return NextResponse.json(
@@ -165,7 +163,6 @@ export async function POST(req: NextRequest) {
         body: {
           name: customerName,
           cpfCnpj: customerDocument,
-          email: customerEmail,
           mobilePhone: customerPhone,
           externalReference: typedOrder.id,
           notificationDisabled: true,

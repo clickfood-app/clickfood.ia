@@ -26,6 +26,8 @@ import {
   Utensils,
   Timer,
   Receipt,
+  UserRound,
+  Star,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -77,6 +79,9 @@ interface PublicRestaurant {
   floatingCartBgColor?: string | null
   floatingCartTextColor?: string | null
   floatingCartNumberColor?: string | null
+
+  ratingAverage?: number | null
+  ratingCount?: number | null
 }
 
 interface ModifierOption {
@@ -887,11 +892,667 @@ type PixPaymentData = {
 
 type OrderPaymentStatusResponse = {
   success: boolean
-  order?: {
+  order?: Partial<CustomerVisibleOrder> & {
     id: string
-    payment_status: string | null
+    payment_status?: string | null
   }
   error?: string
+}
+
+type PublicCustomerProfile = {
+  name: string
+  phone: string
+  document: string
+  address?: {
+    customerAddress: string
+    selectedNeighborhoodKey: string
+  }
+}
+
+type CustomerVisibleOrder = {
+  id: string
+  restaurant_id?: string | null
+  public_order_number?: string | null
+  status?: string | null
+  payment_status?: string | null
+  total?: number | string | null
+  payment_method?: string | null
+  order_type?: "delivery" | "pickup" | string | null
+  delivery_fee?: number | string | null
+  service_fee?: number | string | null
+  customer_received_at?: string | null
+  customer_rating?: number | null
+  customer_review?: string | null
+  created_at?: string | null
+  items?: Array<{
+    name?: string | null
+    product_name?: string | null
+    quantity?: number | null
+    price?: number | string | null
+    unit_price?: number | string | null
+  }> | null
+}
+
+type OrderStep = {
+  key: string
+  label: string
+}
+
+const ONLINE_SERVICE_FEE = 1.5
+
+function onlyDigits(value: string | null | undefined) {
+  return (value || "").replace(/\D/g, "")
+}
+
+function formatCpfPreview(value: string) {
+  const digits = onlyDigits(value)
+
+  if (digits.length !== 11) return value
+
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
+}
+
+function formatPhonePreview(value: string) {
+  const digits = onlyDigits(value)
+
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+  }
+
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  }
+
+  return value
+}
+
+function formatPaymentMethodLabel(method?: string | null) {
+  const normalizedMethod = normalizeOrderStatus(method)
+
+  if (["cash", "dinheiro"].includes(normalizedMethod)) return "Dinheiro"
+  if (["pix"].includes(normalizedMethod)) return "Pix"
+
+  if (
+    [
+      "card",
+      "cartao",
+      "cartao_na_entrega",
+      "card_on_delivery",
+      "credit_card",
+      "debit_card",
+    ].includes(normalizedMethod)
+  ) {
+    return "Cartão na entrega"
+  }
+
+  return method || "Não informado"
+}
+
+function normalizeOrderStatus(status?: string | null) {
+  return (status || "pending")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+}
+
+function normalizeCustomerOrderType(orderType?: string | null) {
+  const normalizedType = (orderType || "delivery")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+
+  if (
+    [
+      "pickup",
+      "retirada",
+      "retirada_no_local",
+      "balcao",
+      "retirar",
+    ].includes(normalizedType)
+  ) {
+    return "pickup"
+  }
+
+  return "delivery"
+}
+
+function getOrderSteps(orderType?: string | null): OrderStep[] {
+  if (orderType === "pickup") {
+    return [
+      { key: "pending", label: "Em análise" },
+      { key: "preparing", label: "Em preparo" },
+      { key: "ready", label: "Pronto" },
+      { key: "completed", label: "Retirado" },
+    ]
+  }
+
+  return [
+    { key: "pending", label: "Em análise" },
+    { key: "preparing", label: "Em preparo" },
+    { key: "delivering", label: "Saiu pra entrega" },
+    { key: "completed", label: "Entregue" },
+  ]
+}
+
+function getOrderProgressIndex(
+  status?: string | null,
+  orderType?: string | null,
+  customerReceivedAt?: string | null
+) {
+  const normalizedStatus = normalizeOrderStatus(status)
+  const normalizedType = normalizeCustomerOrderType(orderType)
+
+  if (["cancelled", "canceled", "cancelado"].includes(normalizedStatus)) {
+    return -1
+  }
+
+  const isCompletedStatus = [
+    "completed",
+    "delivered",
+    "finished",
+    "done",
+    "entregue",
+    "finalizado",
+    "retirado",
+  ].includes(normalizedStatus)
+
+  if (isCompletedStatus) {
+    return customerReceivedAt ? 3 : 2
+  }
+
+  if (normalizedType === "pickup") {
+    if (
+      [
+        "ready",
+        "ready_for_pickup",
+        "pronto",
+        "pronto_para_retirada",
+      ].includes(normalizedStatus)
+    ) {
+      return 2
+    }
+
+    if (
+      [
+        "accepted",
+        "aceito",
+        "preparing",
+        "in_preparation",
+        "in_progress",
+        "em_preparo",
+        "preparo",
+      ].includes(normalizedStatus)
+    ) {
+      return 1
+    }
+
+    return 0
+  }
+
+  if (
+    [
+      "delivering",
+      "out_for_delivery",
+      "on_route",
+      "em_rota",
+      "saiu_para_entrega",
+      "saiu_pra_entrega",
+    ].includes(normalizedStatus)
+  ) {
+    return 2
+  }
+
+  if (
+    [
+      "accepted",
+      "aceito",
+      "preparing",
+      "in_preparation",
+      "in_progress",
+      "em_preparo",
+      "preparo",
+    ].includes(normalizedStatus)
+  ) {
+    return 1
+  }
+
+  return 0
+}
+
+function getOrderStatusLabel(
+  status?: string | null,
+  orderType?: string | null,
+  customerReceivedAt?: string | null
+) {
+  const normalizedStatus = normalizeOrderStatus(status)
+  const normalizedType = normalizeCustomerOrderType(orderType)
+
+  if (["cancelled", "canceled", "cancelado"].includes(normalizedStatus)) {
+    return "Cancelado"
+  }
+
+  const isCompletedStatus = [
+    "completed",
+    "delivered",
+    "finished",
+    "done",
+    "entregue",
+    "finalizado",
+    "retirado",
+  ].includes(normalizedStatus)
+
+  if (isCompletedStatus) {
+    if (!customerReceivedAt) {
+      return normalizedType === "pickup"
+        ? "Aguardando retirada"
+        : "Aguardando confirmação"
+    }
+
+    return normalizedType === "pickup" ? "Pedido retirado" : "Pedido entregue"
+  }
+
+  if (
+    normalizedType === "pickup" &&
+    [
+      "ready",
+      "ready_for_pickup",
+      "pronto",
+      "pronto_para_retirada",
+    ].includes(normalizedStatus)
+  ) {
+    return "Pronto para retirada"
+  }
+
+  if (
+    [
+      "delivering",
+      "out_for_delivery",
+      "on_route",
+      "em_rota",
+      "saiu_para_entrega",
+      "saiu_pra_entrega",
+    ].includes(normalizedStatus)
+  ) {
+    return "Saiu para entrega"
+  }
+
+  if (
+    [
+      "accepted",
+      "aceito",
+      "preparing",
+      "in_preparation",
+      "in_progress",
+      "em_preparo",
+      "preparo",
+    ].includes(normalizedStatus)
+  ) {
+    return "Em preparo"
+  }
+
+  return "Em análise"
+}
+
+function OrderTrackingCard({
+  order,
+  accentColor,
+  restaurantWhatsApp,
+  onConfirmReceived,
+}: {
+  order: CustomerVisibleOrder
+  accentColor: string
+  restaurantWhatsApp?: string | null
+  onConfirmReceived: (rating: number, review: string) => void
+}) {
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [rating, setRating] = useState(order.customer_rating ?? 0)
+  const [review, setReview] = useState(order.customer_review ?? "")
+
+  useEffect(() => {
+    setRating(order.customer_rating ?? 0)
+    setReview(order.customer_review ?? "")
+  }, [order.customer_rating, order.customer_review])
+
+  const orderType = normalizeCustomerOrderType(order.order_type)
+  const steps = getOrderSteps(orderType)
+  const progressIndex = getOrderProgressIndex(
+  order.status,
+  orderType,
+  order.customer_received_at
+)
+  const normalizedStatus = normalizeOrderStatus(order.status)
+  const isCancelled = ["cancelled", "canceled"].includes(normalizedStatus)
+  const canConfirmReceived = !isCancelled && progressIndex >= 2
+  const alreadyReceived = Boolean(order.customer_received_at)
+  const whatsappPhone = restaurantWhatsApp?.replace(/\D/g, "") || ""
+
+  const handleSubmitReview = () => {
+    if (rating <= 0) {
+      alert("Selecione uma nota para o restaurante.")
+      return
+    }
+
+    onConfirmReceived(rating, review.trim())
+    setShowReviewForm(false)
+  }
+
+  return (
+    <div className="mx-auto mt-4 max-w-2xl px-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="overflow-hidden rounded-[26px] border border-blue-100 bg-white shadow-[0_20px_60px_-35px_rgba(37,99,235,0.55)]">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-500 p-5 text-white">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-white/75">
+                Acompanhe seu pedido
+              </p>
+
+              <h3 className="mt-1 text-xl font-black">
+                Pedido #{order.public_order_number || order.id.slice(0, 8)}
+              </h3>
+
+              <p className="mt-1 text-sm font-medium text-white/80">
+                {getOrderStatusLabel(order.status, orderType, order.customer_received_at)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white/15 px-3 py-2 text-right backdrop-blur-sm">
+              <p className="text-[10px] font-bold uppercase text-white/70">Total</p>
+              <p className="text-base font-black">{formatPrice(Number(order.total || 0))}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-5 p-5">
+          {isCancelled ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+              Este pedido foi cancelado pelo restaurante.
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                {steps.map((step, index) => {
+                  const isDone = progressIndex >= index
+                  const isCurrent = progressIndex === index
+
+                  return (
+                    <div key={step.key} className="relative flex flex-1 flex-col items-center text-center">
+                      {index < steps.length - 1 && (
+                        <div
+                          className={cn(
+                            "absolute left-1/2 top-4 h-1 w-full rounded-full",
+                            progressIndex > index ? "bg-blue-500" : "bg-gray-200"
+                          )}
+                        />
+                      )}
+
+                      <div
+                        className={cn(
+                          "relative z-10 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white text-xs font-black shadow-sm",
+                          isDone ? "text-white" : "bg-gray-200 text-gray-400",
+                          isCurrent && "ring-4 ring-blue-100"
+                        )}
+                        style={isDone ? { backgroundColor: accentColor } : undefined}
+                      >
+                        {isDone ? <Check className="h-4 w-4" strokeWidth={3} /> : index + 1}
+                      </div>
+
+                      <span
+                        className={cn(
+                          "mt-2 text-[11px] font-bold leading-tight",
+                          isDone ? "text-gray-900" : "text-gray-400"
+                        )}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-gray-50 p-3">
+              <p className="text-[10px] font-bold uppercase text-gray-400">Tipo</p>
+              <p className="mt-1 text-sm font-black text-gray-900">
+                {orderType === "delivery" ? "Entrega" : "Retirada"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-gray-50 p-3">
+              <p className="text-[10px] font-bold uppercase text-gray-400">Pagamento</p>
+              <p className="mt-1 text-sm font-black text-gray-900">
+                {formatPaymentMethodLabel(order.payment_method)}
+              </p>
+            </div>
+          </div>
+
+          {alreadyReceived ? (
+            <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-500 text-white">
+                <Check className="h-5 w-5" strokeWidth={3} />
+              </div>
+
+              <p className="text-sm font-black text-green-700">Recebimento confirmado</p>
+
+              {order.customer_rating ? (
+                <p className="mt-1 text-xs font-semibold text-green-700">
+                  Obrigado pela avaliação de {order.customer_rating} estrela{order.customer_rating > 1 ? "s" : ""}.
+                </p>
+              ) : null}
+            </div>
+          ) : showReviewForm ? (
+            <div className="rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
+              <p className="text-sm font-black text-gray-900">{orderType === "pickup" ? "Você já retirou seu pedido?" : "Seu pedido chegou?"}</p>
+              <p className="mt-1 text-xs text-gray-500">Confirme o recebimento e avalie sua experiência.</p>
+
+              <div className="mt-3 flex justify-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    className="rounded-full p-1 transition-transform active:scale-95"
+                  >
+                    <Star
+                      className={cn(
+                        "h-7 w-7",
+                        rating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={review}
+                onChange={(event) => setReview(event.target.value)}
+                placeholder="Comentário opcional"
+                rows={2}
+                className="mt-3 w-full resize-none rounded-xl border border-orange-100 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+              />
+
+              <button
+                type="button"
+                onClick={handleSubmitReview}
+                className="mt-3 w-full rounded-xl py-3 text-sm font-black text-white shadow-lg"
+                style={{ backgroundColor: accentColor }}
+              >
+                Confirmar e enviar avaliação
+              </button>
+            </div>
+          ) : canConfirmReceived ? (
+            <button
+              type="button"
+              onClick={() => setShowReviewForm(true)}
+              className="w-full rounded-xl py-3 text-sm font-black text-white shadow-lg active:scale-[0.98]"
+              style={{ backgroundColor: accentColor }}
+            >
+              {orderType === "pickup" ? "Já retirei meu pedido" : "Já recebi meu pedido"}
+            </button>
+          ) : (
+            <div className="rounded-2xl bg-gray-50 p-4 text-center text-xs font-semibold text-gray-500">
+              O restaurante vai atualizar o andamento por aqui.
+            </div>
+          )}
+
+          {whatsappPhone ? (
+            <a
+              href={`https://wa.me/${whatsappPhone}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm"
+            >
+              <MessageCircle className="h-4 w-4 text-green-500" />
+              Falar com o restaurante
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CustomerStartModal({
+  open,
+  restaurantName,
+  accentColor,
+  initialCustomer,
+  onSave,
+}: {
+  open: boolean
+  restaurantName: string
+  accentColor: string
+  initialCustomer: PublicCustomerProfile | null
+  onSave: (customer: PublicCustomerProfile) => void
+}) {
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [document, setDocument] = useState("")
+
+  useEffect(() => {
+    if (!open) return
+
+    setName(initialCustomer?.name ?? "")
+    setPhone(initialCustomer?.phone ?? "")
+    setDocument(initialCustomer?.document ?? "")
+  }, [open, initialCustomer])
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const normalizedName = name.trim()
+    const normalizedPhone = onlyDigits(phone)
+    const normalizedDocument = onlyDigits(document)
+
+    if (!normalizedName) {
+      alert("Informe seu nome.")
+      return
+    }
+
+    if (normalizedPhone.length < 10) {
+      alert("Informe um telefone válido.")
+      return
+    }
+
+    if (normalizedDocument.length !== 11) {
+      alert("Informe um CPF válido.")
+      return
+    }
+
+    onSave({
+      name: normalizedName,
+      phone: normalizedPhone,
+      document: normalizedDocument,
+      address: initialCustomer?.address,
+    })
+  }
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+      <div className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+        <div className="mb-5 text-center">
+          <div
+            className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg"
+            style={{ backgroundColor: accentColor }}
+          >
+            <UserRound className="h-7 w-7" />
+          </div>
+
+          <h2 className="text-xl font-black text-gray-900">Entre no cardápio</h2>
+
+          <p className="mt-1 text-sm text-gray-500">
+            Identifique-se uma vez para comprar mais rápido em {restaurantName}.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="text-xs font-bold uppercase text-gray-500">
+              Nome *
+            </label>
+
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Seu nome"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase text-gray-500">
+              Telefone / WhatsApp *
+            </label>
+
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="(00) 00000-0000"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase text-gray-500">
+              CPF *
+            </label>
+
+            <input
+              type="text"
+              value={document}
+              onChange={(event) => setDocument(event.target.value)}
+              placeholder="000.000.000-00"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+            />
+
+            <p className="mt-1 text-xs text-gray-400">
+              Necessário para pagamento Pix online.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-2 w-full rounded-xl py-3.5 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98]"
+            style={{
+              backgroundColor: accentColor,
+              boxShadow: `0 14px 28px -12px ${accentColor}`,
+            }}
+          >
+            Entrar no cardápio
+          </button>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 function CartSheet({
@@ -906,6 +1567,10 @@ function CartSheet({
   deliveryEnabled,
   pickupEnabled,
   tableNumber,
+  customer,
+  onEditCustomer,
+  onSaveAddress,
+  onOrderCreated,
 }: {
   items: CartItem[]
   open: boolean
@@ -918,15 +1583,15 @@ function CartSheet({
   deliveryEnabled: boolean
   pickupEnabled: boolean
   tableNumber?: string | null
+  customer: PublicCustomerProfile | null
+  onEditCustomer: () => void
+  onSaveAddress: (address: PublicCustomerProfile["address"]) => void
+  onOrderCreated: (order: CustomerVisibleOrder) => void
 }) {
   const [step, setStep] = useState<"cart" | "checkout">("cart")
   const [orderType, setOrderType] = useState<"delivery" | "pickup">(
     deliveryEnabled ? "delivery" : "pickup"
   )
-  const [customerName, setCustomerName] = useState("")
-  const [customerPhone, setCustomerPhone] = useState("")
-  const [customerEmail, setCustomerEmail] = useState("")
-  const [customerDocument, setCustomerDocument] = useState("")
   const [customerAddress, setCustomerAddress] = useState("")
   const [selectedNeighborhoodKey, setSelectedNeighborhoodKey] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
@@ -1000,6 +1665,13 @@ function CartSheet({
   }, [open])
 
   useEffect(() => {
+    if (!open || !customer?.address) return
+
+    setCustomerAddress(customer.address.customerAddress ?? "")
+    setSelectedNeighborhoodKey(customer.address.selectedNeighborhoodKey ?? "")
+  }, [open, customer?.address])
+
+  useEffect(() => {
     if (!isPixPaymentResetSafe(paymentMethod)) {
       setPixPayment(null)
       setPixCopied(false)
@@ -1009,7 +1681,7 @@ function CartSheet({
   }, [paymentMethod])
 
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
-  const serviceFee = Math.round(subtotal * 0.05)
+  const serviceFee = items.length > 0 ? ONLINE_SERVICE_FEE : 0
   const deliveryFee =
     orderType === "delivery"
       ? hasNeighborhoodRules
@@ -1020,7 +1692,7 @@ function CartSheet({
   const total = subtotal + serviceFee + deliveryFee - couponDiscount
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
   const isPixPayment = normalizedPaymentMethod === "pix"
-  const sanitizedCustomerDocument = customerDocument.replace(/\D/g, "")
+  const sanitizedCustomerDocument = onlyDigits(customer?.document)
 
   const primaryButtonLabel = isPixPayment
     ? paymentApproved
@@ -1042,31 +1714,21 @@ function CartSheet({
   }
 
   const validateForm = () => {
-    if (!customerName.trim()) {
-      alert("Informe seu nome")
+    if (!customer?.name?.trim()) {
+      alert("Cadastre seu nome antes de finalizar.")
+      onEditCustomer()
       return false
     }
 
-    if (!customerPhone.trim()) {
-      alert("Informe seu telefone")
+    if (!customer?.phone?.trim()) {
+      alert("Cadastre seu telefone antes de finalizar.")
+      onEditCustomer()
       return false
     }
 
-    if (isPixPayment && !customerEmail.trim()) {
-      alert("Informe seu e-mail para pagar com Pix")
-      return false
-    }
-
-    if (
-      isPixPayment &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())
-    ) {
-      alert("Informe um e-mail válido")
-      return false
-    }
-
-    if (isPixPayment && sanitizedCustomerDocument.length !== 11) {
-      alert("Informe um CPF válido para pagar com Pix")
+    if (sanitizedCustomerDocument.length !== 11) {
+      alert("Atualize seu CPF antes de finalizar.")
+      onEditCustomer()
       return false
     }
 
@@ -1076,7 +1738,7 @@ function CartSheet({
     }
 
     if (orderType === "delivery" && !customerAddress.trim()) {
-      alert("Informe rua, numero e complemento")
+      alert("Informe rua, número e complemento")
       return false
     }
 
@@ -1101,6 +1763,26 @@ function CartSheet({
   }
 
   const finishPaidOrder = () => {
+    if (pixPayment?.orderId) {
+      onOrderCreated({
+        id: pixPayment.orderId,
+        public_order_number: pixPayment.publicOrderNumber,
+        status: "pending",
+        payment_status: "paid",
+        total,
+        payment_method: "Pix",
+        order_type: orderType,
+        delivery_fee: deliveryFee,
+        service_fee: serviceFee,
+        created_at: new Date().toISOString(),
+        items: items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
+      })
+    }
+
     onClearCart()
     onClose()
     setStep("cart")
@@ -1163,14 +1845,25 @@ function CartSheet({
   ])
 
   const createPublicOrder = async (paymentMethodLabel: string) => {
+    if (!customer) {
+      throw new Error("Cliente não identificado.")
+    }
+
+    if (orderType === "delivery") {
+      onSaveAddress({
+        customerAddress: customerAddress.trim(),
+        selectedNeighborhoodKey,
+      })
+    }
+
     const response = await fetch("/api/public/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         restaurantId: restaurant.id,
         tableId: tableNumber || null,
-        customerName,
-        customerPhone,
+        customerName: customer.name,
+        customerPhone: customer.phone,
         customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
         neighborhood:
           orderType === "delivery" ? selectedNeighborhoodOption?.neighborhood ?? undefined : undefined,
@@ -1198,6 +1891,14 @@ function CartSheet({
     return data.order as {
       id: string
       public_order_number: string
+      status?: string | null
+      payment_status?: string | null
+      total?: number | string | null
+      payment_method?: string | null
+      order_type?: string | null
+      delivery_fee?: number | string | null
+      service_fee?: number | string | null
+      created_at?: string | null
     }
   }
 
@@ -1220,9 +1921,8 @@ function CartSheet({
           restaurantId: restaurant.id,
           orderId: createdOrder.id,
           publicOrderNumber: createdOrder.public_order_number,
-          customerName,
-          customerPhone,
-          customerEmail: customerEmail.trim(),
+          customerName: customer?.name ?? "",
+          customerPhone: customer?.phone ?? "",
           customerDocument: sanitizedCustomerDocument,
           customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
           customerNeighborhood:
@@ -1271,7 +1971,7 @@ function CartSheet({
     }
   }
 
-  const sendWhatsAppOrder = async () => {
+  const createManualPaymentOrder = async () => {
     if (!validateForm()) return
 
     if (!paymentMethod) {
@@ -1284,41 +1984,23 @@ function CartSheet({
     try {
       const createdOrder = await createPublicOrder(paymentMethod)
 
-      let message = `*NOVO PEDIDO - ${restaurant.name}*\n\n`
-      message += `*Pedido:* #${createdOrder.public_order_number}\n`
-      message += `*Cliente:* ${customerName}\n*Telefone:* ${customerPhone}\n`
-      message += `*Tipo:* ${orderType === "delivery" ? "Entrega" : "Retirada"}\n`
-
-      if (orderType === "delivery") {
-        if (selectedNeighborhoodOption) {
-          message += `*Bairro:* ${selectedNeighborhoodOption.neighborhood}\n`
-        }
-
-        message += `*Endereco:* ${formattedCustomerAddress}\n`
-      }
-
-      message += `*Pagamento:* ${paymentMethod}\n\n*--- ITENS ---*\n`
-
-      items.forEach((item) => {
-        message += `${item.quantity}x ${item.product.name} - ${formatPrice(item.unitPrice * item.quantity)}\n`
-
-        if (item.modifiers.length > 0) {
-          item.modifiers.forEach((m) => {
-            message += `   • ${m.option.name}\n`
-          })
-        }
+      onOrderCreated({
+        id: createdOrder.id,
+        public_order_number: createdOrder.public_order_number,
+        status: createdOrder.status ?? "pending",
+        payment_status: createdOrder.payment_status ?? "pending",
+        total: createdOrder.total ?? total,
+        payment_method: createdOrder.payment_method ?? paymentMethod,
+        order_type: createdOrder.order_type ?? orderType,
+        delivery_fee: createdOrder.delivery_fee ?? deliveryFee,
+        service_fee: createdOrder.service_fee ?? serviceFee,
+        created_at: createdOrder.created_at ?? new Date().toISOString(),
+        items: items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
       })
-
-      message += `\n*Subtotal:* ${formatPrice(subtotal)}\n*Taxa:* ${formatPrice(serviceFee)}\n`
-
-      if (orderType === "delivery") {
-        message += `*Entrega:* ${formatPrice(deliveryFee)}\n`
-      }
-
-      message += `*TOTAL:* ${formatPrice(total)}`
-
-      const phone = restaurant.whatsapp?.replace(/\D/g, "") || ""
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank")
 
       onClearCart()
       onClose()
@@ -1457,7 +2139,7 @@ function CartSheet({
                   </div>
 
                   <div className="flex justify-between text-gray-500">
-                    <span>Taxa de servico</span>
+                    <span>Taxa de serviço online</span>
                     <span>{formatPrice(serviceFee)}</span>
                   </div>
                 </div>
@@ -1548,62 +2230,34 @@ function CartSheet({
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-semibold uppercase text-gray-500">Seu nome *</label>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase text-blue-600">
+                      Cliente identificado
+                    </p>
 
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Como podemos te chamar?"
-                    className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-                  />
-                </div>
+                    <h4 className="mt-1 text-base font-black text-gray-900">
+                      {customer?.name ?? "Cliente"}
+                    </h4>
 
-                <div>
-                  <label className="text-xs font-semibold uppercase text-gray-500">Telefone *</label>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {formatPhonePreview(customer?.phone ?? "")}
+                    </p>
 
-                  <input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="(00) 00000-0000"
-                    className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-                  />
-                </div>
-
-                {isPixPayment && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-semibold uppercase text-gray-500">
-                        E-mail *
-                      </label>
-
-                      <input
-                        type="email"
-                        value={customerEmail}
-                        onChange={(e) => setCustomerEmail(e.target.value)}
-                        placeholder="seuemail@exemplo.com"
-                        className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold uppercase text-gray-500">
-                        CPF *
-                      </label>
-
-                      <input
-                        type="text"
-                        value={customerDocument}
-                        onChange={(e) => setCustomerDocument(e.target.value)}
-                        placeholder="000.000.000-00"
-                        className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-                      />
-                    </div>
+                    <p className="text-xs text-gray-500">
+                      CPF: {formatCpfPreview(customer?.document ?? "")}
+                    </p>
                   </div>
-                )}
+
+                  <button
+                    type="button"
+                    onClick={onEditCustomer}
+                    className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 shadow-sm"
+                  >
+                    Alterar
+                  </button>
+                </div>
               </div>
 
               {orderType === "delivery" && (
@@ -1828,7 +2482,7 @@ function CartSheet({
                 </div>
 
                 <div className="flex justify-between text-gray-500">
-                  <span>Taxa de servico</span>
+                  <span>Taxa de serviço online</span>
                   <span>{formatPrice(serviceFee)}</span>
                 </div>
 
@@ -1871,7 +2525,7 @@ function CartSheet({
                     return
                   }
 
-                  void sendWhatsAppOrder()
+                  void createManualPaymentOrder()
                 }}
                 disabled={isProcessing || (isPixPayment && !!pixPayment && !paymentApproved)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
@@ -2018,13 +2672,18 @@ export default function CardapioPublicoPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [upsellProducts, setUpsellProducts] = useState<MenuProduct[] | null>(null)
-  const [activeOrder, setActiveOrder] = useState<any>(null)
+  const [activeOrder, setActiveOrder] = useState<CustomerVisibleOrder | null>(null)
   const [restaurant, setRestaurant] = useState<PublicRestaurant | null>(null)
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [isLoadingMenu, setIsLoadingMenu] = useState(true)
+  const [publicCustomer, setPublicCustomer] = useState<PublicCustomerProfile | null>(null)
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
   const categoryNavRef = useRef<HTMLDivElement>(null)
+
+  const activeOrderId = activeOrder?.id ?? ""
+  const activeOrderPublicNumber = activeOrder?.public_order_number ?? ""
 
   useEffect(() => {
     setMounted(true)
@@ -2061,6 +2720,55 @@ export default function CardapioPublicoPage() {
   }, [slug])
 
   useEffect(() => {
+    if (!mounted || !restaurant?.id) return
+
+    const storageKey = `clickfood_customer_${restaurant.id}`
+    const savedCustomer = window.localStorage.getItem(storageKey)
+
+    if (!savedCustomer) {
+      setCustomerModalOpen(true)
+      return
+    }
+
+    try {
+      const parsedCustomer = JSON.parse(savedCustomer) as PublicCustomerProfile
+
+      if (
+        parsedCustomer?.name &&
+        parsedCustomer?.phone &&
+        onlyDigits(parsedCustomer.document).length === 11
+      ) {
+        setPublicCustomer(parsedCustomer)
+        setCustomerModalOpen(false)
+        return
+      }
+
+      setCustomerModalOpen(true)
+    } catch {
+      setCustomerModalOpen(true)
+    }
+  }, [mounted, restaurant?.id])
+
+  useEffect(() => {
+    if (!mounted || !restaurant?.id || tableNumber) return
+
+    const storageKey = `clickfood_active_order_${restaurant.id}`
+    const savedOrder = window.localStorage.getItem(storageKey)
+
+    if (!savedOrder) return
+
+    try {
+      const parsedOrder = JSON.parse(savedOrder) as CustomerVisibleOrder
+
+      if (parsedOrder?.id) {
+        setActiveOrder(parsedOrder)
+      }
+    } catch {
+      window.localStorage.removeItem(storageKey)
+    }
+  }, [mounted, restaurant?.id, tableNumber])
+
+  useEffect(() => {
     async function fetchComanda() {
       if (!restaurant?.id || !tableNumber) return
 
@@ -2075,12 +2783,78 @@ export default function CardapioPublicoPage() {
         .single()
 
       if (data) {
-        setActiveOrder(data)
+        setActiveOrder(data as CustomerVisibleOrder)
       }
     }
 
     fetchComanda()
   }, [restaurant?.id, tableNumber, supabase])
+
+  useEffect(() => {
+    if (!restaurant?.id || (!activeOrderId && !activeOrderPublicNumber)) return
+
+    const refreshActiveOrder = async () => {
+      try {
+        const params = new URLSearchParams({
+          restaurantId: restaurant.id,
+          _: String(Date.now()),
+        })
+
+        if (activeOrderId) {
+          params.set("orderId", activeOrderId)
+        } else if (activeOrderPublicNumber) {
+          params.set("publicOrderNumber", activeOrderPublicNumber)
+        }
+
+        const response = await fetch(`/api/public/orders/status?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
+
+        const data = (await response.json()) as OrderPaymentStatusResponse
+
+        if (!response.ok || !data.order) return
+
+        setActiveOrder((currentOrder) => {
+          if (!currentOrder) return currentOrder
+
+          const nextOrder: CustomerVisibleOrder = {
+            ...currentOrder,
+            ...(data.order as CustomerVisibleOrder),
+            customer_received_at:
+              data.order?.customer_received_at ?? currentOrder.customer_received_at ?? null,
+            customer_rating:
+              data.order?.customer_rating ?? currentOrder.customer_rating ?? null,
+            customer_review:
+              data.order?.customer_review ?? currentOrder.customer_review ?? null,
+            items: currentOrder.items ?? null,
+          }
+
+          if (restaurant?.id && !tableNumber) {
+            window.localStorage.setItem(
+              `clickfood_active_order_${restaurant.id}`,
+              JSON.stringify(nextOrder)
+            )
+          }
+
+          return nextOrder
+        })
+      } catch (error) {
+        console.error("Erro ao atualizar acompanhamento do pedido:", error)
+      }
+    }
+
+    void refreshActiveOrder()
+
+    const intervalId = window.setInterval(() => {
+      void refreshActiveOrder()
+    }, 2500)
+
+    return () => window.clearInterval(intervalId)
+  }, [restaurant?.id, activeOrderId, activeOrderPublicNumber, tableNumber])
 
   useEffect(() => {
     if (categories.length > 0 && !activeCategory) {
@@ -2216,6 +2990,110 @@ const floatingCartTextColor = "#ffffff"
 const floatingCartNumberColor = "#ffffff"
 const restaurantIsOpen = isOpenNow(restaurant)
 
+const ratingAverage = Number(restaurant.ratingAverage ?? 0)
+const ratingCount = Number(restaurant.ratingCount ?? 0)
+const hasRating = ratingCount > 0 && ratingAverage > 0
+
+const savePublicCustomer = (customer: PublicCustomerProfile) => {
+  if (!restaurant?.id) return
+
+  const storageKey = `clickfood_customer_${restaurant.id}`
+
+  window.localStorage.setItem(storageKey, JSON.stringify(customer))
+  setPublicCustomer(customer)
+  setCustomerModalOpen(false)
+}
+
+const savePublicCustomerAddress = (address: PublicCustomerProfile["address"]) => {
+  if (!restaurant?.id || !publicCustomer) return
+
+  const nextCustomer: PublicCustomerProfile = {
+    ...publicCustomer,
+    address,
+  }
+
+  const storageKey = `clickfood_customer_${restaurant.id}`
+
+  window.localStorage.setItem(storageKey, JSON.stringify(nextCustomer))
+  setPublicCustomer(nextCustomer)
+}
+
+const saveActiveOrder = (order: CustomerVisibleOrder) => {
+  if (!restaurant?.id) return
+
+  const nextOrder: CustomerVisibleOrder = {
+    ...order,
+    restaurant_id: order.restaurant_id ?? restaurant.id,
+  }
+
+  if (!tableNumber) {
+    window.localStorage.setItem(
+      `clickfood_active_order_${restaurant.id}`,
+      JSON.stringify(nextOrder)
+    )
+  }
+
+  setActiveOrder(nextOrder)
+}
+
+const confirmActiveOrderReceived = async (rating: number, review: string) => {
+  if (!restaurant?.id || !activeOrder) return
+
+  const receivedAt = new Date().toISOString()
+
+  const optimisticOrder: CustomerVisibleOrder = {
+    ...activeOrder,
+    customer_received_at: receivedAt,
+    customer_rating: rating,
+    customer_review: review,
+  }
+
+  if (!tableNumber) {
+    window.localStorage.removeItem(`clickfood_active_order_${restaurant.id}`)
+  }
+
+  setActiveOrder(optimisticOrder)
+
+  try {
+    const response = await fetch("/api/public/orders/confirm-received", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        restaurantId: restaurant.id,
+        orderId: activeOrder.id,
+        rating,
+        review,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Erro ao salvar avaliação.")
+    }
+
+    if (data.order) {
+      setActiveOrder((currentOrder) =>
+        currentOrder
+          ? {
+              ...currentOrder,
+              ...data.order,
+              items: currentOrder.items ?? null,
+            }
+          : currentOrder
+      )
+    }
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível salvar sua avaliação."
+    )
+  }
+}
+
   return (
     <div className={cn("min-h-screen pb-32", isDarkMode ? "bg-neutral-950" : "bg-gray-50")}>
       <div className="mx-auto max-w-2xl px-4 pt-4">
@@ -2279,6 +3157,13 @@ const restaurantIsOpen = isOpenNow(restaurant)
                   <Timer className="h-3.5 w-3.5" />
                   {estimatedDeliveryTime}
                 </span>
+
+                {hasRating && (
+  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/10">
+    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+    {ratingAverage.toFixed(1)} ({ratingCount} {ratingCount === 1 ? "avaliação" : "avaliações"})
+  </span>
+)}
 
                 {deliveryEnabled ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/10">
@@ -2430,45 +3315,12 @@ const restaurantIsOpen = isOpenNow(restaurant)
         )}
 
         {activeOrder && (
-          <div className="mx-auto mt-4 max-w-2xl px-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-3 border-b border-blue-100/50 pb-4">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-white"
-                  style={{ backgroundColor: themeColor }}
-                >
-                  <Receipt className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-gray-900">Sua Comanda - Mesa {tableNumber}</h3>
-                  <p className="text-xs font-medium text-blue-600">Pedido em andamento</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {activeOrder.items?.map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <div className="flex gap-2 text-gray-700">
-                      <span className="font-bold text-gray-900">{item.quantity}x</span>
-                      <span>{item.name || "Item do pedido"}</span>
-                    </div>
-
-                    <span className="font-bold text-gray-900">
-                      {formatPrice(item.price * item.quantity)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-blue-100/50 pt-4">
-                <span className="font-medium text-gray-600">Total parcial</span>
-                <span className="text-xl font-black" style={{ color: themeColor }}>
-                  {formatPrice(activeOrder.total)}
-                </span>
-              </div>
-            </div>
-          </div>
+          <OrderTrackingCard
+            order={activeOrder}
+            accentColor={accentColor}
+            restaurantWhatsApp={restaurant.whatsapp}
+            onConfirmReceived={confirmActiveOrderReceived}
+          />
         )}
 
         <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150">
@@ -2633,6 +3485,14 @@ const restaurantIsOpen = isOpenNow(restaurant)
         />
       )}
 
+      <CustomerStartModal
+        open={customerModalOpen}
+        restaurantName={restaurant.name}
+        accentColor={themeColor}
+        initialCustomer={publicCustomer}
+        onSave={savePublicCustomer}
+      />
+
       <CartSheet
         items={cart}
         open={cartOpen}
@@ -2645,6 +3505,10 @@ const restaurantIsOpen = isOpenNow(restaurant)
         deliveryEnabled={deliveryEnabled}
         pickupEnabled={pickupEnabled}
         tableNumber={tableNumber}
+        customer={publicCustomer}
+        onEditCustomer={() => setCustomerModalOpen(true)}
+        onSaveAddress={savePublicCustomerAddress}
+        onOrderCreated={saveActiveOrder}
       />
     </div>
   )

@@ -6,6 +6,29 @@ function toNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+function calculateRatingSummary(ratings: Array<{ customer_rating: number | string | null }>) {
+  const validRatings = ratings
+    .map((item) => Number(item.customer_rating))
+    .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5)
+
+  const ratingCount = validRatings.length
+
+  if (ratingCount === 0) {
+    return {
+      ratingAverage: null,
+      ratingCount: 0,
+    }
+  }
+
+  const ratingTotal = validRatings.reduce((sum, rating) => sum + rating, 0)
+  const ratingAverage = Number((ratingTotal / ratingCount).toFixed(1))
+
+  return {
+    ratingAverage,
+    ratingCount,
+  }
+}
+
 type RouteContext = {
   params: Promise<{
     slug: string
@@ -63,7 +86,12 @@ export async function GET(_request: Request, context: RouteContext) {
       )
     }
 
-    const [categoriesResult, productsResult, deliveryRulesResult] = await Promise.all([
+    const [
+      categoriesResult,
+      productsResult,
+      deliveryRulesResult,
+      ratingsResult,
+    ] = await Promise.all([
       supabaseAdmin
         .from("categories")
         .select("id, restaurant_id, name, sort_order, is_active, created_at")
@@ -89,6 +117,12 @@ export async function GET(_request: Request, context: RouteContext) {
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true }),
+
+      supabaseAdmin
+        .from("orders")
+        .select("customer_rating")
+        .eq("restaurant_id", restaurant.id)
+        .not("customer_rating", "is", null),
     ])
 
     if (categoriesResult.error) {
@@ -136,9 +170,25 @@ export async function GET(_request: Request, context: RouteContext) {
       )
     }
 
+    if (ratingsResult.error) {
+      console.error("Erro ao buscar avaliações públicas:", {
+        restaurantId: restaurant.id,
+        message: ratingsResult.error.message,
+        details: ratingsResult.error.details,
+        hint: ratingsResult.error.hint,
+        code: ratingsResult.error.code,
+      })
+
+      return NextResponse.json(
+        { error: ratingsResult.error.message || "Erro ao buscar avaliações." },
+        { status: 500 }
+      )
+    }
+
     const categories = categoriesResult.data ?? []
     const products = productsResult.data ?? []
     const deliveryRules = (deliveryRulesResult.data ?? []) as DeliveryFeeRuleRow[]
+    const ratingSummary = calculateRatingSummary(ratingsResult.data ?? [])
 
     const categoriesMap = new Map(categories.map((category) => [category.id, category]))
     const productsByCategory = new Map<string, any[]>()
@@ -252,6 +302,8 @@ export async function GET(_request: Request, context: RouteContext) {
         restaurant.floating_cart_bg_color ?? restaurant.theme_color ?? "#7c3aed",
       floatingCartTextColor: restaurant.floating_cart_text_color ?? "#ffffff",
       floatingCartNumberColor: restaurant.floating_cart_number_color ?? "#ffffff",
+      ratingAverage: ratingSummary.ratingAverage,
+      ratingCount: ratingSummary.ratingCount,
     }
 
     return NextResponse.json({
