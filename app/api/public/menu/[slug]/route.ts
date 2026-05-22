@@ -29,6 +29,200 @@ function calculateRatingSummary(ratings: Array<{ customer_rating: number | strin
   }
 }
 
+
+function pickFirstNumber(
+  source: Record<string, unknown>,
+  keys: string[],
+  fallback: number | null = null
+) {
+  for (const key of keys) {
+    if (!(key in source)) continue
+
+    const value = source[key]
+
+    if (value === null || value === undefined || value === "") continue
+
+    const numericValue = Number(value)
+
+    if (Number.isFinite(numericValue)) {
+      return numericValue
+    }
+  }
+
+  return fallback
+}
+
+function pickFirstBoolean(source: Record<string, unknown>, keys: string[], fallback = false) {
+  for (const key of keys) {
+    if (!(key in source)) continue
+
+    const value = source[key]
+
+    if (typeof value === "boolean") return value
+
+    if (typeof value === "string") {
+      const normalizedValue = value.trim().toLowerCase()
+
+      if (["true", "1", "sim", "yes", "active", "ativo"].includes(normalizedValue)) {
+        return true
+      }
+
+      if (["false", "0", "nao", "não", "no", "inactive", "inativo"].includes(normalizedValue)) {
+        return false
+      }
+    }
+
+    if (typeof value === "number") {
+      return value === 1
+    }
+  }
+
+  return fallback
+}
+
+function normalizeProductPricing(product: Record<string, unknown>) {
+  const basePrice = toNumber(product.price, 0)
+
+  const explicitOriginalPrice = pickFirstNumber(product, [
+    "original_price",
+    "originalPrice",
+    "regular_price",
+    "regularPrice",
+    "base_price",
+    "basePrice",
+    "old_price",
+    "oldPrice",
+    "compare_at_price",
+    "compareAtPrice",
+    "list_price",
+    "listPrice",
+  ])
+
+  const explicitPromotionalPrice = pickFirstNumber(product, [
+    "promotional_price",
+    "promotionalPrice",
+    "promotion_price",
+    "promotionPrice",
+    "sale_price",
+    "salePrice",
+    "offer_price",
+    "offerPrice",
+    "discount_price",
+    "discountPrice",
+    "discounted_price",
+    "discountedPrice",
+    "price_on_menu",
+    "priceOnMenu",
+    "menu_price",
+    "menuPrice",
+  ])
+
+  const explicitDiscountPercentage = pickFirstNumber(product, [
+    "discount_percentage",
+    "discountPercentage",
+    "discount_percent",
+    "discountPercent",
+    "promotion_discount_percentage",
+    "promotionDiscountPercentage",
+    "promotion_percent",
+    "promotionPercent",
+  ])
+
+  const explicitDiscountAmount = pickFirstNumber(product, [
+    "discount_amount",
+    "discountAmount",
+    "promotion_discount_amount",
+    "promotionDiscountAmount",
+  ])
+
+  const promotionFlag = pickFirstBoolean(product, [
+    "is_promotional",
+    "isPromotional",
+    "is_promotion",
+    "isPromotion",
+    "has_promotion",
+    "hasPromotion",
+    "promotion_active",
+    "promotionActive",
+    "on_sale",
+    "onSale",
+  ])
+
+  const promotionTypeRaw = String(
+    product.promotion_type ??
+      product.promotionType ??
+      product.discount_type ??
+      product.discountType ??
+      ""
+  )
+    .trim()
+    .toLowerCase()
+
+  const promotionValue = pickFirstNumber(product, [
+    "promotion_value",
+    "promotionValue",
+    "discount_value",
+    "discountValue",
+    "value",
+  ])
+
+  const originalPrice = explicitOriginalPrice ?? basePrice
+  let finalPrice = basePrice
+
+  if (
+    explicitPromotionalPrice !== null &&
+    explicitPromotionalPrice > 0 &&
+    explicitPromotionalPrice < originalPrice
+  ) {
+    finalPrice = explicitPromotionalPrice
+  } else if (
+    promotionFlag &&
+    promotionTypeRaw === "percentage" &&
+    promotionValue !== null &&
+    promotionValue > 0 &&
+    promotionValue < 100
+  ) {
+    finalPrice = Number((basePrice * (1 - promotionValue / 100)).toFixed(2))
+  } else if (
+    promotionFlag &&
+    promotionTypeRaw === "fixed" &&
+    promotionValue !== null &&
+    promotionValue > 0
+  ) {
+    finalPrice = Math.max(0, Number((basePrice - promotionValue).toFixed(2)))
+  } else if (
+    promotionFlag &&
+    explicitDiscountPercentage !== null &&
+    explicitDiscountPercentage > 0 &&
+    explicitDiscountPercentage < 100
+  ) {
+    finalPrice = Number((basePrice * (1 - explicitDiscountPercentage / 100)).toFixed(2))
+  } else if (
+    promotionFlag &&
+    explicitDiscountAmount !== null &&
+    explicitDiscountAmount > 0
+  ) {
+    finalPrice = Math.max(0, Number((basePrice - explicitDiscountAmount).toFixed(2)))
+  }
+
+  const isPromotional = originalPrice > 0 && finalPrice > 0 && finalPrice < originalPrice
+
+  const finalDiscountPercentage = isPromotional
+    ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100)
+    : 0
+
+  return {
+    price: finalPrice,
+    originalPrice: isPromotional ? originalPrice : null,
+    promotionalPrice: isPromotional ? finalPrice : null,
+    isPromotional,
+    discountPercentage: finalDiscountPercentage,
+    promotionActive: promotionFlag,
+    promotionType: promotionTypeRaw || null,
+    promotionValue: promotionValue ?? 0,
+  }
+}
+
 type RouteContext = {
   params: Promise<{
     slug: string
@@ -102,9 +296,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
       supabaseAdmin
         .from("products")
-        .select(
-          "id, restaurant_id, category_id, name, description, price, image_url, is_available, sort_order, created_at"
-        )
+        .select("*")
         .eq("restaurant_id", restaurant.id)
         .eq("is_available", true)
         .order("sort_order", { ascending: true })
@@ -199,6 +391,8 @@ export async function GET(_request: Request, context: RouteContext) {
         ? categoriesMap.get(product.category_id)
         : null
 
+      const pricing = normalizeProductPricing(product as Record<string, unknown>)
+
       const normalizedProduct = {
         id: product.id,
         restaurantId: product.restaurant_id,
@@ -206,7 +400,21 @@ export async function GET(_request: Request, context: RouteContext) {
         category: category?.name ?? "Sem categoria",
         name: product.name,
         description: product.description ?? "",
-        price: toNumber(product.price, 0),
+        price: pricing.price,
+        originalPrice: pricing.originalPrice,
+        original_price: pricing.originalPrice,
+        promotionalPrice: pricing.promotionalPrice,
+        promotional_price: pricing.promotionalPrice,
+        isPromotional: pricing.isPromotional,
+        is_promotional: pricing.isPromotional,
+        discountPercentage: pricing.discountPercentage,
+        discount_percentage: pricing.discountPercentage,
+        promotionActive: pricing.promotionActive,
+        promotion_active: pricing.promotionActive,
+        promotionType: pricing.promotionType,
+        promotion_type: pricing.promotionType,
+        promotionValue: pricing.promotionValue,
+        promotion_value: pricing.promotionValue,
         cost: 0,
         active: product.is_available ?? true,
         salesCount: 0,

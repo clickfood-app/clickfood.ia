@@ -114,6 +114,22 @@ interface CartItem {
   unitPrice: number
 }
 
+type PromotionAwareProduct = MenuProduct & {
+  originalPrice?: number | string | null
+  original_price?: number | string | null
+  promotionalPrice?: number | string | null
+  promotional_price?: number | string | null
+  isPromotional?: boolean | null
+  is_promotional?: boolean | null
+  discountPercentage?: number | string | null
+  discount_percentage?: number | string | null
+  badge?: {
+    type?: "popular" | "promo" | "new" | string
+    label?: string
+    discount?: number
+  } | null
+}
+
 const mockModifierGroups: Record<string, ModifierGroup[]> = {
   "cat-1": [
     {
@@ -306,7 +322,7 @@ function MenuSkeleton() {
 
       <div className="relative h-44 bg-gradient-to-br from-blue-500 to-indigo-600" />
 
-      <div className="mx-auto max-w-2xl px-4 -mt-14 relative z-10">
+      <div className="mx-auto max-w-[480px] px-3 -mt-14 relative z-10">
         <div className="flex gap-4 items-end">
           <div className="h-20 w-20 rounded-2xl skeleton-shimmer ring-4 ring-white shadow-lg" />
 
@@ -374,6 +390,238 @@ function ProductBadge({
   )
 }
 
+
+// BLOCO: promoções e ofertas em destaque do cardápio público.
+// Usa productMeta como fonte temporária para não mexer no banco agora.
+// Depois, essa mesma função pode ler campos reais do Supabase.
+type PromotionalMenuProduct = MenuProduct & {
+  originalPrice?: number | null
+  original_price?: number | null
+  promotionalPrice?: number | null
+  promotional_price?: number | null
+  isPromotional?: boolean | null
+  is_promotional?: boolean | null
+  discountPercentage?: number | null
+  discount_percentage?: number | null
+}
+
+function getProductPromotion(product: MenuProduct) {
+  const promotionalProduct = product as PromotionalMenuProduct
+
+  const realOriginalPrice = Number(
+    promotionalProduct.originalPrice ?? promotionalProduct.original_price ?? 0
+  )
+
+  const realPromotionalPrice = Number(
+    promotionalProduct.promotionalPrice ?? promotionalProduct.promotional_price ?? 0
+  )
+
+  const realDiscountPercentage = Number(
+    promotionalProduct.discountPercentage ?? promotionalProduct.discount_percentage ?? 0
+  )
+
+  const realPromotionIsActive =
+    Boolean(promotionalProduct.isPromotional ?? promotionalProduct.is_promotional) &&
+    realOriginalPrice > 0 &&
+    realPromotionalPrice > 0 &&
+    realPromotionalPrice < realOriginalPrice
+
+  if (realPromotionIsActive) {
+    return {
+      badge: {
+        type: "promo" as const,
+        label: `${realDiscountPercentage || Math.round(((realOriginalPrice - realPromotionalPrice) / realOriginalPrice) * 100)}% OFF`,
+        discount:
+          realDiscountPercentage ||
+          Math.round(((realOriginalPrice - realPromotionalPrice) / realOriginalPrice) * 100),
+      },
+      discount:
+        realDiscountPercentage ||
+        Math.round(((realOriginalPrice - realPromotionalPrice) / realOriginalPrice) * 100),
+      originalPrice: realOriginalPrice,
+      promotionalPrice: realPromotionalPrice,
+      isPromotional: true,
+    }
+  }
+
+  const badge = productMeta[product.id]?.badge
+  const discount = badge?.type === "promo" ? Number(badge.discount || 0) : 0
+
+  const originalPrice =
+    discount > 0 && discount < 100
+      ? product.price / (1 - discount / 100)
+      : null
+
+  return {
+    badge,
+    discount,
+    originalPrice,
+    promotionalPrice: discount > 0 ? product.price : null,
+    isPromotional: discount > 0,
+  }
+}
+function FeaturedOfferCard({
+  product,
+  categoryId,
+  accentColor,
+  onSelect,
+  onQuickAdd,
+}: {
+  product: MenuProduct
+  categoryId: string
+  accentColor: string
+  onSelect: (product: MenuProduct, categoryId: string) => void
+  onQuickAdd: (product: MenuProduct, categoryId: string) => void
+}) {
+  const [isAdding, setIsAdding] = useState(false)
+  const { discount, originalPrice } = getProductPromotion(product)
+
+  const handleQuickAdd = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    setIsAdding(true)
+    onQuickAdd(product, categoryId)
+
+    setTimeout(() => {
+      setIsAdding(false)
+    }, 650)
+  }
+
+  const handleOpenProduct = () => {
+    onSelect(product, categoryId)
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      handleOpenProduct()
+    }
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleOpenProduct}
+      onKeyDown={handleKeyDown}
+      className="group min-w-[176px] max-w-[176px] cursor-pointer overflow-hidden rounded-[22px] border border-orange-100 bg-white text-left shadow-[0_16px_40px_-28px_rgba(15,23,42,0.8)] transition-all active:scale-[0.98]"
+    >
+      <div className="relative h-[112px] w-full overflow-hidden bg-gray-100">
+        {product.imageUrl ? (
+          <Image
+            src={product.imageUrl}
+            alt={product.name}
+            fill
+            loading="lazy"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="176px"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-orange-50 to-blue-50">
+            <Utensils className="h-8 w-8 text-orange-300" />
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+
+        <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-orange-500 px-2 py-1 text-[10px] font-black text-white shadow-lg">
+          <Percent className="h-3 w-3" />
+          -{discount}%
+        </div>
+
+        <button
+          type="button"
+          onClick={handleQuickAdd}
+          className={cn(
+            "absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-lg transition-all",
+            isAdding ? "scale-110 bg-green-500" : "active:scale-95"
+          )}
+          style={
+            isAdding
+              ? undefined
+              : {
+                  backgroundColor: accentColor,
+                }
+          }
+          aria-label={`Adicionar ${product.name}`}
+        >
+          {isAdding ? (
+            <Check className="h-4 w-4" strokeWidth={3} />
+          ) : (
+            <Plus className="h-4 w-4" strokeWidth={3} />
+          )}
+        </button>
+      </div>
+
+      <div className="p-3">
+        <h3 className="line-clamp-2 min-h-[38px] text-sm font-black leading-tight text-gray-900">
+          {product.name}
+        </h3>
+
+        <div className="mt-2">
+          {originalPrice && (
+            <p className="text-[11px] font-semibold text-gray-400 line-through">
+              {formatPrice(originalPrice)}
+            </p>
+          )}
+
+          <p className="text-base font-black leading-none text-green-600">
+            {formatPrice(product.price)}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeaturedOffersSection({
+  items,
+  accentColor,
+  onSelect,
+  onQuickAdd,
+}: {
+  items: Array<{ product: MenuProduct; categoryId: string }>
+  accentColor: string
+  onSelect: (product: MenuProduct, categoryId: string) => void
+  onQuickAdd: (product: MenuProduct, categoryId: string) => void
+}) {
+  if (items.length === 0) return null
+
+  return (
+    <section className="mt-5">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-orange-600">
+            <Flame className="h-3.5 w-3.5" />
+            Ofertas
+          </div>
+
+          <h2 className="mt-2 text-lg font-black tracking-tight text-gray-900">
+            Promoções em destaque
+          </h2>
+        </div>
+
+        <p className="text-xs font-semibold text-gray-400">
+          {items.length} {items.length === 1 ? "oferta" : "ofertas"}
+        </p>
+      </div>
+
+      <div className="-mx-3 flex gap-3 overflow-x-auto px-3 pb-1 scrollbar-hide">
+        {items.slice(0, 8).map(({ product, categoryId }) => (
+          <FeaturedOfferCard
+            key={product.id}
+            product={product}
+            categoryId={categoryId}
+            accentColor={accentColor}
+            onSelect={onSelect}
+            onQuickAdd={onQuickAdd}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// BLOCO: card compacto de produto para melhorar leitura e conversão no mobile.
 function ProductCard({
   product,
   accentColor,
@@ -388,10 +636,7 @@ function ProductCard({
   const [isAdding, setIsAdding] = useState(false)
   const [isPressing, setIsPressing] = useState(false)
   const [showRipple, setShowRipple] = useState(false)
-  const meta = productMeta[product.id]
-  const badge = meta?.badge
-  const discount = badge?.type === "promo" ? badge.discount || 0 : 0
-  const originalPrice = discount > 0 ? product.price / (1 - discount / 100) : 0
+  const { badge, discount, originalPrice, isPromotional } = getProductPromotion(product)
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -411,7 +656,7 @@ function ProductCard({
   return (
     <div
       className={cn(
-        "group relative flex cursor-pointer gap-3 rounded-[22px] p-3.5 transition-all duration-200 border border-gray-200 bg-white shadow-[0_4px_20px_-12px_rgba(0,0,0,0.12)] hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-18px_rgba(0,0,0,0.18)]",
+        "group relative flex cursor-pointer gap-3 rounded-[18px] border border-gray-200 bg-white p-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.7)] transition-all duration-200 active:scale-[0.985]",
         isPressing && "scale-[0.985]"
       )}
       onClick={onSelect}
@@ -423,37 +668,42 @@ function ProductCard({
     >
       {badge && <ProductBadge badge={badge} />}
 
-      <div className="min-w-0 flex-1 pt-1">
-        <h4 className="line-clamp-1 pr-2 text-[15px] font-extrabold leading-tight text-gray-900">
+      <div className="min-w-0 flex-1 pt-0.5">
+        <h4 className="line-clamp-1 pr-1 text-[14px] font-black leading-tight text-gray-900">
           {product.name}
         </h4>
 
-        <p className="mt-1.5 line-clamp-2 min-h-[40px] text-[12px] leading-5 text-gray-500">
+        <p className="mt-1 line-clamp-2 min-h-[34px] text-[12px] leading-[17px] text-gray-500">
           {product.description?.trim() || "Toque para ver mais detalhes deste item."}
         </p>
 
-        <div className="mt-3 flex items-end gap-2">
-          {discount > 0 && (
-            <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+        <div className="mt-2.5 flex items-end gap-2">
+          {isPromotional && (
+            <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-black text-orange-600">
               -{discount}%
             </span>
           )}
 
           <div className="flex flex-col">
-            {discount > 0 && (
-              <span className="text-[11px] text-gray-400 line-through">
+            {isPromotional && originalPrice && (
+              <span className="text-[11px] font-semibold text-gray-400 line-through">
                 {formatPrice(originalPrice)}
               </span>
             )}
 
-            <span className="text-base font-black leading-none tracking-tight text-gray-900">
+            <span
+              className={cn(
+                "text-[15px] font-black leading-none tracking-tight",
+                isPromotional ? "text-green-600" : "text-gray-900"
+              )}
+            >
               {formatPrice(product.price)}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="relative h-[104px] w-[104px] flex-shrink-0 overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
+      <div className="relative h-[88px] w-[88px] flex-shrink-0 overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
         {product.imageUrl ? (
           <>
             <Image
@@ -462,20 +712,20 @@ function ProductCard({
               fill
               loading="lazy"
               className="object-cover transition-transform duration-300 group-hover:scale-105"
-              sizes="104px"
+              sizes="88px"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
           </>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-50">
-            <Utensils className="h-8 w-8 text-gray-300" />
+            <Utensils className="h-7 w-7 text-gray-300" />
           </div>
         )}
 
         <button
           onClick={handleQuickAdd}
           className={cn(
-            "absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-all duration-300 overflow-hidden",
+            "absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-300",
             isAdding ? "bg-green-500 scale-110" : "hover:scale-105 active:scale-95"
           )}
           style={
@@ -493,9 +743,9 @@ function ProductCard({
           )}
 
           {isAdding ? (
-            <Check className="h-4.5 w-4.5 text-white" strokeWidth={3} />
+            <Check className="h-4 w-4 text-white" strokeWidth={3} />
           ) : (
-            <Plus className="h-4.5 w-4.5 text-white" strokeWidth={2.5} />
+            <Plus className="h-4 w-4 text-white" strokeWidth={3} />
           )}
         </button>
       </div>
@@ -621,6 +871,7 @@ function ProductModal({
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, ModifierOption[]>>({})
 
   const modifierGroups = mockModifierGroups[categoryId] || []
+  const productPromotion = getProductPromotion(product)
 
   const modifiersTotal = Object.values(selectedModifiers)
     .flat()
@@ -706,9 +957,23 @@ function ProductModal({
               <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
               <p className="mt-2 text-sm leading-relaxed text-gray-500">{product.description}</p>
 
-              <p className="mt-2 text-lg font-bold" style={{ color: accentColor }}>
-                A partir de {formatPrice(product.price)}
-              </p>
+              <div className="mt-3">
+                {productPromotion.isPromotional && productPromotion.originalPrice ? (
+                  <p className="text-sm font-semibold text-gray-400 line-through">
+                    {formatPrice(productPromotion.originalPrice)}
+                  </p>
+                ) : null}
+
+                <p
+                  className={cn(
+                    "text-lg font-black",
+                    productPromotion.isPromotional ? "text-green-600" : ""
+                  )}
+                  style={productPromotion.isPromotional ? undefined : { color: accentColor }}
+                >
+                  A partir de {formatPrice(product.price)}
+                </p>
+              </div>
             </div>
 
             {modifierGroups.length > 0 && (
@@ -3178,6 +3443,17 @@ export default function CardapioPublicoPage() {
       .filter((cat) => cat.products.length > 0)
   }, [categories, searchQuery])
 
+  const featuredProducts = useMemo(() => {
+    return categories
+      .flatMap((category) =>
+        category.products.map((product) => ({
+          product,
+          categoryId: category.id,
+        }))
+      )
+      .filter(({ product }) => getProductPromotion(product).isPromotional)
+  }, [categories])
+
   const scrollToCategory = useCallback((categoryId: string) => {
     const el = categoryRefs.current[categoryId]
 
@@ -3202,10 +3478,10 @@ export default function CardapioPublicoPage() {
     )
   }
 
- const CLICKFOOD_BLUE = "#2563eb"
-const CLICKFOOD_ORANGE = "#f97316"
+  const CLICKFOOD_BLUE = "#2563eb"
+  const CLICKFOOD_ORANGE = "#f97316"
 
-const themeColor = CLICKFOOD_BLUE
+  const themeColor = CLICKFOOD_BLUE
 const accentColor = CLICKFOOD_ORANGE
 const isDarkMode = false
 const minimumOrder = restaurant.minimumOrder ?? 0
@@ -3324,7 +3600,8 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
   return (
     <div className={cn("min-h-screen pb-32", isDarkMode ? "bg-neutral-950" : "bg-gray-50")}>
-      <div className="mx-auto max-w-2xl px-4 pt-4">
+      {/* BLOCO: topo compacto do restaurante */}
+      <div className="mx-auto max-w-[480px] px-3 pt-3">
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div
             className={cn(
@@ -3333,7 +3610,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
             )}
             style={{ boxShadow: "0 30px 80px -35px rgba(0,0,0,0.45)" }}
           >
-            <div className="relative h-[220px] md:h-[260px]">
+            <div className="relative h-[158px] md:h-[176px]">
               {restaurant.coverImageUrl ? (
                 <Image
                   src={restaurant.coverImageUrl}
@@ -3416,10 +3693,10 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 )}
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 p-4 md:p-6">
+              <div className="absolute inset-x-0 bottom-0 p-3 md:p-4">
                 <div className="flex items-end gap-4">
                   <div
-                    className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white shadow-xl ring-1 ring-black/5 md:h-24 md:w-24"
+                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-white/20 bg-white shadow-xl ring-1 ring-black/5 md:h-[72px] md:w-[72px]"
                     style={{ boxShadow: "0 18px 40px -18px rgba(0,0,0,0.55)" }}
                   >
                     {restaurant.logoUrl && !logoFailedToLoad ? (
@@ -3442,7 +3719,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h1 className="truncate text-2xl font-black tracking-tight text-white md:text-3xl">
+                    <h1 className="truncate text-xl font-black tracking-tight text-white md:text-2xl">
                       {restaurant.name}
                     </h1>
 
@@ -3551,6 +3828,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           />
         )}
 
+        {/* BLOCO: busca do cardápio */}
         <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150">
           <div className="group relative">
             <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-black/10 to-black/5 blur-xl opacity-0 transition-opacity duration-300 group-focus-within:opacity-100" />
@@ -3580,10 +3858,32 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           </div>
         </div>
       </div>
+      <div className="mx-auto max-w-[480px] px-3">
+        <FeaturedOffersSection
+          items={featuredProducts}
+          accentColor={themeColor}
+          onSelect={(product, categoryId) => {
+            setSelectedProduct({ product, categoryId })
+          }}
+          onQuickAdd={(product, categoryId) => {
+            handleAddWithUpsell(
+              {
+                product,
+                quantity: 1,
+                notes: "",
+                modifiers: [],
+                unitPrice: product.price,
+              },
+              categoryId
+            )
+          }}
+        />
+      </div>
 
+      {/* BLOCO: categorias fixas no topo ao rolar */}
       {filteredCategories.length > 1 && (
         <div className="sticky top-2 z-30 mt-5">
-          <div className="mx-auto max-w-2xl px-4">
+          <div className="mx-auto max-w-[480px] px-3">
             <div className="rounded-2xl border px-2 py-2 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.18)] backdrop-blur-xl border-gray-200/80 bg-white/88">
               <div
                 ref={categoryNavRef}
@@ -3618,7 +3918,8 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         </div>
       )}
 
-      <div className="mx-auto mt-5 max-w-2xl space-y-8 px-4 pb-28">
+      {/* BLOCO: lista principal de produtos */}
+      <div className="mx-auto mt-5 max-w-[480px] space-y-7 px-3 pb-28">
         {filteredCategories.map((category) => (
           <section
             key={category.id}

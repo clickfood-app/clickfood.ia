@@ -2,15 +2,22 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import {
+  AlertTriangle,
   BadgeCheck,
   CalendarDays,
+  DollarSign,
   Gift,
   Loader2,
   PlusCircle,
   Save,
   ShoppingBag,
+  Target,
+  TrendingUp,
+  Trash2,
   Trophy,
+  UserRound,
   Users,
+  Wallet,
   X,
 } from "lucide-react"
 
@@ -26,11 +33,67 @@ type LoyaltyCampaign = {
   minimum_order_amount: number
   reward_type: "custom" | "free_item" | "fixed_discount" | "percentage_discount"
   reward_description: string
-  reward_value: number | null
+  reward_value: number | string | null
   is_active: boolean
   starts_at: string | null
   ends_at: string | null
   created_at: string
+}
+
+type LoyaltyParticipant = {
+  id: string
+  restaurant_id: string
+  campaign_id: string
+  customer_phone: string | null
+  customer_name: string | null
+  current_orders: number | string | null
+  required_orders: number | string | null
+  reward_available: boolean | null
+  reward_redeemed: boolean | null
+  last_order_id?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+type OrderRecord = {
+  id: string
+  restaurant_id: string
+  customer_name: string | null
+  customer_phone: string | null
+  total: number | string | null
+  status: string | null
+  payment_status: string | null
+  created_at: string
+}
+
+type ParticipantInsight = LoyaltyParticipant & {
+  currentOrdersNumber: number
+  requiredOrdersNumber: number
+  progressPercentage: number
+  missingOrders: number
+  totalSpent: number
+  averageTicket: number
+  validOrdersCount: number
+  statusLabel: string
+  statusClassName: string
+}
+
+type CampaignInsight = {
+  campaignId: string
+  participants: ParticipantInsight[]
+  participantsCount: number
+  completedParticipants: number
+  availableRewards: number
+  redeemedRewards: number
+  totalRevenue: number
+  totalValidOrders: number
+  averageTicket: number
+  rewardCost: number
+  potentialCost: number
+  realizedCost: number
+  grossReturn: number
+  minimumRevenuePerReward: number
+  estimatedReturnPerReward: number
 }
 
 type FormState = {
@@ -57,21 +120,57 @@ const initialFormState: FormState = {
   ends_at: "",
 }
 
-function formatCurrency(value: number | null | undefined) {
+function toNumber(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") return 0
+
+  const parsedValue = Number(value)
+
+  return Number.isFinite(parsedValue) ? parsedValue : 0
+}
+
+function normalizePhone(value: string | null | undefined) {
+  return String(value || "").replace(/\D/g, "")
+}
+
+function formatCurrency(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(Number(value || 0))
+  }).format(toNumber(value))
 }
 
 function formatDate(date: string | null) {
   if (!date) return "Sem data"
 
+  const normalizedDate = date.includes("T") ? date.slice(0, 10) : date
+
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(`${date}T00:00:00`))
+  }).format(new Date(`${normalizedDate}T00:00:00`))
+}
+
+function formatPhone(phone: string | null | undefined) {
+  const normalizedPhone = normalizePhone(phone)
+
+  if (!normalizedPhone) return "Telefone não informado"
+
+  if (normalizedPhone.length === 11) {
+    return `(${normalizedPhone.slice(0, 2)}) ${normalizedPhone.slice(
+      2,
+      7
+    )}-${normalizedPhone.slice(7)}`
+  }
+
+  if (normalizedPhone.length === 10) {
+    return `(${normalizedPhone.slice(0, 2)}) ${normalizedPhone.slice(
+      2,
+      6
+    )}-${normalizedPhone.slice(6)}`
+  }
+
+  return normalizedPhone
 }
 
 function getRewardTypeLabel(type: LoyaltyCampaign["reward_type"]) {
@@ -85,25 +184,239 @@ function getRewardTypeLabel(type: LoyaltyCampaign["reward_type"]) {
   return labels[type]
 }
 
+function getRewardValueLabel(campaign: LoyaltyCampaign) {
+  const rewardValue = toNumber(campaign.reward_value)
+
+  if (!rewardValue) return "Valor não informado"
+
+  if (campaign.reward_type === "percentage_discount") {
+    return `${rewardValue}%`
+  }
+
+  return formatCurrency(rewardValue)
+}
+
+function getRewardCost(campaign: LoyaltyCampaign) {
+  if (campaign.reward_type === "percentage_discount") return 0
+
+  return toNumber(campaign.reward_value)
+}
+
+function isOrderInsideCampaign(order: OrderRecord, campaign: LoyaltyCampaign) {
+  const orderDate = new Date(order.created_at)
+
+  if (campaign.starts_at) {
+    const startDate = new Date(`${campaign.starts_at}T00:00:00`)
+
+    if (orderDate < startDate) return false
+  }
+
+  if (campaign.ends_at) {
+    const endDate = new Date(`${campaign.ends_at}T23:59:59`)
+
+    if (orderDate > endDate) return false
+  }
+
+  return true
+}
+
+function isValidOrderForCampaign(order: OrderRecord, campaign: LoyaltyCampaign) {
+  const status = String(order.status || "").toLowerCase()
+  const paymentStatus = String(order.payment_status || "").toLowerCase()
+
+  if (status.includes("cancel")) return false
+  if (paymentStatus.includes("refund")) return false
+  if (toNumber(order.total) < toNumber(campaign.minimum_order_amount)) return false
+
+  return isOrderInsideCampaign(order, campaign)
+}
+
+function getParticipantStatus(
+  participant: LoyaltyParticipant,
+  currentOrders: number,
+  requiredOrders: number
+) {
+  if (participant.reward_redeemed) {
+    return {
+      label: "Resgatado",
+      className: "bg-slate-100 text-slate-600",
+    }
+  }
+
+  if (participant.reward_available || currentOrders >= requiredOrders) {
+    return {
+      label: "Prêmio liberado",
+      className: "bg-emerald-50 text-emerald-700",
+    }
+  }
+
+  if (requiredOrders - currentOrders <= 2) {
+    return {
+      label: "Quase ganhando",
+      className: "bg-orange-50 text-orange-700",
+    }
+  }
+
+  return {
+    label: "Em andamento",
+    className: "bg-blue-50 text-blue-700",
+  }
+}
+
 export default function CardFidelidadePage() {
   const supabase = useMemo(() => createClient(), [])
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [campaigns, setCampaigns] = useState<LoyaltyCampaign[]>([])
+  const [participants, setParticipants] = useState<LoyaltyParticipant[]>([])
+  const [orders, setOrders] = useState<OrderRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LoyaltyCampaign | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [form, setForm] = useState<FormState>(initialFormState)
 
   const activeCampaigns = campaigns.filter((campaign) => campaign.is_active)
   const inactiveCampaigns = campaigns.filter((campaign) => !campaign.is_active)
 
-  const totalRequiredOrders = campaigns.reduce(
-    (total, campaign) => total + campaign.required_orders,
-    0
-  )
+  const insightsByCampaignId = useMemo(() => {
+    const insights = new Map<string, CampaignInsight>()
+
+    campaigns.forEach((campaign) => {
+      const campaignParticipants = participants.filter(
+        (participant) => participant.campaign_id === campaign.id
+      )
+
+      const participantInsights = campaignParticipants
+        .map((participant) => {
+          const participantPhone = normalizePhone(participant.customer_phone)
+          const currentOrdersNumber = toNumber(participant.current_orders)
+          const requiredOrdersNumber =
+            toNumber(participant.required_orders) ||
+            toNumber(campaign.required_orders) ||
+            1
+
+          const participantOrders = orders.filter((order) => {
+            const orderPhone = normalizePhone(order.customer_phone)
+
+            return (
+              participantPhone &&
+              orderPhone === participantPhone &&
+              isValidOrderForCampaign(order, campaign)
+            )
+          })
+
+          const totalSpent = participantOrders.reduce(
+            (total, order) => total + toNumber(order.total),
+            0
+          )
+          const validOrdersCount = participantOrders.length
+          const averageTicket = validOrdersCount > 0 ? totalSpent / validOrdersCount : 0
+          const progressPercentage = Math.min(
+            100,
+            Math.round((currentOrdersNumber / requiredOrdersNumber) * 100)
+          )
+          const missingOrders = Math.max(requiredOrdersNumber - currentOrdersNumber, 0)
+          const status = getParticipantStatus(
+            participant,
+            currentOrdersNumber,
+            requiredOrdersNumber
+          )
+
+          return {
+            ...participant,
+            currentOrdersNumber,
+            requiredOrdersNumber,
+            progressPercentage,
+            missingOrders,
+            totalSpent,
+            averageTicket,
+            validOrdersCount,
+            statusLabel: status.label,
+            statusClassName: status.className,
+          }
+        })
+        .sort((firstParticipant, secondParticipant) => {
+          if (secondParticipant.totalSpent !== firstParticipant.totalSpent) {
+            return secondParticipant.totalSpent - firstParticipant.totalSpent
+          }
+
+          return secondParticipant.currentOrdersNumber - firstParticipant.currentOrdersNumber
+        })
+
+      const rewardCost = getRewardCost(campaign)
+      const participantsCount = participantInsights.length
+      const completedParticipants = participantInsights.filter(
+        (participant) =>
+          participant.reward_available ||
+          participant.reward_redeemed ||
+          participant.currentOrdersNumber >= participant.requiredOrdersNumber
+      ).length
+      const availableRewards = participantInsights.filter(
+        (participant) => participant.reward_available && !participant.reward_redeemed
+      ).length
+      const redeemedRewards = participantInsights.filter(
+        (participant) => participant.reward_redeemed
+      ).length
+      const totalRevenue = participantInsights.reduce(
+        (total, participant) => total + participant.totalSpent,
+        0
+      )
+      const totalValidOrders = participantInsights.reduce(
+        (total, participant) => total + participant.validOrdersCount,
+        0
+      )
+      const averageTicket = totalValidOrders > 0 ? totalRevenue / totalValidOrders : 0
+      const potentialCost = completedParticipants * rewardCost
+      const realizedCost = redeemedRewards * rewardCost
+      const grossReturn = totalRevenue - realizedCost
+      const minimumRevenuePerReward =
+        toNumber(campaign.minimum_order_amount) * toNumber(campaign.required_orders)
+      const estimatedReturnPerReward = minimumRevenuePerReward - rewardCost
+
+      insights.set(campaign.id, {
+        campaignId: campaign.id,
+        participants: participantInsights,
+        participantsCount,
+        completedParticipants,
+        availableRewards,
+        redeemedRewards,
+        totalRevenue,
+        totalValidOrders,
+        averageTicket,
+        rewardCost,
+        potentialCost,
+        realizedCost,
+        grossReturn,
+        minimumRevenuePerReward,
+        estimatedReturnPerReward,
+      })
+    })
+
+    return insights
+  }, [campaigns, orders, participants])
+
+  const globalInsights = useMemo(() => {
+    const campaignInsights = Array.from(insightsByCampaignId.values())
+
+    return campaignInsights.reduce(
+      (total, insight) => ({
+        participantsCount: total.participantsCount + insight.participantsCount,
+        totalRevenue: total.totalRevenue + insight.totalRevenue,
+        realizedCost: total.realizedCost + insight.realizedCost,
+        grossReturn: total.grossReturn + insight.grossReturn,
+      }),
+      {
+        participantsCount: 0,
+        totalRevenue: 0,
+        realizedCost: 0,
+        grossReturn: 0,
+      }
+    )
+  }, [insightsByCampaignId])
 
   async function loadData() {
     try {
@@ -141,7 +454,32 @@ export default function CardFidelidadePage() {
         throw new Error("Erro ao buscar campanhas de fidelidade.")
       }
 
+      const { data: loyaltyParticipants, error: participantsError } = await supabase
+        .from("customer_loyalties")
+        .select("*")
+        .eq("restaurant_id", restaurant.id)
+        .order("current_orders", { ascending: false })
+
+      if (participantsError) {
+        console.warn("Erro ao buscar participantes do card fidelidade:", participantsError)
+      }
+
+      const { data: restaurantOrders, error: ordersError } = await supabase
+        .from("orders")
+        .select(
+          "id, restaurant_id, customer_name, customer_phone, total, status, payment_status, created_at"
+        )
+        .eq("restaurant_id", restaurant.id)
+        .order("created_at", { ascending: false })
+        .limit(1000)
+
+      if (ordersError) {
+        console.warn("Erro ao buscar pedidos para métricas de fidelidade:", ordersError)
+      }
+
       setCampaigns((loyaltyCampaigns || []) as LoyaltyCampaign[])
+      setParticipants((loyaltyParticipants || []) as LoyaltyParticipant[])
+      setOrders((restaurantOrders || []) as OrderRecord[])
     } catch (error) {
       console.error(error)
       setErrorMessage(
@@ -194,6 +532,11 @@ export default function CardFidelidadePage() {
 
     if (minimumOrderAmount < 0) {
       setErrorMessage("O pedido mínimo não pode ser negativo.")
+      return
+    }
+
+    if (rewardValue !== null && rewardValue < 0) {
+      setErrorMessage("O custo da recompensa não pode ser negativo.")
       return
     }
 
@@ -255,9 +598,7 @@ export default function CardFidelidadePage() {
 
       setCampaigns((current) =>
         current.map((item) =>
-          item.id === campaign.id
-            ? { ...item, is_active: !campaign.is_active }
-            : item
+          item.id === campaign.id ? { ...item, is_active: !campaign.is_active } : item
         )
       )
 
@@ -276,29 +617,93 @@ export default function CardFidelidadePage() {
     }
   }
 
+async function handleDeleteCampaign() {
+  if (!deleteTarget) return
+
+  try {
+    setIsDeleting(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError || !session?.access_token) {
+      throw new Error("Sessão expirada. Faça login novamente.")
+    }
+
+    const response = await fetch(`/api/campanhas/fidelidade/${deleteTarget.id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    })
+
+    const result = await response.json().catch(() => null)
+
+    if (!response.ok || !result?.success) {
+      throw new Error(
+        result?.details ||
+          result?.error ||
+          "Erro ao excluir campanha de fidelidade."
+      )
+    }
+
+    setCampaigns((current) =>
+      current.filter((campaign) => campaign.id !== deleteTarget.id)
+    )
+
+    setParticipants((current) =>
+      current.filter((participant) => participant.campaign_id !== deleteTarget.id)
+    )
+
+    setDeleteTarget(null)
+    setSuccessMessage("Campanha excluída com sucesso.")
+  } catch (error) {
+    console.error(error)
+
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : "Erro inesperado ao excluir campanha."
+    )
+  } finally {
+    setIsDeleting(false)
+  }
+}
+
   return (
     <AdminLayout title="Card Fidelidade">
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-950">
-              Card Fidelidade
-            </h1>
+        <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm">
+          <div className="flex flex-col gap-4 bg-gradient-to-r from-blue-50 via-white to-orange-50 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-orange-100 bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-orange-600 shadow-sm">
+                <Trophy className="h-4 w-4" />
+                Fidelidade com retorno financeiro
+              </div>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Crie cartões de fidelidade para recompensar clientes recorrentes
-              após uma quantidade definida de pedidos.
-            </p>
+              <h1 className="text-2xl font-black tracking-tight text-slate-950">
+                Card Fidelidade
+              </h1>
+
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                Acompanhe clientes participantes, pontuação, receita gerada,
+                custo das recompensas e retorno de cada campanha.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowForm((current) => !current)}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2563eb] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+            >
+              {showForm ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+              {showForm ? "Fechar cadastro" : "Nova campanha"}
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowForm((current) => !current)}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:bg-violet-700"
-          >
-            {showForm ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
-            {showForm ? "Fechar cadastro" : "Nova campanha"}
-          </button>
         </div>
 
         {errorMessage && (
@@ -313,52 +718,99 @@ export default function CardFidelidadePage() {
           </div>
         )}
 
-        <section className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Users className="mb-4 h-6 w-6 text-violet-600" />
-            <p className="text-sm font-medium text-slate-500">
-              Campanhas criadas
-            </p>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
+              <Users className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-semibold text-slate-500">Participantes</p>
             <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {campaigns.length}
+              {globalInsights.participantsCount}
             </strong>
+            <span className="mt-1 block text-xs font-semibold text-slate-400">
+              {campaigns.length} campanha{campaigns.length === 1 ? "" : "s"} criada
+              {campaigns.length === 1 ? "" : "s"}
+            </span>
           </div>
 
+          <div className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
+              <TrendingUp className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-semibold text-slate-500">Receita gerada</p>
+            <strong className="mt-2 block text-2xl font-black text-slate-950">
+              {formatCurrency(globalInsights.totalRevenue)}
+            </strong>
+            <span className="mt-1 block text-xs font-semibold text-slate-400">
+              Pedidos válidos das campanhas
+            </span>
+          </div>
+
+          <div className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-[#f97316]">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-semibold text-slate-500">Custo realizado</p>
+            <strong className="mt-2 block text-2xl font-black text-slate-950">
+              {formatCurrency(globalInsights.realizedCost)}
+            </strong>
+            <span className="mt-1 block text-xs font-semibold text-slate-400">
+              Prêmios já resgatados
+            </span>
+          </div>
+
+          <div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+              <DollarSign className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-semibold text-slate-500">Retorno bruto</p>
+            <strong className="mt-2 block text-2xl font-black text-slate-950">
+              {formatCurrency(globalInsights.grossReturn)}
+            </strong>
+            <span className="mt-1 block text-xs font-semibold text-slate-400">
+              Receita menos custo realizado
+            </span>
+          </div>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <ShoppingBag className="mb-4 h-6 w-6 text-violet-600" />
-            <p className="text-sm font-medium text-slate-500">
-              Campanhas ativas
-            </p>
+            <ShoppingBag className="mb-4 h-6 w-6 text-[#2563eb]" />
+            <p className="text-sm font-medium text-slate-500">Campanhas ativas</p>
             <strong className="mt-2 block text-2xl font-black text-slate-950">
               {activeCampaigns.length}
             </strong>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Trophy className="mb-4 h-6 w-6 text-violet-600" />
-            <p className="text-sm font-medium text-slate-500">
-              Campanhas pausadas
-            </p>
+            <Trophy className="mb-4 h-6 w-6 text-[#f97316]" />
+            <p className="text-sm font-medium text-slate-500">Campanhas pausadas</p>
             <strong className="mt-2 block text-2xl font-black text-slate-950">
               {inactiveCampaigns.length}
             </strong>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Gift className="mb-4 h-6 w-6 text-violet-600" />
-            <p className="text-sm font-medium text-slate-500">
-              Pedidos configurados
-            </p>
+            <Gift className="mb-4 h-6 w-6 text-[#2563eb]" />
+            <p className="text-sm font-medium text-slate-500">Campanhas criadas</p>
             <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {totalRequiredOrders}
+              {campaigns.length}
+            </strong>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Target className="mb-4 h-6 w-6 text-[#f97316]" />
+            <p className="text-sm font-medium text-slate-500">Pedidos monitorados</p>
+            <strong className="mt-2 block text-2xl font-black text-slate-950">
+              {orders.length}
             </strong>
           </div>
         </section>
 
         {showForm && (
-          <section className="rounded-[28px] border border-violet-100 bg-white p-5 shadow-sm">
+          <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-sm">
             <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
                 <Gift className="h-6 w-6" />
               </div>
 
@@ -367,8 +819,8 @@ export default function CardFidelidadePage() {
                   Criar nova campanha de fidelidade
                 </h2>
                 <p className="text-sm text-slate-500">
-                  Configure quantos pedidos o cliente precisa fazer e qual
-                  recompensa ele vai receber.
+                  Configure a meta, pedido mínimo, recompensa e o custo estimado
+                  do prêmio para medir o retorno da campanha.
                 </p>
               </div>
             </div>
@@ -381,8 +833,8 @@ export default function CardFidelidadePage() {
                 <input
                   value={form.title}
                   onChange={(event) => updateForm("title", event.target.value)}
-                  placeholder="Ex: Compre 10 e ganhe um lanche"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  placeholder="Ex: Compre 10 pizzas e ganhe 1 grátis"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
@@ -392,12 +844,10 @@ export default function CardFidelidadePage() {
                 </label>
                 <textarea
                   value={form.description}
-                  onChange={(event) =>
-                    updateForm("description", event.target.value)
-                  }
+                  onChange={(event) => updateForm("description", event.target.value)}
                   placeholder="Explique a regra da campanha para o restaurante."
                   rows={3}
-                  className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
@@ -407,10 +857,8 @@ export default function CardFidelidadePage() {
                 </label>
                 <select
                   value={form.required_orders}
-                  onChange={(event) =>
-                    updateForm("required_orders", event.target.value)
-                  }
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  onChange={(event) => updateForm("required_orders", event.target.value)}
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 >
                   {Array.from({ length: 10 }).map((_, index) => {
                     const value = String(index + 1)
@@ -436,8 +884,8 @@ export default function CardFidelidadePage() {
                   onChange={(event) =>
                     updateForm("minimum_order_amount", event.target.value)
                   }
-                  placeholder="0,00"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  placeholder="Ex: 30,00"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
@@ -453,7 +901,7 @@ export default function CardFidelidadePage() {
                       event.target.value as LoyaltyCampaign["reward_type"]
                     )
                   }
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 >
                   <option value="custom">Personalizado</option>
                   <option value="free_item">Item grátis</option>
@@ -464,19 +912,21 @@ export default function CardFidelidadePage() {
 
               <div>
                 <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Valor da recompensa
+                  Custo estimado da recompensa
                 </label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.reward_value}
-                  onChange={(event) =>
-                    updateForm("reward_value", event.target.value)
-                  }
-                  placeholder="Opcional"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  onChange={(event) => updateForm("reward_value", event.target.value)}
+                  placeholder="Ex: 70,00"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
+                <p className="mt-1 text-xs font-medium text-slate-400">
+                  Use esse campo para medir quanto o restaurante gasta quando o
+                  cliente resgata o prêmio.
+                </p>
               </div>
 
               <div className="lg:col-span-2">
@@ -488,8 +938,8 @@ export default function CardFidelidadePage() {
                   onChange={(event) =>
                     updateForm("reward_description", event.target.value)
                   }
-                  placeholder="Ex: Ganhe um X-Burger grátis"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  placeholder="Ex: Ganhe 1 pizza grande grátis"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
@@ -501,7 +951,7 @@ export default function CardFidelidadePage() {
                   type="date"
                   value={form.starts_at}
                   onChange={(event) => updateForm("starts_at", event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
@@ -513,7 +963,7 @@ export default function CardFidelidadePage() {
                   type="date"
                   value={form.ends_at}
                   onChange={(event) => updateForm("ends_at", event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
@@ -521,7 +971,7 @@ export default function CardFidelidadePage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-bold text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2563eb] px-5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -549,13 +999,13 @@ export default function CardFidelidadePage() {
         {isLoading ? (
           <section className="flex items-center justify-center rounded-[28px] border border-slate-200 bg-white p-10 shadow-sm">
             <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
-              <Loader2 className="h-5 w-5 animate-spin text-violet-600" />
+              <Loader2 className="h-5 w-5 animate-spin text-[#2563eb]" />
               Carregando campanhas...
             </div>
           </section>
         ) : campaigns.length === 0 ? (
           <section className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
               <Gift className="h-7 w-7" />
             </div>
 
@@ -564,121 +1014,418 @@ export default function CardFidelidadePage() {
             </h2>
 
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-              Aqui o restaurante poderá criar uma regra como: “a cada 10 pedidos,
-              o cliente ganha um lanche, desconto ou brinde”.
+              Crie uma regra como: “a cada 10 pedidos acima de R$ 30, o cliente
+              ganha uma pizza de R$ 70” e acompanhe o retorno da campanha.
             </p>
           </section>
         ) : (
-          <section className="grid gap-4 lg:grid-cols-2">
-            {campaigns.map((campaign) => (
-              <article
-                key={campaign.id}
-                className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
-                      <Gift className="h-6 w-6" />
+          <section className="grid gap-5 xl:grid-cols-2">
+            {campaigns.map((campaign) => {
+              const insight = insightsByCampaignId.get(campaign.id)
+              const campaignParticipants = insight?.participants || []
+              const minimumRevenuePerReward = insight?.minimumRevenuePerReward || 0
+              const rewardCost = insight?.rewardCost || 0
+              const estimatedReturnPerReward = insight?.estimatedReturnPerReward || 0
+              const estimatedMargin =
+                minimumRevenuePerReward > 0
+                  ? Math.round((estimatedReturnPerReward / minimumRevenuePerReward) * 100)
+                  : 0
+
+              return (
+                <article
+                  key={campaign.id}
+                  className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm"
+                >
+                  <div className="border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-orange-50 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2563eb] shadow-sm ring-1 ring-blue-100">
+                          <Gift className="h-6 w-6" />
+                        </div>
+
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-lg font-black text-slate-950">
+                              {campaign.title}
+                            </h2>
+
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-black ${
+                                campaign.is_active
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {campaign.is_active ? "Ativa" : "Pausada"}
+                            </span>
+                          </div>
+
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            {campaign.description || "Sem descrição informada."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5 p-5">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 p-4">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                          <ShoppingBag className="h-4 w-4" />
+                          Regra
+                        </div>
+                        <p className="text-sm font-black text-slate-900">
+                          {campaign.required_orders} pedido
+                          {campaign.required_orders === 1 ? "" : "s"}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">
+                          Pedido mínimo: {formatCurrency(campaign.minimum_order_amount)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-orange-50 p-4">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-orange-500">
+                          <Trophy className="h-4 w-4" />
+                          Recompensa
+                        </div>
+                        <p className="text-sm font-black text-slate-900">
+                          {campaign.reward_description}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-slate-600">
+                          {getRewardTypeLabel(campaign.reward_type)} •{" "}
+                          {getRewardValueLabel(campaign)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          Participantes
+                        </p>
+                        <strong className="mt-2 block text-lg font-black text-slate-950">
+                          {insight?.participantsCount || 0}
+                        </strong>
+                      </div>
+
+                      <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          Receita
+                        </p>
+                        <strong className="mt-2 block text-lg font-black text-[#2563eb]">
+                          {formatCurrency(insight?.totalRevenue || 0)}
+                        </strong>
+                      </div>
+
+                      <div className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          Custo realizado
+                        </p>
+                        <strong className="mt-2 block text-lg font-black text-[#f97316]">
+                          {formatCurrency(insight?.realizedCost || 0)}
+                        </strong>
+                      </div>
+
+                      <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          Retorno bruto
+                        </p>
+                        <strong className="mt-2 block text-lg font-black text-emerald-700">
+                          {formatCurrency(insight?.grossReturn || 0)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl bg-blue-50 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-blue-500">
+                          Ticket médio
+                        </p>
+                        <strong className="mt-2 block text-base font-black text-slate-950">
+                          {formatCurrency(insight?.averageTicket || 0)}
+                        </strong>
+                      </div>
+
+                      <div className="rounded-2xl bg-orange-50 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-orange-500">
+                          Custo potencial
+                        </p>
+                        <strong className="mt-2 block text-base font-black text-slate-950">
+                          {formatCurrency(insight?.potentialCost || 0)}
+                        </strong>
+                      </div>
+
+                      <div className="rounded-2xl bg-emerald-50 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">
+                          Prêmios resgatados
+                        </p>
+                        <strong className="mt-2 block text-base font-black text-slate-950">
+                          {insight?.redeemedRewards || 0}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Target className="h-5 w-5 text-[#f97316]" />
+                        <h3 className="text-sm font-black text-slate-950">
+                          Viabilidade da campanha
+                        </h3>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            Receita mínima por cliente
+                          </p>
+                          <strong className="mt-1 block text-sm font-black text-slate-950">
+                            {formatCurrency(minimumRevenuePerReward)}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            Custo do prêmio
+                          </p>
+                          <strong className="mt-1 block text-sm font-black text-slate-950">
+                            {formatCurrency(rewardCost)}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            Retorno mínimo estimado
+                          </p>
+                          <strong className="mt-1 block text-sm font-black text-emerald-700">
+                            {formatCurrency(estimatedReturnPerReward)}
+                            {estimatedMargin > 0 ? ` • ${estimatedMargin}%` : ""}
+                          </strong>
+                        </div>
+                      </div>
                     </div>
 
                     <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-lg font-black text-slate-950">
-                          {campaign.title}
-                        </h2>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-950">
+                            Clientes participando
+                          </h3>
+                          <p className="text-xs font-medium text-slate-500">
+                            Pontuação, total gasto e status de recompensa.
+                          </p>
+                        </div>
 
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black ${
-                            campaign.is_active
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {campaign.is_active ? "Ativa" : "Pausada"}
+                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-[#2563eb]">
+                          {insight?.availableRewards || 0} prêmio
+                          {(insight?.availableRewards || 0) === 1 ? "" : "s"} liberado
+                          {(insight?.availableRewards || 0) === 1 ? "" : "s"}
                         </span>
                       </div>
 
-                      <p className="mt-1 text-sm leading-6 text-slate-500">
-                        {campaign.description || "Sem descrição informada."}
-                      </p>
+                      {campaignParticipants.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-center">
+                          <UserRound className="mx-auto mb-2 h-6 w-6 text-slate-300" />
+                          <p className="text-sm font-bold text-slate-600">
+                            Nenhum cliente participando ainda.
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            Quando um pedido válido entrar nessa campanha, o cliente
+                            aparecerá aqui com pontuação e retorno gerado.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {campaignParticipants.slice(0, 6).map((participant) => (
+                            <div
+                              key={participant.id}
+                              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                            >
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+                                      <UserRound className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-black text-slate-950">
+                                        {participant.customer_name || "Cliente sem nome"}
+                                      </p>
+                                      <p className="text-xs font-medium text-slate-400">
+                                        {formatPhone(participant.customer_phone)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <span
+                                  className={`w-fit rounded-full px-3 py-1 text-xs font-black ${participant.statusClassName}`}
+                                >
+                                  {participant.statusLabel}
+                                </span>
+                              </div>
+
+                              <div className="mt-4">
+                                <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
+                                  <span>
+                                    {participant.currentOrdersNumber}/
+                                    {participant.requiredOrdersNumber} pedidos
+                                  </span>
+                                  <span>{participant.progressPercentage}%</span>
+                                </div>
+
+                                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-[#2563eb] to-[#f97316]"
+                                    style={{ width: `${participant.progressPercentage}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                <div className="rounded-2xl bg-slate-50 p-3">
+                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                    Total gasto
+                                  </p>
+                                  <strong className="mt-1 block text-sm font-black text-slate-950">
+                                    {formatCurrency(participant.totalSpent)}
+                                  </strong>
+                                </div>
+
+                                <div className="rounded-2xl bg-slate-50 p-3">
+                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                    Ticket médio
+                                  </p>
+                                  <strong className="mt-1 block text-sm font-black text-slate-950">
+                                    {formatCurrency(participant.averageTicket)}
+                                  </strong>
+                                </div>
+
+                                <div className="rounded-2xl bg-slate-50 p-3">
+                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                    Falta ganhar
+                                  </p>
+                                  <strong className="mt-1 block text-sm font-black text-slate-950">
+                                    {participant.missingOrders} pedido
+                                    {participant.missingOrders === 1 ? "" : "s"}
+                                  </strong>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {campaignParticipants.length > 6 && (
+                            <p className="text-center text-xs font-semibold text-slate-400">
+                              Mostrando 6 de {campaignParticipants.length} participantes.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
+
+                    <div className="flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
+                        <BadgeCheck className="h-4 w-4 text-[#2563eb]" />
+                        Criada em {formatDate(campaign.created_at)}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                        <CalendarDays className="h-4 w-4 text-slate-400" />
+                        {formatDate(campaign.starts_at)} até {formatDate(campaign.ends_at)}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCampaign(campaign)}
+                          className={`inline-flex h-10 items-center justify-center rounded-2xl px-4 text-sm font-bold transition ${
+                            campaign.is_active
+                              ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                              : "bg-[#2563eb] text-white hover:bg-blue-700"
+                          }`}
+                        >
+                          {campaign.is_active ? "Pausar campanha" : "Ativar campanha"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(campaign)}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </section>
+        )}
+
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-red-100 bg-white shadow-2xl">
+              <div className="bg-gradient-to-r from-red-50 via-white to-orange-50 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                    <AlertTriangle className="h-6 w-6" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-black text-slate-950">
+                      Excluir campanha?
+                    </h2>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Essa ação remove a campanha e os participantes vinculados a
+                      ela. Use somente quando tiver certeza de que não precisa mais
+                      desse histórico.
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-                      <ShoppingBag className="h-4 w-4" />
-                      Regra
-                    </div>
-                    <p className="text-sm font-black text-slate-900">
-                      {campaign.required_orders} pedido
-                      {campaign.required_orders === 1 ? "" : "s"}
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-slate-500">
-                      Pedido mínimo:{" "}
-                      {formatCurrency(campaign.minimum_order_amount)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-                      <Trophy className="h-4 w-4" />
-                      Recompensa
-                    </div>
-                    <p className="text-sm font-black text-slate-900">
-                      {campaign.reward_description}
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-slate-500">
-                      {getRewardTypeLabel(campaign.reward_type)}
-                      {campaign.reward_value
-                        ? ` • ${formatCurrency(campaign.reward_value)}`
-                        : ""}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-                      <CalendarDays className="h-4 w-4" />
-                      Início
-                    </div>
-                    <p className="text-sm font-black text-slate-900">
-                      {formatDate(campaign.starts_at)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-                      <CalendarDays className="h-4 w-4" />
-                      Fim
-                    </div>
-                    <p className="text-sm font-black text-slate-900">
-                      {formatDate(campaign.ends_at)}
-                    </p>
-                  </div>
+              <div className="space-y-4 p-5">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    Campanha selecionada
+                  </p>
+                  <strong className="mt-1 block text-base font-black text-slate-950">
+                    {deleteTarget.title}
+                  </strong>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    {deleteTarget.reward_description}
+                  </p>
                 </div>
 
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
-                    <BadgeCheck className="h-4 w-4 text-violet-600" />
-                    Criada em {formatDate(campaign.created_at.slice(0, 10))}
-                  </div>
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(null)}
+                    disabled={isDeleting}
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
 
                   <button
                     type="button"
-                    onClick={() => handleToggleCampaign(campaign)}
-                    className={`inline-flex h-10 items-center justify-center rounded-2xl px-4 text-sm font-bold transition ${
-                      campaign.is_active
-                        ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        : "bg-violet-600 text-white hover:bg-violet-700"
-                    }`}
+                    onClick={handleDeleteCampaign}
+                    disabled={isDeleting}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {campaign.is_active ? "Pausar campanha" : "Ativar campanha"}
+                    {isDeleting ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-5 w-5" />
+                    )}
+                    {isDeleting ? "Excluindo..." : "Excluir definitivamente"}
                   </button>
                 </div>
-              </article>
-            ))}
-          </section>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </AdminLayout>
