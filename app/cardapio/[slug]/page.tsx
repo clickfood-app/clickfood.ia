@@ -1850,9 +1850,6 @@ function CartSheet({
   const [customerAddress, setCustomerAddress] = useState("")
   const [selectedNeighborhoodKey, setSelectedNeighborhoodKey] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
-  const [couponCode, setCouponCode] = useState("")
-  const [couponApplied, setCouponApplied] = useState(false)
-  const [couponDiscount, setCouponDiscount] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [pixPayment, setPixPayment] = useState<PixPaymentData | null>(null)
   const [pixCopied, setPixCopied] = useState(false)
@@ -1944,7 +1941,7 @@ function CartSheet({
         : restaurant.deliveryFee
       : 0
 
-  const total = subtotal + serviceFee + deliveryFee - couponDiscount
+  const total = subtotal + serviceFee + deliveryFee
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
   const isPixPayment = normalizedPaymentMethod === "pix"
   const sanitizedCustomerDocument = onlyDigits(customer?.document)
@@ -2126,7 +2123,6 @@ function CartSheet({
         paymentMethod: paymentMethodLabel,
         deliveryFee,
         serviceFee,
-        couponCode: couponCode || null,
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
@@ -2172,7 +2168,7 @@ function CartSheet({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          couponCode: couponCode || null,
+
           restaurantId: restaurant.id,
           orderId: createdOrder.id,
           publicOrderNumber: createdOrder.public_order_number,
@@ -2416,42 +2412,6 @@ function CartSheet({
         ) : (
           <>
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-              <div>
-                <label className="text-xs font-semibold uppercase text-gray-500">
-                  Cupom de desconto
-                </label>
-
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    placeholder="Digite seu cupom"
-                    className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-
-                  <button
-                    onClick={() => {
-                      if (!couponCode.trim()) return
-
-                      if (couponCode.toUpperCase() === "DESCONTO10") {
-                        setCouponDiscount(subtotal * 0.1)
-                        setCouponApplied(true)
-                      } else {
-                        alert("Cupom inválido")
-                      }
-                    }}
-                    className="rounded-xl px-4 text-sm font-bold text-white"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    Aplicar
-                  </button>
-                </div>
-
-                {couponApplied && (
-                  <p className="mt-1 text-xs text-green-600">Cupom aplicado com sucesso</p>
-                )}
-              </div>
 
               <div>
                 <label className="text-xs font-semibold uppercase text-gray-500">
@@ -2740,13 +2700,6 @@ function CartSheet({
                   <span>Taxa de serviço online</span>
                   <span>{formatPrice(serviceFee)}</span>
                 </div>
-
-                {couponDiscount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Desconto</span>
-                    <span>-{formatPrice(couponDiscount)}</span>
-                  </div>
-                )}
 
                 {orderType === "delivery" && selectedNeighborhoodOption && (
                   <div className="flex justify-between text-gray-500">

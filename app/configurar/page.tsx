@@ -175,7 +175,9 @@ export default function ConfigurarPage() {
         {/* Welcome message */}
         <div className="mb-8 text-center">
           <h2 className="text-2xl font-bold text-slate-900">
-            Ola{user?.name ? `, ${user.name.split(" ")[0]}` : ""}! Vamos configurar seu restaurante
+            Ola{user?.user_metadata?.name || user?.user_metadata?.full_name
+  ? `, ${String(user.user_metadata.name || user.user_metadata.full_name).split(" ")[0]}`
+  : ""}! Vamos configurar seu restaurante
           </h2>
           <p className="mt-2 text-slate-600">
             Complete as informacoes abaixo para comecar a receber pedidos.

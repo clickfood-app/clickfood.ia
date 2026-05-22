@@ -16,7 +16,7 @@ type FormData = {
   code: string
   title: string
   description: string
-  discount_type: "percentage" | "fixed"
+  discount_type: "percentual" | "fixo"
   discount_value: string
   min_order_value: string
   max_discount_value: string
@@ -30,7 +30,7 @@ const initialForm: FormData = {
   code: "",
   title: "",
   description: "",
-  discount_type: "percentage",
+  discount_type: "percentual",
   discount_value: "",
   min_order_value: "",
   max_discount_value: "",
@@ -98,6 +98,7 @@ export default function CouponManager() {
         title: form.title.trim() || null,
         description: form.description.trim() || null,
         coupon_type: "manual" as const,
+        status: form.active ? ("ativo" as const) : ("pausado" as const),
         discount_type: form.discount_type,
         discount_value: form.discount_value ? Number(form.discount_value) : 0,
         min_order_value: form.min_order_value ? Number(form.min_order_value) : null,
@@ -105,7 +106,6 @@ export default function CouponManager() {
         usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
         starts_at: form.starts_at || null,
         expires_at: form.expires_at || null,
-        active: form.active,
         max_per_client: 1,
         notify_clients: false,
         send_channels: [],
@@ -119,7 +119,7 @@ export default function CouponManager() {
         throw new Error("Informe um valor de desconto válido.")
       }
 
-      if (payload.discount_type === "percentage" && payload.discount_value > 100) {
+      if (payload.discount_type === "percentual" && payload.discount_value > 100) {
         throw new Error("Desconto percentual não pode ser maior que 100.")
       }
 
@@ -134,7 +134,10 @@ export default function CouponManager() {
       resetForm()
       await loadCoupons()
     } catch (err: any) {
-      if (err?.message?.toLowerCase()?.includes("duplicate") || err?.message?.toLowerCase()?.includes("unique")) {
+      if (
+        err?.message?.toLowerCase()?.includes("duplicate") ||
+        err?.message?.toLowerCase()?.includes("unique")
+      ) {
         setError("Já existe um cupom com esse código.")
       } else {
         setError(err.message || "Erro ao salvar cupom.")
@@ -157,7 +160,7 @@ export default function CouponManager() {
       usage_limit: coupon.usage_limit != null ? String(coupon.usage_limit) : "",
       starts_at: coupon.starts_at ? coupon.starts_at.slice(0, 16) : "",
       expires_at: coupon.expires_at ? coupon.expires_at.slice(0, 16) : "",
-      active: coupon.active,
+      active: coupon.status === "ativo",
     })
     setSuccess(null)
     setError(null)
@@ -168,9 +171,12 @@ export default function CouponManager() {
       setError(null)
       setSuccess(null)
 
-      await updateCoupon(coupon.id, { active: !coupon.active })
+      const isActive = coupon.status === "ativo"
+      const nextStatus = isActive ? "pausado" : "ativo"
 
-      setSuccess(`Cupom ${!coupon.active ? "ativado" : "desativado"} com sucesso.`)
+      await updateCoupon(coupon.id, { status: nextStatus })
+
+      setSuccess(`Cupom ${nextStatus === "ativo" ? "ativado" : "desativado"} com sucesso.`)
       await loadCoupons()
     } catch (err: any) {
       setError(err.message || "Erro ao alterar status do cupom.")
@@ -271,11 +277,13 @@ export default function CouponManager() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Tipo de desconto</label>
             <select
               value={form.discount_type}
-              onChange={(e) => handleChange("discount_type", e.target.value as "percentage" | "fixed")}
+              onChange={(e) =>
+                handleChange("discount_type", e.target.value as "percentual" | "fixo")
+              }
               className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
             >
-              <option value="percentage">Porcentagem (%)</option>
-              <option value="fixed">Valor fixo (R$)</option>
+              <option value="percentual">Porcentagem (%)</option>
+              <option value="fixo">Valor fixo (R$)</option>
             </select>
           </div>
 
@@ -286,7 +294,7 @@ export default function CouponManager() {
               step="0.01"
               value={form.discount_value}
               onChange={(e) => handleChange("discount_value", e.target.value)}
-              placeholder={form.discount_type === "percentage" ? "10" : "5.00"}
+              placeholder={form.discount_type === "percentual" ? "10" : "5.00"}
               className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
             />
           </div>
@@ -417,70 +425,74 @@ export default function CouponManager() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCoupons.map((coupon) => (
-                  <tr key={coupon.id} className="rounded-2xl bg-gray-50">
-                    <td className="px-3 py-4 font-semibold text-gray-900">
-                      <div>{coupon.code}</div>
-                      {coupon.title && (
-                        <div className="mt-1 text-xs font-normal text-gray-500">{coupon.title}</div>
-                      )}
-                    </td>
+                {filteredCoupons.map((coupon) => {
+                  const isActive = coupon.status === "ativo"
 
-                    <td className="px-3 py-4 text-sm text-gray-700">
-                      {coupon.discount_type === "percentage"
-                        ? `${coupon.discount_value}%`
-                        : `R$ ${Number(coupon.discount_value).toFixed(2)}`}
-                    </td>
+                  return (
+                    <tr key={coupon.id} className="rounded-2xl bg-gray-50">
+                      <td className="px-3 py-4 font-semibold text-gray-900">
+                        <div>{coupon.code}</div>
+                        {coupon.title && (
+                          <div className="mt-1 text-xs font-normal text-gray-500">
+                            {coupon.title}
+                          </div>
+                        )}
+                      </td>
 
-                    <td className="px-3 py-4 text-sm text-gray-700">
-                      {coupon.used_count}
-                      {coupon.usage_limit ? ` / ${coupon.usage_limit}` : ""}
-                    </td>
+                      <td className="px-3 py-4 text-sm text-gray-700">
+                        {coupon.discount_type === "percentual"
+                          ? `${coupon.discount_value}%`
+                          : `R$ ${Number(coupon.discount_value).toFixed(2)}`}
+                      </td>
 
-                    <td className="px-3 py-4 text-sm text-gray-700">
-                      {coupon.expires_at
-                        ? new Date(coupon.expires_at).toLocaleString("pt-BR")
-                        : "Sem expiração"}
-                    </td>
+                      <td className="px-3 py-4 text-sm text-gray-700">
+                        {coupon.used_count}
+                        {coupon.usage_limit ? ` / ${coupon.usage_limit}` : ""}
+                      </td>
 
-                    <td className="px-3 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                          coupon.active
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-200 text-gray-700"
-                        }`}
-                      >
-                        {coupon.active ? "Ativo" : "Inativo"}
-                      </span>
-                    </td>
+                      <td className="px-3 py-4 text-sm text-gray-700">
+                        {coupon.expires_at
+                          ? new Date(coupon.expires_at).toLocaleString("pt-BR")
+                          : "Sem expiração"}
+                      </td>
 
-                    <td className="px-3 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => handleEdit(coupon)}
-                          className="rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white"
+                      <td className="px-3 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
+                          }`}
                         >
-                          Editar
-                        </button>
+                          {isActive ? "Ativo" : "Inativo"}
+                        </span>
+                      </td>
 
-                        <button
-                          onClick={() => handleToggleActive(coupon)}
-                          className="rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white"
-                        >
-                          {coupon.active ? "Desativar" : "Ativar"}
-                        </button>
+                      <td className="px-3 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => handleEdit(coupon)}
+                            className="rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white"
+                          >
+                            Editar
+                          </button>
 
-                        <button
-                          onClick={() => handleDelete(coupon)}
-                          className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button
+                            onClick={() => handleToggleActive(coupon)}
+                            className="rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white"
+                          >
+                            {isActive ? "Desativar" : "Ativar"}
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(coupon)}
+                            className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

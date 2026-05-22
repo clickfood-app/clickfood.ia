@@ -3,7 +3,11 @@
 
 import { MOCK_CLIENTS } from "@/lib/clients-data"
 import { initialProducts } from "@/lib/products-data"
-import { initialCoupons, initialExclusiveCoupons, ticketComparison } from "@/lib/coupons-data"
+import {
+  initialCoupons,
+  initialExclusiveCoupons,
+  ticketComparison,
+} from "@/lib/coupons-data"
 import { formatBRL } from "@/lib/finance-data"
 
 export { formatBRL }
@@ -35,14 +39,22 @@ function generateDailyData(days: number): DailyDataPoint[] {
 
     // Realistic restaurant patterns: weekends are busier
     const weekdayMultiplier =
-      dayOfWeek === 5 ? 1.45 : // Friday
-      dayOfWeek === 6 ? 1.6 :  // Saturday
-      dayOfWeek === 0 ? 1.2 :  // Sunday
-      dayOfWeek === 1 ? 0.7 :  // Monday
-      1.0
+      dayOfWeek === 5
+        ? 1.45 // Friday
+        : dayOfWeek === 6
+          ? 1.6 // Saturday
+          : dayOfWeek === 0
+            ? 1.2 // Sunday
+            : dayOfWeek === 1
+              ? 0.7 // Monday
+              : 1.0
 
     // Seed-based pseudo-random for consistency
-    const seed = (date.getFullYear() * 1000 + (date.getMonth() + 1) * 50 + date.getDate() * 7) % 100
+    const seed =
+      (date.getFullYear() * 1000 +
+        (date.getMonth() + 1) * 50 +
+        date.getDate() * 7) %
+      100
     const noise = 0.8 + (seed / 100) * 0.4
 
     const basePedidos = Math.round(38 * weekdayMultiplier * noise)
@@ -104,11 +116,12 @@ export function getKPIs(period: PeriodKey): OverviewKPIs {
   const prevMult = 0.88 + (days % 5) * 0.02
   const faturamentoAnterior = Math.round(faturamentoTotal * prevMult)
   const pedidosAnterior = Math.round(totalPedidos * (prevMult + 0.02))
-  const ticketAnterior = pedidosAnterior > 0 ? faturamentoAnterior / pedidosAnterior : 0
+  const ticketAnterior =
+    pedidosAnterior > 0 ? faturamentoAnterior / pedidosAnterior : 0
 
   // Costs estimate at ~40% of revenue
-  const custos = faturamentoTotal * 0.40
-  const custosAnterior = faturamentoAnterior * 0.40
+  const custos = faturamentoTotal * 0.4
+  const custosAnterior = faturamentoAnterior * 0.4
   const lucroEstimado = faturamentoTotal - custos
   const lucroAnterior = faturamentoAnterior - custosAnterior
 
@@ -144,13 +157,21 @@ function pctChange(current: number, previous: number): number {
 
 export function getChartData(period: PeriodKey) {
   const data = dataByPeriod[period]
+
   // For 90/120 day periods, aggregate weekly to keep chart readable
   if (parseInt(period) > 30) {
-    const weeks: { date: string; faturamento: number; pedidos: number; ticketMedio: number }[] = []
+    const weeks: {
+      date: string
+      faturamento: number
+      pedidos: number
+      ticketMedio: number
+    }[] = []
+
     for (let i = 0; i < data.length; i += 7) {
       const slice = data.slice(i, i + 7)
       const fat = slice.reduce((s, d) => s + d.faturamento, 0)
       const ped = slice.reduce((s, d) => s + d.pedidos, 0)
+
       weeks.push({
         date: `${slice[0].date} - ${slice[slice.length - 1].date}`,
         faturamento: fat,
@@ -158,8 +179,10 @@ export function getChartData(period: PeriodKey) {
         ticketMedio: ped > 0 ? Math.round((fat / ped) * 100) / 100 : 0,
       })
     }
+
     return weeks
   }
+
   return data.map((d) => ({
     date: d.date,
     faturamento: d.faturamento,
@@ -181,6 +204,7 @@ export interface OrderStatusData {
 export function getOrderStatus(period: PeriodKey): OrderStatusData {
   const days = parseInt(period)
   const base = days <= 30 ? 1 : days <= 90 ? 2.8 : 3.8
+
   return {
     concluidos: Math.round(890 * base),
     cancelados: Math.round(42 * base),
@@ -206,6 +230,7 @@ export function getClientAnalysis(period: PeriodKey): ClientAnalysis {
   const days = parseInt(period)
   const retencao = days <= 30 ? 72 : days <= 90 ? 68 : 65
   const retencaoPrev = retencao - (days <= 30 ? 12 : days <= 90 ? 8 : 5)
+
   return {
     ativos,
     inativos,
@@ -227,19 +252,38 @@ export interface CouponImpact {
 
 export function getCouponImpact(_period: PeriodKey): CouponImpact {
   const allCoupons = [...initialCoupons]
-  const bestCoupon = allCoupons.reduce(
-    (best, c) => (c.usedCount > (best?.usedCount || 0) ? c : best),
-    allCoupons[0]
-  )
-  const totalRevenue = allCoupons.reduce((s, c) => s + c.revenueGenerated, 0)
-  const exclusiveRevenue = initialExclusiveCoupons.reduce((s, c) => s + c.revenueGenerated, 0)
+
+  let bestCoupon = allCoupons[0] ?? null
+
+  for (const coupon of allCoupons) {
+    if ((coupon.usedCount ?? 0) > (bestCoupon?.usedCount ?? 0)) {
+      bestCoupon = coupon
+    }
+  }
+
+  const totalRevenue = allCoupons.reduce((sum, coupon) => {
+    const usedCount = coupon.usedCount ?? 0
+    const estimatedTicket = coupon.discountType === "percentual" ? 54.9 : 42.9
+
+    return sum + usedCount * estimatedTicket
+  }, 0)
+
+  const exclusiveRevenue = initialExclusiveCoupons.reduce((sum, coupon) => {
+    if (coupon.status !== "ativo") return sum
+
+    const estimatedTicket = coupon.discountType === "percentual" ? 59.9 : 49.9
+
+    return sum + estimatedTicket
+  }, 0)
+
+  const comparison = ticketComparison(54.9, 42.7)
 
   return {
-    receitaCupons: totalRevenue + exclusiveRevenue,
+    receitaCupons: Math.round((totalRevenue + exclusiveRevenue) * 100) / 100,
     pctPedidosComCupom: 34,
-    ticketComCupom: ticketComparison.withCoupon,
-    ticketSemCupom: ticketComparison.withoutCoupon,
-    cupomMaisUsado: bestCoupon.name,
+    ticketComCupom: comparison.withCoupon,
+    ticketSemCupom: comparison.withoutCoupon,
+    cupomMaisUsado: bestCoupon?.title || bestCoupon?.code || "Nenhum cupom",
   }
 }
 
@@ -254,6 +298,7 @@ export interface TopProduct {
 
 export function getTopProducts(period: PeriodKey): TopProduct[] {
   const mult = parseInt(period) <= 30 ? 1 : parseInt(period) <= 90 ? 2.8 : 3.8
+
   const products = initialProducts
     .filter((p) => p.active && p.salesCount > 0)
     .sort((a, b) => b.salesCount - a.salesCount)
@@ -267,11 +312,13 @@ export function getTopProducts(period: PeriodKey): TopProduct[] {
   return products.map((p) => {
     const qty = Math.round(p.salesCount * mult)
     const rev = qty * p.price
+
     return {
       name: p.name,
       quantity: qty,
       revenue: rev,
-      pctFaturamento: Math.round((rev / totalRev) * 1000) / 10,
+      pctFaturamento:
+        totalRev > 0 ? Math.round((rev / totalRev) * 1000) / 10 : 0,
     }
   })
 }
@@ -286,15 +333,28 @@ export interface DayOfWeekData {
   pctTotal: number
 }
 
-const dayNames = ["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"]
+const dayNames = [
+  "Domingo",
+  "Segunda",
+  "Terca",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sabado",
+]
+
 const dayShorts = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
 
 export function getDayOfWeekAnalysis(period: PeriodKey): DayOfWeekData[] {
   const data = dataByPeriod[period]
-  const byDay: { revenue: number; orders: number }[] = Array.from({ length: 7 }, () => ({
-    revenue: 0,
-    orders: 0,
-  }))
+
+  const byDay: { revenue: number; orders: number }[] = Array.from(
+    { length: 7 },
+    () => ({
+      revenue: 0,
+      orders: 0,
+    })
+  )
 
   data.forEach((d) => {
     byDay[d.dayOfWeek].revenue += d.faturamento
@@ -323,7 +383,10 @@ export interface SmartAlert {
 export function getSmartAlerts(period: PeriodKey): SmartAlert[] {
   const kpis = getKPIs(period)
   const dayData = getDayOfWeekAnalysis(period)
-  const bestDay = dayData.reduce((best, d) => (d.revenue > best.revenue ? d : best), dayData[0])
+  const bestDay = dayData.reduce(
+    (best, d) => (d.revenue > best.revenue ? d : best),
+    dayData[0]
+  )
   const clientAnalysis = getClientAnalysis(period)
   const alerts: SmartAlert[] = []
 
@@ -365,18 +428,27 @@ export function getSmartAlerts(period: PeriodKey): SmartAlert[] {
     alerts.push({
       id: "a4",
       type: "positive",
-      message: `Taxa de retencao aumentou ${clientAnalysis.retencao - clientAnalysis.retencaoPrev}% nos ultimos ${period} dias.`,
+      message: `Taxa de retencao aumentou ${
+        clientAnalysis.retencao - clientAnalysis.retencaoPrev
+      }% nos ultimos ${period} dias.`,
     })
   } else {
     alerts.push({
       id: "a4",
       type: "negative",
-      message: `Clientes recorrentes diminuiram ${clientAnalysis.retencaoPrev - clientAnalysis.retencao}% no periodo.`,
+      message: `Clientes recorrentes diminuiram ${
+        clientAnalysis.retencaoPrev - clientAnalysis.retencao
+      }% no periodo.`,
     })
   }
 
   const orderStatus = getOrderStatus(period)
-  const cancelRate = Math.round((orderStatus.cancelados / (orderStatus.concluidos + orderStatus.cancelados)) * 100)
+  const cancelRate = Math.round(
+    (orderStatus.cancelados /
+      (orderStatus.concluidos + orderStatus.cancelados)) *
+      100
+  )
+
   if (cancelRate > 4) {
     alerts.push({
       id: "a5",
@@ -405,6 +477,7 @@ export interface ComparativeRow {
 
 export function getComparativeTable(period: PeriodKey): ComparativeRow[] {
   const kpis = getKPIs(period)
+
   return [
     {
       metric: "Faturamento",
@@ -451,7 +524,9 @@ export function getProjection(period: PeriodKey): Projection {
   const prev7 = data.slice(-14, -7)
   const revLast = last7.reduce((s, d) => s + d.faturamento, 0)
   const revPrev = prev7.reduce((s, d) => s + d.faturamento, 0)
-  const weeklyGrowth = revPrev > 0 ? Math.round(((revLast - revPrev) / revPrev) * 1000) / 10 : 0
+
+  const weeklyGrowth =
+    revPrev > 0 ? Math.round(((revLast - revPrev) / revPrev) * 1000) / 10 : 0
 
   // Project 30 days forward
   const avgDaily = data.reduce((s, d) => s + d.faturamento, 0) / days
@@ -486,7 +561,9 @@ export function getHeatmapData(period: PeriodKey): HeatmapDay[] {
 
   // Count occurrences of each day
   const dayCounts = Array(7).fill(0)
-  data.forEach((d) => { dayCounts[d.dayOfWeek]++ })
+  data.forEach((d) => {
+    dayCounts[d.dayOfWeek]++
+  })
 
   const maxRevenue = Math.max(...dow.map((d) => d.revenue))
   const bestIdx = dow.findIndex((d) => d.revenue === maxRevenue)
@@ -516,16 +593,25 @@ export function getImpactFactors(period: PeriodKey): ImpactFactor[] {
   const coupon = getCouponImpact(period)
   const client = getClientAnalysis(period)
   const order = getOrderStatus(period)
-  const cancelRate = Math.round((order.cancelados / (order.concluidos + order.cancelados)) * 100)
+  const cancelRate = Math.round(
+    (order.cancelados / (order.concluidos + order.cancelados)) * 100
+  )
 
   // Best day ticket
   const dow = getDayOfWeekAnalysis(period)
-  const bestTicketDay = dow.reduce((best, d) =>
-    d.orders > 0 && (d.revenue / d.orders) > (best.revenue / Math.max(best.orders, 1)) ? d : best
-  , dow[0])
-  const bestTicketValue = bestTicketDay.orders > 0
-    ? formatBRL(bestTicketDay.revenue / bestTicketDay.orders)
-    : "N/A"
+  const bestTicketDay = dow.reduce(
+    (best, d) =>
+      d.orders > 0 &&
+      d.revenue / d.orders > best.revenue / Math.max(best.orders, 1)
+        ? d
+        : best,
+    dow[0]
+  )
+
+  const bestTicketValue =
+    bestTicketDay.orders > 0
+      ? formatBRL(bestTicketDay.revenue / bestTicketDay.orders)
+      : "N/A"
 
   return [
     {
@@ -537,15 +623,18 @@ export function getImpactFactors(period: PeriodKey): ImpactFactor[] {
     {
       label: "Pedidos com cupom",
       value: `${coupon.pctPedidosComCupom}%`,
-      detail: `Ticket com cupom ${formatBRL(coupon.ticketComCupom)} vs ${formatBRL(coupon.ticketSemCupom)} sem`,
+      detail: `Ticket com cupom ${formatBRL(
+        coupon.ticketComCupom
+      )} vs ${formatBRL(coupon.ticketSemCupom)} sem`,
       type: coupon.ticketComCupom > coupon.ticketSemCupom ? "positive" : "neutral",
     },
     {
       label: "Clientes recorrentes",
       value: `${client.retencao}%`,
-      detail: client.retencao > client.retencaoPrev
-        ? `Aumentou ${client.retencao - client.retencaoPrev}% no periodo`
-        : `Caiu ${client.retencaoPrev - client.retencao}% no periodo`,
+      detail:
+        client.retencao > client.retencaoPrev
+          ? `Aumentou ${client.retencao - client.retencaoPrev}% no periodo`
+          : `Caiu ${client.retencaoPrev - client.retencao}% no periodo`,
       type: client.retencao > client.retencaoPrev ? "positive" : "negative",
     },
     {
@@ -557,7 +646,9 @@ export function getImpactFactors(period: PeriodKey): ImpactFactor[] {
     {
       label: "Taxa de cancelamento",
       value: `${cancelRate}%`,
-      detail: `${order.cancelados} pedidos cancelados de ${order.concluidos + order.cancelados}`,
+      detail: `${order.cancelados} pedidos cancelados de ${
+        order.concluidos + order.cancelados
+      }`,
       type: cancelRate > 5 ? "negative" : cancelRate > 3 ? "neutral" : "positive",
     },
   ]
@@ -568,12 +659,16 @@ export function getImpactFactors(period: PeriodKey): ImpactFactor[] {
 export function getDynamicSummary(period: PeriodKey): string {
   const kpis = getKPIs(period)
   const dayData = getDayOfWeekAnalysis(period)
-  const bestDay = dayData.reduce((best, d) => (d.revenue > best.revenue ? d : best), dayData[0])
+  const bestDay = dayData.reduce(
+    (best, d) => (d.revenue > best.revenue ? d : best),
+    dayData[0]
+  )
 
   const fatFormatted = formatBRL(kpis.faturamentoTotal)
-  const crescimento = kpis.faturamentoVar > 0
-    ? `com crescimento de ${kpis.faturamentoVar}%`
-    : `com queda de ${Math.abs(kpis.faturamentoVar)}%`
+  const crescimento =
+    kpis.faturamentoVar > 0
+      ? `com crescimento de ${kpis.faturamentoVar}%`
+      : `com queda de ${Math.abs(kpis.faturamentoVar)}%`
   const ticketDir = kpis.ticketVar > 0 ? "aumentou" : "caiu"
 
   return `Nos ultimos ${period} dias seu restaurante faturou ${fatFormatted}, ${crescimento}. Seu ticket medio ${ticketDir} e ${bestDay.day.toLowerCase()} e seu melhor dia.`

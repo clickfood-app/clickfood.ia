@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
+const DEFAULT_ONLINE_SERVICE_FEE = 1.5
+
 type CreateOrderItemInput = {
   product_id: string
   quantity: number
@@ -23,11 +25,42 @@ type CreateOrderBody = {
   neighborhood?: string
   orderType: "delivery" | "pickup"
   paymentMethod: string
-  deliveryFee?: number
-  serviceFee?: number
   couponCode?: string | null
   customerNote?: string | null
   items: CreateOrderItemInput[]
+}
+
+type RestaurantRow = {
+  id: string
+  name: string | null
+  slug: string | null
+  is_active: boolean | null
+  delivery_fee: number | string | null
+  delivery_enabled: boolean | null
+  pickup_enabled: boolean | null
+  minimum_order: number | string | null
+}
+
+type ProductRow = {
+  id: string
+  restaurant_id: string
+  name: string
+  price: number | string | null
+  is_available: boolean | null
+}
+
+type DeliveryFeeRuleRow = {
+  id: string
+  restaurant_id: string
+  label: string | null
+  fee: number | string | null
+  neighborhoods: string[] | null
+  is_active: boolean | null
+  sort_order: number | null
+}
+
+type PaymentSettingsRow = {
+  service_fee_amount: number | string | null
 }
 
 type ValidatedOrderItem = {
@@ -47,6 +80,18 @@ function normalizeNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(num) ? num : fallback
 }
 
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+}
+
 function mapPaymentMethod(value: string) {
   const normalized = value.trim().toLowerCase()
 
@@ -56,7 +101,8 @@ function mapPaymentMethod(value: string) {
   if (
     normalized === "cartao" ||
     normalized === "cartão" ||
-    normalized === "cartao na entrega"
+    normalized === "cartao na entrega" ||
+    normalized === "cartão na entrega"
   ) {
     return "card_on_delivery"
   }
@@ -71,6 +117,48 @@ function buildPublicOrderNumber() {
   return `${now.slice(-6)}${random}`
 }
 
+function findDeliveryRuleByNeighborhood(
+  deliveryRules: DeliveryFeeRuleRow[],
+  neighborhood: string
+) {
+  const selectedNeighborhood = normalizeSearchText(neighborhood)
+
+  return deliveryRules.find((rule) => {
+    if (rule.is_active === false) return false
+    if (!Array.isArray(rule.neighborhoods)) return false
+
+    return rule.neighborhoods.some(
+      (item) => normalizeSearchText(item) === selectedNeighborhood
+    )
+  })
+}
+
+async function getServiceFeeAmount(restaurantId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("restaurant_payment_settings")
+    .select("service_fee_amount")
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle()
+
+  if (error) {
+    console.warn("Erro ao buscar taxa de serviço. Usando valor padrão:", {
+      restaurantId,
+      message: error.message,
+      code: error.code,
+    })
+
+    return DEFAULT_ONLINE_SERVICE_FEE
+  }
+
+  const paymentSettings = data as PaymentSettingsRow | null
+  const serviceFee = normalizeNumber(
+    paymentSettings?.service_fee_amount,
+    DEFAULT_ONLINE_SERVICE_FEE
+  )
+
+  return Math.max(0, roundMoney(serviceFee))
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CreateOrderBody
@@ -83,9 +171,6 @@ export async function POST(request: Request) {
     const orderType = body.orderType === "pickup" ? "pickup" : "delivery"
     const paymentMethodLabel = normalizeText(body.paymentMethod)
     const paymentMethod = mapPaymentMethod(paymentMethodLabel)
-    const deliveryFee =
-      orderType === "delivery" ? normalizeNumber(body.deliveryFee, 0) : 0
-    const serviceFee = normalizeNumber(body.serviceFee, 0)
     const customerNote = normalizeText(body.customerNote)
     const items = Array.isArray(body.items) ? body.items : []
 
@@ -133,7 +218,9 @@ export async function POST(request: Request) {
 
     const { data: restaurant, error: restaurantError } = await supabaseAdmin
       .from("restaurants")
-      .select("id, name, slug, is_active")
+      .select(
+        "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order"
+      )
       .eq("id", restaurantId)
       .maybeSingle()
 
@@ -144,10 +231,26 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!restaurant || restaurant.is_active === false) {
+    const typedRestaurant = restaurant as RestaurantRow | null
+
+    if (!typedRestaurant || typedRestaurant.is_active === false) {
       return NextResponse.json(
         { error: "Restaurante não encontrado ou inativo." },
         { status: 404 }
+      )
+    }
+
+    if (orderType === "delivery" && typedRestaurant.delivery_enabled === false) {
+      return NextResponse.json(
+        { error: "Este restaurante não está aceitando pedidos para entrega." },
+        { status: 400 }
+      )
+    }
+
+    if (orderType === "pickup" && typedRestaurant.pickup_enabled === false) {
+      return NextResponse.json(
+        { error: "Este restaurante não está aceitando pedidos para retirada." },
+        { status: 400 }
       )
     }
 
@@ -155,9 +258,17 @@ export async function POST(request: Request) {
       new Set(items.map((item) => normalizeText(item.product_id)).filter(Boolean))
     )
 
+    if (productIds.length === 0) {
+      return NextResponse.json(
+        { error: "Nenhum produto válido foi enviado no pedido." },
+        { status: 400 }
+      )
+    }
+
     const { data: products, error: productsError } = await supabaseAdmin
       .from("products")
       .select("id, restaurant_id, name, price, is_available")
+      .eq("restaurant_id", restaurantId)
       .in("id", productIds)
 
     if (productsError) {
@@ -168,7 +279,10 @@ export async function POST(request: Request) {
     }
 
     const productMap = new Map(
-      (products || []).map((product) => [product.id, product])
+      ((products || []) as ProductRow[]).map((product) => [
+        product.id,
+        product,
+      ])
     )
 
     let subtotal = 0
@@ -204,14 +318,15 @@ export async function POST(request: Request) {
       const clientUnitPrice = normalizeNumber(item.unit_price, basePrice)
 
       /*
-        Mantém segurança:
-        - se o cliente tentar mandar preço menor, usa o preço do banco
-        - se tiver adicional/modificador e o unit_price vier maior, respeita o valor maior
+        Segurança:
+        - preço oficial vem do banco;
+        - se o cliente tentar mandar preço menor, o backend ignora;
+        - se vier maior por causa de adicional/modificador, mantém o maior valor.
       */
-      const safeUnitPrice = Math.max(basePrice, clientUnitPrice)
-      const lineTotal = safeUnitPrice * quantity
+      const safeUnitPrice = roundMoney(Math.max(basePrice, clientUnitPrice))
+      const lineTotal = roundMoney(safeUnitPrice * quantity)
 
-      subtotal += lineTotal
+      subtotal = roundMoney(subtotal + lineTotal)
 
       validatedOrderItems.push({
         product_id: product.id,
@@ -222,7 +337,68 @@ export async function POST(request: Request) {
       })
     }
 
-    const total = subtotal + serviceFee + deliveryFee
+    const minimumOrder = normalizeNumber(typedRestaurant.minimum_order, 0)
+
+    if (minimumOrder > 0 && subtotal < minimumOrder) {
+      return NextResponse.json(
+        {
+          error: `Pedido mínimo de R$ ${minimumOrder.toFixed(2).replace(".", ",")}.`,
+        },
+        { status: 400 }
+      )
+    }
+
+    const [{ data: deliveryRulesData, error: deliveryRulesError }, serviceFee] =
+      await Promise.all([
+        supabaseAdmin
+          .from("delivery_fee_rules")
+          .select(
+            "id, restaurant_id, label, fee, neighborhoods, is_active, sort_order"
+          )
+          .eq("restaurant_id", restaurantId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+        getServiceFeeAmount(restaurantId),
+      ])
+
+    if (deliveryRulesError) {
+      return NextResponse.json(
+        {
+          error:
+            deliveryRulesError.message ||
+            "Erro ao buscar regras de taxa de entrega.",
+        },
+        { status: 500 }
+      )
+    }
+
+    const deliveryRules = (deliveryRulesData || []) as DeliveryFeeRuleRow[]
+
+    let deliveryFee = 0
+
+    if (orderType === "delivery") {
+      const matchedRule = findDeliveryRuleByNeighborhood(
+        deliveryRules,
+        neighborhood
+      )
+
+      if (deliveryRules.length > 0 && !matchedRule) {
+        return NextResponse.json(
+          { error: "Bairro não atendido por este restaurante." },
+          { status: 400 }
+        )
+      }
+
+      deliveryFee = matchedRule
+        ? normalizeNumber(matchedRule.fee, 0)
+        : normalizeNumber(typedRestaurant.delivery_fee, 0)
+
+      deliveryFee = Math.max(0, roundMoney(deliveryFee))
+    }
+
+    const safeServiceFee = subtotal > 0 ? serviceFee : 0
+    const discount = 0
+    const total = roundMoney(subtotal + safeServiceFee + deliveryFee - discount)
     const publicOrderNumber = buildPublicOrderNumber()
 
     const orderPayload = {
@@ -232,7 +408,7 @@ export async function POST(request: Request) {
       customer_phone: customerPhone,
       status: paymentMethod === "pix" ? "awaiting_payment" : "pending",
       subtotal,
-      discount: 0,
+      discount,
       delivery_fee: deliveryFee,
       total,
       payment_method: paymentMethod,
@@ -289,8 +465,9 @@ export async function POST(request: Request) {
       order: createdOrder,
       summary: {
         subtotal,
-        serviceFee,
+        serviceFee: safeServiceFee,
         deliveryFee,
+        discount,
         total,
         neighborhood,
         orderType,

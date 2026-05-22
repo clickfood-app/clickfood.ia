@@ -1,19 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import {
-  Brain,
-  Check,
-  Gift,
-  Send,
-  UserCheck,
-  X,
-} from "lucide-react"
+import { Brain, Check, Gift, Send, UserCheck, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type {
-  ExclusiveSuggestion,
-  ExclusiveReason,
-} from "@/lib/coupons-data"
+import type { ExclusiveSuggestion, ExclusiveReason } from "@/lib/coupons-data"
 import { exclusiveReasonLabels } from "@/lib/coupons-data"
 
 interface ExclusiveSuggestionsProps {
@@ -46,7 +36,37 @@ const reasonIconColor: Record<ExclusiveReason, string> = {
   manual: "bg-muted text-muted-foreground",
 }
 
-export default function ExclusiveSuggestions({ suggestions, onAccept, onDismiss }: ExclusiveSuggestionsProps) {
+function getSuggestionMessage(suggestion: ExclusiveSuggestion) {
+  if (suggestion.observation?.trim()) {
+    return suggestion.observation
+  }
+
+  if (suggestion.reason === "fidelidade") {
+    return "Cliente com bom histórico de compras. Vale enviar um benefício exclusivo para aumentar a recompra."
+  }
+
+  if (suggestion.reason === "pedido_cancelado") {
+    return "Cliente teve pedido cancelado. Um cupom exclusivo pode ajudar a recuperar a confiança e gerar uma nova compra."
+  }
+
+  if (suggestion.reason === "cliente_vip") {
+    return "Cliente com alto valor para o restaurante. Uma oferta especial pode fortalecer a fidelização."
+  }
+
+  if (suggestion.reason === "recuperacao_inativo") {
+    return suggestion.daysInactive
+      ? `Cliente está há ${suggestion.daysInactive} dias sem comprar. Uma oferta pode ajudar na recuperação.`
+      : "Cliente está inativo. Uma oferta exclusiva pode ajudar a trazer esse cliente de volta."
+  }
+
+  return "Sugestão exclusiva para envio manual ao cliente."
+}
+
+export default function ExclusiveSuggestions({
+  suggestions,
+  onAccept,
+  onDismiss,
+}: ExclusiveSuggestionsProps) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [accepted, setAccepted] = useState<Set<string>>(new Set())
 
@@ -69,7 +89,7 @@ export default function ExclusiveSuggestions({ suggestions, onAccept, onDismiss 
       <div className="rounded-xl border border-border bg-card p-6 text-center">
         <Brain className="mx-auto h-8 w-8 text-muted-foreground/40" />
         <p className="mt-2 text-sm text-muted-foreground">
-          Nenhuma sugestao pendente no momento
+          Nenhuma sugestão pendente no momento
         </p>
       </div>
     )
@@ -80,12 +100,16 @@ export default function ExclusiveSuggestions({ suggestions, onAccept, onDismiss 
       <div className="flex items-center gap-2 border-b border-border px-5 py-4">
         <Brain className="h-5 w-5 text-[hsl(var(--primary))]" />
         <div>
-          <h3 className="text-sm font-bold text-card-foreground">Inteligencia Estrategica</h3>
-          <p className="text-xs text-muted-foreground">Sugestoes automaticas baseadas no comportamento dos clientes</p>
+          <h3 className="text-sm font-bold text-card-foreground">
+            Inteligência Estratégica
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Sugestões automáticas baseadas no comportamento dos clientes
+          </p>
         </div>
       </div>
 
-      <div className="p-5 space-y-3">
+      <div className="space-y-3 p-5">
         {visibleSuggestions.map((suggestion) => (
           <div
             key={suggestion.id}
@@ -94,30 +118,41 @@ export default function ExclusiveSuggestions({ suggestions, onAccept, onDismiss 
               reasonAccentColor[suggestion.reason]
             )}
           >
-            <span className={cn(
-              "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg",
-              reasonIconColor[suggestion.reason]
-            )}>
+            <span
+              className={cn(
+                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg",
+                reasonIconColor[suggestion.reason]
+              )}
+            >
               {reasonIcons[suggestion.reason]}
             </span>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-semibold text-card-foreground">{suggestion.clientName}</span>
-                <span className={cn(
-                  "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  reasonIconColor[suggestion.reason]
-                )}>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-sm font-semibold text-card-foreground">
+                  {suggestion.clientName}
+                </span>
+
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    reasonIconColor[suggestion.reason]
+                  )}
+                >
                   {exclusiveReasonLabels[suggestion.reason]}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{suggestion.message}</p>
+
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {getSuggestionMessage(suggestion)}
+              </p>
+
               <div className="mt-1.5 text-xs text-muted-foreground">
                 Desconto sugerido:{" "}
                 <span className="font-semibold text-card-foreground">
                   {suggestion.suggestedDiscountType === "percentual"
                     ? `${suggestion.suggestedDiscount}%`
-                    : `R$ ${suggestion.suggestedDiscount},00`}
+                    : `R$ ${suggestion.suggestedDiscount.toFixed(2).replace(".", ",")}`}
                 </span>
               </div>
             </div>
@@ -130,10 +165,11 @@ export default function ExclusiveSuggestions({ suggestions, onAccept, onDismiss 
                 <Check className="h-3 w-3" />
                 Enviar
               </button>
+
               <button
                 onClick={() => handleDismiss(suggestion.id)}
                 className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-                aria-label="Dispensar sugestao"
+                aria-label="Dispensar sugestão"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

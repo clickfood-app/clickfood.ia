@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
 
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
-    url.pathname = "/"
+    url.pathname = "/gestao"
     return NextResponse.redirect(url)
   }
 
@@ -64,11 +64,15 @@ export const config = {
     "/relatorios/:path*",
     "/funcionarios/:path*",
     "/configuracoes/:path*",
+    "/configurar/:path*",
     "/novo-pedido/:path*",
     "/cupons/:path*",
     "/gestao/:path*",
     "/painel/:path*",
     "/clickclub/:path*",
-    "/cardapio/:path*",
+    "/mesas/:path*",
+    "/entregadores/:path*",
+    "/divulgar-cardapio/:path*",
+    "/campanhas/:path*",
   ],
 }

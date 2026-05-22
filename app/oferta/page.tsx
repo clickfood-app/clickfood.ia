@@ -26,7 +26,7 @@ const benefits = [
 
 export default function OfertaPage() {
   const router = useRouter()
-  const { user, refreshSession } = useAuth()
+  const { user } = useAuth()
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly")
   const [isLoading, setIsLoading] = useState(false)
 
@@ -34,6 +34,13 @@ export default function OfertaPage() {
   const yearlyPrice = 39.90 // Per month when paying yearly
   const yearlyTotal = yearlyPrice * 12
   const savings = (monthlyPrice - yearlyPrice) * 12
+
+  const userDisplayName = String(
+    user?.user_metadata?.name ||
+      user?.user_metadata?.full_name ||
+      user?.email ||
+      "usuario"
+  )
 
   const handleSubscribe = async () => {
     setIsLoading(true)
@@ -43,10 +50,9 @@ export default function OfertaPage() {
 
     // Activate subscription
     activateSubscription(selectedPlan)
-    refreshSession()
 
     setIsLoading(false)
-    router.push("/dashboard")
+    router.push("/gestao")
   }
 
   return (
@@ -62,7 +68,7 @@ export default function OfertaPage() {
           </div>
           {user && (
             <span className="text-sm text-gray-500">
-              Ola, <span className="font-medium text-gray-700">{user.name}</span>
+              Ola, <span className="font-medium text-gray-700">{userDisplayName}</span>
             </span>
           )}
         </div>
@@ -122,7 +128,9 @@ export default function OfertaPage() {
                   <Zap className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold">Plano {selectedPlan === "yearly" ? "Anual" : "Mensal"}</h3>
+                  <h3 className="text-lg font-bold">
+                    Plano {selectedPlan === "yearly" ? "Anual" : "Mensal"}
+                  </h3>
                   <p className="text-sm text-blue-100">Acesso completo a plataforma</p>
                 </div>
               </div>
@@ -132,7 +140,10 @@ export default function OfertaPage() {
             <div className="px-8 py-8 border-b border-gray-100">
               <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-4xl font-bold text-gray-900">
-                  R$ {selectedPlan === "yearly" ? yearlyPrice.toFixed(2).replace(".", ",") : monthlyPrice.toFixed(2).replace(".", ",")}
+                  R${" "}
+                  {selectedPlan === "yearly"
+                    ? yearlyPrice.toFixed(2).replace(".", ",")
+                    : monthlyPrice.toFixed(2).replace(".", ",")}
                 </span>
                 <span className="text-gray-500">/mes</span>
               </div>
@@ -183,8 +194,8 @@ export default function OfertaPage() {
                 )}
               </button>
               <p className="text-xs text-center text-gray-500 mt-3">
-  Pagamento seguro. Cancele a qualquer momento.
-</p>
+                Pagamento seguro. Cancele a qualquer momento.
+              </p>
             </div>
           </div>
         </div>

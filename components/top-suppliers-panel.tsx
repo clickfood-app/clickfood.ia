@@ -36,13 +36,15 @@ const MEDAL_STYLES = [
 export default function TopSuppliersPanel({ expenses }: TopSuppliersPanelProps) {
   // Calculate total per supplier
   const supplierTotals = new Map<string, number>()
-  for (const expense of expenses) {
-    const finalAmount = computeFinalAmount(expense.amount, expense.discountPercent)
-    supplierTotals.set(
-      expense.supplier,
-      (supplierTotals.get(expense.supplier) || 0) + finalAmount
-    )
-  }
+for (const expense of expenses) {
+  const finalAmount = computeFinalAmount(expense.amount, expense.discountPercent)
+  const supplierName = expense.supplier?.trim() || "Sem fornecedor"
+
+  supplierTotals.set(
+    supplierName,
+    (supplierTotals.get(supplierName) || 0) + finalAmount
+  )
+}
 
   // Sort by total descending and take top 3
   const sorted = Array.from(supplierTotals.entries())
