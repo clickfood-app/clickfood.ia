@@ -11,6 +11,7 @@ type CreatePixPaymentBody = {
   publicOrderNumber?: string
   customerName: string
   customerPhone: string
+  customerEmail?: string
   customerDocument: string
   customerAddress?: string
   customerNeighborhood?: string | null
@@ -61,6 +62,11 @@ type AsaasPixQrCodeResponse = {
   expirationDate?: string | null
 }
 
+type AsaasSplitRule = {
+  walletId: string
+  fixedValue: number
+}
+
 function onlyDigits(value: string | undefined | null) {
   return (value || "").replace(/\D/g, "")
 }
@@ -74,6 +80,42 @@ function getTodayAsaasDate() {
   return `${year}-${month}-${day}`
 }
 
+function getEnvNumber(name: string, fallback: number) {
+  const rawValue = process.env[name]
+  const parsedValue = Number(rawValue)
+
+  if (!rawValue || !Number.isFinite(parsedValue)) {
+    return fallback
+  }
+
+  return parsedValue
+}
+
+function getClickFoodSplitRules(orderTotal: number): AsaasSplitRule[] {
+  const walletId = process.env.ASAAS_CLICKFOOD_WALLET_ID?.trim() || ""
+  const fixedValue = getEnvNumber("ASAAS_CLICKFOOD_SPLIT_FIXED_VALUE", 1)
+  const minimumOrderTotal = getEnvNumber("ASAAS_CLICKFOOD_SPLIT_MIN_ORDER_TOTAL", 3)
+
+  if (!walletId) {
+    return []
+  }
+
+  if (!Number.isFinite(fixedValue) || fixedValue <= 0) {
+    return []
+  }
+
+  if (!Number.isFinite(orderTotal) || orderTotal < minimumOrderTotal) {
+    return []
+  }
+
+  return [
+    {
+      walletId,
+      fixedValue,
+    },
+  ]
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as CreatePixPaymentBody
@@ -83,6 +125,7 @@ export async function POST(req: NextRequest) {
     const customerName = body.customerName?.trim()
     const customerPhone = onlyDigits(body.customerPhone)
     const customerDocument = onlyDigits(body.customerDocument)
+    const customerEmail = body.customerEmail?.trim() || undefined
 
     if (!restaurantId) {
       return NextResponse.json(
@@ -130,7 +173,13 @@ export async function POST(req: NextRequest) {
 
     if (orderError) {
       return NextResponse.json(
-        { success: false, error: orderError.message || "Erro ao buscar pedido." },
+        {
+          success: false,
+          error: orderError.message || "Erro ao buscar pedido.",
+          details: orderError.details || null,
+          hint: orderError.hint || null,
+          code: orderError.code || null,
+        },
         { status: 500 }
       )
     }
@@ -163,6 +212,7 @@ export async function POST(req: NextRequest) {
         body: {
           name: customerName,
           cpfCnpj: customerDocument,
+          email: customerEmail,
           mobilePhone: customerPhone,
           externalReference: typedOrder.id,
           notificationDisabled: true,
@@ -170,21 +220,29 @@ export async function POST(req: NextRequest) {
       }
     )
 
+    const splitRules = getClickFoodSplitRules(orderTotal)
+
+    const paymentBody: Record<string, unknown> = {
+      customer: customer.id,
+      billingType: "PIX",
+      value: orderTotal,
+      dueDate: getTodayAsaasDate(),
+      description: `Pedido #${
+        typedOrder.public_order_number || body.publicOrderNumber || typedOrder.id
+      }`,
+      externalReference: typedOrder.id,
+    }
+
+    if (splitRules.length > 0) {
+      paymentBody.splits = splitRules
+    }
+
     const payment = await asaasFetchWithAccount<AsaasPaymentResponse>(
       asaasAccount,
       "/payments",
       {
         method: "POST",
-        body: {
-          customer: customer.id,
-          billingType: "PIX",
-          value: orderTotal,
-          dueDate: getTodayAsaasDate(),
-          description: `Pedido #${
-            typedOrder.public_order_number || body.publicOrderNumber || typedOrder.id
-          }`,
-          externalReference: typedOrder.id,
-        },
+        body: paymentBody,
       }
     )
 
@@ -196,13 +254,27 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    await supabaseAdmin
+    const { error: updateOrderError } = await supabaseAdmin
       .from("orders")
       .update({
         payment_status: "pending",
-        mercadopago_payment_id: payment.id,
       })
       .eq("id", typedOrder.id)
+
+    if (updateOrderError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            updateOrderError.message ||
+            "Cobrança Pix criada, mas erro ao atualizar pedido.",
+          details: updateOrderError.details || null,
+          hint: updateOrderError.hint || null,
+          code: updateOrderError.code || null,
+        },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -216,6 +288,8 @@ export async function POST(req: NextRequest) {
       publicOrderNumber:
         typedOrder.public_order_number || body.publicOrderNumber || null,
       expiresAt: pixQrCode.expirationDate || null,
+      splitApplied: splitRules.length > 0,
+      splitFixedValue: splitRules[0]?.fixedValue ?? 0,
     })
   } catch (error) {
     return NextResponse.json(
