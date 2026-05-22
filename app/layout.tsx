@@ -1,17 +1,26 @@
 import React from "react"
-import type { Metadata } from 'next'
-import { Toaster } from 'sonner'
-import { AuthProvider } from '@/components/auth/auth-provider'
+import type { Metadata } from "next"
+import { Toaster } from "sonner"
+import { AuthProvider } from "@/components/auth/auth-provider"
 
-import './globals.css'
+import "./globals.css"
 
-export const metadata = {
-  title: "ClickFood",
-  description: "Sistema de gestão para restaurantes e food service.",
+export const metadata: Metadata = {
+  title: "ClickFood BR",
+  description:
+    "A nova geração da gestão para restaurantes que querem crescer. A ClickFood ajuda restaurantes e operações food service a venderem mais e organizarem melhor a operação.",
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
+  openGraph: {
+    title: "ClickFood BR",
+    description:
+      "A nova geração da gestão para restaurantes que querem crescer. A ClickFood ajuda restaurantes e operações food service a venderem mais e organizarem melhor a operação.",
+    siteName: "ClickFood BR",
+    locale: "pt_BR",
+    type: "website",
   },
 }
 
