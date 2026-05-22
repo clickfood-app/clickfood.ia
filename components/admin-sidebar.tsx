@@ -7,7 +7,6 @@ import {
   ArrowLeftRight,
   BadgeDollarSign,
   BarChart3,
-  ChefHat,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -85,8 +84,7 @@ const navItems: NavItem[] = [
     href: "/campanhas",
     children: [
       { label: "Card Fidelidade", icon: <Gift className="h-4 w-4" />, href: "/campanhas/fidelidade" },
-      { label: "Saldo Promocional", icon: <BadgeDollarSign className="h-4 w-4" />, href: "/campanhas/saldo-promocional" },
-      { label: "Meu Lanche", icon: <ChefHat className="h-4 w-4" />, href: "/campanhas/meu-lanche" },
+      { label: "ClickPromo", icon: <BadgeDollarSign className="h-4 w-4" />, href: "/campanhas/saldo-promocional" },
     ],
   },
   { label: "Cardápio", icon: <Globe className="h-5 w-5" />, href: "/divulgar-cardapio" },

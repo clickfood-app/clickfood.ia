@@ -5,9 +5,14 @@ import { AuthProvider } from '@/components/auth/auth-provider'
 
 import './globals.css'
 
-export const metadata: Metadata = {
-  title: 'AdminPro - Painel Administrativo',
-  description: 'Painel administrativo para gerenciamento de pedidos e relatórios',
+export const metadata = {
+  title: "ClickFood",
+  description: "Sistema de gestão para restaurantes e food service.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 }
 
 export default function RootLayout({

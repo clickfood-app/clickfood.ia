@@ -13,7 +13,6 @@ import {
   Menu,
   PlusCircle,
   Settings,
-  Store,
   User,
 } from "lucide-react"
 
@@ -37,10 +36,7 @@ type NotificationItem = {
   unread: boolean
 }
 
-type RestaurantWithLogo = {
-  name?: string | null
-  logo_url?: string | null
-}
+const CLICKFOOD_LOGO_URL = "/logo.png"
 
 const breadcrumbMap: Record<string, string> = {
   "/": "Gestão",
@@ -69,48 +65,19 @@ export default function AdminLayout({
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
-  const { restaurant, user } = useAuth()
+  const { user } = useAuth()
 
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [brandLogoFailed, setBrandLogoFailed] = useState(false)
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 1,
-      title: "Novo pedido recebido",
-      description: "Mesa 04 acabou de fazer um pedido.",
-      time: "agora",
-      type: "order",
-      unread: true,
-    },
-    {
-      id: 2,
-      title: "Estoque baixo",
-      description: "O item 'Pão brioche' está quase acabando.",
-      time: "há 12 min",
-      type: "alert",
-      unread: true,
-    },
-    {
-      id: 3,
-      title: "Cupom em destaque",
-      description: "O cupom CLICK10 foi usado 5 vezes hoje.",
-      time: "há 1 hora",
-      type: "info",
-      unread: false,
-    },
-  ])
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
 
   const profileRef = useRef<HTMLDivElement | null>(null)
   const notificationsRef = useRef<HTMLDivElement | null>(null)
-
-  const restaurantWithLogo = restaurant as RestaurantWithLogo | null
-
-  const restaurantName = restaurant?.name || "Meu Restaurante"
-  const restaurantLogoUrl = restaurantWithLogo?.logo_url || null
 
   const userName =
     user?.user_metadata?.name ||
@@ -194,6 +161,10 @@ export default function AdminLayout({
   }
 
   useEffect(() => {
+    setBrandLogoFailed(false)
+  }, [])
+
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
         profileRef.current &&
@@ -263,45 +234,38 @@ export default function AdminLayout({
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="hidden items-center gap-3 sm:flex">
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm">
-                  {restaurantLogoUrl ? (
+              <div className="hidden items-center gap-4 sm:flex">
+                <div className="flex h-11 items-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3 shadow-sm">
+                  {!brandLogoFailed ? (
                     <img
-                      src={restaurantLogoUrl}
-                      alt={restaurantName}
-                      className="h-full w-full object-cover"
+                      src={CLICKFOOD_LOGO_URL}
+                      alt="ClickFood"
+                      className="h-8 w-auto object-contain"
+                      onError={() => setBrandLogoFailed(true)}
                     />
                   ) : (
-                    <Store className="h-5 w-5" />
+                    <span className="text-sm font-bold text-slate-900">
+                      ClickFood
+                    </span>
                   )}
                 </div>
 
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">
-                    {restaurantName}
-                  </p>
+                <div className="hidden h-7 w-px bg-slate-200 lg:block" />
 
-                  <p className="truncate text-xs font-medium text-slate-500">
-                    Operação do restaurante
-                  </p>
+                <div className="hidden min-w-0 items-center gap-2 lg:flex">
+                  <Link
+                    href="/gestao"
+                    className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                  >
+                    Gestão
+                  </Link>
+
+                  <ChevronRight className="h-4 w-4 text-slate-300" />
+
+                  <span className="truncate text-sm font-bold text-slate-900">
+                    {currentPage}
+                  </span>
                 </div>
-              </div>
-
-              <div className="hidden h-7 w-px bg-slate-200 lg:block" />
-
-              <div className="hidden min-w-0 items-center gap-2 lg:flex">
-                <Link
-                  href="/gestao"
-                  className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
-                >
-                  Gestão
-                </Link>
-
-                <ChevronRight className="h-4 w-4 text-slate-300" />
-
-                <span className="truncate text-sm font-bold text-slate-900">
-                  {currentPage}
-                </span>
               </div>
 
               <div className="min-w-0 sm:hidden">
@@ -312,11 +276,6 @@ export default function AdminLayout({
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <div className="hidden items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 xl:flex">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                <span className="font-semibold">Restaurante aberto</span>
-              </div>
-
               <div className="relative" ref={notificationsRef}>
                 <button
                   type="button"
@@ -345,17 +304,21 @@ export default function AdminLayout({
                         </h3>
 
                         <p className="text-xs text-slate-500">
-                          {unreadCount} não lida{unreadCount !== 1 ? "s" : ""}
+                          {unreadCount > 0
+                            ? `${unreadCount} não lida${unreadCount !== 1 ? "s" : ""}`
+                            : "Nenhuma notificação"}
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleMarkAllAsRead}
-                        className="text-xs font-semibold text-blue-600 transition hover:text-blue-700"
-                      >
-                        Marcar todas
-                      </button>
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleMarkAllAsRead}
+                          className="text-xs font-semibold text-blue-600 transition hover:text-blue-700"
+                        >
+                          Marcar todas
+                        </button>
+                      )}
                     </div>
 
                     <div className="max-h-[360px] overflow-y-auto">
@@ -403,11 +366,13 @@ export default function AdminLayout({
                       ) : (
                         <div className="px-4 py-10 text-center">
                           <Bell className="mx-auto h-8 w-8 text-slate-300" />
+
                           <p className="mt-3 text-sm font-semibold text-slate-600">
                             Nenhuma notificação
                           </p>
+
                           <p className="mt-1 text-xs text-slate-400">
-                            Quando houver novidades, elas aparecerão aqui.
+                            Quando houver alertas reais, eles aparecerão aqui.
                           </p>
                         </div>
                       )}

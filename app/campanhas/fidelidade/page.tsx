@@ -1,9 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import {
-  ArrowLeft,
   BadgeCheck,
   CalendarDays,
   Gift,
@@ -16,6 +14,7 @@ import {
   X,
 } from "lucide-react"
 
+import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
 
 type LoyaltyCampaign = {
@@ -278,19 +277,11 @@ export default function CardFidelidadePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <AdminLayout title="Card Fidelidade">
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <Link
-              href="/campanhas"
-              className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-violet-700"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar para campanhas
-            </Link>
-
-            <h1 className="text-3xl font-bold tracking-tight text-slate-950">
+            <h1 className="text-2xl font-black tracking-tight text-slate-950">
               Card Fidelidade
             </h1>
 
@@ -690,6 +681,6 @@ export default function CardFidelidadePage() {
           </section>
         )}
       </div>
-    </main>
+    </AdminLayout>
   )
 }
