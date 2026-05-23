@@ -71,9 +71,9 @@ export async function POST(req: Request) {
       )
     }
 
-    if (file.size > 300 * 1024) {
+    if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "A imagem deve ter no máximo 300KB." },
+        { error: "A imagem deve ter no máximo 5MB." },
         { status: 400 }
       )
     }

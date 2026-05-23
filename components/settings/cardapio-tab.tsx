@@ -453,7 +453,7 @@ export default function CardapioTab() {
                       ) : null}
 
                       <p className="text-xs text-muted-foreground">
-                        Formatos: JPG, PNG ou WEBP. Tamanho maximo: 300KB.
+                        Formatos: JPG, PNG ou WEBP. Tamanho maximo: 5MB.
                       </p>
                     </div>
                   </div>

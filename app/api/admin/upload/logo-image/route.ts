@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "A logo deve ter no máximo 300KB." },
+        { error: "A logo deve ter no máximo 5MB." },
         { status: 400 }
       )
     }
