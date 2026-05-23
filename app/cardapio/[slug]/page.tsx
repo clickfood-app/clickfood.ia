@@ -853,6 +853,11 @@ function ModifierGroupComponent({
   )
 }
 
+type MenuProductWithModifiers = MenuProduct & {
+  modifierGroups?: ModifierGroup[] | null
+  modifier_groups?: ModifierGroup[] | null
+}
+
 function ProductModal({
   product,
   categoryId,
@@ -870,7 +875,18 @@ function ProductModal({
   const [notes, setNotes] = useState("")
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, ModifierOption[]>>({})
 
-  const modifierGroups = mockModifierGroups[categoryId] || []
+  const productWithModifiers = product as MenuProductWithModifiers
+
+const modifierGroupsSource =
+  productWithModifiers.modifierGroups ??
+  productWithModifiers.modifier_groups ??
+  []
+
+const modifierGroups = Array.isArray(modifierGroupsSource)
+  ? modifierGroupsSource.filter(
+      (group) => Array.isArray(group.options) && group.options.length > 0
+    )
+  : []
   const productPromotion = getProductPromotion(product)
 
   const modifiersTotal = Object.values(selectedModifiers)
