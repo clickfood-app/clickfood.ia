@@ -691,14 +691,16 @@ function ProductCard({
               </span>
             )}
 
-            <span
-              className={cn(
-                "text-[15px] font-black leading-none tracking-tight",
-                isPromotional ? "text-green-600" : "text-gray-900"
-              )}
-            >
-              {formatPrice(product.price)}
-            </span>
+            {Number(product.price) > 0 && (
+  <span
+    className={cn(
+      "text-[15px] font-black leading-none tracking-tight",
+      isPromotional ? "text-green-600" : "text-gray-900"
+    )}
+  >
+    {formatPrice(product.price)}
+  </span>
+)}
           </div>
         </div>
       </div>
@@ -980,15 +982,17 @@ const modifierGroups = Array.isArray(modifierGroupsSource)
                   </p>
                 ) : null}
 
-                <p
-                  className={cn(
-                    "text-lg font-black",
-                    productPromotion.isPromotional ? "text-green-600" : ""
-                  )}
-                  style={productPromotion.isPromotional ? undefined : { color: accentColor }}
-                >
-                  A partir de {formatPrice(product.price)}
-                </p>
+                {Number(product.price) > 0 && (
+  <p
+    className={cn(
+      "text-lg font-black",
+      productPromotion.isPromotional ? "text-green-600" : ""
+    )}
+    style={productPromotion.isPromotional ? undefined : { color: accentColor }}
+  >
+    A partir de {formatPrice(product.price)}
+  </p>
+)}
               </div>
             </div>
 

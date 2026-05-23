@@ -296,34 +296,35 @@ export default function ProductEditorSheet({
   const baseProfit = getProfit(numericPrice, numericCost)
   const baseMargin = getMargin(numericPrice, numericCost)
 
-  const canSave = useMemo(() => {
-    const validPromotion =
-      !promotionActive ||
-      (promotionType !== "none" &&
-        Number.isFinite(numericPromotionValue) &&
-        numericPromotionValue > 0 &&
-        (promotionType !== "percentage" || numericPromotionValue <= 100) &&
-        finalPrice > 0)
-
-    return (
-      name.trim().length > 0 &&
-      category.trim().length > 0 &&
-      Number.isFinite(numericPrice) &&
+const canSave = useMemo(() => {
+  const validPromotion =
+    !promotionActive ||
+    (promotionType !== "none" &&
+      Number.isFinite(numericPromotionValue) &&
+      numericPromotionValue > 0 &&
       numericPrice > 0 &&
-      Number.isFinite(numericCost) &&
-      numericCost >= 0 &&
-      validPromotion
-    )
-  }, [
-    category,
-    finalPrice,
-    name,
-    numericCost,
-    numericPrice,
-    numericPromotionValue,
-    promotionActive,
-    promotionType,
-  ])
+      (promotionType !== "percentage" || numericPromotionValue <= 100) &&
+      finalPrice > 0)
+
+  return (
+    name.trim().length > 0 &&
+    category.trim().length > 0 &&
+    Number.isFinite(numericPrice) &&
+    numericPrice >= 0 &&
+    Number.isFinite(numericCost) &&
+    numericCost >= 0 &&
+    validPromotion
+  )
+}, [
+  category,
+  finalPrice,
+  name,
+  numericCost,
+  numericPrice,
+  numericPromotionValue,
+  promotionActive,
+  promotionType,
+])
 
   const addModifierGroup = () => {
     setModifierGroups((currentGroups) => [
@@ -532,10 +533,10 @@ export default function ProductEditorSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full overflow-hidden p-0 sm:max-w-3xl"
+        className="w-full overflow-hidden p-0 sm:max-w-[760px] xl:max-w-[900px]"
       >
         <div className="flex h-full flex-col bg-slate-50">
-          <SheetHeader className="border-b border-slate-200 bg-white px-6 py-5">
+          <SheetHeader className="border-b border-slate-200 bg-white px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                 {mode === "create" ? (
@@ -546,21 +547,21 @@ export default function ProductEditorSheet({
               </div>
 
               <div>
-                <SheetTitle className="text-xl font-black text-slate-950">
+                <SheetTitle className="text-lg font-black text-slate-950">
                   {mode === "create" ? "Novo Produto" : "Editar Produto"}
                 </SheetTitle>
 
-                <SheetDescription className="text-sm text-slate-500">
+                <SheetDescription className="text-xs text-slate-500">
                   Ajuste nome, preço, custo, promoção, categoria, status e imagem.
                 </SheetDescription>
               </div>
             </div>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5">
-            <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-              <div className="space-y-5">
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5">
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="min-w-0 space-y-4">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4">
                     <h3 className="text-sm font-black text-slate-950">
                       Dados do produto
@@ -619,7 +620,7 @@ export default function ProductEditorSheet({
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4">
                     <h3 className="text-sm font-black text-slate-950">
                       Imagem
@@ -629,12 +630,12 @@ export default function ProductEditorSheet({
                     </p>
                   </div>
 
-                  <div className="max-w-sm">
+                  <div className="max-w-[340px]">
                     <ImageUpload value={image} onChange={setImage} />
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
@@ -810,18 +811,18 @@ export default function ProductEditorSheet({
                                     R$
                                   </span>
                                   <input
-                                    type="text"
-                                    value={formatMoneyInput(option.price)}
-                                    onChange={(event) =>
-                                      updateModifierOption(groupIndex, optionIndex, {
-                                        price: parseMoneyInput(
-                                          event.target.value.replace(/[^0-9,.]/g, "")
-                                        ),
-                                      })
-                                    }
-                                    placeholder="0,00"
-                                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                                  />
+  type="number"
+  min={0}
+  step="0.01"
+  value={option.price === 0 ? "" : option.price}
+  onChange={(event) =>
+    updateModifierOption(groupIndex, optionIndex, {
+      price: Number(event.target.value || 0),
+    })
+  }
+  placeholder="0,00"
+  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+/>
                                 </div>
 
                                 <button
@@ -853,8 +854,8 @@ export default function ProductEditorSheet({
                 </section>
               </div>
 
-              <div className="space-y-5">
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="min-w-0 space-y-4">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4">
                     <h3 className="text-sm font-black text-slate-950">
                       Preço e custo
@@ -864,7 +865,7 @@ export default function ProductEditorSheet({
                     </p>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                     <div>
                       <label className="mb-1.5 block text-sm font-bold text-slate-700">
                         Preço de venda <span className="text-red-500">*</span>
@@ -911,7 +912,7 @@ export default function ProductEditorSheet({
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-black text-slate-950">
@@ -976,7 +977,7 @@ export default function ProductEditorSheet({
                   </button>
 
                   {promotionActive && (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                       <div>
                         <label className="mb-1.5 block text-sm font-bold text-slate-700">
                           Tipo
@@ -1036,7 +1037,7 @@ export default function ProductEditorSheet({
                   )}
                 </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-black text-slate-950">
@@ -1159,7 +1160,7 @@ export default function ProductEditorSheet({
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <h3 className="text-sm font-black text-slate-950">
                     Status no cardápio
                   </h3>
@@ -1202,7 +1203,7 @@ export default function ProductEditorSheet({
             </div>
           </div>
 
-          <SheetFooter className="border-t border-slate-200 bg-white px-6 py-4 sm:space-x-0">
+          <SheetFooter className="border-t border-slate-200 bg-white px-5 py-3 sm:space-x-0">
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 {mode === "create"
