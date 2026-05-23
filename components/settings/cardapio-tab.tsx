@@ -130,8 +130,8 @@ export default function CardapioTab() {
         return
       }
 
-      if (file.size > 300 * 1024) {
-        alert("A logo deve ter no maximo 300KB.")
+      if (file.size > 5 * 1024 * 1024) {
+        alert("A logo deve ter no maximo 5MB.")
         return
       }
 
