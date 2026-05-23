@@ -777,6 +777,23 @@ export default function GestaoPage() {
 
   const maxAreaOrders = Math.max(...data.topAreas.map((area) => area.orders), 1)
 
+  const totalAreaOrders = data.topAreas.reduce(
+  (sum, area) => sum + area.orders,
+  0
+)
+
+const hottestArea = data.topAreas[0] ?? null
+
+const hottestAreaShare =
+  hottestArea && totalAreaOrders > 0
+    ? Math.round((hottestArea.orders / totalAreaOrders) * 100)
+    : 0
+
+const hottestAreaAverageTicket =
+  hottestArea && hottestArea.orders > 0
+    ? hottestArea.revenue / hottestArea.orders
+    : 0
+
   return (
     <AdminLayout title="Gestão">
       <div className="space-y-5">
@@ -1049,67 +1066,178 @@ export default function GestaoPage() {
               </Panel>
             </section>
 
-            <Panel
-              title="Áreas mais atendidas"
-              subtitle="Bairros com maior volume de pedidos no período"
-              icon={<MapPin className="h-5 w-5" />}
-            >
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {data.topAreas.length === 0 ? (
-                  <div className="md:col-span-2 xl:col-span-3">
-                    <EmptyState message="Nenhuma área registrada nos pedidos desse período." />
-                  </div>
-                ) : (
-                  data.topAreas.map((area, index) => (
+<section className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 text-white shadow-[0_28px_80px_-45px_rgba(15,23,42,0.95)]">
+  <div className="relative p-5">
+    <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-orange-500/20 blur-3xl" />
+    <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-blue-600/20 blur-3xl" />
+
+    <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-400/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-orange-300">
+          <MapPin className="h-4 w-4" />
+          Radar de áreas
+        </div>
+
+        <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
+          Onde mais vende no período
+        </h2>
+
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+          Veja quais bairros estão puxando mais pedidos, faturamento e oportunidade de campanha.
+        </p>
+      </div>
+
+      {hottestArea && (
+        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 text-right backdrop-blur-xl">
+          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+            Área quente
+          </p>
+
+          <p className="mt-1 max-w-[220px] truncate text-xl font-black text-white">
+            {hottestArea.name}
+          </p>
+
+          <p className="mt-1 text-xs font-semibold text-orange-300">
+            {hottestAreaShare}% dos pedidos mapeados
+          </p>
+        </div>
+      )}
+    </div>
+
+    {data.topAreas.length === 0 ? (
+      <div className="relative mt-5 rounded-3xl border border-dashed border-white/10 bg-white/[0.04] px-4 py-10 text-center text-sm font-semibold text-slate-400">
+        Nenhuma área registrada nos pedidos desse período.
+      </div>
+    ) : (
+      <div className="relative mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-orange-300">
+                Campeã de vendas
+              </p>
+
+              <h3 className="mt-2 text-3xl font-black tracking-tight text-white">
+                {hottestArea?.name}
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Essa região concentrou a maior parte dos pedidos no período selecionado.
+              </p>
+            </div>
+
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-950/30">
+              <Sparkles className="h-7 w-7" />
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="rounded-2xl bg-white/[0.06] p-3">
+              <p className="text-[10px] font-bold uppercase text-slate-500">
+                Pedidos
+              </p>
+
+              <p className="mt-1 text-xl font-black text-white">
+                {hottestArea?.orders ?? 0}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white/[0.06] p-3">
+              <p className="text-[10px] font-bold uppercase text-slate-500">
+                Vendas
+              </p>
+
+              <p className="mt-1 text-sm font-black text-white">
+                {formatCurrency(hottestArea?.revenue ?? 0)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white/[0.06] p-3">
+              <p className="text-[10px] font-bold uppercase text-slate-500">
+                Ticket médio
+              </p>
+
+              <p className="mt-1 text-sm font-black text-white">
+                {formatCurrency(hottestAreaAverageTicket)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-orange-300/15 bg-orange-400/10 p-4">
+            <p className="text-sm font-bold leading-6 text-orange-100">
+              Insight: boa região para ação de recompra, cupom direcionado ou campanha local.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {data.topAreas.map((area, index) => {
+            const share =
+              totalAreaOrders > 0
+                ? Math.round((area.orders / totalAreaOrders) * 100)
+                : 0
+
+            return (
+              <div
+                key={area.name}
+                className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl transition hover:bg-white/[0.08]"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div
-                      key={area.name}
-                      className="rounded-xl bg-slate-50 px-3 py-3"
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-black",
+                        index === 0
+                          ? "bg-orange-500 text-white"
+                          : "bg-white/10 text-slate-300"
+                      )}
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div
-                            className={cn(
-                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black",
-                              index === 0
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-white text-slate-700"
-                            )}
-                          >
-                            {index + 1}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-slate-950">
-                              {area.name}
-                            </p>
-                            <p className="text-xs font-medium text-slate-500">
-                              {area.orders} pedido(s) •{" "}
-                              {formatCurrency(area.revenue)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <p className="shrink-0 text-sm font-black text-slate-950">
-                          {area.orders}x
-                        </p>
-                      </div>
-
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className="h-full rounded-full bg-blue-600 transition-all duration-700"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              (area.orders / maxAreaOrders) * 100
-                            )}%`,
-                          }}
-                        />
-                      </div>
+                      {index + 1}
                     </div>
-                  ))
-                )}
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-white">
+                        {area.name}
+                      </p>
+
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        {area.orders} pedido(s) • {formatCurrency(area.revenue)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-sm font-black text-white">{share}%</p>
+                    <p className="text-[10px] font-bold uppercase text-slate-500">
+                      participação
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-700",
+                      index === 0
+                        ? "bg-gradient-to-r from-orange-500 to-yellow-400"
+                        : "bg-gradient-to-r from-blue-500 to-blue-300"
+                    )}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (area.orders / maxAreaOrders) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
               </div>
-            </Panel>
+            )
+          })}
+        </div>
+      </div>
+    )}
+  </div>
+</section>
 
             <section className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
               <Panel
