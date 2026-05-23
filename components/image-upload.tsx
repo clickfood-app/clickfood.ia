@@ -53,7 +53,7 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promi
 export default function ImageUpload({
   value,
   onChange,
-  maxSizeKb = 300,
+  maxSizeKb = 5 * 1024,
   className,
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)

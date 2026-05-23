@@ -31,7 +31,7 @@ type Restaurant = {
   theme_color: string | null
 }
 
-const MAX_IMAGE_SIZE_KB = 300
+const MAX_IMAGE_SIZE_KB = 5 * 1024
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_KB * 1024
 const STORAGE_BUCKET = "restaurant-assets"
 const CLICKFOOD_BLUE = "#2563eb"
