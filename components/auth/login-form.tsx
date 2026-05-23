@@ -23,10 +23,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
   const cleanEmail = email.trim().toLowerCase()
 
   const validation = useMemo(() => {
-    const emailValid =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) ||
-      /^\d{10,11}$/.test(cleanEmail.replace(/\D/g, ""))
-
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)
     const passwordValid = password.length >= 6
 
     return {
@@ -43,7 +40,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
 
     if (!validation.canSubmit) {
       if (!validation.email) {
-        setError("Informe um email ou telefone válido")
+        setError("Informe um email válido")
       } else if (!validation.password) {
         setError("A senha deve ter pelo menos 6 caracteres")
       }
@@ -54,11 +51,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
     setIsLoading(true)
 
     try {
-      console.log("LOGIN EMAIL:", cleanEmail)
-
       const result = await signIn(cleanEmail, password)
-
-      console.log("LOGIN RESULT:", result)
 
       if (!result.success) {
         setError(result.error || "Email ou senha incorretos")
@@ -86,7 +79,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
 
       <div>
         <label className="mb-2 block text-sm font-semibold text-slate-700">
-          Email ou telefone
+          Email
         </label>
 
         <div className="group relative">
@@ -102,11 +95,11 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
           </div>
 
           <input
-            type="text"
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
-            placeholder="seu@email.com ou telefone"
+            placeholder="seu@email.com"
             disabled={isLoading}
             className={cn(
               "w-full rounded-2xl border bg-slate-50 py-4 pl-12 pr-4 text-base font-medium text-slate-900",
@@ -122,7 +115,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
 
         {touched.email && !validation.email && cleanEmail.length > 0 && (
           <p className="mt-2 animate-in fade-in text-xs font-medium text-red-500 duration-150">
-            Informe um email ou telefone válido
+            Informe um email válido
           </p>
         )}
       </div>

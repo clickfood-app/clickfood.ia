@@ -1,0 +1,10 @@
+﻿{
+  "event": "PAYMENT_RECEIVED",
+  "payment": {
+    "id": "pay_vq1389gzkwx491v6",
+    "status": "RECEIVED",
+    "billingType": "PIX",
+    "externalReference": "bea945fc-7589-4efc-8a73-3f56626074b1",
+    "value": 10
+  }
+}

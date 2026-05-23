@@ -28,6 +28,10 @@ type OrderRow = {
   total: number | string | null
   payment_method: string | null
   payment_status: string | null
+  asaas_payment_id: string | null
+  asaas_payment_status: string | null
+  asaas_invoice_url: string | null
+  asaas_pix_expires_at: string | null
 }
 
 type AsaasCustomerResponse = {
@@ -116,7 +120,26 @@ function getClickFoodSplitRules(orderTotal: number): AsaasSplitRule[] {
   ]
 }
 
+function isPaidPaymentStatus(paymentStatus: string | null) {
+  const normalizedPaymentStatus = String(paymentStatus || "")
+    .trim()
+    .toLowerCase()
+
+  return ["paid", "received", "confirmed"].includes(normalizedPaymentStatus)
+}
+
+function isPixPaymentMethod(paymentMethod: string | null) {
+  const normalizedPaymentMethod = String(paymentMethod || "")
+    .trim()
+    .toLowerCase()
+
+  return normalizedPaymentMethod === "pix"
+}
+
 export async function POST(req: NextRequest) {
+  let pixCreationLockOrderId: string | null = null
+  let asaasPaymentWasCreated = false
+
   try {
     const body = (await req.json()) as CreatePixPaymentBody
 
@@ -165,7 +188,7 @@ export async function POST(req: NextRequest) {
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .select(
-        "id, restaurant_id, public_order_number, total, payment_method, payment_status"
+        "id, restaurant_id, public_order_number, total, payment_method, payment_status, asaas_payment_id, asaas_payment_status, asaas_invoice_url, asaas_pix_expires_at"
       )
       .eq("id", orderId)
       .eq("restaurant_id", restaurantId)
@@ -193,6 +216,29 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (!isPixPaymentMethod(typedOrder.payment_method)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Este pedido não foi criado com forma de pagamento Pix.",
+        },
+        { status: 400 }
+      )
+    }
+
+    if (isPaidPaymentStatus(typedOrder.payment_status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Este pedido já está pago.",
+          orderId: typedOrder.id,
+          publicOrderNumber:
+            typedOrder.public_order_number || body.publicOrderNumber || null,
+        },
+        { status: 409 }
+      )
+    }
+
     const orderTotal = Number(typedOrder.total || 0)
 
     if (!Number.isFinite(orderTotal) || orderTotal <= 0) {
@@ -203,6 +249,88 @@ export async function POST(req: NextRequest) {
     }
 
     const asaasAccount = await getRestaurantAsaasAccount(restaurantId)
+
+    if (typedOrder.asaas_payment_id) {
+      const pixQrCode = await asaasFetchWithAccount<AsaasPixQrCodeResponse>(
+        asaasAccount,
+        `/payments/${typedOrder.asaas_payment_id}/pixQrCode`,
+        {
+          method: "GET",
+        }
+      )
+
+      return NextResponse.json({
+        success: true,
+        reusedPayment: true,
+        paymentId: typedOrder.asaas_payment_id,
+        qrCodeBase64: pixQrCode.encodedImage || null,
+        qrCodeUrl: null,
+        qrCode: pixQrCode.payload || null,
+        pixCopyPaste: pixQrCode.payload || null,
+        ticketUrl: typedOrder.asaas_invoice_url || null,
+        status:
+          typedOrder.asaas_payment_status ||
+          typedOrder.payment_status ||
+          "pending",
+        publicOrderNumber:
+          typedOrder.public_order_number || body.publicOrderNumber || null,
+        expiresAt:
+          pixQrCode.expirationDate || typedOrder.asaas_pix_expires_at || null,
+        splitApplied: false,
+        splitFixedValue: 0,
+      })
+    }
+
+    if (typedOrder.asaas_payment_status === "CREATING_PIX") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "A cobrança Pix deste pedido já está sendo criada. Aguarde alguns segundos e tente novamente.",
+        },
+        { status: 409 }
+      )
+    }
+
+    const { data: lockedOrder, error: lockError } = await supabaseAdmin
+      .from("orders")
+      .update({
+        payment_status: "pending",
+        asaas_payment_status: "CREATING_PIX",
+      })
+      .eq("id", typedOrder.id)
+      .is("asaas_payment_id", null)
+      .or("asaas_payment_status.is.null,asaas_payment_status.neq.CREATING_PIX")
+      .select("id")
+      .maybeSingle()
+
+    if (lockError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            lockError.message ||
+            "Erro ao preparar pedido para cobrança Pix.",
+          details: lockError.details || null,
+          hint: lockError.hint || null,
+          code: lockError.code || null,
+        },
+        { status: 500 }
+      )
+    }
+
+    if (!lockedOrder) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "A cobrança Pix deste pedido já foi iniciada. Aguarde alguns segundos e tente novamente.",
+        },
+        { status: 409 }
+      )
+    }
+
+    pixCreationLockOrderId = typedOrder.id
 
     const customer = await asaasFetchWithAccount<AsaasCustomerResponse>(
       asaasAccount,
@@ -246,6 +374,34 @@ export async function POST(req: NextRequest) {
       }
     )
 
+    asaasPaymentWasCreated = true
+
+    const { error: paymentUpdateError } = await supabaseAdmin
+      .from("orders")
+      .update({
+        payment_status: "pending",
+        asaas_payment_id: payment.id,
+        asaas_payment_status: payment.status || "PENDING",
+        asaas_invoice_url: payment.invoiceUrl || null,
+      })
+      .eq("id", typedOrder.id)
+
+    if (paymentUpdateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            paymentUpdateError.message ||
+            "Cobrança Pix criada, mas erro ao salvar dados do pagamento no pedido.",
+          details: paymentUpdateError.details || null,
+          hint: paymentUpdateError.hint || null,
+          code: paymentUpdateError.code || null,
+          paymentId: payment.id,
+        },
+        { status: 500 }
+      )
+    }
+
     const pixQrCode = await asaasFetchWithAccount<AsaasPixQrCodeResponse>(
       asaasAccount,
       `/payments/${payment.id}/pixQrCode`,
@@ -254,23 +410,24 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    const { error: updateOrderError } = await supabaseAdmin
+    const { error: pixUpdateError } = await supabaseAdmin
       .from("orders")
       .update({
-        payment_status: "pending",
+        asaas_pix_expires_at: pixQrCode.expirationDate || null,
       })
       .eq("id", typedOrder.id)
 
-    if (updateOrderError) {
+    if (pixUpdateError) {
       return NextResponse.json(
         {
           success: false,
           error:
-            updateOrderError.message ||
-            "Cobrança Pix criada, mas erro ao atualizar pedido.",
-          details: updateOrderError.details || null,
-          hint: updateOrderError.hint || null,
-          code: updateOrderError.code || null,
+            pixUpdateError.message ||
+            "Cobrança Pix criada, mas erro ao salvar vencimento do QR Code.",
+          details: pixUpdateError.details || null,
+          hint: pixUpdateError.hint || null,
+          code: pixUpdateError.code || null,
+          paymentId: payment.id,
         },
         { status: 500 }
       )
@@ -278,6 +435,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      reusedPayment: false,
       paymentId: payment.id,
       qrCodeBase64: pixQrCode.encodedImage || null,
       qrCodeUrl: null,
@@ -292,6 +450,17 @@ export async function POST(req: NextRequest) {
       splitFixedValue: splitRules[0]?.fixedValue ?? 0,
     })
   } catch (error) {
+    if (pixCreationLockOrderId && !asaasPaymentWasCreated) {
+      await supabaseAdmin
+        .from("orders")
+        .update({
+          asaas_payment_status: null,
+        })
+        .eq("id", pixCreationLockOrderId)
+        .eq("asaas_payment_status", "CREATING_PIX")
+        .is("asaas_payment_id", null)
+    }
+
     return NextResponse.json(
       {
         success: false,

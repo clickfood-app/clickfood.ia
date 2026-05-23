@@ -18,7 +18,10 @@ type AsaasWebhookBody = {
 type OrderRow = {
   id: string
   restaurant_id: string
+  status: string | null
   payment_status: string | null
+  asaas_payment_id: string | null
+  asaas_payment_status: string | null
 }
 
 type RestaurantAsaasAccountRow = {
@@ -27,6 +30,22 @@ type RestaurantAsaasAccountRow = {
 }
 
 const PAID_EVENTS = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"])
+
+function isPaidPaymentStatus(paymentStatus: string | null) {
+  const normalizedPaymentStatus = String(paymentStatus || "")
+    .trim()
+    .toLowerCase()
+
+  return ["paid", "received", "confirmed"].includes(normalizedPaymentStatus)
+}
+
+function getNextOperationalStatus(currentStatus: string | null) {
+  if (currentStatus === "awaiting_payment") {
+    return "pending"
+  }
+
+  return currentStatus || "pending"
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,24 +59,28 @@ export async function POST(req: NextRequest) {
 
     const shouldMarkAsPaid = !!event && PAID_EVENTS.has(event)
 
-    if (!shouldMarkAsPaid) {
-      return NextResponse.json({
-        success: true,
-        received: true,
-        ignored: true,
-        event,
-        paymentId,
-        paymentStatus,
-        externalReference,
-      })
-    }
-
     if (!externalReference) {
+      if (!shouldMarkAsPaid) {
+        return NextResponse.json({
+          success: true,
+          received: true,
+          ignored: true,
+          reason: "externalReference ausente em evento não pago.",
+          event,
+          paymentId,
+          paymentStatus,
+          externalReference,
+        })
+      }
+
       return NextResponse.json(
         {
           success: false,
           step: "external_reference_ausente",
           error: "externalReference não enviado no webhook.",
+          event,
+          paymentId,
+          paymentStatus,
         },
         { status: 400 }
       )
@@ -65,7 +88,9 @@ export async function POST(req: NextRequest) {
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
-      .select("id, restaurant_id, payment_status")
+      .select(
+        "id, restaurant_id, status, payment_status, asaas_payment_id, asaas_payment_status"
+      )
       .eq("id", externalReference)
       .maybeSingle()
 
@@ -92,6 +117,9 @@ export async function POST(req: NextRequest) {
           step: "pedido_nao_encontrado",
           error: "Pedido do webhook não encontrado.",
           externalReference,
+          event,
+          paymentId,
+          paymentStatus,
         },
         { status: 404 }
       )
@@ -156,7 +184,90 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (typedOrder.payment_status === "paid") {
+    if (
+      typedOrder.asaas_payment_id &&
+      paymentId &&
+      typedOrder.asaas_payment_id !== paymentId
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          step: "payment_id_divergente",
+          error: "O payment.id do webhook não pertence a este pedido.",
+          orderId: typedOrder.id,
+          expectedPaymentId: typedOrder.asaas_payment_id,
+          receivedPaymentId: paymentId,
+          event,
+          paymentStatus,
+        },
+        { status: 409 }
+      )
+    }
+
+    if (!shouldMarkAsPaid) {
+      const { error: ignoredUpdateError } = await supabaseAdmin
+        .from("orders")
+        .update({
+          asaas_payment_status: paymentStatus || typedOrder.asaas_payment_status,
+          asaas_payment_id: typedOrder.asaas_payment_id || paymentId || null,
+        })
+        .eq("id", typedOrder.id)
+
+      if (ignoredUpdateError) {
+        return NextResponse.json(
+          {
+            success: false,
+            step: "atualizar_status_ignorado",
+            error:
+              ignoredUpdateError.message ||
+              "Erro ao atualizar status do evento ignorado.",
+            details: ignoredUpdateError.details || null,
+            hint: ignoredUpdateError.hint || null,
+            code: ignoredUpdateError.code || null,
+          },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        received: true,
+        ignored: true,
+        event,
+        paymentId,
+        paymentStatus,
+        externalReference,
+      })
+    }
+
+    const nextOperationalStatus = getNextOperationalStatus(typedOrder.status)
+
+    if (isPaidPaymentStatus(typedOrder.payment_status)) {
+      const { error: alreadyPaidUpdateError } = await supabaseAdmin
+        .from("orders")
+        .update({
+          status: nextOperationalStatus,
+          asaas_payment_status: paymentStatus || "RECEIVED",
+          asaas_payment_id: typedOrder.asaas_payment_id || paymentId || null,
+        })
+        .eq("id", typedOrder.id)
+
+      if (alreadyPaidUpdateError) {
+        return NextResponse.json(
+          {
+            success: false,
+            step: "atualizar_pedido_ja_pago",
+            error:
+              alreadyPaidUpdateError.message ||
+              "Erro ao atualizar dados do pedido já pago.",
+            details: alreadyPaidUpdateError.details || null,
+            hint: alreadyPaidUpdateError.hint || null,
+            code: alreadyPaidUpdateError.code || null,
+          },
+          { status: 500 }
+        )
+      }
+
       return NextResponse.json({
         success: true,
         received: true,
@@ -173,10 +284,13 @@ export async function POST(req: NextRequest) {
     const { data: updatedOrder, error: updateError } = await supabaseAdmin
       .from("orders")
       .update({
+        status: nextOperationalStatus,
         payment_status: "paid",
+        asaas_payment_status: paymentStatus || "RECEIVED",
+        asaas_payment_id: typedOrder.asaas_payment_id || paymentId || null,
       })
       .eq("id", typedOrder.id)
-      .select("id, payment_status")
+      .select("id, status, payment_status, asaas_payment_id, asaas_payment_status")
       .maybeSingle()
 
     if (updateError) {

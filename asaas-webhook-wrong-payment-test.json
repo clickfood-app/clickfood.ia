@@ -1,0 +1,10 @@
+﻿{
+  "event": "PAYMENT_RECEIVED",
+  "payment": {
+    "id": "pay_id_errado_teste",
+    "status": "RECEIVED",
+    "billingType": "PIX",
+    "externalReference": "bea945fc-7589-4efc-8a73-3f56626074b1",
+    "value": 10
+  }
+}

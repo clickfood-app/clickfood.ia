@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import Link from "next/link"
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
@@ -74,7 +74,7 @@ type OperationalAlert = {
   title: string
   description: string
   tone: "red" | "amber" | "blue" | "green" | "slate"
-  icon: React.ReactNode
+  icon: ReactNode
 }
 
 type DashboardData = {
@@ -382,37 +382,67 @@ function MetricCard({
   title: string
   value: string
   subtitle: string
-  icon: React.ReactNode
+  icon: ReactNode
   tone: "blue" | "amber" | "green" | "red"
   delay?: number
 }) {
   const toneClass = {
-    blue: "bg-blue-50 text-blue-700 ring-blue-100",
-    amber: "bg-amber-50 text-amber-700 ring-amber-100",
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    red: "bg-red-50 text-red-700 ring-red-100",
+    blue: {
+      icon: "bg-blue-600 text-white shadow-blue-600/25",
+      glow: "bg-blue-500/10",
+      border: "hover:border-blue-200",
+    },
+    amber: {
+      icon: "bg-orange-500 text-white shadow-orange-500/25",
+      glow: "bg-orange-500/10",
+      border: "hover:border-orange-200",
+    },
+    green: {
+      icon: "bg-emerald-500 text-white shadow-emerald-500/25",
+      glow: "bg-emerald-500/10",
+      border: "hover:border-emerald-200",
+    },
+    red: {
+      icon: "bg-red-500 text-white shadow-red-500/25",
+      glow: "bg-red-500/10",
+      border: "hover:border-red-200",
+    },
   }[tone]
 
   return (
     <div
-      className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+      className={cn(
+        "group relative overflow-hidden rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-35px_rgba(15,23,42,0.75)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_70px_-42px_rgba(15,23,42,0.95)]",
+        toneClass.border
+      )}
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div
+        className={cn(
+          "absolute -right-10 -top-12 h-28 w-28 rounded-full blur-3xl transition group-hover:scale-125",
+          toneClass.glow
+        )}
+      />
+
+      <div className="relative flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-slate-500">{title}</p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+            {title}
+          </p>
+
+          <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">
             {value}
           </p>
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+
+          <p className="mt-2 text-sm font-semibold leading-5 text-slate-500">
             {subtitle}
           </p>
         </div>
 
         <div
           className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1",
-            toneClass
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg",
+            toneClass.icon
           )}
         >
           {icon}
@@ -431,20 +461,20 @@ function Panel({
 }: {
   title: string
   subtitle?: string
-  icon?: React.ReactNode
-  children: React.ReactNode
+  icon?: ReactNode
+  children: ReactNode
   className?: string
 }) {
   return (
     <section
       className={cn(
-        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+        "rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.75)]",
         className
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-black tracking-tight text-slate-950">
+          <h2 className="text-lg font-black tracking-tight text-slate-950">
             {title}
           </h2>
 
@@ -454,7 +484,7 @@ function Panel({
         </div>
 
         {icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/20">
             {icon}
           </div>
         )}
@@ -476,19 +506,19 @@ function OperationStep({
   value: number
   subtitle: string
   tone: "blue" | "amber" | "green" | "slate"
-  icon: React.ReactNode
+  icon: ReactNode
 }) {
   const toneClass = {
-    blue: "bg-blue-50 text-blue-700 border-blue-100",
-    amber: "bg-amber-50 text-amber-700 border-amber-100",
-    green: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    slate: "bg-slate-50 text-slate-700 border-slate-200",
+    blue: "border-blue-100 bg-blue-50 text-blue-700",
+    amber: "border-orange-100 bg-orange-50 text-orange-700",
+    green: "border-emerald-100 bg-emerald-50 text-emerald-700",
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
   }[tone]
 
   return (
-    <div className={cn("rounded-2xl border p-4", toneClass)}>
+    <div className={cn("rounded-3xl border p-4", toneClass)}>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/70">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
           {icon}
         </div>
 
@@ -505,12 +535,28 @@ function HourChart({ data }: { data: HourPoint[] }) {
   const maxValue = Math.max(...data.map((item) => item.count), 1)
 
   return (
-    <div className="rounded-2xl bg-slate-50 px-4 pb-4 pt-6">
-      <div className="flex h-[220px] items-end gap-1.5">
+    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-slate-950 p-4 text-white shadow-inner">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-300">
+            Movimento
+          </p>
+          <p className="mt-1 text-sm font-semibold text-slate-400">
+            Distribuição de pedidos por horário
+          </p>
+        </div>
+
+        <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/10">
+          24h
+        </span>
+      </div>
+
+      <div className="flex h-[190px] items-end gap-1.5">
         {data.map((item, index) => {
           const height =
-            item.count === 0 ? 6 : Math.max(12, (item.count / maxValue) * 100)
+            item.count === 0 ? 5 : Math.max(12, (item.count / maxValue) * 100)
           const showLabel = index % 3 === 0
+          const isPeak = item.count === maxValue && item.count > 0
 
           return (
             <div
@@ -520,10 +566,12 @@ function HourChart({ data }: { data: HourPoint[] }) {
               <div className="relative flex flex-1 items-end">
                 <div
                   className={cn(
-                    "w-full rounded-t-lg transition-all duration-700 ease-out",
-                    item.count > 0
-                      ? "bg-slate-950 group-hover:bg-blue-600"
-                      : "bg-slate-200"
+                    "w-full rounded-t-xl transition-all duration-700 ease-out",
+                    isPeak
+                      ? "bg-gradient-to-t from-orange-500 to-yellow-300 shadow-[0_0_24px_rgba(249,115,22,0.45)]"
+                      : item.count > 0
+                        ? "bg-gradient-to-t from-blue-600 to-blue-300 group-hover:from-orange-500 group-hover:to-yellow-300"
+                        : "bg-white/10"
                   )}
                   style={{
                     height: `${height}%`,
@@ -531,12 +579,12 @@ function HourChart({ data }: { data: HourPoint[] }) {
                   }}
                 />
 
-                <div className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700 shadow-lg group-hover:block">
+                <div className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-xl border border-white/10 bg-white px-2.5 py-1 text-xs font-black text-slate-900 shadow-lg group-hover:block">
                   {item.count} pedido(s)
                 </div>
               </div>
 
-              <p className="h-4 truncate text-center text-[10px] font-bold text-slate-400">
+              <p className="h-4 truncate text-center text-[10px] font-bold text-slate-500">
                 {showLabel ? item.hour : ""}
               </p>
             </div>
@@ -549,7 +597,7 @@ function HourChart({ data }: { data: HourPoint[] }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
       {message}
     </div>
   )
@@ -778,66 +826,109 @@ export default function GestaoPage() {
   const maxAreaOrders = Math.max(...data.topAreas.map((area) => area.orders), 1)
 
   const totalAreaOrders = data.topAreas.reduce(
-  (sum, area) => sum + area.orders,
-  0
-)
+    (sum, area) => sum + area.orders,
+    0
+  )
 
-const hottestArea = data.topAreas[0] ?? null
+  const hottestArea = data.topAreas[0] ?? null
 
-const hottestAreaShare =
-  hottestArea && totalAreaOrders > 0
-    ? Math.round((hottestArea.orders / totalAreaOrders) * 100)
-    : 0
+  const hottestAreaShare =
+    hottestArea && totalAreaOrders > 0
+      ? Math.round((hottestArea.orders / totalAreaOrders) * 100)
+      : 0
 
-const hottestAreaAverageTicket =
-  hottestArea && hottestArea.orders > 0
-    ? hottestArea.revenue / hottestArea.orders
-    : 0
+  const hottestAreaAverageTicket =
+    hottestArea && hottestArea.orders > 0
+      ? hottestArea.revenue / hottestArea.orders
+      : 0
 
   return (
     <AdminLayout title="Gestão">
       <div className="space-y-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-950">
-              Gestão
-            </h1>
+        <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_55px_-38px_rgba(15,23,42,0.55)]">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-slate-950 via-slate-950 to-blue-950 px-4 py-4 text-white">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-blue-600 shadow-lg shadow-black/25">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Acompanhe a operação do restaurante em tempo real.
-            </p>
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">
+                    Centro de comando
+                  </div>
+
+                  <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-white">
+                    Gestão da operação
+                  </h1>
+
+                  <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-slate-400">
+                    Acompanhe o que está acontecendo agora, sem poluição visual.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {periodOptions.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setPeriod(option.key)}
+                    className={cn(
+                      "h-9 rounded-xl px-3 text-xs font-black transition",
+                      period === option.key
+                        ? "bg-white text-slate-950 shadow-lg"
+                        : "border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.1] hover:text-white"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => void loadGestao()}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs font-black text-slate-200 transition hover:bg-white/[0.1] hover:text-white"
+                >
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                  Atualizar
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {periodOptions.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => setPeriod(option.key)}
-                className={cn(
-                  "h-10 rounded-xl px-4 text-sm font-bold transition",
-                  period === option.key
-                    ? "bg-slate-950 text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="grid gap-3 bg-slate-50/70 p-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Período
+              </p>
+              <p className="mt-1 text-lg font-black text-slate-950">
+                {getPeriodLabel(period)}
+              </p>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => void loadGestao()}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Atualizar
-            </button>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Pedidos abertos
+              </p>
+              <p className="mt-1 text-lg font-black text-slate-950">
+                {data.openOrders}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Pico de movimento
+              </p>
+              <p className="mt-1 text-lg font-black text-slate-950">
+                {data.topHour}
+              </p>
+            </div>
           </div>
-        </div>
+        </section>
 
         {isLoading ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-slate-200 bg-white shadow-sm">
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando operação...
@@ -883,7 +974,7 @@ const hottestAreaAverageTicket =
               />
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+            <section className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
               <Panel
                 title="Esteira da operação"
                 subtitle={`Resumo dos pedidos em ${getPeriodLabel(
@@ -925,10 +1016,10 @@ const hottestAreaAverageTicket =
                   />
                 </div>
 
-                <div className="mt-5 space-y-3">
+                <div className="mt-5 grid gap-3">
                   {[
                     ["Em análise", data.analysisOrders, "bg-blue-600"],
-                    ["Em preparo", data.preparingOrders, "bg-amber-500"],
+                    ["Em preparo", data.preparingOrders, "bg-orange-500"],
                     ["Em rota", data.routeOrders, "bg-emerald-600"],
                     ["Finalizados", data.finishedOrders, "bg-slate-950"],
                   ].map(([label, value, color]) => (
@@ -938,7 +1029,7 @@ const hottestAreaAverageTicket =
                         <span>{value}</span>
                       </div>
 
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                         <div
                           className={cn(
                             "h-full rounded-full transition-all duration-700",
@@ -958,15 +1049,15 @@ const hottestAreaAverageTicket =
               </Panel>
 
               <Panel
-                title="Alertas operacionais"
-                subtitle="Pontos que merecem atenção"
+                title="Radar operacional"
+                subtitle="Alertas rápidos para decidir melhor"
                 icon={<Sparkles className="h-5 w-5" />}
               >
                 <div className="space-y-3">
                   {data.alerts.map((alert) => {
                     const toneClass = {
                       red: "bg-red-50 text-red-700 border-red-100",
-                      amber: "bg-amber-50 text-amber-700 border-amber-100",
+                      amber: "bg-orange-50 text-orange-700 border-orange-100",
                       blue: "bg-blue-50 text-blue-700 border-blue-100",
                       green: "bg-emerald-50 text-emerald-700 border-emerald-100",
                       slate: "bg-slate-50 text-slate-700 border-slate-200",
@@ -975,11 +1066,11 @@ const hottestAreaAverageTicket =
                     return (
                       <div
                         key={alert.title}
-                        className="flex gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3"
+                        className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3"
                       >
                         <div
                           className={cn(
-                            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                            "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
                             toneClass
                           )}
                         >
@@ -1001,7 +1092,7 @@ const hottestAreaAverageTicket =
               </Panel>
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+            <section className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
               <Panel
                 title="Movimento por horário"
                 subtitle="Volume de pedidos ao longo do dia"
@@ -1032,14 +1123,14 @@ const hottestAreaAverageTicket =
                     data.topProducts.map((product, index) => (
                       <div
                         key={product.name}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-3"
+                        className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-3"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <div
                             className={cn(
-                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black",
+                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-black",
                               index === 0
-                                ? "bg-amber-100 text-amber-700"
+                                ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
                                 : "bg-white text-slate-700"
                             )}
                           >
@@ -1066,180 +1157,131 @@ const hottestAreaAverageTicket =
               </Panel>
             </section>
 
-<section className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 text-white shadow-[0_28px_80px_-45px_rgba(15,23,42,0.95)]">
-  <div className="relative p-5">
-    <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-orange-500/20 blur-3xl" />
-    <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-blue-600/20 blur-3xl" />
+            <Panel
+              title="Radar de áreas"
+              subtitle="Bairros que mais puxaram pedidos no período"
+              icon={<MapPin className="h-5 w-5" />}
+            >
+              {data.topAreas.length === 0 ? (
+                <EmptyState message="Nenhuma área registrada nos pedidos desse período." />
+              ) : (
+                <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
+                  <div className="rounded-[24px] border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-600">
+                          Área quente
+                        </p>
 
-    <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-400/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-orange-300">
-          <MapPin className="h-4 w-4" />
-          Radar de áreas
-        </div>
+                        <h3 className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
+                          {hottestArea?.name}
+                        </h3>
 
-        <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
-          Onde mais vende no período
-        </h2>
+                        <p className="mt-2 text-sm font-semibold leading-5 text-slate-500">
+                          Concentrou {hottestAreaShare}% dos pedidos mapeados.
+                        </p>
+                      </div>
 
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
-          Veja quais bairros estão puxando mais pedidos, faturamento e oportunidade de campanha.
-        </p>
-      </div>
-
-      {hottestArea && (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 text-right backdrop-blur-xl">
-          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-            Área quente
-          </p>
-
-          <p className="mt-1 max-w-[220px] truncate text-xl font-black text-white">
-            {hottestArea.name}
-          </p>
-
-          <p className="mt-1 text-xs font-semibold text-orange-300">
-            {hottestAreaShare}% dos pedidos mapeados
-          </p>
-        </div>
-      )}
-    </div>
-
-    {data.topAreas.length === 0 ? (
-      <div className="relative mt-5 rounded-3xl border border-dashed border-white/10 bg-white/[0.04] px-4 py-10 text-center text-sm font-semibold text-slate-400">
-        Nenhuma área registrada nos pedidos desse período.
-      </div>
-    ) : (
-      <div className="relative mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-xl">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-orange-300">
-                Campeã de vendas
-              </p>
-
-              <h3 className="mt-2 text-3xl font-black tracking-tight text-white">
-                {hottestArea?.name}
-              </h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Essa região concentrou a maior parte dos pedidos no período selecionado.
-              </p>
-            </div>
-
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-950/30">
-              <Sparkles className="h-7 w-7" />
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <div className="rounded-2xl bg-white/[0.06] p-3">
-              <p className="text-[10px] font-bold uppercase text-slate-500">
-                Pedidos
-              </p>
-
-              <p className="mt-1 text-xl font-black text-white">
-                {hottestArea?.orders ?? 0}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-white/[0.06] p-3">
-              <p className="text-[10px] font-bold uppercase text-slate-500">
-                Vendas
-              </p>
-
-              <p className="mt-1 text-sm font-black text-white">
-                {formatCurrency(hottestArea?.revenue ?? 0)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-white/[0.06] p-3">
-              <p className="text-[10px] font-bold uppercase text-slate-500">
-                Ticket médio
-              </p>
-
-              <p className="mt-1 text-sm font-black text-white">
-                {formatCurrency(hottestAreaAverageTicket)}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 rounded-2xl border border-orange-300/15 bg-orange-400/10 p-4">
-            <p className="text-sm font-bold leading-6 text-orange-100">
-              Insight: boa região para ação de recompra, cupom direcionado ou campanha local.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {data.topAreas.map((area, index) => {
-            const share =
-              totalAreaOrders > 0
-                ? Math.round((area.orders / totalAreaOrders) * 100)
-                : 0
-
-            return (
-              <div
-                key={area.name}
-                className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl transition hover:bg-white/[0.08]"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-black",
-                        index === 0
-                          ? "bg-orange-500 text-white"
-                          : "bg-white/10 text-slate-300"
-                      )}
-                    >
-                      {index + 1}
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/25">
+                        <Flame className="h-6 w-6" />
+                      </div>
                     </div>
 
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-white">
-                        {area.name}
-                      </p>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">
+                          Pedidos
+                        </p>
+                        <p className="mt-1 text-lg font-black text-slate-950">
+                          {hottestArea?.orders ?? 0}
+                        </p>
+                      </div>
 
-                      <p className="mt-1 text-xs font-semibold text-slate-400">
-                        {area.orders} pedido(s) • {formatCurrency(area.revenue)}
-                      </p>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">
+                          Vendas
+                        </p>
+                        <p className="mt-1 truncate text-sm font-black text-slate-950">
+                          {formatCurrency(hottestArea?.revenue ?? 0)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">
+                          Ticket
+                        </p>
+                        <p className="mt-1 truncate text-sm font-black text-slate-950">
+                          {formatCurrency(hottestAreaAverageTicket)}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-sm font-black text-white">{share}%</p>
-                    <p className="text-[10px] font-bold uppercase text-slate-500">
-                      participação
-                    </p>
+                  <div className="space-y-3">
+                    {data.topAreas.map((area, index) => {
+                      const share =
+                        totalAreaOrders > 0
+                          ? Math.round((area.orders / totalAreaOrders) * 100)
+                          : 0
+
+                      return (
+                        <div
+                          key={area.name}
+                          className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div
+                                className={cn(
+                                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black",
+                                  index === 0
+                                    ? "bg-slate-950 text-white"
+                                    : "bg-white text-slate-700"
+                                )}
+                              >
+                                {index + 1}
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-slate-950">
+                                  {area.name}
+                                </p>
+                                <p className="text-xs font-medium text-slate-500">
+                                  {area.orders} pedido(s) • {formatCurrency(area.revenue)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <p className="shrink-0 text-sm font-black text-slate-950">
+                              {share}%
+                            </p>
+                          </div>
+
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all duration-700",
+                                index === 0
+                                  ? "bg-gradient-to-r from-orange-500 to-yellow-400"
+                                  : "bg-blue-600"
+                              )}
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  (area.orders / maxAreaOrders) * 100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
+              )}
+            </Panel>
 
-                <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-700",
-                      index === 0
-                        ? "bg-gradient-to-r from-orange-500 to-yellow-400"
-                        : "bg-gradient-to-r from-blue-500 to-blue-300"
-                    )}
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        (area.orders / maxAreaOrders) * 100
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    )}
-  </div>
-</section>
-
-            <section className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+            <section className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
               <Panel
                 title="Fila em andamento"
                 subtitle="Pedidos abertos mais antigos primeiro"
@@ -1257,7 +1299,7 @@ const hottestAreaAverageTicket =
                         <div
                           key={order.id}
                           className={cn(
-                            "flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
+                            "flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
                             delayed
                               ? "border-red-200 bg-red-50"
                               : "border-slate-200 bg-slate-50"
@@ -1266,16 +1308,14 @@ const hottestAreaAverageTicket =
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-black text-slate-950">
-                                Pedido #
-                                {order.public_order_number || order.id.slice(0, 6)}
+                                Pedido #{order.public_order_number || order.id.slice(0, 6)}
                               </p>
 
                               <StatusBadge status={order.status} />
                             </div>
 
                             <p className="mt-1 truncate text-sm font-medium text-slate-500">
-                              {order.customer_name || "Cliente sem nome"} • criado
-                              às {formatTime(order.created_at)}
+                              {order.customer_name || "Cliente sem nome"} • criado às {formatTime(order.created_at)}
                             </p>
                           </div>
 
@@ -1291,7 +1331,7 @@ const hottestAreaAverageTicket =
                               {age} min
                             </span>
 
-                            <span className="inline-flex h-9 items-center rounded-lg bg-slate-100 px-3 text-xs font-black text-slate-600">
+                            <span className="inline-flex h-9 items-center rounded-xl bg-white px-3 text-xs font-black text-slate-600 shadow-sm">
                               Em andamento
                             </span>
                           </div>
@@ -1310,7 +1350,7 @@ const hottestAreaAverageTicket =
                 <div className="grid gap-3">
                   <Link
                     href="/novo-pedido"
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     <span className="flex items-center gap-2">
                       <PlusCircle className="h-4 w-4" />
@@ -1321,7 +1361,7 @@ const hottestAreaAverageTicket =
 
                   <Link
                     href="/pedidos"
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     <span className="flex items-center gap-2">
                       <ShoppingCart className="h-4 w-4" />
@@ -1332,7 +1372,7 @@ const hottestAreaAverageTicket =
 
                   <Link
                     href="/mesas"
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     <span className="flex items-center gap-2">
                       <Utensils className="h-4 w-4" />
@@ -1343,7 +1383,7 @@ const hottestAreaAverageTicket =
 
                   <Link
                     href="/produtos"
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     <span className="flex items-center gap-2">
                       <Package className="h-4 w-4" />

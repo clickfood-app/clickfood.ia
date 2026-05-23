@@ -141,36 +141,6 @@ export async function getRestaurantBySlug(slug: string): Promise<Restaurant | nu
     .single()
 
   if (error || !data) {
-    if (slug === "adminpro-restaurante") {
-      return {
-        id: "rest-adminpro",
-        slug: "adminpro-restaurante",
-        name: defaultStoreData.name,
-        description:
-          "Hamburguer artesanal, lanches especiais e muito sabor. Delivery e retirada.",
-        logoUrl: null,
-        phone: defaultStoreData.phone,
-        whatsapp: defaultStoreData.whatsapp,
-        address: defaultStoreData.address,
-        city: defaultStoreData.city,
-        state: defaultStoreData.state,
-        openTime: defaultOperationData.openTime,
-        closeTime: defaultOperationData.closeTime,
-        avgPrepTime: defaultOperationData.avgPrepTime,
-        deliveryFee: defaultDeliveryData.fixedFee,
-        minimumOrder: defaultDeliveryData.minOrderValue,
-        estimatedDeliveryTime: "30-45 min",
-        deliveryEnabled: true,
-        pickupEnabled: defaultDeliveryData.pickupEnabled,
-        themeColor: null,
-        coverImageUrl: null,
-        themeMode: "dark",
-        floatingCartBgColor: null,
-        floatingCartTextColor: null,
-        floatingCartNumberColor: null,
-      }
-    }
-
     return null
   }
 

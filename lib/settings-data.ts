@@ -18,15 +18,15 @@ export interface StoreData {
 
 export const defaultStoreData: StoreData = {
   logoUrl: "",
-  name: "Restaurante AdminPro",
-  cnpj: "12.345.678/0001-99",
-  phone: "(11) 3456-7890",
-  whatsapp: "(11) 98765-4321",
-  email: "contato@adminpro.com.br",
-  address: "Rua das Flores, 123 - Centro",
-  city: "Sao Paulo",
-  state: "SP",
-  cep: "01234-567",
+  name: "Meu Restaurante",
+  cnpj: "",
+  phone: "",
+  whatsapp: "",
+  email: "",
+  address: "",
+  city: "",
+  state: "",
+  cep: "",
 }
 
 // ── 2. Operation Hours ──
@@ -75,10 +75,10 @@ export interface PaymentMethod {
 
 export const defaultPaymentMethods: PaymentMethod[] = [
   { id: "pm-1", name: "Dinheiro", enabled: true, fee: 0, notes: "" },
-  { id: "pm-2", name: "Pix", enabled: true, fee: 0, notes: "Chave: CNPJ" },
-  { id: "pm-3", name: "Cartao de Credito", enabled: true, fee: 3.5, notes: "Ate 12x" },
-  { id: "pm-4", name: "Cartao de Debito", enabled: true, fee: 1.5, notes: "" },
-  { id: "pm-5", name: "Vale Refeicao", enabled: false, fee: 5, notes: "Alelo, Sodexo, VR" },
+  { id: "pm-2", name: "Pix", enabled: true, fee: 0, notes: "" },
+  { id: "pm-3", name: "Cartao de Credito", enabled: true, fee: 0, notes: "" },
+  { id: "pm-4", name: "Cartao de Debito", enabled: true, fee: 0, notes: "" },
+  { id: "pm-5", name: "Vale Refeicao", enabled: false, fee: 0, notes: "" },
 ]
 
 // ── 4. Delivery ──
@@ -92,8 +92,8 @@ export interface DeliveryData {
 }
 
 export const defaultDeliveryData: DeliveryData = {
-  fixedFee: 8.5,
-  minOrderValue: 25,
+  fixedFee: 0,
+  minOrderValue: 0,
   avgDeliveryTime: 45,
   deliveryRadius: 10,
   pickupEnabled: true,
@@ -113,11 +113,11 @@ export interface PlanData {
 }
 
 export const defaultPlanData: PlanData = {
-  name: "Plano Unico",
+  name: "ClickFood",
   status: "ativo",
-  renewalDate: "2026-03-24",
+  renewalDate: "",
   billingCycle: "mensal",
-  price: 149.9,
+  price: 0,
 }
 
 // ── Helpers ──
