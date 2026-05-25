@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   ArrowLeftRight,
-  BadgeDollarSign,
   BarChart3,
   ChevronDown,
   ChevronLeft,
@@ -138,11 +137,6 @@ const navItems: NavItem[] = [
         label: "Card Fidelidade",
         icon: <Gift className="h-4 w-4" />,
         href: "/campanhas/fidelidade",
-      },
-      {
-        label: "ClickPromo",
-        icon: <BadgeDollarSign className="h-4 w-4" />,
-        href: "/campanhas/saldo-promocional",
       },
     ],
   },

@@ -5,7 +5,6 @@ import Link from "next/link"
 import {
   AlertTriangle,
   ArrowRight,
-  BadgeDollarSign,
   BarChart3,
   CheckCircle2,
   ChevronRight,
@@ -15,11 +14,7 @@ import {
   Loader2,
   Megaphone,
   Pencil,
-  Settings,
   Star,
-  TicketPercent,
-  TrendingUp,
-  Upload,
   UserRoundCheck,
   UsersRound,
   Zap,
@@ -28,12 +23,6 @@ import {
 
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
-
-type PerformanceDay = {
-  label: string
-  value: number
-  percentage: number
-}
 
 type RecentCampaign = {
   id: string
@@ -58,8 +47,6 @@ type CampaignOverview = {
   summary: {
     activeCampaigns: number
     fidelizedCustomers: number
-    clickPromoBalance: number
-    clickPromoBalanceFormatted: string
     monthlyRedemptions: number
   }
   cardFidelidade: {
@@ -76,19 +63,9 @@ type CampaignOverview = {
     progress: number
     customersCloseToComplete: number
   }
-  clickPromo: {
-    balance: number
-    balanceFormatted: string
-    impactedOrders: number
-    releasedAmount: number
-    releasedAmountFormatted: string
-    conversion: number
-    performanceLastSevenDays: PerformanceDay[]
-  }
   insights: {
     customersCloseToComplete: number
     inactiveCustomers: number
-    clickPromoConversion: number
   }
   recentCampaigns: RecentCampaign[]
   totals: {
@@ -144,16 +121,11 @@ export default function CampanhasPage() {
           error: sessionError,
         } = await supabase.auth.getSession()
 
-        if (sessionError) {
-          throw sessionError
-        }
-
-        if (!session?.access_token) {
-          throw new Error("Sessão expirada. Faça login novamente.")
+        if (sessionError || !session?.access_token) {
+          throw new Error("Sessão inválida. Faça login novamente.")
         }
 
         const response = await fetch("/api/campanhas/overview", {
-          method: "GET",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
@@ -192,13 +164,9 @@ export default function CampanhasPage() {
     }
   }, [supabase])
 
-  const hasClickPromoPerformance = useMemo(() => {
-    return (
-      overview?.clickPromo.performanceLastSevenDays.some(
-        (day) => day.value > 0,
-      ) ?? false
-    )
-  }, [overview])
+const recentCampaigns = useMemo(() => {
+  return overview?.recentCampaigns ?? []
+}, [overview])
 
   if (isLoading) {
     return (
@@ -272,7 +240,7 @@ export default function CampanhasPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-3">
           <MetricCard
             title="Campanhas ativas"
             value={formatNumber(overview.summary.activeCampaigns)}
@@ -290,14 +258,6 @@ export default function CampanhasPage() {
           />
 
           <MetricCard
-            title="Crédito ClickPromo"
-            value={overview.summary.clickPromoBalanceFormatted}
-            description="Disponível para liberar"
-            icon={BadgeDollarSign}
-            tone="green"
-          />
-
-          <MetricCard
             title="Resgates no mês"
             value={formatNumber(overview.summary.monthlyRedemptions)}
             description="Prêmios resgatados"
@@ -306,7 +266,7 @@ export default function CampanhasPage() {
           />
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[1.1fr_1.1fr_0.95fr]">
+        <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -339,37 +299,76 @@ export default function CampanhasPage() {
             <div className="mt-5 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 to-white px-4 py-4">
               {overview.cardFidelidade.hasCampaign ? (
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-base font-black text-orange-950">
-                    {overview.cardFidelidade.requiredOrders} pedidos ={" "}
-                    {overview.cardFidelidade.rewardTitle}
-                  </p>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-orange-700">
+                      Campanha atual
+                    </p>
 
-                  <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 sm:flex">
-                    <Gift className="h-6 w-6" />
+                    <h3 className="mt-1 text-xl font-black text-slate-950">
+                      {overview.cardFidelidade.title}
+                    </h3>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Prêmio: {overview.cardFidelidade.rewardTitle}
+                    </p>
+                  </div>
+
+                  <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white sm:flex">
+                    <Gift className="h-7 w-7" />
                   </div>
                 </div>
               ) : (
-                <div>
-                  <p className="text-base font-black text-orange-950">
-                    Nenhum card fidelidade ativo
-                  </p>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-orange-700">
+                      Nenhuma campanha ativa
+                    </p>
 
-                  <p className="mt-1 text-sm font-medium text-orange-700/80">
-                    Crie uma campanha para começar a acompanhar recompra.
-                  </p>
+                    <h3 className="mt-1 text-xl font-black text-slate-950">
+                      Crie seu primeiro card fidelidade
+                    </h3>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Configure uma meta simples para estimular recompra.
+                    </p>
+                  </div>
+
+                  <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white sm:flex">
+                    <Gift className="h-7 w-7" />
+                  </div>
                 </div>
               )}
             </div>
 
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <MiniStat
+                icon={UsersRound}
+                label="Participantes"
+                value={formatNumber(overview.cardFidelidade.participants)}
+              />
+
+              <MiniStat
+                icon={Gift}
+                label="Prêmios pendentes"
+                value={formatNumber(overview.cardFidelidade.pendingRewards)}
+              />
+
+              <MiniStat
+                icon={CheckCircle2}
+                label="Resgatados"
+                value={formatNumber(overview.cardFidelidade.redeemedRewards)}
+              />
+            </div>
+
             <div className="mt-5">
-              <div className="mb-3 flex items-center justify-between text-xs font-bold text-slate-500">
+              <div className="mb-2 flex items-center justify-between text-xs font-black text-slate-500">
                 <span>Progresso geral</span>
                 <span>{formatPercent(overview.cardFidelidade.progress)}</span>
               </div>
 
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-3 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-orange-500 transition-all"
+                  className="h-full rounded-full bg-gradient-to-r from-orange-500 to-blue-600 transition-all"
                   style={{
                     width: `${Math.min(
                       Math.max(overview.cardFidelidade.progress, 0),
@@ -378,46 +377,6 @@ export default function CampanhasPage() {
                   }}
                 />
               </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs font-bold text-slate-500">
-                    Clientes ativos
-                  </p>
-                  <p className="mt-1 text-lg font-black text-orange-600">
-                    {formatNumber(overview.cardFidelidade.participants)}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-xs font-bold text-slate-500">
-                    Metas atingidas
-                  </p>
-                  <p className="mt-1 text-lg font-black text-orange-600">
-                    {formatNumber(overview.cardFidelidade.completedGoals)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <MiniStat
-                icon={UsersRound}
-                label="Participando"
-                value={formatNumber(overview.cardFidelidade.participants)}
-              />
-
-              <MiniStat
-                icon={Gift}
-                label="Pendentes"
-                value={formatNumber(overview.cardFidelidade.pendingRewards)}
-              />
-
-              <MiniStat
-                icon={CheckCircle2}
-                label="Concluídos"
-                value={formatNumber(overview.cardFidelidade.redeemedRewards)}
-              />
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -440,131 +399,6 @@ export default function CampanhasPage() {
           </div>
 
           <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
-                  <TicketPercent className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-black text-slate-950">
-                    ClickPromo
-                  </h2>
-
-                  <p className="mt-0.5 text-sm font-medium text-slate-500">
-                    Crédito promocional subsidiado pela ClickFood.
-                  </p>
-                </div>
-              </div>
-
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  overview.clickPromo.balance > 0
-                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                    : "bg-slate-100 text-slate-500 ring-1 ring-slate-200"
-                }`}
-              >
-                {overview.clickPromo.balance > 0 ? "Ativo" : "Sem saldo"}
-              </span>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 px-4 py-4">
-              <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-                Saldo disponível
-              </p>
-
-              <div className="mt-1 flex items-center justify-between gap-4">
-                <p className="text-2xl font-black tracking-tight text-slate-950">
-                  {overview.clickPromo.balanceFormatted}
-                </p>
-
-                <TicketPercent className="h-8 w-8 text-blue-400" />
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-3 divide-x divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50/60 py-3">
-              <div className="px-3">
-                <p className="text-xs font-bold text-slate-500">
-                  Pedidos impactados
-                </p>
-                <p className="mt-1 text-base font-black text-slate-950">
-                  {formatNumber(overview.clickPromo.impactedOrders)}
-                </p>
-              </div>
-
-              <div className="px-3">
-                <p className="text-xs font-bold text-slate-500">
-                  Saldo liberado
-                </p>
-                <p className="mt-1 text-base font-black text-slate-950">
-                  {overview.clickPromo.releasedAmountFormatted}
-                </p>
-              </div>
-
-              <div className="px-3">
-                <p className="text-xs font-bold text-slate-500">Conversão</p>
-                <p className="mt-1 text-base font-black text-slate-950">
-                  {formatPercent(overview.clickPromo.conversion)}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5">
-              <p className="text-sm font-black text-slate-800">
-                Performance nos últimos 7 dias
-              </p>
-
-              {hasClickPromoPerformance ? (
-                <div className="mt-4 flex h-28 items-end gap-3 border-b border-slate-100 pb-1">
-                  {overview.clickPromo.performanceLastSevenDays.map((day) => (
-                    <div
-                      key={day.label}
-                      className="flex flex-1 flex-col items-center gap-2"
-                    >
-                      <div className="flex h-20 w-full items-end justify-center">
-                        <div
-                          className="w-5 rounded-t-lg bg-blue-600 shadow-sm shadow-blue-500/20"
-                          style={{
-                            height: `${Math.max(day.percentage, 6)}%`,
-                          }}
-                        />
-                      </div>
-
-                      <span className="text-[11px] font-bold text-slate-400">
-                        {day.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-4 flex h-28 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
-                  <p className="px-4 text-sm font-semibold text-slate-400">
-                    Sem pedidos ClickPromo nos últimos 7 dias.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Link
-                href="/campanhas/saldo-promocional"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 text-sm font-black text-blue-700 transition hover:bg-blue-50"
-              >
-                Gerenciar
-                <Settings className="h-4 w-4" />
-              </Link>
-
-              <Link
-                href="/campanhas/saldo-promocional"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm shadow-blue-500/20 transition hover:bg-blue-700"
-              >
-                <Upload className="h-4 w-4" />
-                Liberar saldo
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                 <Zap className="h-5 w-5" />
@@ -582,14 +416,6 @@ export default function CampanhasPage() {
                 text={`${formatNumber(
                   overview.insights.customersCloseToComplete,
                 )} clientes estão próximos de completar o card`}
-              />
-
-              <InsightCard
-                icon={TrendingUp}
-                tone="blue"
-                text={`ClickPromo teve ${formatPercent(
-                  overview.insights.clickPromoConversion,
-                )} de conversão no mês`}
               />
 
               <InsightCard
@@ -620,7 +446,7 @@ export default function CampanhasPage() {
               </h2>
             </div>
 
-            {overview.recentCampaigns.length > 0 ? (
+            {recentCampaigns.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] border-collapse">
                   <thead>
@@ -634,25 +460,15 @@ export default function CampanhasPage() {
                   </thead>
 
                   <tbody>
-                    {overview.recentCampaigns.map((campaign) => (
+                    {recentCampaigns.map((campaign) => (
                       <tr
                         key={`${campaign.type}-${campaign.id}`}
                         className="border-b border-slate-100 last:border-0"
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div
-                              className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-                                campaign.type === "ClickPromo"
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-orange-500 text-white"
-                              }`}
-                            >
-                              {campaign.type === "ClickPromo" ? (
-                                <TicketPercent className="h-4 w-4" />
-                              ) : (
-                                <Star className="h-4 w-4 fill-white" />
-                              )}
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 text-white">
+                              <Star className="h-4 w-4 fill-white" />
                             </div>
 
                             <div>
@@ -667,13 +483,7 @@ export default function CampanhasPage() {
                         </td>
 
                         <td className="px-5 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-black ${
-                              campaign.type === "ClickPromo"
-                                ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-                                : "bg-orange-50 text-orange-700 ring-1 ring-orange-200"
-                            }`}
-                          >
+                          <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700 ring-1 ring-orange-200">
                             {campaign.type}
                           </span>
                         </td>
@@ -706,9 +516,9 @@ export default function CampanhasPage() {
                 </table>
               </div>
             ) : (
-              <div className="flex min-h-[220px] items-center justify-center px-6 py-10 text-center">
-                <div>
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+              <div className="flex min-h-[260px] items-center justify-center px-6 py-10">
+                <div className="text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                     <Megaphone className="h-6 w-6" />
                   </div>
 
@@ -742,14 +552,6 @@ export default function CampanhasPage() {
                 title="Criar card fidelidade"
                 description="Defina metas e prêmios"
                 tone="orange"
-              />
-
-              <QuickAction
-                href="/campanhas/saldo-promocional"
-                icon={TicketPercent}
-                title="Liberar ClickPromo"
-                description="Disponibilizar crédito"
-                tone="blue"
               />
 
               <QuickAction

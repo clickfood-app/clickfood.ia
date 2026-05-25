@@ -18,13 +18,6 @@ const LOYALTY_CUSTOMER_TABLES = [
   "loyalty_customers",
 ]
 
-const CLICKPROMO_TABLES = [
-  "promotional_balances",
-  "restaurant_promotional_balances",
-  "clickpromo_balances",
-  "restaurant_clickpromo_balances",
-]
-
 function getValue(row: AnyRow | null | undefined, keys: string[]) {
   if (!row) return null
 
@@ -53,6 +46,7 @@ function getBoolean(row: AnyRow | null | undefined, keys: string[], fallback = f
   const value = getValue(row, keys)
 
   if (typeof value === "boolean") return value
+
   if (typeof value === "string") {
     return ["true", "active", "ativo", "paid", "completed", "concluido"].includes(
       value.toLowerCase(),
@@ -108,13 +102,6 @@ function formatDateBR(value: unknown) {
     month: "2-digit",
     year: "numeric",
   }).format(date)
-}
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value)
 }
 
 function uniqueBy<T>(items: T[], getKey: (item: T) => string) {
@@ -224,128 +211,8 @@ function getCustomerKey(row: AnyRow) {
   return getString(row, ["customer_phone", "phone", "customer_id", "customer_name"])
 }
 
-function getClickPromoBalance(rows: AnyRow[], restaurant: AnyRow) {
-  const restaurantBalance = getNumber(
-    restaurant,
-    [
-      "promotional_balance",
-      "clickpromo_balance",
-      "click_promo_balance",
-      "available_promotional_balance",
-    ],
-    0,
-  )
-
-  if (rows.length === 0) {
-    return restaurantBalance
-  }
-
-  const activeRows = rows.filter((row) => {
-    const status = normalizeText(getValue(row, ["status", "state"]))
-
-    return !status || ["active", "ativo", "available", "disponivel"].includes(status)
-  })
-
-  const balance = activeRows.reduce((total, row) => {
-    const directBalance = getNumber(
-      row,
-      [
-        "available_balance",
-        "current_balance",
-        "balance",
-        "amount_available",
-        "promotional_balance",
-        "clickpromo_balance",
-        "amount",
-        "value",
-      ],
-      0,
-    )
-
-    return total + directBalance
-  }, 0)
-
-  return balance || restaurantBalance
-}
-
-function isClickPromoOrder(order: AnyRow) {
-  const couponCode = normalizeText(getValue(order, ["coupon_code", "promo_code"]))
-  const promotionType = normalizeText(
-    getValue(order, ["promotion_type", "campaign_type", "discount_source"]),
-  )
-
-  const discount = getNumber(
-    order,
-    [
-      "clickpromo_discount",
-      "click_promo_discount",
-      "promotional_discount",
-      "promotional_balance_used",
-      "clickpromo_amount",
-    ],
-    0,
-  )
-
-  return (
-    discount > 0 ||
-    couponCode.includes("clickpromo") ||
-    couponCode.includes("clickpromo") ||
-    promotionType.includes("clickpromo") ||
-    promotionType.includes("saldo_promocional")
-  )
-}
-
 function getOrderTotal(order: AnyRow) {
   return getNumber(order, ["total", "amount", "order_total"], 0)
-}
-
-function getOrderDiscount(order: AnyRow) {
-  return getNumber(
-    order,
-    [
-      "clickpromo_discount",
-      "click_promo_discount",
-      "promotional_discount",
-      "promotional_balance_used",
-      "clickpromo_amount",
-      "discount",
-      "coupon_discount",
-    ],
-    0,
-  )
-}
-
-function buildLastSevenDaysPerformance(orders: AnyRow[]) {
-  const today = new Date()
-  const days = Array.from({ length: 7 }).map((_, index) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() - (6 - index))
-    date.setHours(0, 0, 0, 0)
-
-    const nextDate = new Date(date)
-    nextDate.setDate(date.getDate() + 1)
-
-    const count = orders.filter((order) => {
-      const createdAt = parseDate(order.created_at)
-
-      return createdAt && createdAt >= date && createdAt < nextDate
-    }).length
-
-    return {
-      label: new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-      }).format(date),
-      value: count,
-    }
-  })
-
-  const max = Math.max(...days.map((day) => day.value), 1)
-
-  return days.map((day) => ({
-    ...day,
-    percentage: Math.round((day.value / max) * 100),
-  }))
 }
 
 export async function GET(req: Request) {
@@ -378,22 +245,17 @@ export async function GET(req: Request) {
     const inactiveLimit = new Date()
     inactiveLimit.setDate(inactiveLimit.getDate() - 15)
 
-    const [
-      loyaltyCampaignResult,
-      loyaltyCustomersResult,
-      clickPromoResult,
-      ordersResult,
-    ] = await Promise.all([
-      getRowsFromFirstExistingTable(LOYALTY_CAMPAIGN_TABLES, restaurant.id),
-      getRowsFromFirstExistingTable(LOYALTY_CUSTOMER_TABLES, restaurant.id),
-      getRowsFromFirstExistingTable(CLICKPROMO_TABLES, restaurant.id),
-      supabaseAdmin
-        .from("orders")
-        .select("*")
-        .eq("restaurant_id", restaurant.id)
-        .order("created_at", { ascending: false })
-        .limit(2000),
-    ])
+    const [loyaltyCampaignResult, loyaltyCustomersResult, ordersResult] =
+      await Promise.all([
+        getRowsFromFirstExistingTable(LOYALTY_CAMPAIGN_TABLES, restaurant.id),
+        getRowsFromFirstExistingTable(LOYALTY_CUSTOMER_TABLES, restaurant.id),
+        supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("restaurant_id", restaurant.id)
+          .order("created_at", { ascending: false })
+          .limit(2000),
+      ])
 
     if (ordersResult.error) {
       throw new Error(`Erro ao buscar pedidos: ${ordersResult.error.message}`)
@@ -401,7 +263,6 @@ export async function GET(req: Request) {
 
     const loyaltyCampaigns = loyaltyCampaignResult.rows
     const loyaltyCustomers = loyaltyCustomersResult.rows
-    const clickPromoRows = clickPromoResult.rows
     const orders = ordersResult.data ?? []
 
     const activeLoyaltyCampaigns = loyaltyCampaigns.filter(isActive)
@@ -412,7 +273,9 @@ export async function GET(req: Request) {
 
     const loyaltyParticipants = mainCampaignId
       ? loyaltyCustomers.filter(
-          (item) => getString(item, ["campaign_id", "loyalty_campaign_id"]) === mainCampaignId,
+          (item) =>
+            getString(item, ["campaign_id", "loyalty_campaign_id"]) ===
+            mainCampaignId,
         )
       : loyaltyCustomers
 
@@ -450,7 +313,10 @@ export async function GET(req: Request) {
     const customersCloseToComplete = loyaltyParticipants.filter((item) => {
       const currentOrders = getCurrentOrders(item)
 
-      return currentOrders >= Math.max(requiredOrders - 2, 1) && currentOrders < requiredOrders
+      return (
+        currentOrders >= Math.max(requiredOrders - 2, 1) &&
+        currentOrders < requiredOrders
+      )
     })
 
     const paidOrDeliveredOrders = orders.filter((order) => {
@@ -466,18 +332,6 @@ export async function GET(req: Request) {
     const monthOrders = orders.filter((order) =>
       isSameMonth(order.created_at, monthStart, nextMonthStart),
     )
-
-    const monthClickPromoOrders = monthOrders.filter(isClickPromoOrder)
-    const clickPromoBalance = getClickPromoBalance(clickPromoRows, restaurant)
-    const clickPromoReleased = monthClickPromoOrders.reduce(
-      (total, order) => total + getOrderDiscount(order),
-      0,
-    )
-
-    const clickPromoConversion =
-      monthOrders.length > 0
-        ? Math.round((monthClickPromoOrders.length / monthOrders.length) * 1000) / 10
-        : 0
 
     const customersByPhone = new Map<string, AnyRow[]>()
 
@@ -502,36 +356,21 @@ export async function GET(req: Request) {
       },
     )
 
-    const recentCampaigns = [
-      ...loyaltyCampaigns.slice(0, 4).map((campaign) => ({
-        id: getString(campaign, ["id"]),
-        name: getString(campaign, ["name", "title"], "Card Fidelidade"),
-        description: getLoyaltyRewardTitle(campaign),
-        type: "Card Fidelidade",
-        impact: `${loyaltyParticipants.length} participantes`,
-        secondaryImpact: `${loyaltyProgress}% das metas`,
-        status: isActive(campaign) ? "Ativa" : "Concluída",
-        period: `${formatDateBR(
-          getValue(campaign, ["starts_at", "start_date", "created_at"]),
-        )} - ${formatDateBR(getValue(campaign, ["ends_at", "end_date", "valid_until"]))}`,
-        createdAt: getString(campaign, ["created_at"]),
-      })),
-      ...(clickPromoBalance > 0 || monthClickPromoOrders.length > 0
-        ? [
-            {
-              id: "clickpromo",
-              name: "ClickPromo",
-              description: "Crédito promocional",
-              type: "ClickPromo",
-              impact: `${monthClickPromoOrders.length} pedidos`,
-              secondaryImpact: `${clickPromoConversion}% conversão`,
-              status: clickPromoBalance > 0 ? "Ativa" : "Sem saldo",
-              period: `${formatDateBR(monthStart)} - ${formatDateBR(nextMonthStart)}`,
-              createdAt: now.toISOString(),
-            },
-          ]
-        : []),
-    ].slice(0, 5)
+    const recentCampaigns = loyaltyCampaigns.slice(0, 5).map((campaign) => ({
+      id: getString(campaign, ["id"]),
+      name: getString(campaign, ["name", "title"], "Card Fidelidade"),
+      description: getLoyaltyRewardTitle(campaign),
+      type: "Card Fidelidade",
+      impact: `${loyaltyParticipants.length} participantes`,
+      secondaryImpact: `${loyaltyProgress}% das metas`,
+      status: isActive(campaign) ? "Ativa" : "Concluída",
+      period: `${formatDateBR(
+        getValue(campaign, ["starts_at", "start_date", "created_at"]),
+      )} - ${formatDateBR(
+        getValue(campaign, ["ends_at", "end_date", "valid_until"]),
+      )}`,
+      createdAt: getString(campaign, ["created_at"]),
+    }))
 
     return NextResponse.json({
       success: true,
@@ -543,14 +382,10 @@ export async function GET(req: Request) {
       debug: {
         loyaltyCampaignTable: loyaltyCampaignResult.tableName,
         loyaltyCustomerTable: loyaltyCustomersResult.tableName,
-        clickPromoTable: clickPromoResult.tableName,
       },
       summary: {
-        activeCampaigns:
-          activeLoyaltyCampaigns.length + (clickPromoBalance > 0 ? 1 : 0),
+        activeCampaigns: activeLoyaltyCampaigns.length,
         fidelizedCustomers: uniqueLoyaltyCustomers.length,
-        clickPromoBalance,
-        clickPromoBalanceFormatted: formatMoney(clickPromoBalance),
         monthlyRedemptions: monthlyRedeemedRewards.length,
       },
       cardFidelidade: {
@@ -567,19 +402,9 @@ export async function GET(req: Request) {
         progress: loyaltyProgress,
         customersCloseToComplete: customersCloseToComplete.length,
       },
-      clickPromo: {
-        balance: clickPromoBalance,
-        balanceFormatted: formatMoney(clickPromoBalance),
-        impactedOrders: monthClickPromoOrders.length,
-        releasedAmount: clickPromoReleased,
-        releasedAmountFormatted: formatMoney(clickPromoReleased),
-        conversion: clickPromoConversion,
-        performanceLastSevenDays: buildLastSevenDaysPerformance(monthClickPromoOrders),
-      },
       insights: {
         customersCloseToComplete: customersCloseToComplete.length,
         inactiveCustomers: inactiveCustomers.length,
-        clickPromoConversion,
       },
       recentCampaigns,
       totals: {
