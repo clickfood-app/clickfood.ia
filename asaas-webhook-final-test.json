@@ -1,0 +1,10 @@
+﻿{
+  "event": "PAYMENT_RECEIVED",
+  "payment": {
+    "id": "pay_063jp7exzbtki8yp",
+    "status": "RECEIVED",
+    "billingType": "PIX",
+    "externalReference": "74e2c9c5-02e5-4fc6-a027-a6b7c96913ec",
+    "value": 25.50
+  }
+}

@@ -1261,6 +1261,22 @@ function onlyDigits(value: string | null | undefined) {
   return (value || "").replace(/\D/g, "")
 }
 
+function isValidBrazilianMobilePhone(value: string | null | undefined) {
+  const digits = onlyDigits(value)
+
+  if (!/^([1-9]{2})9\d{8}$/.test(digits)) {
+    return false
+  }
+
+  const localNumber = digits.slice(2)
+
+  if (/^(\d)\1{8}$/.test(localNumber)) {
+    return false
+  }
+
+  return true
+}
+
 function formatCpfPreview(value: string) {
   const digits = onlyDigits(value)
 
@@ -1994,10 +2010,10 @@ function CustomerStartModal({
       return
     }
 
-    if (normalizedPhone.length < 10) {
-      alert("Informe um telefone válido.")
-      return
-    }
+   if (!isValidBrazilianMobilePhone(normalizedPhone)) {
+  alert("Informe um celular/WhatsApp válido com DDD.")
+  return
+}
 
     if (normalizedDocument.length !== 11) {
       alert("Informe um CPF válido.")
@@ -2052,13 +2068,14 @@ function CustomerStartModal({
               Telefone / WhatsApp *
             </label>
 
-            <input
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="(00) 00000-0000"
-              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-            />
+<input
+  type="tel"
+  value={phone}
+  onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
+  placeholder="(00) 00000-0000"
+  maxLength={15}
+  className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+/>
           </div>
 
           <div>
@@ -2257,11 +2274,11 @@ function CartSheet({
       return false
     }
 
-    if (!customer?.phone?.trim()) {
-      alert("Cadastre seu telefone antes de finalizar.")
-      onEditCustomer()
-      return false
-    }
+    if (!isValidBrazilianMobilePhone(customer?.phone)) {
+  alert("Atualize seu celular/WhatsApp com DDD antes de finalizar.")
+  onEditCustomer()
+  return false
+}
 
     if (sanitizedCustomerDocument.length !== 11) {
       alert("Atualize seu CPF antes de finalizar.")
@@ -2400,7 +2417,7 @@ function CartSheet({
         restaurantId: restaurant.id,
         tableId: tableNumber || null,
         customerName: customer.name,
-        customerPhone: customer.phone,
+       customerPhone: onlyDigits(customer.phone),
         customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
         neighborhood:
           orderType === "delivery" ? selectedNeighborhoodOption?.neighborhood ?? undefined : undefined,
@@ -2458,7 +2475,7 @@ function CartSheet({
           orderId: createdOrder.id,
           publicOrderNumber: createdOrder.public_order_number,
           customerName: customer?.name ?? "",
-          customerPhone: customer?.phone ?? "",
+         customerPhone: onlyDigits(customer?.phone ?? ""),
           customerDocument: sanitizedCustomerDocument,
           customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
           customerNeighborhood:
