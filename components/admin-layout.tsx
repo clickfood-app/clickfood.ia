@@ -446,7 +446,9 @@ export default function AdminLayout({
       return
     }
 
-    if (!user?.id) {
+    const userId = user?.id
+
+    if (!userId) {
       setRestaurantId(null)
       return
     }
@@ -457,7 +459,7 @@ export default function AdminLayout({
       const { data, error } = await supabase
         .from("restaurants")
         .select("id")
-        .eq("owner_id", user.id)
+        .eq("owner_id", userId)
         .limit(1)
         .maybeSingle()
 
