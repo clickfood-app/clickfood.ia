@@ -176,6 +176,19 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`
 }
 
+function getLocalDayRange(date = new Date()) {
+  const start = new Date(date)
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setDate(end.getDate() + 1)
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+  }
+}
+
 function getPeriodStart(period: PeriodKey) {
   const date = new Date()
 
@@ -246,6 +259,18 @@ function getPaymentBucket(paymentMethod: string | null) {
   if (method === "cash" || method === "dinheiro") return "cash"
 
   return "card"
+}
+
+function isCashClosingTransaction(transaction: FinancialTransaction) {
+  const origin = String(transaction.origin || "").toLowerCase()
+  const category = String(transaction.category || "").toLowerCase()
+  const title = String(transaction.title || "").toLowerCase()
+
+  return (
+    origin === "cash_closing" ||
+    category === "fechamento diário" ||
+    title.startsWith("fechamento de caixa")
+  )
 }
 
 function normalizeOrderItem(raw: RawOrderItem) {
@@ -703,7 +728,10 @@ export default function FinanceiroPage() {
       const averageTicket = ordersCount > 0 ? grossRevenue / ordersCount : 0
 
       const manualIncome = transactions
-        .filter((transaction) => transaction.type === "income")
+        .filter(
+          (transaction) =>
+            transaction.type === "income" && !isCashClosingTransaction(transaction)
+        )
         .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
 
       const expenses = transactions
@@ -869,6 +897,9 @@ export default function FinanceiroPage() {
       if (period !== "today") return
 
       const resolvedRestaurantId = await resolveRestaurant()
+      const closingDate = getLocalDateString()
+      const { startIso, endIso } = getLocalDayRange()
+
       setIsClosingCash(true)
 
       const {
@@ -878,7 +909,7 @@ export default function FinanceiroPage() {
       const { error } = await supabase.from("cash_closings").upsert(
         {
           restaurant_id: resolvedRestaurantId,
-          closing_date: getLocalDateString(),
+          closing_date: closingDate,
           gross_revenue: data.grossRevenue,
           manual_income: data.manualIncome,
           expenses: data.expenses,
@@ -900,9 +931,62 @@ export default function FinanceiroPage() {
 
       if (error) throw error
 
+      const title = `Fechamento de caixa - ${new Intl.DateTimeFormat("pt-BR").format(
+        new Date()
+      )}`
+
+      const description = [
+        "Lançamento automático gerado ao fechar o caixa.",
+        `Pix: ${formatCurrency(data.pixTotal)}.`,
+        `Dinheiro: ${formatCurrency(data.cashTotal)}.`,
+        `Cartão: ${formatCurrency(data.cardTotal)}.`,
+        `Pedidos: ${data.ordersCount}.`,
+      ].join(" ")
+
+      const { data: existingTransaction, error: existingTransactionError } =
+        await supabase
+          .from("financial_transactions")
+          .select("id")
+          .eq("restaurant_id", resolvedRestaurantId)
+          .eq("type", "income")
+          .eq("category", "Fechamento diário")
+          .gte("occurred_at", startIso)
+          .lt("occurred_at", endIso)
+          .limit(1)
+          .maybeSingle()
+
+      if (existingTransactionError) throw existingTransactionError
+
+      const transactionPayload = {
+        restaurant_id: resolvedRestaurantId,
+        type: "income" as const,
+        origin: "cash_closing",
+        title,
+        description,
+        amount: data.grossRevenue,
+        category: "Fechamento diário",
+        payment_method: "Misto",
+        occurred_at: new Date().toISOString(),
+      }
+
+      const transactionRequest = existingTransaction?.id
+        ? supabase
+            .from("financial_transactions")
+            .update(transactionPayload)
+            .eq("id", existingTransaction.id)
+            .eq("restaurant_id", resolvedRestaurantId)
+        : supabase.from("financial_transactions").insert(transactionPayload)
+
+      const { error: transactionError } = await transactionRequest
+
+      if (transactionError) throw transactionError
+
+      await loadFinanceiro()
+
       toast({
         title: "Caixa fechado",
-        description: "O fechamento de hoje foi salvo com sucesso.",
+        description:
+          "O fechamento de hoje foi salvo e lançado como entrada automática.",
       })
     } catch (error) {
       console.error("Erro ao fechar caixa:", error)
