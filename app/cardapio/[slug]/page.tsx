@@ -1776,9 +1776,6 @@ function OrderTrackingCard({
   const whatsappPhone = restaurantWhatsApp?.replace(/\D/g, "") || ""
   const orderNumber = order.public_order_number || order.id.slice(0, 8)
   const safeProgressIndex = Math.max(0, Math.min(progressIndex, steps.length - 1))
-  const progressPercentage = isCancelled
-    ? 0
-    : Math.max(12, ((safeProgressIndex + 1) / steps.length) * 100)
 
   const trackingMessage = getOrderTrackingMessage({
     progressIndex: safeProgressIndex,
@@ -1803,178 +1800,126 @@ function OrderTrackingCard({
   }
 
   return (
-    <div className="mx-auto mt-4 max-w-2xl px-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-[0_24px_70px_-42px_rgba(15,23,42,0.75)]">
-        <div className="relative overflow-hidden bg-[#0f172a] p-5 text-white">
-          <div
-            className="absolute -right-14 -top-16 h-44 w-44 rounded-full blur-3xl"
-            style={{ backgroundColor: `${accentColor}55` }}
-          />
-          <div className="absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-blue-500/25 blur-3xl" />
+    <div className="mx-auto mt-3 max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-[0_14px_45px_-32px_rgba(15,23,42,0.75)]">
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
+                Acompanhe seu pedido
+              </p>
 
-          <div className="relative">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/50">
-                  Acompanhe seu pedido
-                </p>
+              <h3 className="mt-1 text-base font-black leading-tight text-gray-900">
+                {trackingMessage.title}
+              </h3>
 
-                <h3 className="mt-2 text-xl font-black leading-tight">
-                  {trackingMessage.title}
-                </h3>
-
-                <p className="mt-1 max-w-[290px] text-sm leading-relaxed text-white/70">
-                  {trackingMessage.description}
-                </p>
-              </div>
-
-              <div className="shrink-0 rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-right backdrop-blur-md">
-                <p className="text-[10px] font-bold uppercase text-white/50">Pedido</p>
-                <p className="text-sm font-black text-white">#{orderNumber}</p>
-              </div>
+              <p className="mt-1 line-clamp-2 text-xs font-medium leading-relaxed text-gray-500">
+                {trackingMessage.description}
+              </p>
             </div>
 
-            <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-md">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wide text-white/45">
-                    Status atual
-                  </p>
-
-                  <p className="mt-1 text-sm font-black text-white">
-                    {getOrderStatusLabel(order.status, orderType, order.customer_received_at)}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-white/45">
-                    Total
-                  </p>
-
-                  <p className="mt-1 text-sm font-black text-white">
-                    {formatPrice(Number(order.total || 0))}
-                  </p>
-                </div>
-              </div>
-
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full shadow-[0_0_22px_rgba(249,115,22,0.55)] transition-all duration-700"
-                  style={{
-                    width: `${progressPercentage}%`,
-                    background: `linear-gradient(to right, ${accentColor}, #facc15)`,
-                  }}
-                />
-              </div>
+            <div className="shrink-0 rounded-2xl bg-gray-50 px-3 py-2 text-right ring-1 ring-gray-100">
+              <p className="text-[9px] font-black uppercase text-gray-400">Pedido</p>
+              <p className="text-xs font-black text-gray-900">#{orderNumber}</p>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-5 p-5">
+          <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-black text-gray-900">
+                {getOrderStatusLabel(order.status, orderType, order.customer_received_at)}
+              </p>
+
+              <p className="mt-0.5 text-[11px] font-semibold text-gray-500">
+                {orderType === "delivery" ? "Entrega" : "Retirada"} •{" "}
+                {formatPaymentMethodLabel(order.payment_method)}
+              </p>
+            </div>
+
+            <p className="text-sm font-black text-gray-900">
+              {formatPrice(Number(order.total || 0))}
+            </p>
+          </div>
+
           {isCancelled ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+            <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
               Este pedido foi cancelado pelo restaurante.
             </div>
           ) : (
-            <div>
-              <div className="flex items-start justify-between gap-2">
+            <div className="mt-4">
+              <div className="flex items-start">
                 {steps.map((step, index) => {
                   const isDone = progressIndex >= index
                   const isCurrent = progressIndex === index
 
                   return (
-                    <div key={step.key} className="relative flex flex-1 flex-col items-center text-center">
+                    <React.Fragment key={step.key}>
+                      <div className="flex min-w-0 flex-1 flex-col items-center text-center">
+                        <div
+                          className={cn(
+                            "flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black transition-all",
+                            isDone ? "text-white" : "bg-gray-200 text-gray-400",
+                            isCurrent && "ring-4 ring-orange-100"
+                          )}
+                          style={isDone ? { backgroundColor: accentColor } : undefined}
+                        >
+                          {isDone ? "●" : "○"}
+                        </div>
+
+                        <span
+                          className={cn(
+                            "mt-1.5 text-[10px] font-black leading-tight",
+                            isDone ? "text-gray-900" : "text-gray-400"
+                          )}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+
                       {index < steps.length - 1 && (
                         <div
                           className={cn(
-                            "absolute left-1/2 top-4 h-1 w-full rounded-full",
+                            "mt-3 h-0.5 w-7 rounded-full",
                             progressIndex > index ? "bg-orange-400" : "bg-gray-200"
                           )}
                         />
                       )}
-
-                      <div
-                        className={cn(
-                          "relative z-10 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white text-xs font-black shadow-sm transition-all",
-                          isDone ? "text-white" : "bg-gray-200 text-gray-400",
-                          isCurrent && "ring-4 ring-orange-100"
-                        )}
-                        style={isDone ? { backgroundColor: accentColor } : undefined}
-                      >
-                        {isDone ? <Check className="h-4 w-4" strokeWidth={3} /> : index + 1}
-                      </div>
-
-                      <span
-                        className={cn(
-                          "mt-2 text-[11px] font-bold leading-tight",
-                          isDone ? "text-gray-900" : "text-gray-400"
-                        )}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
+                    </React.Fragment>
                   )
                 })}
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl bg-gray-50 p-3">
-              <p className="text-[10px] font-bold uppercase text-gray-400">Tipo</p>
-              <p className="mt-1 text-sm font-black text-gray-900">
-                {orderType === "delivery" ? "Entrega" : "Retirada"}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-gray-50 p-3">
-              <p className="text-[10px] font-bold uppercase text-gray-400">Pagamento</p>
-              <p className="mt-1 text-sm font-black text-gray-900">
-                {formatPaymentMethodLabel(order.payment_method)}
-              </p>
-            </div>
-          </div>
-
           {alreadyReceived ? (
-            <div className="rounded-[24px] border border-green-200 bg-green-50 p-4">
+            <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-3">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-500 text-white shadow-lg">
-                  <Check className="h-5 w-5" strokeWidth={3} />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-500 text-white">
+                  <Check className="h-4 w-4" strokeWidth={3} />
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-green-800">
+                <div>
+                  <p className="text-xs font-black text-green-800">
                     Recebimento confirmado
                   </p>
 
-                  {order.customer_rating ? (
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-green-700">
-                      Obrigado pela avaliação de {order.customer_rating} estrela{order.customer_rating > 1 ? "s" : ""}.
-                      O restaurante já recebeu seu feedback.
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-green-700">
-                      Seu pedido foi finalizado com sucesso.
-                    </p>
-                  )}
-
-                  <div className="mt-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-bold text-green-800">
-                    Seu selo de fidelidade será contado automaticamente. Para ver o cartão completo, acesse Minha Conta.
-                  </div>
+                  <p className="mt-1 text-[11px] font-semibold leading-relaxed text-green-700">
+                    Seu selo de fidelidade será contado automaticamente na sua conta.
+                  </p>
                 </div>
               </div>
             </div>
           ) : showReviewForm ? (
-            <div className="rounded-[24px] border border-orange-100 bg-orange-50/70 p-4">
-              <p className="text-base font-black text-gray-900">
+            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
+              <p className="text-sm font-black text-gray-900">
                 {orderType === "pickup" ? "Como foi sua retirada?" : "Como foi seu pedido?"}
               </p>
 
               <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                Confirme o recebimento e avalie sua experiência. Seu comentário vai direto para o restaurante.
+                Confirme o recebimento e avalie sua experiência.
               </p>
 
-              <div className="mt-4 flex justify-center gap-1">
+              <div className="mt-3 flex justify-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
@@ -1984,7 +1929,7 @@ function OrderTrackingCard({
                   >
                     <Star
                       className={cn(
-                        "h-8 w-8",
+                        "h-7 w-7",
                         rating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
                       )}
                     />
@@ -1997,7 +1942,7 @@ function OrderTrackingCard({
                 onChange={(event) => setReview(event.target.value)}
                 placeholder="Comentário opcional. Ex: chegou rápido, lanche muito bom..."
                 rows={3}
-                className="mt-4 w-full resize-none rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                className="mt-3 w-full resize-none rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
               />
 
               <button
@@ -2018,13 +1963,9 @@ function OrderTrackingCard({
               </button>
             </div>
           ) : canConfirmReceived ? (
-            <div className="rounded-[24px] border border-gray-200 bg-gray-50 p-4">
-              <p className="text-sm font-black text-gray-900">
+            <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-black text-gray-900">
                 {orderType === "pickup" ? "Você já retirou seu pedido?" : "Seu pedido chegou?"}
-              </p>
-
-              <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                Confirme para finalizar e avaliar o restaurante.
               </p>
 
               <div className="mt-3 grid gap-2">
@@ -2050,18 +1991,12 @@ function OrderTrackingCard({
                 ) : null}
               </div>
             </div>
-          ) : (
-            <div className="rounded-2xl bg-gray-50 p-4 text-center text-xs font-semibold text-gray-500">
-              O restaurante vai atualizar o andamento por aqui.
-            </div>
-          )}
-
-          {whatsappPhone && (!canConfirmReceived || alreadyReceived || showReviewForm) ? (
+          ) : whatsappPhone ? (
             <a
               href={`https://wa.me/${whatsappPhone}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm"
             >
               <MessageCircle className="h-4 w-4 text-green-500" />
               Falar com o restaurante
@@ -2078,12 +2013,18 @@ function CustomerStartModal({
   restaurantName,
   accentColor,
   initialCustomer,
+  mode = "checkout",
+  requireDocument = true,
+  onClose,
   onSave,
 }: {
   open: boolean
   restaurantName: string
   accentColor: string
   initialCustomer: PublicCustomerProfile | null
+  mode?: "checkout" | "profile"
+  requireDocument?: boolean
+  onClose: () => void
   onSave: (customer: PublicCustomerProfile) => void
 }) {
   const [name, setName] = useState("")
@@ -2094,9 +2035,20 @@ function CustomerStartModal({
     if (!open) return
 
     setName(initialCustomer?.name ?? "")
-    setPhone(initialCustomer?.phone ?? "")
-    setDocument(initialCustomer?.document ?? "")
+    setPhone(initialCustomer?.phone ? formatPhonePreview(initialCustomer.phone) : "")
+    setDocument(initialCustomer?.document ? formatCpfPreview(initialCustomer.document) : "")
   }, [open, initialCustomer])
+
+  const title =
+    mode === "checkout" ? "Finalize seu pedido" : "Entrar na sua conta"
+
+  const description =
+    mode === "checkout"
+      ? `Informe seus dados para acompanhar o pedido e acumular moedas em ${restaurantName}.`
+      : `Acesse seu histórico, acompanhe pedidos e veja suas moedas de fidelidade em ${restaurantName}.`
+
+  const buttonLabel =
+    mode === "checkout" ? "Continuar pedido" : "Entrar na conta"
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -2110,12 +2062,12 @@ function CustomerStartModal({
       return
     }
 
-   if (!isValidBrazilianMobilePhone(normalizedPhone)) {
-  alert("Informe um celular/WhatsApp válido com DDD.")
-  return
-}
+    if (!isValidBrazilianMobilePhone(normalizedPhone)) {
+      alert("Informe um celular/WhatsApp válido com DDD.")
+      return
+    }
 
-    if (normalizedDocument.length !== 11) {
+    if (requireDocument && normalizedDocument.length !== 11) {
       alert("Informe um CPF válido.")
       return
     }
@@ -2132,19 +2084,34 @@ function CustomerStartModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
-      <div className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-        <div className="mb-5 text-center">
+      <div
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <div className="relative w-full max-w-md rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700"
+          aria-label="Fechar"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="mb-5 pr-8">
           <div
-            className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg"
+            className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg"
             style={{ backgroundColor: accentColor }}
           >
-            <UserRound className="h-7 w-7" />
+            <UserRound className="h-6 w-6" />
           </div>
 
-          <h2 className="text-xl font-black text-gray-900">Entre no cardápio</h2>
+          <h2 className="text-xl font-black text-gray-900">{title}</h2>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Identifique-se uma vez para comprar mais rápido em {restaurantName}.
+          <p className="mt-1 text-sm leading-relaxed text-gray-500">
+            {description}
           </p>
         </div>
 
@@ -2168,31 +2135,42 @@ function CustomerStartModal({
               Telefone / WhatsApp *
             </label>
 
-<input
-  type="tel"
-  value={phone}
-  onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
-  placeholder="(00) 00000-0000"
-  maxLength={15}
-  className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-/>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
+              placeholder="(00) 00000-0000"
+              maxLength={15}
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+            />
           </div>
 
           <div>
-            <label className="text-xs font-bold uppercase text-gray-500">
-              CPF *
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs font-bold uppercase text-gray-500">
+                CPF {requireDocument ? "*" : ""}
+              </label>
+
+              {!requireDocument && (
+                <span className="text-[11px] font-semibold text-gray-400">
+                  opcional agora
+                </span>
+              )}
+            </div>
 
             <input
               type="text"
               value={document}
-              onChange={(event) => setDocument(event.target.value)}
+              onChange={(event) => setDocument(formatCpfPreview(event.target.value))}
               placeholder="000.000.000-00"
+              maxLength={14}
               className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
             />
 
             <p className="mt-1 text-xs text-gray-400">
-              Necessário para pagamento Pix online.
+              {requireDocument
+                ? "Necessário para pagamento Pix online."
+                : "Você pode completar esse dado na hora de finalizar o pedido."}
             </p>
           </div>
 
@@ -2204,9 +2182,431 @@ function CustomerStartModal({
               boxShadow: `0 14px 28px -12px ${accentColor}`,
             }}
           >
-            Entrar no cardápio
+            {buttonLabel}
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            Continuar vendo o cardápio
           </button>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function ProfileLoyaltyCoins({
+  loyalty,
+  accentColor,
+}: {
+  loyalty: CustomerLoyaltyProgress | null
+  accentColor: string
+}) {
+  const campaign = loyalty?.loyalty_campaigns
+
+  const requiredOrders = Math.max(
+    1,
+    Number(campaign?.required_orders ?? loyalty?.required_orders ?? 10)
+  )
+
+  const currentOrders = Math.min(
+    Number(loyalty?.current_orders ?? 0),
+    requiredOrders
+  )
+
+  const remainingOrders = Math.max(requiredOrders - currentOrders, 0)
+  const rewardDescription =
+    campaign?.reward_description?.trim() || "uma recompensa especial"
+
+  const rewardAvailable =
+    Boolean(loyalty?.reward_available) && !loyalty?.reward_redeemed
+
+  const progressPercentage = Math.min(
+    Math.round((currentOrders / requiredOrders) * 100),
+    100
+  )
+
+  const visibleCoins = Math.min(requiredOrders, 10)
+  const hiddenCoins = Math.max(requiredOrders - visibleCoins, 0)
+
+  return (
+    <div className="relative overflow-hidden rounded-[22px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-blue-50 p-4 shadow-[0_18px_50px_-36px_rgba(249,115,22,0.75)]">
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-orange-300/25 blur-3xl" />
+      <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-blue-400/15 blur-3xl" />
+
+      <div className="relative">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-300 via-orange-400 to-orange-500 text-white shadow-[0_14px_26px_-14px_rgba(249,115,22,0.95)]">
+              <div className="absolute inset-1 rounded-xl bg-white/20" />
+              <span className="relative text-xl font-black leading-none">$</span>
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">
+                Card Fidelidade
+              </p>
+
+              <h4 className="mt-1 text-lg font-black leading-tight text-gray-900">
+                {currentOrders}/{requiredOrders} moedas
+              </h4>
+
+              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-gray-500">
+                {rewardAvailable
+                  ? "Recompensa liberada para resgate."
+                  : loyalty
+                    ? remainingOrders === 1
+                      ? "Falta 1 pedido para liberar sua recompensa."
+                      : `Faltam ${remainingOrders} pedidos para liberar sua recompensa.`
+                    : "Faça pedidos para acumular moedas quando houver campanha ativa."}
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 rounded-full border border-orange-100 bg-white/85 px-2.5 py-1 text-xs font-black text-orange-600 shadow-sm">
+            {progressPercentage}%
+          </div>
+        </div>
+
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white shadow-inner ring-1 ring-orange-100">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${progressPercentage}%`,
+              background: rewardAvailable
+                ? "linear-gradient(to right, #facc15, #f97316)"
+                : `linear-gradient(to right, ${accentColor}, #facc15)`,
+            }}
+          />
+        </div>
+
+        <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
+          {Array.from({ length: visibleCoins }).map((_, index) => {
+            const isFilled = index < currentOrders
+            const isNext = index === currentOrders && currentOrders < requiredOrders
+
+            return (
+              <div
+                key={index}
+                className={cn(
+                  "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-black transition-all",
+                  isFilled
+                    ? "border-yellow-300 bg-gradient-to-br from-yellow-300 via-orange-400 to-orange-500 text-white shadow-[0_10px_20px_-12px_rgba(249,115,22,0.95)]"
+                    : isNext
+                      ? "animate-pulse border-orange-300 bg-white text-orange-400 shadow-[0_0_0_4px_rgba(249,115,22,0.08)]"
+                      : "border-gray-200 bg-white/80 text-gray-300"
+                )}
+              >
+                {isFilled ? (
+                  <>
+                    <span className="absolute left-1.5 top-1 h-1.5 w-1.5 rounded-full bg-white/55" />
+                    <span className="relative text-[11px] leading-none">$</span>
+                  </>
+                ) : isNext ? (
+                  <Sparkles className="h-3.5 w-3.5" />
+                ) : (
+                  <span>{index + 1}</span>
+                )}
+              </div>
+            )
+          })}
+
+          {hiddenCoins > 0 && (
+            <div className="flex h-7 shrink-0 items-center rounded-full border border-gray-200 bg-white/80 px-2 text-[10px] font-black text-gray-400">
+              +{hiddenCoins}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-orange-100 bg-white/75 px-3 py-2">
+          <Sparkles className="h-4 w-4 shrink-0 text-orange-500" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+              Recompensa
+            </p>
+
+            <p className="truncate text-sm font-black text-gray-900">
+              {rewardDescription}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatOrderHistoryDate(value?: string | null) {
+  if (!value) return "Data não informada"
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return "Data não informada"
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)
+}
+
+function CustomerProfileModal({
+  open,
+  customer,
+  loyalty,
+  orderHistory,
+  activeOrder,
+  accentColor,
+  onClose,
+  onLogin,
+  onLogout,
+}: {
+  open: boolean
+  customer: PublicCustomerProfile | null
+  loyalty: CustomerLoyaltyProgress | null
+  orderHistory: CustomerVisibleOrder[]
+  activeOrder: CustomerVisibleOrder | null
+  accentColor: string
+  onClose: () => void
+  onLogin: () => void
+  onLogout: () => void
+}) {
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-[65] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+      <div
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <div className="relative flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700"
+          aria-label="Fechar"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {!customer ? (
+          <div className="p-5">
+            <div
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg"
+              style={{ backgroundColor: accentColor }}
+            >
+              <UserRound className="h-7 w-7" />
+            </div>
+
+            <h2 className="pr-8 text-xl font-black text-gray-900">
+              Acesse sua conta
+            </h2>
+
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              Veja histórico de pedidos, acompanhe compras e acumule moedas no card fidelidade.
+            </p>
+
+            <div className="mt-5 rounded-[22px] border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-300 via-orange-400 to-orange-500 text-white shadow-lg">
+                  <span className="text-lg font-black">$</span>
+                </div>
+
+                <div>
+                  <p className="text-sm font-black text-gray-900">
+                    Moedas de fidelidade
+                  </p>
+
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+                    Cada pedido válido pode virar uma moeda, conforme a campanha definida pelo restaurante.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onLogin}
+              className="mt-5 w-full rounded-xl py-3.5 text-sm font-black text-white shadow-lg active:scale-[0.98]"
+              style={{
+                backgroundColor: accentColor,
+                boxShadow: `0 14px 28px -12px ${accentColor}`,
+              }}
+            >
+              Entrar com WhatsApp
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600"
+            >
+              Continuar vendo o cardápio
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="shrink-0 border-b border-gray-100 bg-white/95 p-5 pr-14 backdrop-blur-xl">
+              <div className="flex items-start gap-3">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <UserRound className="h-6 w-6" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
+                    Minha conta
+                  </p>
+
+                  <h2 className="mt-1 truncate text-xl font-black leading-tight text-gray-900">
+                    Olá, {customer.name.split(" ")[0]}
+                  </h2>
+
+                  <p className="mt-1 text-sm font-semibold text-gray-500">
+                    {formatPhonePreview(customer.phone)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4 scrollbar-hide">
+              <ProfileLoyaltyCoins loyalty={loyalty} accentColor={accentColor} />
+
+              {activeOrder && !activeOrder.customer_received_at && (
+                <div className="mt-3 rounded-[20px] border border-blue-100 bg-blue-50 p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
+                        Pedido em andamento
+                      </p>
+
+                      <p className="mt-1 text-sm font-black text-gray-900">
+                        #{activeOrder.public_order_number || activeOrder.id.slice(0, 8)}
+                      </p>
+
+                      <p className="truncate text-xs font-semibold text-gray-500">
+                        {getOrderStatusLabel(
+                          activeOrder.status,
+                          activeOrder.order_type,
+                          activeOrder.customer_received_at
+                        )}
+                      </p>
+                    </div>
+
+                    <p className="shrink-0 text-sm font-black text-gray-900">
+                      {formatPrice(Number(activeOrder.total || 0))}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-black text-gray-900">
+                      Histórico de pedidos
+                    </h3>
+
+                    <p className="mt-0.5 text-xs font-semibold text-gray-400">
+                      Role para ver seus pedidos anteriores
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-black text-gray-500">
+                    {orderHistory.length}
+                  </span>
+                </div>
+
+                {orderHistory.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {orderHistory.map((order) => {
+                      const orderType = normalizeCustomerOrderType(order.order_type)
+                      const orderItems = order.items ?? []
+                      const itemsLabel = orderItems
+                        .slice(0, 2)
+                        .map((item) => item.name || item.product_name)
+                        .filter(Boolean)
+                        .join(", ")
+
+                      return (
+                        <div
+                          key={order.id}
+                          className="rounded-[20px] border border-gray-100 bg-gray-50 p-3.5"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-gray-900">
+                                #{order.public_order_number || order.id.slice(0, 8)}
+                              </p>
+
+                              <p className="mt-0.5 text-xs font-semibold text-gray-500">
+                                {formatOrderHistoryDate(order.created_at)}
+                              </p>
+
+                              <p className="mt-1 text-xs font-bold text-gray-500">
+                                {orderType === "delivery" ? "Entrega" : "Retirada"} • {formatPaymentMethodLabel(order.payment_method)}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 text-right">
+                              <p className="text-sm font-black text-gray-900">
+                                {formatPrice(Number(order.total || 0))}
+                              </p>
+
+                              <p className="mt-1 rounded-full bg-white px-2 py-1 text-[10px] font-black text-gray-500 ring-1 ring-gray-200">
+                                {getOrderStatusLabel(
+                                  order.status,
+                                  order.order_type,
+                                  order.customer_received_at
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          {itemsLabel && (
+                            <p className="mt-2 line-clamp-1 text-xs font-semibold text-gray-400">
+                              {itemsLabel}
+                              {orderItems.length > 2 ? ` +${orderItems.length - 2} item${orderItems.length - 2 === 1 ? "" : "s"}` : ""}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-[22px] border border-dashed border-gray-200 bg-gray-50 p-5 text-center">
+                    <Receipt className="mx-auto h-8 w-8 text-gray-300" />
+
+                    <p className="mt-2 text-sm font-black text-gray-600">
+                      Nenhum pedido ainda
+                    </p>
+
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-400">
+                      Quando você fizer pedidos por aqui, eles vão aparecer nessa área.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={onLogout}
+                className="mt-5 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                Sair da conta
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -2798,7 +3198,14 @@ function CartSheet({
                 </div>
 
                 <button
-                  onClick={() => setStep("checkout")}
+                  onClick={() => {
+                    if (!customer?.name || !isValidBrazilianMobilePhone(customer.phone)) {
+                      onEditCustomer()
+                      return
+                    }
+
+                    setStep("checkout")
+                  }}
                   className="flex w-full items-center justify-between rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98]"
                   style={{
                     backgroundColor: accentColor,
@@ -3288,6 +3695,11 @@ export default function CardapioPublicoPage() {
   const [isLoadingMenu, setIsLoadingMenu] = useState(true)
   const [publicCustomer, setPublicCustomer] = useState<PublicCustomerProfile | null>(null)
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
+  const [customerModalMode, setCustomerModalMode] = useState<"checkout" | "profile">("checkout")
+  const [customerModalRequiresDocument, setCustomerModalRequiresDocument] = useState(true)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [customerLoyalty, setCustomerLoyalty] = useState<CustomerLoyaltyProgress | null>(null)
+  const [customerOrderHistory, setCustomerOrderHistory] = useState<CustomerVisibleOrder[]>([])
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
   const categoryNavRef = useRef<HTMLDivElement>(null)
@@ -3336,28 +3748,118 @@ export default function CardapioPublicoPage() {
     const savedCustomer = window.localStorage.getItem(storageKey)
 
     if (!savedCustomer) {
-      setCustomerModalOpen(true)
+      setPublicCustomer(null)
       return
     }
 
     try {
       const parsedCustomer = JSON.parse(savedCustomer) as PublicCustomerProfile
 
-      if (
-        parsedCustomer?.name &&
-        parsedCustomer?.phone &&
-        onlyDigits(parsedCustomer.document).length === 11
-      ) {
-        setPublicCustomer(parsedCustomer)
-        setCustomerModalOpen(false)
+      if (parsedCustomer?.name && isValidBrazilianMobilePhone(parsedCustomer?.phone)) {
+        setPublicCustomer({
+          ...parsedCustomer,
+          phone: onlyDigits(parsedCustomer.phone),
+          document: onlyDigits(parsedCustomer.document),
+        })
         return
       }
 
-      setCustomerModalOpen(true)
+      window.localStorage.removeItem(storageKey)
+      setPublicCustomer(null)
     } catch {
-      setCustomerModalOpen(true)
+      window.localStorage.removeItem(storageKey)
+      setPublicCustomer(null)
     }
   }, [mounted, restaurant?.id])
+
+  useEffect(() => {
+    if (!mounted || !restaurant?.id || !publicCustomer?.phone) {
+      setCustomerOrderHistory([])
+      return
+    }
+
+    const historyKey = `clickfood_order_history_${restaurant.id}_${onlyDigits(publicCustomer.phone)}`
+    const savedHistory = window.localStorage.getItem(historyKey)
+
+    if (!savedHistory) {
+      setCustomerOrderHistory([])
+      return
+    }
+
+    try {
+      const parsedHistory = JSON.parse(savedHistory) as CustomerVisibleOrder[]
+
+      if (!Array.isArray(parsedHistory)) {
+        setCustomerOrderHistory([])
+        return
+      }
+
+      setCustomerOrderHistory(
+        parsedHistory
+          .filter((order) => order?.id)
+          .sort((a, b) => {
+            const dateA = new Date(a.created_at || 0).getTime()
+            const dateB = new Date(b.created_at || 0).getTime()
+
+            return dateB - dateA
+          })
+      )
+    } catch {
+      window.localStorage.removeItem(historyKey)
+      setCustomerOrderHistory([])
+    }
+  }, [mounted, restaurant?.id, publicCustomer?.phone])
+
+ useEffect(() => {
+  if (!restaurant?.id || !publicCustomer?.phone) {
+    setCustomerLoyalty(null)
+    return
+  }
+
+  const restaurantId = restaurant.id
+  const customerPhone = onlyDigits(publicCustomer.phone)
+
+  if (!customerPhone) {
+    setCustomerLoyalty(null)
+    return
+  }
+
+  let cancelled = false
+
+  async function loadCustomerLoyalty() {
+    try {
+      const params = new URLSearchParams({
+        restaurantId,
+        customerPhone,
+        _: String(Date.now()),
+      })
+
+      const response = await fetch(`/api/public/loyalty/status?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        if (!cancelled) setCustomerLoyalty(null)
+        return
+      }
+
+      const data = (await response.json()) as LoyaltyStatusResponse
+
+      if (cancelled) return
+
+      setCustomerLoyalty(data.success && data.has_loyalty ? data.loyalty ?? null : null)
+    } catch {
+      if (!cancelled) setCustomerLoyalty(null)
+    }
+  }
+
+  void loadCustomerLoyalty()
+
+  return () => {
+    cancelled = true
+  }
+}, [restaurant?.id, publicCustomer?.phone, activeOrder?.customer_received_at])
 
   useEffect(() => {
     if (!mounted || !restaurant?.id || tableNumber) return
@@ -3635,14 +4137,39 @@ const ratingAverage = Number(restaurant.ratingAverage ?? 0)
 const ratingCount = Number(restaurant.ratingCount ?? 0)
 const hasRating = ratingCount > 0 && ratingAverage > 0
 
+const openCustomerAccessModal = (
+  mode: "checkout" | "profile" = "checkout",
+  requireDocument = mode === "checkout"
+) => {
+  setCustomerModalMode(mode)
+  setCustomerModalRequiresDocument(requireDocument)
+  setCustomerModalOpen(true)
+}
+
 const savePublicCustomer = (customer: PublicCustomerProfile) => {
   if (!restaurant?.id) return
 
+  const normalizedCustomer: PublicCustomerProfile = {
+    ...customer,
+    phone: onlyDigits(customer.phone),
+    document: onlyDigits(customer.document),
+  }
+
   const storageKey = `clickfood_customer_${restaurant.id}`
 
-  window.localStorage.setItem(storageKey, JSON.stringify(customer))
-  setPublicCustomer(customer)
+  window.localStorage.setItem(storageKey, JSON.stringify(normalizedCustomer))
+  setPublicCustomer(normalizedCustomer)
   setCustomerModalOpen(false)
+}
+
+const logoutPublicCustomer = () => {
+  if (restaurant?.id) {
+    window.localStorage.removeItem(`clickfood_customer_${restaurant.id}`)
+  }
+
+  setPublicCustomer(null)
+  setCustomerLoyalty(null)
+  setProfileModalOpen(false)
 }
 
 const savePublicCustomerAddress = (address: PublicCustomerProfile["address"]) => {
@@ -3674,6 +4201,28 @@ const saveActiveOrder = (order: CustomerVisibleOrder) => {
     )
   }
 
+  if (publicCustomer?.phone) {
+    const historyKey = `clickfood_order_history_${restaurant.id}_${onlyDigits(publicCustomer.phone)}`
+    const currentHistory = (() => {
+      try {
+        const savedHistory = window.localStorage.getItem(historyKey)
+        const parsedHistory = savedHistory ? JSON.parse(savedHistory) : []
+
+        return Array.isArray(parsedHistory) ? parsedHistory : []
+      } catch {
+        return []
+      }
+    })() as CustomerVisibleOrder[]
+
+    const nextHistory = [
+      nextOrder,
+      ...currentHistory.filter((historyOrder) => historyOrder?.id !== nextOrder.id),
+    ].slice(0, 20)
+
+    window.localStorage.setItem(historyKey, JSON.stringify(nextHistory))
+    setCustomerOrderHistory(nextHistory)
+  }
+
   setActiveOrder(nextOrder)
 }
 
@@ -3694,6 +4243,29 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
   }
 
   setActiveOrder(optimisticOrder)
+
+  if (publicCustomer?.phone) {
+    const historyKey = `clickfood_order_history_${restaurant.id}_${onlyDigits(publicCustomer.phone)}`
+
+    try {
+      const savedHistory = window.localStorage.getItem(historyKey)
+      const parsedHistory = savedHistory ? JSON.parse(savedHistory) : []
+      const currentHistory = Array.isArray(parsedHistory) ? parsedHistory : []
+
+      const nextHistory = [
+        optimisticOrder,
+        ...currentHistory.filter((historyOrder: CustomerVisibleOrder) => historyOrder?.id !== optimisticOrder.id),
+      ].slice(0, 20)
+
+      window.localStorage.setItem(historyKey, JSON.stringify(nextHistory))
+      setCustomerOrderHistory(nextHistory)
+    } catch {
+      setCustomerOrderHistory((currentHistory) => [
+        optimisticOrder,
+        ...currentHistory.filter((historyOrder) => historyOrder.id !== optimisticOrder.id),
+      ].slice(0, 20))
+    }
+  }
 
   try {
     const response = await fetch("/api/public/orders/confirm-received", {
@@ -3746,14 +4318,8 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
       {/* BLOCO: topo compacto do restaurante */}
       <div className="mx-auto max-w-[480px] px-3 pt-3">
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div
-            className={cn(
-              "overflow-hidden rounded-[28px] border shadow-2xl",
-              isDarkMode ? "border-white/10 bg-neutral-900" : "border-gray-200 bg-white"
-            )}
-            style={{ boxShadow: "0 30px 80px -35px rgba(0,0,0,0.45)" }}
-          >
-            <div className="relative h-[158px] md:h-[176px]">
+          <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-[0_22px_60px_-38px_rgba(15,23,42,0.8)]">
+            <div className="relative h-[178px] overflow-hidden">
               {restaurant.coverImageUrl ? (
                 <Image
                   src={restaurant.coverImageUrl}
@@ -3766,88 +4332,56 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 <div
                   className="absolute inset-0"
                   style={{
-                    background: `linear-gradient(135deg, ${themeColor} 0%, ${themeColor}dd 45%, #111827 100%)`,
+                    background: `linear-gradient(135deg, ${themeColor} 0%, #1e293b 60%, ${accentColor} 100%)`,
                   }}
                 />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/15" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
 
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "radial-gradient(circle at top right, rgba(255,255,255,0.22), transparent 30%)",
-                }}
-              />
-
-              <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/10">
-                  <span className="relative flex h-2 w-2">
-                    <span
-                      className={cn(
-                        "absolute inline-flex h-full w-full animate-ping rounded-full opacity-75",
-                        restaurantIsOpen ? "bg-green-400" : "bg-red-400"
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "relative inline-flex h-2 w-2 rounded-full",
-                        restaurantIsOpen ? "bg-green-400" : "bg-red-400"
-                      )}
-                    />
-                  </span>
-
+              <div className="absolute left-3 top-3 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3 py-1.5 text-xs font-black text-white backdrop-blur-md">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      restaurantIsOpen ? "bg-green-400" : "bg-red-400"
+                    )}
+                  />
                   {restaurantIsOpen ? "Aberto" : "Fechado"}
                 </span>
 
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/10">
-                  <Timer className="h-3.5 w-3.5" />
-                  {estimatedDeliveryTime}
-                </span>
-
-                {hasRating && (
-  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/10">
-    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-    {ratingAverage.toFixed(1)} ({ratingCount} {ratingCount === 1 ? "avaliação" : "avaliações"})
-  </span>
-)}
-
-                {deliveryEnabled ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/10">
-                    <Truck className="h-3.5 w-3.5" />
-                    Entrega a partir de {formatPrice(startingDeliveryFee)}
-                  </span>
-                ) : pickupEnabled ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/10">
-                    <Store className="h-3.5 w-3.5" />
-                    Retirada no local
-                  </span>
-                ) : null}
-
                 {tableNumber && (
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"
-                    style={{ backgroundColor: themeColor }}
-                  >
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3 py-1.5 text-xs font-black text-white backdrop-blur-md">
                     <Utensils className="h-3.5 w-3.5" />
                     Mesa {tableNumber}
                   </span>
                 )}
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 p-3 md:p-4">
-                <div className="flex items-end gap-4">
-                  <div
-                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-white/20 bg-white shadow-xl ring-1 ring-black/5 md:h-[72px] md:w-[72px]"
-                    style={{ boxShadow: "0 18px 40px -18px rgba(0,0,0,0.55)" }}
-                  >
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(true)}
+                className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/90 text-gray-900 shadow-lg backdrop-blur-md transition-transform active:scale-95"
+                aria-label="Acessar minha conta"
+              >
+                <UserRound className="h-5 w-5" />
+                {publicCustomer && (
+                  <span
+                    className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white"
+                    style={{ backgroundColor: accentColor }}
+                  />
+                )}
+              </button>
+
+              <div className="absolute inset-x-0 bottom-0 p-3">
+                <div className="flex items-end gap-3">
+                  <div className="flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-white/30 bg-white shadow-xl">
                     {restaurant.logoUrl && !logoFailedToLoad ? (
                       <Image
                         src={restaurant.logoUrl}
                         alt={restaurant.name}
-                        width={96}
-                        height={96}
+                        width={90}
+                        height={90}
                         className="h-full w-full object-cover"
                         onError={() => setLogoFailedToLoad(true)}
                       />
@@ -3856,106 +4390,69 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                         className="flex h-full w-full items-center justify-center"
                         style={{ backgroundColor: themeColor }}
                       >
-                        <Store className="h-8 w-8 text-white md:h-10 md:w-10" />
+                        <Store className="h-7 w-7 text-white" />
                       </div>
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <h1 className="truncate text-xl font-black tracking-tight text-white md:text-2xl">
+                  <div className="min-w-0 flex-1 pb-0.5">
+                    <h1 className="truncate text-xl font-black tracking-tight text-white">
                       {restaurant.name}
                     </h1>
 
-                    {restaurant.description ? (
-                      <p className="mt-2 line-clamp-2 max-w-xl text-sm leading-relaxed text-white/80">
-                        {restaurant.description}
-                      </p>
-                    ) : (
-                      <p className="mt-2 text-sm text-white/70">
-                        Cardapio digital com pedido rapido e visual mais profissional.
-                      </p>
-                    )}
+                    <p className="mt-1 line-clamp-1 text-sm font-medium text-white/80">
+                      {restaurant.description?.trim() || "Cardápio digital com pedido rápido."}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div
-              className={cn(
-                "grid grid-cols-3 border-t",
-                isDarkMode ? "border-white/10 bg-neutral-900" : "border-gray-200 bg-white"
-              )}
-            >
-              <div className="flex flex-col items-center justify-center px-3 py-4 text-center">
-                <span
-                  className={cn(
-                    "text-[11px] font-medium uppercase tracking-wide",
-                    isDarkMode ? "text-white/50" : "text-gray-500"
-                  )}
-                >
-                  Pedido minimo
-                </span>
+            <div className="grid grid-cols-3 gap-2 p-3">
+              <div className="rounded-2xl bg-gray-50 px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                  Mínimo
+                </p>
 
-                <span
-                  className={cn(
-                    "mt-1 text-sm font-bold",
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  )}
-                >
+                <p className="mt-1 truncate text-sm font-black text-gray-900">
                   {formatPrice(minimumOrder)}
-                </span>
+                </p>
               </div>
 
-              <div
-                className={cn(
-                  "flex flex-col items-center justify-center border-x px-3 py-4 text-center",
-                  isDarkMode ? "border-white/10" : "border-gray-200"
-                )}
-              >
-                <span
-                  className={cn(
-                    "text-[11px] font-medium uppercase tracking-wide",
-                    isDarkMode ? "text-white/50" : "text-gray-500"
-                  )}
-                >
+              <div className="rounded-2xl bg-gray-50 px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
                   {deliveryEnabled ? "Entrega" : "Retirada"}
-                </span>
+                </p>
 
-                <span
-                  className={cn(
-                    "mt-1 text-sm font-bold",
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  )}
-                >
-                  {deliveryEnabled ? `A partir de ${formatPrice(startingDeliveryFee)}` : "No local"}
-                </span>
+                <p className="mt-1 truncate text-sm font-black text-gray-900">
+                  {deliveryEnabled ? `Desde ${formatPrice(startingDeliveryFee)}` : "No local"}
+                </p>
               </div>
 
-              <div className="flex flex-col items-center justify-center px-3 py-4 text-center">
-                <span
-                  className={cn(
-                    "text-[11px] font-medium uppercase tracking-wide",
-                    isDarkMode ? "text-white/50" : "text-gray-500"
-                  )}
-                >
-                  Tempo medio
-                </span>
+              <div className="rounded-2xl bg-gray-50 px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                  Tempo
+                </p>
 
-                <span
-                  className={cn(
-                    "mt-1 text-sm font-bold",
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  )}
-                >
+                <p className="mt-1 truncate text-sm font-black text-gray-900">
                   {estimatedDeliveryTime}
-                </span>
+                </p>
               </div>
             </div>
+
+            {hasRating && (
+              <div className="border-t border-gray-100 px-3 pb-3">
+                <div className="flex items-center justify-center gap-1.5 rounded-2xl bg-yellow-50 px-3 py-2 text-xs font-black text-yellow-700">
+                  <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                  {ratingAverage.toFixed(1)} ({ratingCount} {ratingCount === 1 ? "avaliação" : "avaliações"})
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {!restaurantIsOpen && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {restaurant.closedMessage?.trim()
               ? restaurant.closedMessage
               : "Estamos fechados no momento. Voltamos em breve!"}
@@ -4157,11 +4654,29 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         />
       )}
 
+      <CustomerProfileModal
+        open={profileModalOpen}
+        customer={publicCustomer}
+        loyalty={customerLoyalty}
+        orderHistory={customerOrderHistory}
+        activeOrder={activeOrder}
+        accentColor={themeColor}
+        onClose={() => setProfileModalOpen(false)}
+        onLogin={() => {
+          setProfileModalOpen(false)
+          openCustomerAccessModal("profile", false)
+        }}
+        onLogout={logoutPublicCustomer}
+      />
+
       <CustomerStartModal
         open={customerModalOpen}
         restaurantName={restaurant.name}
         accentColor={themeColor}
         initialCustomer={publicCustomer}
+        mode={customerModalMode}
+        requireDocument={customerModalRequiresDocument}
+        onClose={() => setCustomerModalOpen(false)}
         onSave={savePublicCustomer}
       />
 
@@ -4178,7 +4693,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         pickupEnabled={pickupEnabled}
         tableNumber={tableNumber}
         customer={publicCustomer}
-        onEditCustomer={() => setCustomerModalOpen(true)}
+        onEditCustomer={() => openCustomerAccessModal("checkout", true)}
         onSaveAddress={savePublicCustomerAddress}
         onOrderCreated={saveActiveOrder}
       />

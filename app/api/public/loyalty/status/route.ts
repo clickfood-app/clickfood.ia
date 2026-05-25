@@ -1,116 +1,137 @@
-import { NextResponse } from "next/server"
-
+import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-function normalizePhone(phone: string | null | undefined) {
-  return String(phone || "").replace(/\D/g, "")
+function onlyDigits(value: string | null | undefined) {
+  return (value || "").replace(/\D/g, "")
 }
 
-export async function GET(req: Request) {
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return "Erro inesperado ao buscar fidelidade."
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
+    const { searchParams } = new URL(request.url)
 
-    const orderId = String(searchParams.get("order_id") || "").trim()
+    const restaurantId = searchParams.get("restaurantId")
+    const orderId = searchParams.get("orderId")
+    const customerPhoneFromUrl = onlyDigits(searchParams.get("customerPhone"))
 
-    if (!orderId) {
+    if (!restaurantId) {
       return NextResponse.json(
         {
           success: false,
-          error: "ID do pedido não enviado.",
+          error: "ID do restaurante não enviado.",
         },
         { status: 400 }
       )
     }
 
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from("orders")
-      .select("id, restaurant_id, customer_phone, customer_name, status")
-      .eq("id", orderId)
-      .maybeSingle()
-
-    if (orderError) {
-      throw new Error(`Erro ao buscar pedido: ${orderError.message}`)
-    }
-
-    if (!order) {
+    if (!orderId && !customerPhoneFromUrl) {
       return NextResponse.json(
         {
           success: false,
-          error: "Pedido não encontrado.",
+          error: "ID do pedido ou telefone do cliente não enviado.",
         },
-        { status: 404 }
+        { status: 400 }
       )
     }
 
-    const customerPhone = normalizePhone(order.customer_phone)
+    let customerPhone = customerPhoneFromUrl
+    let orderStatus: string | null = null
+
+    if (orderId) {
+      const { data: order, error: orderError } = await supabaseAdmin
+        .from("orders")
+        .select("id, status, customer_phone")
+        .eq("id", orderId)
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle()
+
+      if (orderError) {
+        throw orderError
+      }
+
+      if (!order) {
+        return NextResponse.json({
+          success: true,
+          has_loyalty: false,
+          order_status: null,
+          loyalty: null,
+        })
+      }
+
+      orderStatus = order.status ?? null
+
+      if (!customerPhone) {
+        customerPhone = onlyDigits(order.customer_phone)
+      }
+    }
 
     if (!customerPhone) {
-      return NextResponse.json({
-        success: true,
-        has_loyalty: false,
-        reason: "Pedido sem telefone do cliente.",
-      })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Telefone do cliente não encontrado.",
+        },
+        { status: 400 }
+      )
     }
 
-    const { data: progress, error: progressError } = await supabaseAdmin
-      .from("loyalty_customer_progress")
-      .select(
-        `
-        id,
-        restaurant_id,
-        campaign_id,
-        customer_phone,
-        customer_name,
-        current_orders,
-        required_orders,
-        reward_available,
-        reward_redeemed,
-        last_order_id,
-        created_at,
-        updated_at,
-        loyalty_campaigns (
-          id,
-          title,
-          reward_description,
-          required_orders,
-          is_active
-        )
-      `
-      )
-      .eq("restaurant_id", order.restaurant_id)
+    const { data: loyalty, error: loyaltyError } = await supabaseAdmin
+      .from("customer_loyalties")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
       .eq("customer_phone", customerPhone)
-      .order("updated_at", { ascending: false })
-      .limit(1)
       .maybeSingle()
 
-    if (progressError) {
-      throw new Error(`Erro ao buscar fidelidade: ${progressError.message}`)
+    if (loyaltyError) {
+      throw loyaltyError
     }
 
-    if (!progress) {
+    if (!loyalty) {
       return NextResponse.json({
         success: true,
         has_loyalty: false,
-        order_status: order.status,
+        order_status: orderStatus,
+        loyalty: null,
       })
+    }
+
+    let campaign = null
+
+    if (loyalty.campaign_id) {
+      const { data: campaignData, error: campaignError } = await supabaseAdmin
+        .from("loyalty_campaigns")
+        .select("id, title, reward_description, required_orders, is_active")
+        .eq("id", loyalty.campaign_id)
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle()
+
+      if (campaignError) {
+        throw campaignError
+      }
+
+      campaign = campaignData
     }
 
     return NextResponse.json({
       success: true,
       has_loyalty: true,
-      order_status: order.status,
-      loyalty: progress,
+      order_status: orderStatus,
+      loyalty: {
+        ...loyalty,
+        loyalty_campaigns: campaign,
+      },
     })
   } catch (error) {
-    console.error("Erro ao buscar status da fidelidade:", error)
+    console.error("Erro ao buscar status de fidelidade:", error)
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro inesperado ao buscar fidelidade.",
+        error: getErrorMessage(error),
       },
       { status: 500 }
     )
