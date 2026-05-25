@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -13,8 +13,11 @@ import {
   Menu,
   PlusCircle,
   Settings,
+  Star,
   User,
+  Volume2,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -27,13 +30,36 @@ interface AdminLayoutProps {
   description?: string
 }
 
+type NotificationKind = "order" | "review" | "alert" | "info"
+
+type NotificationMetadata = Record<string, unknown> | null
+
+type NotificationRow = {
+  id: string
+  restaurant_id: string
+  type: string
+  title: string
+  message: string | null
+  is_read: boolean | null
+  metadata: NotificationMetadata
+  created_at: string
+  read_at?: string | null
+}
+
 type NotificationItem = {
-  id: number
+  id: string
+  restaurantId: string
   title: string
   description: string
   time: string
-  type: "order" | "alert" | "info"
+  type: NotificationKind
   unread: boolean
+  createdAt: string
+  metadata: NotificationMetadata
+}
+
+type RestaurantContext = {
+  id?: string | null
 }
 
 const CLICKFOOD_LOGO_URL = "/logo.png"
@@ -58,6 +84,55 @@ const breadcrumbMap: Record<string, string> = {
   "/configuracoes": "Configurações",
 }
 
+function formatNotificationTime(createdAt?: string | null) {
+  if (!createdAt) return "agora"
+
+  const createdDate = new Date(createdAt)
+  const diffMs = Date.now() - createdDate.getTime()
+
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "agora"
+
+  const diffMinutes = Math.floor(diffMs / 60000)
+
+  if (diffMinutes < 1) return "agora"
+  if (diffMinutes < 60) return `${diffMinutes} min atrás`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+
+  if (diffHours < 24) return `${diffHours}h atrás`
+
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffDays === 1) return "ontem"
+  if (diffDays < 7) return `${diffDays} dias atrás`
+
+  return createdDate.toLocaleDateString("pt-BR")
+}
+
+function getNotificationKind(type?: string | null): NotificationKind {
+  const normalizedType = (type || "").toLowerCase().trim()
+
+  if (normalizedType === "new_order") return "order"
+  if (normalizedType === "order_review") return "review"
+  if (normalizedType.includes("alert") || normalizedType.includes("warning")) return "alert"
+
+  return "info"
+}
+
+function mapNotificationRow(row: NotificationRow): NotificationItem {
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
+    title: row.title || "Nova notificação",
+    description: row.message || "Você recebeu uma nova atualização.",
+    time: formatNotificationTime(row.created_at),
+    type: getNotificationKind(row.type),
+    unread: !row.is_read,
+    createdAt: row.created_at,
+    metadata: row.metadata ?? null,
+  }
+}
+
 export default function AdminLayout({
   children,
   title,
@@ -65,7 +140,9 @@ export default function AdminLayout({
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
-  const { user } = useAuth()
+  const { user, restaurant } = useAuth()
+
+  const restaurantFromAuth = restaurant as RestaurantContext | null
 
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
@@ -74,10 +151,16 @@ export default function AdminLayout({
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [brandLogoFailed, setBrandLogoFailed] = useState(false)
 
+  const [restaurantId, setRestaurantId] = useState<string | null>(
+    restaurantFromAuth?.id ?? null
+  )
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false)
 
   const profileRef = useRef<HTMLDivElement | null>(null)
   const notificationsRef = useRef<HTMLDivElement | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const soundAlertsEnabledRef = useRef(false)
 
   const userName =
     user?.user_metadata?.name ||
@@ -114,6 +197,144 @@ export default function AdminLayout({
     setIsMobileOpen(false)
   }
 
+  const playNotificationSound = useCallback(async () => {
+    if (typeof window === "undefined") return
+
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext
+
+      if (!AudioContextClass) return
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContextClass()
+      }
+
+      const audioContext = audioContextRef.current
+
+      if (audioContext.state === "suspended") {
+        await audioContext.resume()
+      }
+
+      const now = audioContext.currentTime
+
+      const playTone = (frequency: number, startAt: number, duration: number) => {
+        const oscillator = audioContext.createOscillator()
+        const gain = audioContext.createGain()
+
+        oscillator.type = "sine"
+        oscillator.frequency.setValueAtTime(frequency, startAt)
+
+        gain.gain.setValueAtTime(0.0001, startAt)
+        gain.gain.exponentialRampToValueAtTime(0.28, startAt + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration)
+
+        oscillator.connect(gain)
+        gain.connect(audioContext.destination)
+
+        oscillator.start(startAt)
+        oscillator.stop(startAt + duration + 0.03)
+      }
+
+      playTone(880, now, 0.14)
+      playTone(660, now + 0.18, 0.18)
+    } catch (error) {
+      console.error("Erro ao tocar som de notificação:", error)
+    }
+  }, [])
+
+  const handleEnableAlerts = useCallback(async () => {
+    await playNotificationSound()
+
+    setSoundAlertsEnabled(true)
+    soundAlertsEnabledRef.current = true
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("clickfood_admin_sound_alerts_enabled", "true")
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "default"
+    ) {
+      await Notification.requestPermission()
+    }
+
+    toast.success("Alertas ativados", {
+      description: "Agora a ClickFood pode tocar som quando chegar pedido ou avaliação.",
+    })
+  }, [playNotificationSound])
+
+  const showBrowserNotification = useCallback(
+    (notification: NotificationItem) => {
+      if (typeof window === "undefined" || !("Notification" in window)) return
+      if (Notification.permission !== "granted") return
+
+      const browserNotification = new Notification(notification.title, {
+        body: notification.description,
+        icon: "/favicon.ico",
+      })
+
+      browserNotification.onclick = () => {
+        window.focus()
+
+        if (notification.type === "order" || notification.type === "review") {
+          router.push("/pedidos")
+        }
+      }
+    },
+    [router]
+  )
+
+  const handleNewNotification = useCallback(
+    (notification: NotificationItem) => {
+      toast(notification.title, {
+        description: notification.description,
+        action:
+          notification.type === "order" || notification.type === "review"
+            ? {
+                label: "Ver pedidos",
+                onClick: () => router.push("/pedidos"),
+              }
+            : undefined,
+      })
+
+      showBrowserNotification(notification)
+
+      if (soundAlertsEnabledRef.current) {
+        void playNotificationSound()
+      }
+    },
+    [playNotificationSound, router, showBrowserNotification]
+  )
+
+  const fetchNotifications = useCallback(async () => {
+    if (!restaurantId) {
+      setNotifications([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("restaurant_notifications")
+      .select(
+        "id, restaurant_id, type, title, message, is_read, metadata, created_at, read_at"
+      )
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false })
+      .limit(30)
+
+    if (error) {
+      console.error("Erro ao buscar notificações:", error.message)
+      setNotifications([])
+      return
+    }
+
+    setNotifications(((data ?? []) as NotificationRow[]).map(mapNotificationRow))
+  }, [restaurantId, supabase])
+
   const handleLogout = async () => {
     if (isLoggingOut) return
 
@@ -143,26 +364,177 @@ export default function AdminLayout({
     }
   }
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
+    if (!restaurantId) return
+
+    const readAt = new Date().toISOString()
+
     setNotifications((prev) =>
       prev.map((item) => ({
         ...item,
         unread: false,
       }))
     )
+
+    const { error } = await supabase
+      .from("restaurant_notifications")
+      .update({
+        is_read: true,
+        read_at: readAt,
+      })
+      .eq("restaurant_id", restaurantId)
+      .eq("is_read", false)
+
+    if (error) {
+      console.error("Erro ao marcar notificações como lidas:", error.message)
+      void fetchNotifications()
+    }
   }
 
-  const handleOpenNotification = (id: number) => {
+  const handleOpenNotification = async (notification: NotificationItem) => {
     setNotifications((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, unread: false } : item
+        item.id === notification.id ? { ...item, unread: false } : item
       )
     )
+
+    if (restaurantId) {
+      const { error } = await supabase
+        .from("restaurant_notifications")
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString(),
+        })
+        .eq("id", notification.id)
+        .eq("restaurant_id", restaurantId)
+
+      if (error) {
+        console.error("Erro ao marcar notificação como lida:", error.message)
+      }
+    }
+
+    if (notification.type === "order" || notification.type === "review") {
+      setNotificationsOpen(false)
+      router.push("/pedidos")
+    }
   }
 
   useEffect(() => {
     setBrandLogoFailed(false)
   }, [])
+
+  useEffect(() => {
+    soundAlertsEnabledRef.current = soundAlertsEnabled
+  }, [soundAlertsEnabled])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const savedPreference = window.localStorage.getItem(
+      "clickfood_admin_sound_alerts_enabled"
+    )
+
+    if (savedPreference === "true") {
+      setSoundAlertsEnabled(true)
+      soundAlertsEnabledRef.current = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (restaurantFromAuth?.id) {
+      setRestaurantId(restaurantFromAuth.id)
+      return
+    }
+
+    if (!user?.id) {
+      setRestaurantId(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function fetchRestaurantId() {
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("owner_id", user.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (error) {
+        console.error("Erro ao buscar restaurante para notificações:", error.message)
+        setRestaurantId(null)
+        return
+      }
+
+      setRestaurantId(data?.id ?? null)
+    }
+
+    void fetchRestaurantId()
+
+    return () => {
+      cancelled = true
+    }
+  }, [restaurantFromAuth?.id, supabase, user?.id])
+
+  useEffect(() => {
+    void fetchNotifications()
+  }, [fetchNotifications])
+
+  useEffect(() => {
+    if (!restaurantId) return
+
+    const channel = supabase
+      .channel(`restaurant-notifications-${restaurantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "restaurant_notifications",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        (payload) => {
+          const notification = mapNotificationRow(payload.new as NotificationRow)
+
+          setNotifications((prev) => [
+            notification,
+            ...prev.filter((item) => item.id !== notification.id),
+          ].slice(0, 30))
+
+          handleNewNotification(notification)
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "restaurant_notifications",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        (payload) => {
+          const notification = mapNotificationRow(payload.new as NotificationRow)
+
+          setNotifications((prev) =>
+            prev.map((item) =>
+              item.id === notification.id ? notification : item
+            )
+          )
+        }
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.error("Erro no canal realtime de notificações.")
+        }
+      })
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [handleNewNotification, restaurantId, supabase])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -276,6 +648,17 @@ export default function AdminLayout({
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
+              {!soundAlertsEnabled && (
+                <button
+                  type="button"
+                  onClick={handleEnableAlerts}
+                  className="hidden h-10 items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100 md:inline-flex"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  Ativar alertas
+                </button>
+              )}
+
               <div className="relative" ref={notificationsRef}>
                 <button
                   type="button"
@@ -296,7 +679,7 @@ export default function AdminLayout({
                 </button>
 
                 {notificationsOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[360px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[360px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
                     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">
@@ -321,13 +704,30 @@ export default function AdminLayout({
                       )}
                     </div>
 
+                    {!soundAlertsEnabled && (
+                      <div className="border-b border-orange-100 bg-orange-50 px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={handleEnableAlerts}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-orange-600"
+                        >
+                          <Volume2 className="h-4 w-4" />
+                          Ativar som de novos pedidos
+                        </button>
+
+                        <p className="mt-2 text-center text-xs font-medium text-orange-700">
+                          O navegador exige um clique para liberar o som.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="max-h-[360px] overflow-y-auto">
                       {notifications.length > 0 ? (
                         notifications.map((notification) => (
                           <button
                             key={notification.id}
                             type="button"
-                            onClick={() => handleOpenNotification(notification.id)}
+                            onClick={() => handleOpenNotification(notification)}
                             className="flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50"
                           >
                             <div className="mt-0.5">
@@ -335,9 +735,17 @@ export default function AdminLayout({
                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-amber-600">
                                   <AlertCircle className="h-4 w-4" />
                                 </div>
-                              ) : (
+                              ) : notification.type === "review" ? (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                                  <Star className="h-4 w-4" />
+                                </div>
+                              ) : notification.type === "order" ? (
                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600">
                                   <CheckCircle2 className="h-4 w-4" />
+                                </div>
+                              ) : (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                                  <Bell className="h-4 w-4" />
                                 </div>
                               )}
                             </div>
@@ -372,7 +780,7 @@ export default function AdminLayout({
                           </p>
 
                           <p className="mt-1 text-xs text-slate-400">
-                            Quando houver alertas reais, eles aparecerão aqui.
+                            Novos pedidos e avaliações aparecerão aqui em tempo real.
                           </p>
                         </div>
                       )}

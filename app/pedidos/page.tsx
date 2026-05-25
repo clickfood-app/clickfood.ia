@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
+  BellRing,
   CheckCircle2,
   ChefHat,
   Clock3,
@@ -13,6 +14,7 @@ import {
   Search,
   Settings2,
   Truck,
+  Volume2,
   UserRound,
   XCircle,
 } from "lucide-react"
@@ -58,6 +60,14 @@ type DeliveryPerson = {
   phone: string | null
   is_active: boolean
   created_at: string
+}
+
+type NewOrderAlert = {
+  orderId: string
+  orderNumber: string
+  customerName: string
+  total: number | string | null
+  createdAt: string
 }
 
 type BoardStatus = "analysis" | "preparation" | "on_route"
@@ -211,6 +221,30 @@ function getBoardStatus(status: string | null | undefined): BoardStatus | null {
   if (isOnRouteStatus(status)) return "on_route"
 
   return null
+}
+
+function isOrderVisibleOnBoard(order: Partial<OrderRow>) {
+  if (getBoardStatus(order.status) === null) return false
+
+  const paymentMethod = String(order.payment_method || "").trim().toLowerCase()
+  const paymentStatus = String(order.payment_status || "").trim().toLowerCase()
+
+  if (paymentMethod === "pix") {
+    return paymentStatus === "paid"
+  }
+
+  return true
+}
+
+function getAudioContextConstructor() {
+  if (typeof window === "undefined") return null
+
+  const audioWindow = window as Window &
+    typeof globalThis & {
+      webkitAudioContext?: typeof AudioContext
+    }
+
+  return window.AudioContext || audioWindow.webkitAudioContext || null
 }
 
 function formatBRL(value: number | string | null | undefined) {
@@ -1234,6 +1268,174 @@ export default function PedidosPage() {
   const [savingPrepTime, setSavingPrepTime] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [nowMs, setNowMs] = useState(Date.now())
+  const [orderAlertsEnabled, setOrderAlertsEnabled] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("default")
+  const [newOrderAlert, setNewOrderAlert] = useState<NewOrderAlert | null>(null)
+
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const audioUnlockedRef = useRef(false)
+  const alertTimeoutRef = useRef<number | null>(null)
+  const previousVisibleOrderIdsRef = useRef<Set<string>>(new Set())
+  const notifiedOrderIdsRef = useRef<Set<string>>(new Set())
+  const hasSeededVisibleOrdersRef = useRef(false)
+
+  const resumeOrderAudio = useCallback(async () => {
+    const AudioContextConstructor = getAudioContextConstructor()
+
+    if (!AudioContextConstructor) return null
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextConstructor()
+    }
+
+    if (audioContextRef.current.state === "suspended") {
+      await audioContextRef.current.resume()
+    }
+
+    audioUnlockedRef.current = audioContextRef.current.state === "running"
+
+    return audioContextRef.current
+  }, [])
+
+  const playNewOrderSound = useCallback(async () => {
+    try {
+      const audioContext = await resumeOrderAudio()
+
+      if (!audioContext) return false
+
+      const masterGain = audioContext.createGain()
+      masterGain.gain.setValueAtTime(0.0001, audioContext.currentTime)
+      masterGain.gain.exponentialRampToValueAtTime(0.42, audioContext.currentTime + 0.03)
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.1)
+      masterGain.connect(audioContext.destination)
+
+      const playTone = (frequency: number, startTime: number, duration: number) => {
+        const oscillator = audioContext.createOscillator()
+        const toneGain = audioContext.createGain()
+
+        oscillator.type = "square"
+        oscillator.frequency.setValueAtTime(frequency, startTime)
+
+        toneGain.gain.setValueAtTime(0.0001, startTime)
+        toneGain.gain.exponentialRampToValueAtTime(0.9, startTime + 0.015)
+        toneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration)
+
+        oscillator.connect(toneGain)
+        toneGain.connect(masterGain)
+
+        oscillator.start(startTime)
+        oscillator.stop(startTime + duration + 0.04)
+      }
+
+      const start = audioContext.currentTime + 0.02
+
+      playTone(784, start, 0.2)
+      playTone(988, start + 0.24, 0.22)
+      playTone(1319, start + 0.5, 0.26)
+
+      audioUnlockedRef.current = true
+      return true
+    } catch (err) {
+      console.warn("Não foi possível tocar o alerta sonoro:", err)
+      audioUnlockedRef.current = false
+      return false
+    }
+  }, [resumeOrderAudio])
+
+  const disableOrderAlerts = useCallback(() => {
+    setOrderAlertsEnabled(false)
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("clickfood_order_alerts_enabled")
+    }
+  }, [])
+
+  const enableOrderAlerts = useCallback(async () => {
+    const soundWorked = await playNewOrderSound()
+
+    if (!soundWorked) {
+      setError(
+        "O alerta visual foi ativado, mas o navegador não liberou o som. Clique novamente em Ativar alertas e confira se a aba não está mutada."
+      )
+    } else {
+      setError(null)
+    }
+
+    setOrderAlertsEnabled(true)
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("clickfood_order_alerts_enabled", "true")
+    }
+
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        const permission = await Notification.requestPermission()
+        setNotificationPermission(permission)
+      } else {
+        setNotificationPermission(Notification.permission)
+      }
+    } else {
+      setNotificationPermission("unsupported")
+    }
+  }, [playNewOrderSound])
+
+  const showNewOrderAlert = useCallback(
+    (order: OrderRow) => {
+      if (!order.id) return
+      if (notifiedOrderIdsRef.current.has(order.id)) return
+
+      notifiedOrderIdsRef.current.add(order.id)
+
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => {
+          notifiedOrderIdsRef.current.delete(order.id)
+        }, 2 * 60 * 1000)
+      }
+
+      const alert: NewOrderAlert = {
+        orderId: order.id,
+        orderNumber: `#${getOrderNumber(order)}`,
+        customerName: getCustomerName(order),
+        total: order.total,
+        createdAt: order.created_at,
+      }
+
+      setNewOrderAlert(alert)
+
+      if (typeof window !== "undefined") {
+        if (alertTimeoutRef.current) {
+          window.clearTimeout(alertTimeoutRef.current)
+        }
+
+        alertTimeoutRef.current = window.setTimeout(() => {
+          setNewOrderAlert(null)
+        }, 9000)
+      }
+
+      if (orderAlertsEnabled) {
+        void playNewOrderSound()
+      }
+
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        const notification = new Notification("Novo pedido recebido", {
+          body: `${alert.orderNumber} • ${alert.customerName} • ${formatBRL(alert.total)}`,
+          tag: `clickfood-order-${order.id}`,
+        })
+
+        notification.onclick = () => {
+          window.focus()
+          notification.close()
+        }
+      }
+    },
+    [orderAlertsEnabled, playNewOrderSound]
+  )
 
   async function loadOrderItems(orderIds: string[]) {
     if (orderIds.length === 0) {
@@ -1305,14 +1507,7 @@ export default function PedidosPage() {
 
       if (error) throw error
 
-      const visibleOrders = ((data || []) as OrderRow[]).filter((order) => {
-        const paymentMethod = String(order.payment_method || "").toLowerCase()
-        const paymentStatus = String(order.payment_status || "").toLowerCase()
-
-        if (paymentMethod !== "pix") return true
-
-        return paymentStatus === "paid"
-      })
+      const visibleOrders = ((data || []) as OrderRow[]).filter(isOrderVisibleOnBoard)
 
       setOrders(visibleOrders)
       setLastUpdatedAt(new Date())
@@ -1584,6 +1779,26 @@ export default function PedidosPage() {
   }
 }
   useEffect(() => {
+    if (typeof window === "undefined") return
+
+    setOrderAlertsEnabled(
+      window.localStorage.getItem("clickfood_order_alerts_enabled") === "true"
+    )
+
+    if ("Notification" in window) {
+      setNotificationPermission(Notification.permission)
+    } else {
+      setNotificationPermission("unsupported")
+    }
+
+    return () => {
+      if (alertTimeoutRef.current) {
+        window.clearTimeout(alertTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       setNowMs(Date.now())
     }, 1000)
@@ -1592,6 +1807,37 @@ export default function PedidosPage() {
       window.clearInterval(interval)
     }
   }, [])
+
+  useEffect(() => {
+    if (!restaurant?.id) {
+      previousVisibleOrderIdsRef.current = new Set()
+      notifiedOrderIdsRef.current = new Set()
+      hasSeededVisibleOrdersRef.current = false
+      return
+    }
+
+    const visibleOrders = orders.filter(isOrderVisibleOnBoard)
+    const nextIds = new Set(visibleOrders.map((order) => order.id))
+
+    if (!hasSeededVisibleOrdersRef.current) {
+      previousVisibleOrderIdsRef.current = nextIds
+      hasSeededVisibleOrdersRef.current = true
+      return
+    }
+
+    const newestIncomingOrder = visibleOrders
+      .filter((order) => !previousVisibleOrderIdsRef.current.has(order.id))
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0]
+
+    previousVisibleOrderIdsRef.current = nextIds
+
+    if (newestIncomingOrder) {
+      showNewOrderAlert(newestIncomingOrder)
+    }
+  }, [orders, restaurant?.id, showNewOrderAlert])
 
   useEffect(() => {
     if (authLoading) {
@@ -1603,6 +1849,10 @@ export default function PedidosPage() {
       setOrders([])
       setOrderItemsByOrderId({})
       setDeliveryPeople([])
+      setNewOrderAlert(null)
+      previousVisibleOrderIdsRef.current = new Set()
+      notifiedOrderIdsRef.current = new Set()
+      hasSeededVisibleOrdersRef.current = false
       setLoading(false)
       setRefreshing(false)
       setError(null)
@@ -1793,12 +2043,77 @@ export default function PedidosPage() {
                 )}
                 Atualizar
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (orderAlertsEnabled) {
+                    disableOrderAlerts()
+                    return
+                  }
+
+                  void enableOrderAlerts()
+                }}
+                className={[
+                  "inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition",
+                  orderAlertsEnabled
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+                ].join(" ")}
+                title={
+                  notificationPermission === "denied"
+                    ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
+                    : undefined
+                }
+              >
+                {orderAlertsEnabled ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <BellRing className="h-4 w-4" />
+                )}
+                {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
+              </button>
             </div>
           </div>
 
           {error && (
             <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+
+          {newOrderAlert && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start justify-between gap-3 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                    <BellRing className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-black text-emerald-900">
+                      Novo pedido recebido
+                    </p>
+
+                    <p className="mt-0.5 text-sm font-semibold text-emerald-800">
+                      {newOrderAlert.orderNumber} • {newOrderAlert.customerName}
+                    </p>
+
+                    <p className="mt-1 text-xs font-medium text-emerald-700">
+                      Total {formatBRL(newOrderAlert.total)}. O pedido já entrou na fila de análise.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setNewOrderAlert(null)}
+                  className="rounded-full p-1 text-emerald-700 transition hover:bg-emerald-100"
+                  aria-label="Fechar alerta de novo pedido"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -1689,6 +1689,58 @@ function LoyaltyProgressCard({
   )
 }
 
+function getOrderTrackingMessage({
+  progressIndex,
+  orderType,
+  alreadyReceived,
+  isCancelled,
+}: {
+  progressIndex: number
+  orderType: "delivery" | "pickup"
+  alreadyReceived: boolean
+  isCancelled: boolean
+}) {
+  if (isCancelled) {
+    return {
+      title: "Pedido cancelado",
+      description: "O restaurante cancelou este pedido. Fale com o atendimento se tiver alguma dúvida.",
+    }
+  }
+
+  if (alreadyReceived) {
+    return {
+      title: orderType === "pickup" ? "Pedido retirado" : "Pedido entregue",
+      description: "Obrigado por confirmar. Sua avaliação ajuda o restaurante a melhorar.",
+    }
+  }
+
+  if (progressIndex <= 0) {
+    return {
+      title: "Recebemos seu pedido",
+      description: "O restaurante está conferindo tudo para começar o preparo.",
+    }
+  }
+
+  if (progressIndex === 1) {
+    return {
+      title: "Seu pedido está em preparo",
+      description: "A cozinha já recebeu seu pedido e está caprichando.",
+    }
+  }
+
+  if (orderType === "pickup") {
+    return {
+      title: "Pedido pronto para retirada",
+      description: "Pode ir até o restaurante para retirar seu pedido.",
+    }
+  }
+
+  return {
+    title: "Seu pedido saiu para entrega",
+    description: "O entregador já está levando seu pedido até você.",
+  }
+}
+
 function OrderTrackingCard({
   order,
   accentColor,
@@ -1698,13 +1750,12 @@ function OrderTrackingCard({
   order: CustomerVisibleOrder
   accentColor: string
   restaurantWhatsApp?: string | null
-  onConfirmReceived: (rating: number, review: string) => void
+  onConfirmReceived: (rating: number, review: string) => Promise<void> | void
 }) {
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [rating, setRating] = useState(order.customer_rating ?? 0)
   const [review, setReview] = useState(order.customer_review ?? "")
-  const [loyalty, setLoyalty] = useState<CustomerLoyaltyProgress | null>(null)
-  const [isLoadingLoyalty, setIsLoadingLoyalty] = useState(false)
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   useEffect(() => {
     setRating(order.customer_rating ?? 0)
@@ -1714,99 +1765,107 @@ function OrderTrackingCard({
   const orderType = normalizeCustomerOrderType(order.order_type)
   const steps = getOrderSteps(orderType)
   const progressIndex = getOrderProgressIndex(
-  order.status,
-  orderType,
-  order.customer_received_at
-)
+    order.status,
+    orderType,
+    order.customer_received_at
+  )
   const normalizedStatus = normalizeOrderStatus(order.status)
-  const isCancelled = ["cancelled", "canceled"].includes(normalizedStatus)
+  const isCancelled = ["cancelled", "canceled", "cancelado"].includes(normalizedStatus)
   const canConfirmReceived = !isCancelled && progressIndex >= 2
   const alreadyReceived = Boolean(order.customer_received_at)
   const whatsappPhone = restaurantWhatsApp?.replace(/\D/g, "") || ""
-  const shouldLoadLoyalty = alreadyReceived && Boolean(order.id)
+  const orderNumber = order.public_order_number || order.id.slice(0, 8)
+  const safeProgressIndex = Math.max(0, Math.min(progressIndex, steps.length - 1))
+  const progressPercentage = isCancelled
+    ? 0
+    : Math.max(12, ((safeProgressIndex + 1) / steps.length) * 100)
 
-useEffect(() => {
-  let cancelled = false
+  const trackingMessage = getOrderTrackingMessage({
+    progressIndex: safeProgressIndex,
+    orderType,
+    alreadyReceived,
+    isCancelled,
+  })
 
-  async function fetchLoyaltyStatus() {
-    if (!shouldLoadLoyalty || !order.id) {
-      setLoyalty(null)
-      return
-    }
-
-    try {
-      setIsLoadingLoyalty(true)
-
-      const params = new URLSearchParams({
-        order_id: order.id,
-        _: String(Date.now()),
-      })
-
-      const response = await fetch(`/api/public/loyalty/status?${params.toString()}`, {
-        method: "GET",
-        cache: "no-store",
-      })
-
-      const data = (await response.json()) as LoyaltyStatusResponse
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Erro ao buscar card fidelidade.")
-      }
-
-      if (cancelled) return
-
-      setLoyalty(data.has_loyalty ? data.loyalty ?? null : null)
-    } catch (error) {
-      if (!cancelled) {
-        console.error("Erro ao buscar card fidelidade:", error)
-        setLoyalty(null)
-      }
-    } finally {
-      if (!cancelled) {
-        setIsLoadingLoyalty(false)
-      }
-    }
-  }
-
-  void fetchLoyaltyStatus()
-
-  return () => {
-    cancelled = true
-  }
-}, [shouldLoadLoyalty, order.id])
-
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     if (rating <= 0) {
       alert("Selecione uma nota para o restaurante.")
       return
     }
 
-    onConfirmReceived(rating, review.trim())
-    setShowReviewForm(false)
+    try {
+      setIsSubmittingReview(true)
+      await onConfirmReceived(rating, review.trim())
+      setShowReviewForm(false)
+    } finally {
+      setIsSubmittingReview(false)
+    }
   }
 
   return (
     <div className="mx-auto mt-4 max-w-2xl px-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="overflow-hidden rounded-[26px] border border-blue-100 bg-white shadow-[0_20px_60px_-35px_rgba(37,99,235,0.55)]">
-        <div className="bg-gradient-to-br from-blue-600 to-blue-500 p-5 text-white">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-white/75">
-                Acompanhe seu pedido
-              </p>
+      <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-[0_24px_70px_-42px_rgba(15,23,42,0.75)]">
+        <div className="relative overflow-hidden bg-[#0f172a] p-5 text-white">
+          <div
+            className="absolute -right-14 -top-16 h-44 w-44 rounded-full blur-3xl"
+            style={{ backgroundColor: `${accentColor}55` }}
+          />
+          <div className="absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-blue-500/25 blur-3xl" />
 
-              <h3 className="mt-1 text-xl font-black">
-                Pedido #{order.public_order_number || order.id.slice(0, 8)}
-              </h3>
+          <div className="relative">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/50">
+                  Acompanhe seu pedido
+                </p>
 
-              <p className="mt-1 text-sm font-medium text-white/80">
-                {getOrderStatusLabel(order.status, orderType, order.customer_received_at)}
-              </p>
+                <h3 className="mt-2 text-xl font-black leading-tight">
+                  {trackingMessage.title}
+                </h3>
+
+                <p className="mt-1 max-w-[290px] text-sm leading-relaxed text-white/70">
+                  {trackingMessage.description}
+                </p>
+              </div>
+
+              <div className="shrink-0 rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-right backdrop-blur-md">
+                <p className="text-[10px] font-bold uppercase text-white/50">Pedido</p>
+                <p className="text-sm font-black text-white">#{orderNumber}</p>
+              </div>
             </div>
 
-            <div className="rounded-2xl bg-white/15 px-3 py-2 text-right backdrop-blur-sm">
-              <p className="text-[10px] font-bold uppercase text-white/70">Total</p>
-              <p className="text-base font-black">{formatPrice(Number(order.total || 0))}</p>
+            <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-md">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wide text-white/45">
+                    Status atual
+                  </p>
+
+                  <p className="mt-1 text-sm font-black text-white">
+                    {getOrderStatusLabel(order.status, orderType, order.customer_received_at)}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-white/45">
+                    Total
+                  </p>
+
+                  <p className="mt-1 text-sm font-black text-white">
+                    {formatPrice(Number(order.total || 0))}
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full shadow-[0_0_22px_rgba(249,115,22,0.55)] transition-all duration-700"
+                  style={{
+                    width: `${progressPercentage}%`,
+                    background: `linear-gradient(to right, ${accentColor}, #facc15)`,
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1829,16 +1888,16 @@ useEffect(() => {
                         <div
                           className={cn(
                             "absolute left-1/2 top-4 h-1 w-full rounded-full",
-                            progressIndex > index ? "bg-blue-500" : "bg-gray-200"
+                            progressIndex > index ? "bg-orange-400" : "bg-gray-200"
                           )}
                         />
                       )}
 
                       <div
                         className={cn(
-                          "relative z-10 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white text-xs font-black shadow-sm",
+                          "relative z-10 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white text-xs font-black shadow-sm transition-all",
                           isDone ? "text-white" : "bg-gray-200 text-gray-400",
-                          isCurrent && "ring-4 ring-blue-100"
+                          isCurrent && "ring-4 ring-orange-100"
                         )}
                         style={isDone ? { backgroundColor: accentColor } : undefined}
                       >
@@ -1877,25 +1936,45 @@ useEffect(() => {
           </div>
 
           {alreadyReceived ? (
-            <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-500 text-white">
-                <Check className="h-5 w-5" strokeWidth={3} />
+            <div className="rounded-[24px] border border-green-200 bg-green-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-500 text-white shadow-lg">
+                  <Check className="h-5 w-5" strokeWidth={3} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-green-800">
+                    Recebimento confirmado
+                  </p>
+
+                  {order.customer_rating ? (
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-green-700">
+                      Obrigado pela avaliação de {order.customer_rating} estrela{order.customer_rating > 1 ? "s" : ""}.
+                      O restaurante já recebeu seu feedback.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-green-700">
+                      Seu pedido foi finalizado com sucesso.
+                    </p>
+                  )}
+
+                  <div className="mt-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-bold text-green-800">
+                    Seu selo de fidelidade será contado automaticamente. Para ver o cartão completo, acesse Minha Conta.
+                  </div>
+                </div>
               </div>
-
-              <p className="text-sm font-black text-green-700">Recebimento confirmado</p>
-
-              {order.customer_rating ? (
-                <p className="mt-1 text-xs font-semibold text-green-700">
-                  Obrigado pela avaliação de {order.customer_rating} estrela{order.customer_rating > 1 ? "s" : ""}.
-                </p>
-              ) : null}
             </div>
           ) : showReviewForm ? (
-            <div className="rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
-              <p className="text-sm font-black text-gray-900">{orderType === "pickup" ? "Você já retirou seu pedido?" : "Seu pedido chegou?"}</p>
-              <p className="mt-1 text-xs text-gray-500">Confirme o recebimento e avalie sua experiência.</p>
+            <div className="rounded-[24px] border border-orange-100 bg-orange-50/70 p-4">
+              <p className="text-base font-black text-gray-900">
+                {orderType === "pickup" ? "Como foi sua retirada?" : "Como foi seu pedido?"}
+              </p>
 
-              <div className="mt-3 flex justify-center gap-1">
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                Confirme o recebimento e avalie sua experiência. Seu comentário vai direto para o restaurante.
+              </p>
+
+              <div className="mt-4 flex justify-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
@@ -1905,7 +1984,7 @@ useEffect(() => {
                   >
                     <Star
                       className={cn(
-                        "h-7 w-7",
+                        "h-8 w-8",
                         rating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
                       )}
                     />
@@ -1916,47 +1995,68 @@ useEffect(() => {
               <textarea
                 value={review}
                 onChange={(event) => setReview(event.target.value)}
-                placeholder="Comentário opcional"
-                rows={2}
-                className="mt-3 w-full resize-none rounded-xl border border-orange-100 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                placeholder="Comentário opcional. Ex: chegou rápido, lanche muito bom..."
+                rows={3}
+                className="mt-4 w-full resize-none rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
               />
 
               <button
                 type="button"
                 onClick={handleSubmitReview}
-                className="mt-3 w-full rounded-xl py-3 text-sm font-black text-white shadow-lg"
+                disabled={isSubmittingReview}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black text-white shadow-lg disabled:opacity-60"
                 style={{ backgroundColor: accentColor }}
               >
-                Confirmar e enviar avaliação
+                {isSubmittingReview ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Enviando avaliação...
+                  </>
+                ) : (
+                  "Confirmar e enviar avaliação"
+                )}
               </button>
             </div>
           ) : canConfirmReceived ? (
-            <button
-              type="button"
-              onClick={() => setShowReviewForm(true)}
-              className="w-full rounded-xl py-3 text-sm font-black text-white shadow-lg active:scale-[0.98]"
-              style={{ backgroundColor: accentColor }}
-            >
-              {orderType === "pickup" ? "Já retirei meu pedido" : "Já recebi meu pedido"}
-            </button>
+            <div className="rounded-[24px] border border-gray-200 bg-gray-50 p-4">
+              <p className="text-sm font-black text-gray-900">
+                {orderType === "pickup" ? "Você já retirou seu pedido?" : "Seu pedido chegou?"}
+              </p>
+
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                Confirme para finalizar e avaliar o restaurante.
+              </p>
+
+              <div className="mt-3 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReviewForm(true)}
+                  className="w-full rounded-xl py-3 text-sm font-black text-white shadow-lg active:scale-[0.98]"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  {orderType === "pickup" ? "Sim, já retirei" : "Sim, recebi"}
+                </button>
+
+                {whatsappPhone ? (
+                  <a
+                    href={`https://wa.me/${whatsappPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm"
+                  >
+                    <MessageCircle className="h-4 w-4 text-green-500" />
+                    Tive um problema
+                  </a>
+                ) : null}
+              </div>
+            </div>
           ) : (
             <div className="rounded-2xl bg-gray-50 p-4 text-center text-xs font-semibold text-gray-500">
               O restaurante vai atualizar o andamento por aqui.
             </div>
           )}
 
-{alreadyReceived && (
-  isLoadingLoyalty ? (
-    <div className="flex items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold text-blue-700">
-      <Loader2 className="h-4 w-4 animate-spin" />
-      Carregando seu card fidelidade...
-    </div>
-  ) : loyalty ? (
-    <LoyaltyProgressCard loyalty={loyalty} accentColor={accentColor} />
-  ) : null
-)}
-
-          {whatsappPhone ? (
+          {whatsappPhone && (!canConfirmReceived || alreadyReceived || showReviewForm) ? (
             <a
               href={`https://wa.me/${whatsappPhone}`}
               target="_blank"
@@ -3606,6 +3706,12 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         orderId: activeOrder.id,
         rating,
         review,
+        notifyRestaurant: true,
+        notificationType: "order_review",
+        notificationTitle: "Nova avaliação recebida",
+        notificationMessage: review
+          ? `Cliente avaliou o pedido #${activeOrder.public_order_number || activeOrder.id.slice(0, 8)} com ${rating} estrela${rating > 1 ? "s" : ""}: ${review}`
+          : `Cliente avaliou o pedido #${activeOrder.public_order_number || activeOrder.id.slice(0, 8)} com ${rating} estrela${rating > 1 ? "s" : ""}.`,
       }),
     })
 
