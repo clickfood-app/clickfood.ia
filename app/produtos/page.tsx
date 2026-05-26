@@ -162,6 +162,8 @@ function normalizeProduct(
     Boolean(product.promotion_active) &&
     promotionType !== "none" &&
     promotionValue > 0
+  const activeAvailabilityRule =
+    availabilityRule?.is_active === true ? availabilityRule : null
 
   return {
     id: product.id,
@@ -178,13 +180,17 @@ function normalizeProduct(
     promotionActive,
     promotionType: promotionActive ? promotionType : "none",
     promotionValue: promotionActive ? promotionValue : 0,
-    availabilityType: availabilityRule
+    availabilityType: activeAvailabilityRule
       ? "scheduled"
       : getNormalizedAvailabilityType(product.availability_type),
-    availabilityWeekdays: availabilityRule?.weekdays ?? [],
-    availabilityStartTime: normalizeAvailabilityTime(availabilityRule?.start_time),
-    availabilityEndTime: normalizeAvailabilityTime(availabilityRule?.end_time),
-    availabilityCategory: availabilityRule?.display_category_id ?? null,
+    availabilityWeekdays: activeAvailabilityRule?.weekdays ?? [],
+    availabilityStartTime: normalizeAvailabilityTime(
+      activeAvailabilityRule?.start_time
+    ),
+    availabilityEndTime: normalizeAvailabilityTime(
+      activeAvailabilityRule?.end_time
+    ),
+    availabilityCategory: activeAvailabilityRule?.display_category_id ?? null,
   }
 }
 

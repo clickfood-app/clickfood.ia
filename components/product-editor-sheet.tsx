@@ -225,6 +225,7 @@ export default function ProductEditorSheet({
   const [modifierGroups, setModifierGroups] = useState<ModifierGroupDraft[]>([])
   const [loadingModifiers, setLoadingModifiers] = useState(false)
   const [savingModifiers, setSavingModifiers] = useState(false)
+  const [modifiersTouched, setModifiersTouched] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
 
@@ -247,6 +248,7 @@ export default function ProductEditorSheet({
       setAvailabilityStartTime(normalizeTimeInput(product.availabilityStartTime))
       setAvailabilityEndTime(normalizeTimeInput(product.availabilityEndTime))
       setAvailabilityCategory(product.availabilityCategory ?? product.category)
+      setModifiersTouched(false)
       return
     }
 
@@ -265,6 +267,8 @@ export default function ProductEditorSheet({
     setAvailabilityStartTime("")
     setAvailabilityEndTime("")
     setAvailabilityCategory(defaultCategoryId ?? categories[0]?.id ?? "")
+    setModifierGroups([])
+    setModifiersTouched(false)
   }, [categories, defaultCategoryId, mode, open, product])
 
   useEffect(() => {
@@ -291,11 +295,11 @@ export default function ProductEditorSheet({
         const rule = data as AvailabilityRuleData | null
 
         if (!rule) {
-          setAvailabilityType(product.availabilityType ?? "always")
-          setAvailabilityWeekdays(product.availabilityWeekdays ?? [])
-          setAvailabilityStartTime(normalizeTimeInput(product.availabilityStartTime))
-          setAvailabilityEndTime(normalizeTimeInput(product.availabilityEndTime))
-          setAvailabilityCategory(product.availabilityCategory ?? product.category)
+          setAvailabilityType("always")
+          setAvailabilityWeekdays([])
+          setAvailabilityStartTime("")
+          setAvailabilityEndTime("")
+          setAvailabilityCategory(product.category)
           return
         }
 
@@ -336,6 +340,7 @@ export default function ProductEditorSheet({
     async function loadModifierGroups() {
       if (!open || mode !== "edit" || !product?.id) {
         setModifierGroups([])
+        setModifiersTouched(false)
         return
       }
 
@@ -387,9 +392,13 @@ export default function ProductEditorSheet({
               })),
           }))
         )
+        setModifiersTouched(false)
       } catch (error) {
         console.error("Erro ao carregar complementos:", error)
-        if (!cancelled) setModifierGroups([])
+        if (!cancelled) {
+          setModifierGroups([])
+          setModifiersTouched(false)
+        }
       } finally {
         if (!cancelled) setLoadingModifiers(false)
       }
@@ -480,6 +489,7 @@ export default function ProductEditorSheet({
   }
 
   const addModifierGroup = () => {
+    setModifiersTouched(true)
     setModifierGroups((currentGroups) => [
       ...currentGroups,
       createEmptyModifierGroup(currentGroups.length),
@@ -487,6 +497,7 @@ export default function ProductEditorSheet({
   }
 
   const removeModifierGroup = (groupIndex: number) => {
+    setModifiersTouched(true)
     setModifierGroups((currentGroups) =>
       currentGroups.filter((_, index) => index !== groupIndex)
     )
@@ -496,6 +507,7 @@ export default function ProductEditorSheet({
     groupIndex: number,
     updates: Partial<ModifierGroupDraft>
   ) => {
+    setModifiersTouched(true)
     setModifierGroups((currentGroups) =>
       currentGroups.map((group, index) =>
         index === groupIndex ? { ...group, ...updates } : group
@@ -504,6 +516,7 @@ export default function ProductEditorSheet({
   }
 
   const addModifierOption = (groupIndex: number) => {
+    setModifiersTouched(true)
     setModifierGroups((currentGroups) =>
       currentGroups.map((group, index) => {
         if (index !== groupIndex) return group
@@ -528,6 +541,7 @@ export default function ProductEditorSheet({
     optionIndex: number,
     updates: Partial<ModifierOptionDraft>
   ) => {
+    setModifiersTouched(true)
     setModifierGroups((currentGroups) =>
       currentGroups.map((group, currentGroupIndex) => {
         if (currentGroupIndex !== groupIndex) return group
@@ -545,6 +559,7 @@ export default function ProductEditorSheet({
   }
 
   const removeModifierOption = (groupIndex: number, optionIndex: number) => {
+    setModifiersTouched(true)
     setModifierGroups((currentGroups) =>
       currentGroups.map((group, currentGroupIndex) => {
         if (currentGroupIndex !== groupIndex) return group
@@ -557,8 +572,8 @@ export default function ProductEditorSheet({
     )
   }
 
-  const saveModifierGroups = async () => {
-    if (mode !== "edit" || !product?.id) return
+  const saveModifierGroups = async (options?: { silent?: boolean }) => {
+    if (mode !== "edit" || !product?.id) return true
 
     const normalizedGroups = modifierGroups
       .map((group, groupIndex) => ({
@@ -586,7 +601,7 @@ export default function ProductEditorSheet({
       alert(
         "Revise os complementos: cada grupo precisa ter ao menos uma opção e o mínimo não pode ser maior que o máximo."
       )
-      return
+      return false
     }
 
     try {
@@ -609,15 +624,44 @@ export default function ProductEditorSheet({
       if (restaurantError) throw restaurantError
       if (!restaurant?.id) throw new Error("Restaurante não encontrado.")
 
-      const { error: deleteError } = await supabase
+      const { data: existingGroupsData, error: existingGroupsError } =
+        await supabase
+          .from("product_modifier_groups")
+          .select("id")
+          .eq("product_id", product.id)
+          .eq("restaurant_id", restaurant.id)
+
+      if (existingGroupsError) throw existingGroupsError
+
+      const existingGroupIds = ((existingGroupsData ?? []) as { id: string }[]).map(
+        (group) => group.id
+      )
+
+      if (existingGroupIds.length > 0) {
+        const { error: deleteOptionsError } = await supabase
+          .from("product_modifier_options")
+          .delete()
+          .in("group_id", existingGroupIds)
+
+        if (deleteOptionsError) throw deleteOptionsError
+      }
+
+      const { error: deleteGroupsError } = await supabase
         .from("product_modifier_groups")
         .delete()
         .eq("product_id", product.id)
         .eq("restaurant_id", restaurant.id)
 
-      if (deleteError) throw deleteError
+      if (deleteGroupsError) throw deleteGroupsError
+
+      const savedGroups: ModifierGroupDraft[] = []
 
       for (const group of normalizedGroups) {
+        const safeMaxSelect = Math.max(group.maxSelect, 1)
+        const safeMinSelect = group.required
+          ? Math.max(Math.min(group.minSelect, safeMaxSelect), 1)
+          : Math.min(group.minSelect, safeMaxSelect)
+
         const { data: insertedGroup, error: groupError } = await supabase
           .from("product_modifier_groups")
           .insert({
@@ -625,8 +669,8 @@ export default function ProductEditorSheet({
             product_id: product.id,
             name: group.name,
             required: group.required,
-            min_select: group.required ? Math.max(group.minSelect, 1) : group.minSelect,
-            max_select: group.maxSelect,
+            min_select: safeMinSelect,
+            max_select: safeMaxSelect,
             sort_order: group.sortOrder,
             is_active: true,
           })
@@ -649,9 +693,30 @@ export default function ProductEditorSheet({
           .insert(optionsToInsert)
 
         if (optionsError) throw optionsError
+
+        savedGroups.push({
+          id: insertedGroup.id,
+          name: group.name,
+          required: group.required,
+          minSelect: safeMinSelect,
+          maxSelect: safeMaxSelect,
+          sortOrder: group.sortOrder,
+          options: group.options.map((option) => ({
+            name: option.name,
+            price: option.price,
+            sortOrder: option.sortOrder,
+          })),
+        })
       }
 
-      alert("Complementos salvos com sucesso.")
+      setModifierGroups(savedGroups)
+      setModifiersTouched(false)
+
+      if (!options?.silent) {
+        alert("Complementos salvos com sucesso.")
+      }
+
+      return true
     } catch (error) {
       console.error("Erro ao salvar complementos:", error)
       alert(
@@ -659,13 +724,20 @@ export default function ProductEditorSheet({
           ? error.message
           : "Não foi possível salvar os complementos."
       )
+      return false
     } finally {
       setSavingModifiers(false)
     }
   }
 
-  const handleSave = () => {
-    if (!canSave) return
+  const handleSave = async () => {
+    if (!canSave || savingModifiers) return
+
+    if (mode === "edit" && product?.id && modifiersTouched) {
+      const modifiersSaved = await saveModifierGroups({ silent: true })
+
+      if (!modifiersSaved) return
+    }
 
     onSave({
       name: name.trim(),
@@ -829,7 +901,13 @@ export default function ProductEditorSheet({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <button
                       type="button"
-                      onClick={() => setAvailabilityType("always")}
+                      onClick={() => {
+                        setAvailabilityType("always")
+                        setAvailabilityWeekdays([])
+                        setAvailabilityStartTime("")
+                        setAvailabilityEndTime("")
+                        setAvailabilityCategory(category)
+                      }}
                       className={cn(
                         "rounded-xl border px-4 py-3 text-left transition",
                         availabilityType === "always"
@@ -1572,12 +1650,16 @@ export default function ProductEditorSheet({
                 </Button>
 
                 <Button
-                  onClick={handleSave}
-                  disabled={!canSave}
+                  onClick={() => void handleSave()}
+                  disabled={!canSave || savingModifiers}
                   className="h-10 rounded-lg bg-blue-600 px-5 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" />
-                  {mode === "create" ? "Salvar Produto" : "Salvar Alterações"}
+                  {savingModifiers
+                    ? "Salvando..."
+                    : mode === "create"
+                      ? "Salvar Produto"
+                      : "Salvar Alterações"}
                 </Button>
               </div>
             </div>
