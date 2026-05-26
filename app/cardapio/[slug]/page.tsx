@@ -64,6 +64,12 @@ interface PublicRestaurant {
   pix_key_type?: string | null
   pixReceiverName?: string | null
   pix_receiver_name?: string | null
+  pixReceiverCity?: string | null
+  pix_receiver_city?: string | null
+  pixInstructions?: string | null
+  pix_instructions?: string | null
+  pixEnabled?: boolean | null
+  pix_enabled?: boolean | null
   deliveryFee: number
   deliveryFeeRules?: DeliveryFeeRule[] | null
   openTime?: string | null
@@ -1493,13 +1499,40 @@ function formatPhonePreview(value: string) {
 function sanitizePixText(value: string | null | undefined, maxLength: number, fallback: string) {
   const normalized = (value || fallback)
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-zA-Z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase()
 
   return (normalized || fallback).slice(0, maxLength)
+}
+
+function normalizePixKeyForPayload(pixKey: string, pixKeyType?: string | null) {
+  const type = normalizeOrderStatus(pixKeyType)
+  const value = pixKey.trim()
+
+  if (!value) return ""
+
+  if (["cpf", "cnpj"].includes(type)) {
+    return onlyDigits(value)
+  }
+
+  if (["telefone", "phone", "celular", "mobile"].includes(type)) {
+    const digits = onlyDigits(value)
+
+    if (!digits) return value.replace(/\s+/g, "")
+    if (digits.startsWith("55")) return `+${digits}`
+    if (digits.length === 10 || digits.length === 11) return `+55${digits}`
+
+    return value.replace(/\s+/g, "")
+  }
+
+  if (["email", "e_mail", "e-mail"].includes(type)) {
+    return value.toLowerCase()
+  }
+
+  return value.replace(/\s+/g, "")
 }
 
 function formatPixAmount(value: number) {
@@ -1536,18 +1569,20 @@ function calculatePixCrc16(payload: string) {
 
 function buildManualPixPayload({
   pixKey,
+  pixKeyType,
   receiverName,
   city,
   amount,
   txid,
 }: {
   pixKey: string
+  pixKeyType?: string | null
   receiverName: string
   city?: string | null
   amount: number
   txid: string
 }) {
-  const safePixKey = pixKey.trim()
+  const safePixKey = normalizePixKeyForPayload(pixKey, pixKeyType)
 
   if (!safePixKey) return ""
 
@@ -1562,13 +1597,14 @@ function buildManualPixPayload({
 
   const payloadWithoutCrc =
     buildPixField("00", "01") +
+    buildPixField("01", "11") +
     buildPixField("26", merchantAccountInfo) +
     buildPixField("52", "0000") +
     buildPixField("53", "986") +
     buildPixField("54", formatPixAmount(amount)) +
     buildPixField("58", "BR") +
     buildPixField("59", sanitizePixText(receiverName, 25, "RESTAURANTE")) +
-    buildPixField("60", sanitizePixText(city, 15, "BRASIL")) +
+    buildPixField("60", sanitizePixText(city, 15, "BRASILIA")) +
     buildPixField("62", additionalData) +
     "6304"
 
@@ -3056,7 +3092,12 @@ function CartSheet({
     restaurant.name
   ).trim()
   const pixKeyType = (restaurant.pixKeyType ?? restaurant.pix_key_type ?? "Chave Pix").trim()
-  const pixCity = (restaurant.city ?? "BRASIL").trim()
+  const pixCity = (
+    restaurant.pixReceiverCity ??
+    restaurant.pix_receiver_city ??
+    restaurant.city ??
+    "BRASILIA"
+  ).trim()
   const manualPixTxid = useMemo(
     () => `CF${restaurant.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20)}`,
     [restaurant.id]
@@ -3065,12 +3106,13 @@ function CartSheet({
     () =>
       buildManualPixPayload({
         pixKey,
+        pixKeyType,
         receiverName: pixReceiverName,
         city: pixCity,
         amount: total,
         txid: manualPixTxid,
       }),
-    [manualPixTxid, pixCity, pixKey, pixReceiverName, total]
+    [manualPixTxid, pixCity, pixKey, pixKeyType, pixReceiverName, total]
   )
   const manualPixQrCodeUrl = manualPixCopyPaste
     ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
@@ -3722,7 +3764,7 @@ function CartSheet({
                         </div>
                       ) : (
                         <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
-                          Cadastre uma chave Pix para gerar o QR Code.
+                          Cadastre uma chave Pix válida para gerar o QR Code.
                         </div>
                       )}
 
