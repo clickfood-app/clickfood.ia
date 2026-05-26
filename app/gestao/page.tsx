@@ -1,21 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
-import Link from "next/link"
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import {
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   Clock3,
   Flame,
   Loader2,
   MapPin,
-  Package,
-  PlusCircle,
   RefreshCcw,
   Route,
   ShoppingCart,
@@ -33,6 +29,7 @@ type OrderRow = {
   public_order_number: string | null
   customer_name: string | null
   customer_neighborhood: string | null
+  delivery_neighborhood: string | null
   total: number | string | null
   created_at: string
   status: string | null
@@ -317,16 +314,47 @@ function buildTopProducts(items: OrderItemRow[]) {
     .slice(0, 6)
 }
 
+function normalizeAreaName(value: string | null) {
+  const neighborhood = String(value || "").trim()
+
+  if (!neighborhood) return ""
+
+  const normalized = neighborhood
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+  const ignoredAreas = [
+    "-",
+    "nao informado",
+    "sem bairro",
+    "bairro nao informado",
+    "retirada",
+    "balcao",
+  ]
+
+  if (ignoredAreas.includes(normalized)) return ""
+
+  return neighborhood
+}
+
 function buildTopAreas(orders: OrderRow[]) {
   const areaMap = new Map<string, AreaRank>()
 
   for (const order of orders) {
-    const neighborhood = String(order.customer_neighborhood || "").trim()
+    const neighborhood =
+      normalizeAreaName(order.delivery_neighborhood) ||
+      normalizeAreaName(order.customer_neighborhood)
 
     if (!neighborhood) continue
 
+    const areaKey = neighborhood
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+
     const current =
-      areaMap.get(neighborhood) ??
+      areaMap.get(areaKey) ??
       ({
         name: neighborhood,
         orders: 0,
@@ -336,7 +364,7 @@ function buildTopAreas(orders: OrderRow[]) {
     current.orders += 1
     current.revenue += Number(order.total || 0)
 
-    areaMap.set(neighborhood, current)
+    areaMap.set(areaKey, current)
   }
 
   return Array.from(areaMap.values())
@@ -344,7 +372,7 @@ function buildTopAreas(orders: OrderRow[]) {
       if (b.orders !== a.orders) return b.orders - a.orders
       return b.revenue - a.revenue
     })
-    .slice(0, 6)
+    .slice(0, 5)
 }
 
 function StatusBadge({ status }: { status: string | null }) {
@@ -647,7 +675,7 @@ export default function GestaoPage() {
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select(
-          "id, public_order_number, customer_name, customer_neighborhood, total, created_at, status, payment_method, payment_status"
+          "id, public_order_number, customer_name, customer_neighborhood, delivery_neighborhood, total, created_at, status, payment_method, payment_status"
         )
         .eq("restaurant_id", resolvedRestaurantId)
         .gte("created_at", startDate)
@@ -732,33 +760,6 @@ export default function GestaoPage() {
             "Aceite ou recuse rapidamente para não travar a operação.",
           tone: "blue",
           icon: <Zap className="h-4 w-4" />,
-        })
-      }
-
-      if (topProducts[0]) {
-        alerts.push({
-          title: `${topProducts[0].name} está em alta`,
-          description: `${topProducts[0].quantity} unidade(s) vendidas no período. Confira estoque e preparo.`,
-          tone: "green",
-          icon: <Flame className="h-4 w-4" />,
-        })
-      }
-
-      if (topAreas[0]) {
-        alerts.push({
-          title: `${topAreas[0].name} está movimentando mais pedidos`,
-          description: `${topAreas[0].orders} pedido(s) vieram dessa área no período.`,
-          tone: "blue",
-          icon: <MapPin className="h-4 w-4" />,
-        })
-      }
-
-      if (topHourPoint.count > 0) {
-        alerts.push({
-          title: `Horário mais movimentado: ${topHourPoint.hour}`,
-          description: `${topHourPoint.count} pedido(s) concentrados nesse horário.`,
-          tone: "slate",
-          icon: <Timer className="h-4 w-4" />,
         })
       }
 
@@ -1157,83 +1158,34 @@ export default function GestaoPage() {
               </Panel>
             </section>
 
-            <Panel
-              title="Radar de áreas"
-              subtitle="Bairros que mais puxaram pedidos no período"
-              icon={<MapPin className="h-5 w-5" />}
-            >
-              {data.topAreas.length === 0 ? (
-                <EmptyState message="Nenhuma área registrada nos pedidos desse período." />
-              ) : (
-                <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-                  <div className="rounded-[24px] border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-600">
-                          Área quente
-                        </p>
-
-                        <h3 className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
-                          {hottestArea?.name}
-                        </h3>
-
-                        <p className="mt-2 text-sm font-semibold leading-5 text-slate-500">
-                          Concentrou {hottestAreaShare}% dos pedidos mapeados.
-                        </p>
-                      </div>
-
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/25">
-                        <Flame className="h-6 w-6" />
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">
-                          Pedidos
-                        </p>
-                        <p className="mt-1 text-lg font-black text-slate-950">
-                          {hottestArea?.orders ?? 0}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">
-                          Vendas
-                        </p>
-                        <p className="mt-1 truncate text-sm font-black text-slate-950">
-                          {formatCurrency(hottestArea?.revenue ?? 0)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">
-                          Ticket
-                        </p>
-                        <p className="mt-1 truncate text-sm font-black text-slate-950">
-                          {formatCurrency(hottestAreaAverageTicket)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
+            <section className="grid gap-5 xl:grid-cols-3">
+              <Panel
+                title="Radar de áreas"
+                subtitle="Ranking compacto dos bairros que mais pediram"
+                icon={<MapPin className="h-5 w-5" />}
+              >
+                {data.topAreas.length === 0 ? (
+                  <EmptyState message="Nenhuma área registrada ainda. Confira se os pedidos estão salvando o bairro de entrega." />
+                ) : (
                   <div className="space-y-3">
                     {data.topAreas.map((area, index) => {
                       const share =
                         totalAreaOrders > 0
                           ? Math.round((area.orders / totalAreaOrders) * 100)
                           : 0
+                      const averageTicket =
+                        area.orders > 0 ? area.revenue / area.orders : 0
 
                       return (
                         <div
                           key={area.name}
                           className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
                               <div
                                 className={cn(
-                                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black",
+                                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black",
                                   index === 0
                                     ? "bg-slate-950 text-white"
                                     : "bg-white text-slate-700"
@@ -1246,154 +1198,208 @@ export default function GestaoPage() {
                                 <p className="truncate text-sm font-black text-slate-950">
                                   {area.name}
                                 </p>
-                                <p className="text-xs font-medium text-slate-500">
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
                                   {area.orders} pedido(s) • {formatCurrency(area.revenue)}
                                 </p>
                               </div>
                             </div>
 
-                            <p className="shrink-0 text-sm font-black text-slate-950">
-                              {share}%
-                            </p>
+                            <div className="shrink-0 text-right">
+                              <p className="text-sm font-black text-slate-950">
+                                {formatCurrency(averageTicket)}
+                              </p>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                ticket médio
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
-                            <div
-                              className={cn(
-                                "h-full rounded-full transition-all duration-700",
-                                index === 0
-                                  ? "bg-gradient-to-r from-orange-500 to-yellow-400"
-                                  : "bg-blue-600"
-                              )}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  (area.orders / maxAreaOrders) * 100
-                                )}%`,
-                              }}
-                            />
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all duration-700",
+                                  index === 0
+                                    ? "bg-gradient-to-r from-orange-500 to-yellow-400"
+                                    : "bg-blue-600"
+                                )}
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    (area.orders / maxAreaOrders) * 100
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+
+                            <span className="w-9 text-right text-xs font-black text-slate-600">
+                              {share}%
+                            </span>
                           </div>
                         </div>
                       )
                     })}
+
+                    {hottestArea && (
+                      <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-3">
+                        <p className="text-xs font-black uppercase tracking-wide text-orange-600">
+                          Área mais forte
+                        </p>
+                        <p className="mt-1 text-sm font-semibold leading-5 text-slate-700">
+                          {hottestArea.name} concentrou {hottestAreaShare}% dos pedidos mapeados,
+                          com ticket médio de {formatCurrency(hottestAreaAverageTicket)}.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </Panel>
-
-            <section className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
-              <Panel
-                title="Fila em andamento"
-                subtitle="Pedidos abertos mais antigos primeiro"
-                icon={<Package className="h-5 w-5" />}
-              >
-                <div className="space-y-3">
-                  {data.openQueue.length === 0 ? (
-                    <EmptyState message="Nenhum pedido em andamento agora." />
-                  ) : (
-                    data.openQueue.map((order) => {
-                      const age = getOrderAgeMinutes(order.created_at)
-                      const delayed = isDelayed(order)
-
-                      return (
-                        <div
-                          key={order.id}
-                          className={cn(
-                            "flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
-                            delayed
-                              ? "border-red-200 bg-red-50"
-                              : "border-slate-200 bg-slate-50"
-                          )}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-black text-slate-950">
-                                Pedido #{order.public_order_number || order.id.slice(0, 6)}
-                              </p>
-
-                              <StatusBadge status={order.status} />
-                            </div>
-
-                            <p className="mt-1 truncate text-sm font-medium text-slate-500">
-                              {order.customer_name || "Cliente sem nome"} • criado às {formatTime(order.created_at)}
-                            </p>
-                          </div>
-
-                          <div className="flex shrink-0 items-center gap-2">
-                            <span
-                              className={cn(
-                                "rounded-full px-3 py-1.5 text-xs font-black",
-                                delayed
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-white text-slate-700"
-                              )}
-                            >
-                              {age} min
-                            </span>
-
-                            <span className="inline-flex h-9 items-center rounded-xl bg-white px-3 text-xs font-black text-slate-600 shadow-sm">
-                              Em andamento
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
+                )}
               </Panel>
 
               <Panel
-                title="Ações rápidas"
-                subtitle="Atalhos para tocar a operação"
-                icon={<Zap className="h-5 w-5" />}
+                title="Atenção agora"
+                subtitle="O que pode travar a operação"
+                icon={<AlertTriangle className="h-5 w-5" />}
               >
-                <div className="grid gap-3">
-                  <Link
-                    href="/novo-pedido"
-                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                  >
-                    <span className="flex items-center gap-2">
-                      <PlusCircle className="h-4 w-4" />
-                      Novo pedido
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    {
+                      title: "Aguardando aceite",
+                      value: data.analysisOrders,
+                      description: "aceitar ou recusar",
+                      icon: <Clock3 className="h-4 w-4" />,
+                      className:
+                        data.analysisOrders > 0
+                          ? "border-blue-100 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-slate-50 text-slate-600",
+                    },
+                    {
+                      title: "Atrasados",
+                      value: data.delayedOrders,
+                      description: "passaram do tempo",
+                      icon: <AlertTriangle className="h-4 w-4" />,
+                      className:
+                        data.delayedOrders > 0
+                          ? "border-red-100 bg-red-50 text-red-700"
+                          : "border-slate-200 bg-slate-50 text-slate-600",
+                    },
+                    {
+                      title: "Pix pendentes",
+                      value: data.pendingPixOrders,
+                      description: "aguardando pagamento",
+                      icon: <Zap className="h-4 w-4" />,
+                      className:
+                        data.pendingPixOrders > 0
+                          ? "border-orange-100 bg-orange-50 text-orange-700"
+                          : "border-slate-200 bg-slate-50 text-slate-600",
+                    },
+                    {
+                      title: "Em andamento",
+                      value: data.openOrders,
+                      description: "pedidos abertos",
+                      icon: <ShoppingCart className="h-4 w-4" />,
+                      className:
+                        data.openOrders > 0
+                          ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                          : "border-slate-200 bg-slate-50 text-slate-600",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.title}
+                      className={cn("rounded-2xl border p-3", item.className)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/80 shadow-sm">
+                          {item.icon}
+                        </div>
 
-                  <Link
-                    href="/pedidos"
-                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                  >
-                    <span className="flex items-center gap-2">
-                      <ShoppingCart className="h-4 w-4" />
-                      Ver pedidos
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                        <p className="text-2xl font-black">{item.value}</p>
+                      </div>
 
-                  <Link
-                    href="/mesas"
-                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Utensils className="h-4 w-4" />
-                      Mesas
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                      <p className="mt-3 text-xs font-black text-slate-950">
+                        {item.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-semibold opacity-75">
+                        {item.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
 
-                  <Link
-                    href="/produtos"
-                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Package className="h-4 w-4" />
-                      Produtos
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                {data.analysisOrders === 0 &&
+                  data.delayedOrders === 0 &&
+                  data.pendingPixOrders === 0 && (
+                    <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">
+                      Tudo certo agora. Nenhum ponto crítico na operação.
+                    </div>
+                  )}
+              </Panel>
+
+              <Panel
+                title="Oportunidades do dia"
+                subtitle="Sugestões simples para vender melhor"
+                icon={<Sparkles className="h-5 w-5" />}
+              >
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white shadow-lg shadow-orange-500/20">
+                        <Flame className="h-4 w-4" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-950">
+                          Produto em destaque
+                        </p>
+                        <p className="mt-1 text-sm leading-5 text-slate-500">
+                          {data.topProducts[0]
+                            ? `${data.topProducts[0].name} vendeu ${data.topProducts[0].quantity}x. Dá para puxar combo ou destaque no cardápio.`
+                            : "Assim que houver vendas, a ClickFood mostra o item ideal para destacar."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
+                        <Timer className="h-4 w-4" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-950">
+                          Horário forte
+                        </p>
+                        <p className="mt-1 text-sm leading-5 text-slate-500">
+                          {data.topHour !== "-"
+                            ? `${data.topHour} foi o pico. Prepare equipe, estoque e ofertas antes desse horário.`
+                            : "Ainda não existe pico claro nesse período."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-lg shadow-slate-950/20">
+                        <MapPin className="h-4 w-4" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-950">
+                          Campanha por região
+                        </p>
+                        <p className="mt-1 text-sm leading-5 text-slate-500">
+                          {hottestArea
+                            ? `${hottestArea.name} está puxando demanda. Vale testar frete promocional ou cupom limitado nessa área.`
+                            : "Quando os bairros estiverem salvos nos pedidos, a melhor região aparecerá aqui."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </Panel>
             </section>
+
           </>
         )}
       </div>
