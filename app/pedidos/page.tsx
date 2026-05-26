@@ -22,6 +22,12 @@ import {
 import AdminLayout from "@/components/admin-layout"
 import { useAuth } from "@/components/auth/auth-provider"
 import { createClient } from "@/lib/supabase/client"
+import {
+  printThermalOrder,
+  printThermalOrdersBatch,
+  type ThermalPrintMode,
+  type ThermalPrintOrder,
+} from "@/lib/thermal-print"
 
 type OrderRow = {
   id: string
@@ -60,6 +66,13 @@ type DeliveryPerson = {
   phone: string | null
   is_active: boolean
   created_at: string
+}
+
+type RestaurantPrintData = {
+  name: string
+  logoUrl: string | null
+  phone: string | null
+  address: string | null
 }
 
 type NewOrderAlert = {
@@ -470,219 +483,61 @@ function normalizeOrderItem(raw: Record<string, unknown>): OrderItem {
   }
 }
 
+function toPrintNumber(value: number | string | null | undefined) {
+  const number = Number(value || 0)
 
+  if (!Number.isFinite(number)) return 0
 
-function escapeReceiptText(value: string | number | null | undefined) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;")
+  return number
 }
 
-function printOrderReceipt(
-  order: OrderRow,
-  items: OrderItem[],
-  deliveryPeople: DeliveryPerson[]
-) {
-  const receiptWindow = window.open("", "_blank", "width=420,height=700")
-
-  if (!receiptWindow) {
-    alert("Não foi possível abrir a impressão. Libere pop-ups para imprimir o pedido.")
-    return
+function getRestaurantPrintData(restaurant: unknown) {
+  const data = restaurant as {
+    name?: string | null
+    logo_url?: string | null
+    logoUrl?: string | null
+    phone?: string | null
+    address?: string | null
   }
 
-  const isDelivery = isDeliveryOrder(order)
-  const deliveryPersonName = getDeliveryPersonName(
-    deliveryPeople,
-    order.delivery_person_id
-  )
+  return {
+    name: data?.name?.trim() || "Restaurante",
+    logoUrl: data?.logo_url || data?.logoUrl || null,
+    phone: data?.phone || null,
+    address: data?.address || null,
+  }
+}
 
-  const itemsHtml =
-    items.length > 0
-      ? items
-          .map(
-            (item) => `
-              <tr>
-                <td>${escapeReceiptText(item.quantity)}x ${escapeReceiptText(item.name)}</td>
-                <td class="right">${escapeReceiptText(formatBRL(item.total))}</td>
-              </tr>
-            `
-          )
-          .join("")
-      : `<tr><td colspan="2">Itens não carregados</td></tr>`
+function getThermalOrderType(order: OrderRow) {
+  return isDeliveryOrder(order) ? "delivery" : "pickup"
+}
 
-  const html = `
-    <!doctype html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="utf-8" />
-        <title>Pedido #${escapeReceiptText(getOrderNumber(order))}</title>
-        <style>
-          @page {
-            size: 80mm auto;
-            margin: 4mm;
-          }
-
-          * {
-            box-sizing: border-box;
-          }
-
-          body {
-            width: 72mm;
-            margin: 0 auto;
-            color: #000;
-            background: #fff;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 11px;
-            line-height: 1.35;
-          }
-
-          .center {
-            text-align: center;
-          }
-
-          .title {
-            font-size: 16px;
-            font-weight: 900;
-            margin: 0 0 2mm;
-          }
-
-          .muted {
-            font-size: 10px;
-          }
-
-          .divider {
-            border-top: 1px dashed #000;
-            margin: 3mm 0;
-          }
-
-          .row {
-            display: flex;
-            justify-content: space-between;
-            gap: 3mm;
-            margin: 1mm 0;
-          }
-
-          .label {
-            font-weight: 900;
-          }
-
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-
-          td {
-            padding: 1mm 0;
-            vertical-align: top;
-          }
-
-          .right {
-            text-align: right;
-            white-space: nowrap;
-          }
-
-          .total {
-            font-size: 15px;
-            font-weight: 900;
-          }
-
-          .obs {
-            white-space: pre-wrap;
-            word-break: break-word;
-          }
-
-          @media print {
-            button {
-              display: none;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="center">
-          <p class="title">PEDIDO #${escapeReceiptText(getOrderNumber(order))}</p>
-          <p class="muted">${escapeReceiptText(new Date(order.created_at).toLocaleString("pt-BR"))}</p>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="row">
-          <span class="label">Tipo:</span>
-          <span>${escapeReceiptText(isDelivery ? "Entrega" : "Retirada / Local")}</span>
-        </div>
-        <div class="row">
-          <span class="label">Pagamento:</span>
-          <span>${escapeReceiptText(getPaymentLabel(order.payment_method))} - ${escapeReceiptText(getPaymentStatusLabel(order.payment_status))}</span>
-        </div>
-        <div class="row">
-          <span class="label">Cliente:</span>
-          <span>${escapeReceiptText(getCustomerName(order))}</span>
-        </div>
-        <div class="row">
-          <span class="label">Telefone:</span>
-          <span>${escapeReceiptText(getCustomerPhone(order))}</span>
-        </div>
-        ${
-          isDelivery
-            ? `
-              <div class="row">
-                <span class="label">Motoboy:</span>
-                <span>${escapeReceiptText(deliveryPersonName || "Não selecionado")}</span>
-              </div>
-              <div class="row">
-                <span class="label">Taxa entrega:</span>
-                <span>${escapeReceiptText(formatBRL(order.delivery_fee))}</span>
-              </div>
-            `
-            : ""
-        }
-
-        <div class="divider"></div>
-
-        <table>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
-
-        <div class="divider"></div>
-
-        <div class="row total">
-          <span>TOTAL</span>
-          <span>${escapeReceiptText(formatBRL(order.total))}</span>
-        </div>
-
-        ${
-          order.notes
-            ? `
-              <div class="divider"></div>
-              <div>
-                <p class="label">OBSERVAÇÃO:</p>
-                <p class="obs">${escapeReceiptText(order.notes)}</p>
-              </div>
-            `
-            : ""
-        }
-
-        <div class="divider"></div>
-        <p class="center muted">ClickFood</p>
-
-        <script>
-          window.onload = function () {
-            window.focus();
-            window.print();
-          };
-        </script>
-      </body>
-    </html>
-  `
-
-  receiptWindow.document.open()
-  receiptWindow.document.write(html)
-  receiptWindow.document.close()
+function buildThermalOrderPayload(
+  order: OrderRow,
+  items: OrderItem[]
+): ThermalPrintOrder {
+  return {
+    id: order.id,
+    publicOrderNumber: getOrderNumber(order),
+    type: getThermalOrderType(order),
+    createdAt: order.created_at,
+    customer: {
+      name: getCustomerName(order),
+      phone: getCustomerPhone(order),
+    },
+    items: items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      price: item.quantity > 0 ? item.total / item.quantity : item.total,
+    })),
+    notes: order.notes,
+    subtotal: toPrintNumber(order.subtotal),
+    deliveryFee: toPrintNumber(order.delivery_fee),
+    discount: toPrintNumber(order.discount),
+    total: toPrintNumber(order.total),
+    paymentMethod: order.payment_method,
+    paymentStatus: order.payment_status,
+  }
 }
 
 type OrderCardProps = {
@@ -693,11 +548,13 @@ type OrderCardProps = {
   averagePrepTimeMinutes: number
   nowMs: number
   busyOrderId: string | null
-  onAccept: (order: OrderRow) => void
+isSelected: boolean
+onToggleSelected: (orderId: string) => void
+onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
-  onPrint: (order: OrderRow, items: OrderItem[]) => void
+  onPrint: (order: OrderRow, items: OrderItem[], mode: ThermalPrintMode) => void
   onAssignDeliveryPerson: (orderId: string, deliveryPersonId: string) => void
 }
 
@@ -709,7 +566,9 @@ function OrderCard({
   averagePrepTimeMinutes,
   nowMs,
   busyOrderId,
-  onAccept,
+isSelected,
+onToggleSelected,
+onAccept,
   onCancel,
   onSendToRoute,
   onFinish,
@@ -847,6 +706,30 @@ function OrderCard({
             {getPaymentLabel(order.payment_method)}
           </p>
         </div>
+
+        <button
+  type="button"
+  onClick={() => onToggleSelected(order.id)}
+  className={[
+    "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg border text-xs font-black transition",
+    isSelected
+      ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+  ].join(" ")}
+>
+  <span
+    className={[
+      "flex h-4 w-4 items-center justify-center rounded border",
+      isSelected
+        ? "border-blue-600 bg-blue-600 text-white"
+        : "border-slate-300 bg-white",
+    ].join(" ")}
+  >
+    {isSelected && <CheckCircle2 className="h-3 w-3" />}
+  </span>
+
+  {isSelected ? "Selecionado para impressão" : "Selecionar para impressão"}
+</button>
 
         <div className="mt-2">
           {status === "analysis" && (
@@ -1081,9 +964,18 @@ function OrderCard({
         <div className="mt-2 flex gap-2">
           <button
             type="button"
-            onClick={() => onPrint(order, items)}
+            onClick={() => onPrint(order, items, "kitchen")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-orange-700 transition hover:bg-orange-100"
+            title="Imprimir comanda da cozinha"
+          >
+            <ChefHat className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onPrint(order, items, "receipt")}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-            title="Imprimir pedido"
+            title="Imprimir recibo do cliente"
           >
             <Printer className="h-4 w-4" />
           </button>
@@ -1163,11 +1055,13 @@ type BoardColumnProps = {
   averagePrepTimeMinutes: number
   nowMs: number
   busyOrderId: string | null
-  onAccept: (order: OrderRow) => void
+selectedOrderIds: Set<string>
+onToggleSelected: (orderId: string) => void
+onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
-  onPrint: (order: OrderRow, items: OrderItem[]) => void
+  onPrint: (order: OrderRow, items: OrderItem[], mode: ThermalPrintMode) => void
   onAssignDeliveryPerson: (orderId: string, deliveryPersonId: string) => void
 }
 
@@ -1179,7 +1073,9 @@ function BoardColumn({
   averagePrepTimeMinutes,
   nowMs,
   busyOrderId,
-  onAccept,
+selectedOrderIds,
+onToggleSelected,
+onAccept,
   onCancel,
   onSendToRoute,
   onFinish,
@@ -1235,7 +1131,9 @@ function BoardColumn({
               averagePrepTimeMinutes={averagePrepTimeMinutes}
               nowMs={nowMs}
               busyOrderId={busyOrderId}
-              onAccept={onAccept}
+isSelected={selectedOrderIds.has(order.id)}
+onToggleSelected={onToggleSelected}
+onAccept={onAccept}
               onCancel={onCancel}
               onSendToRoute={onSendToRoute}
               onFinish={onFinish}
@@ -1258,6 +1156,8 @@ export default function PedidosPage() {
   >({})
   const [deliveryPeople, setDeliveryPeople] = useState<DeliveryPerson[]>([])
   const [averagePrepTimeMinutes, setAveragePrepTimeMinutes] = useState(30)
+  const [restaurantPrintData, setRestaurantPrintData] =
+  useState<RestaurantPrintData | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -1265,6 +1165,7 @@ export default function PedidosPage() {
 
   const [search, setSearch] = useState("")
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
   const [savingPrepTime, setSavingPrepTime] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [nowMs, setNowMs] = useState(Date.now())
@@ -1549,27 +1450,34 @@ export default function PedidosPage() {
   }
 
   async function loadRestaurantSettings() {
-    if (!restaurant?.id) return
+  if (!restaurant?.id) return
 
-    try {
-      const session = await ensureSupabaseSession()
+  try {
+    const session = await ensureSupabaseSession()
 
-      if (!session) return
+    if (!session) return
 
-      const { data, error } = await supabase
-        .from("restaurants")
-        .select("average_prep_time_minutes")
-        .eq("id", restaurant.id)
-        .single()
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select("name, logo_url, phone, address, average_prep_time_minutes")
+      .eq("id", restaurant.id)
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      setAveragePrepTimeMinutes(Number(data.average_prep_time_minutes || 30))
-    } catch (err) {
-      console.error("Erro ao carregar configurações do restaurante:", err)
-      setError(getErrorMessage(err, "Erro ao carregar configurações do restaurante."))
-    }
+    setAveragePrepTimeMinutes(Number(data.average_prep_time_minutes || 30))
+
+    setRestaurantPrintData({
+      name: data.name?.trim() || "Restaurante",
+      logoUrl: data.logo_url || null,
+      phone: data.phone || null,
+      address: data.address || null,
+    })
+  } catch (err) {
+    console.error("Erro ao carregar configurações do restaurante:", err)
+    setError(getErrorMessage(err, "Erro ao carregar configurações do restaurante."))
   }
+}
 
   async function updateAveragePrepTime(nextValue: number) {
     if (!restaurant?.id) return
@@ -1654,130 +1562,185 @@ export default function PedidosPage() {
   }
 
   async function registerLoyaltyOrder(orderId: string) {
-  const session = await ensureSupabaseSession()
+    const session = await ensureSupabaseSession()
 
-  if (!session?.access_token) {
-    throw new Error("Sessão expirada. Entre novamente para registrar fidelidade.")
+    if (!session?.access_token) {
+      throw new Error("Sessão expirada. Entre novamente para registrar fidelidade.")
+    }
+
+    const response = await fetch("/api/loyalty/register-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        order_id: orderId,
+      }),
+    })
+
+    const result = await response.json().catch(() => null)
+
+    if (!response.ok || result?.success === false) {
+      throw new Error(result?.error || "Erro ao registrar fidelidade.")
+    }
+
+    return result
   }
-
-  const response = await fetch("/api/loyalty/register-order", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({
-      order_id: orderId,
-    }),
-  })
-
-  const result = await response.json().catch(() => null)
-
-  if (!response.ok || result?.success === false) {
-    throw new Error(result?.error || "Erro ao registrar fidelidade.")
-  }
-
-  return result
-}
 
   async function updateOrder(
-  order: OrderRow,
-  action: "accept" | "cancel" | "route" | "finish"
-) {
-  const previousOrders = orders
-  const nowIso = new Date().toISOString()
+    order: OrderRow,
+    action: "accept" | "cancel" | "route" | "finish"
+  ) {
+    const previousOrders = orders
+    const nowIso = new Date().toISOString()
 
-  try {
-    setBusyOrderId(order.id)
-    setError(null)
+    try {
+      setBusyOrderId(order.id)
+      setError(null)
 
-    let payload: Partial<OrderRow> = {}
+      let payload: Partial<OrderRow> = {}
 
-    if (action === "accept") {
-      payload = {
-        status: "accepted",
-        accepted_at: nowIso,
-        preparation_started_at: nowIso,
+      if (action === "accept") {
+        payload = {
+          status: "accepted",
+          accepted_at: nowIso,
+          preparation_started_at: nowIso,
+        }
       }
-    }
 
-    if (action === "cancel") {
-      payload = {
-        status: "cancelled",
-        cancelled_at: nowIso,
+      if (action === "cancel") {
+        payload = {
+          status: "cancelled",
+          cancelled_at: nowIso,
+        }
       }
-    }
 
-    if (action === "route") {
-      if (!isDeliveryOrder(order)) {
+      if (action === "route") {
+        if (!isDeliveryOrder(order)) {
+          payload = {
+            status: "delivered",
+            delivered_at: nowIso,
+          }
+        } else {
+          if (!order.delivery_person_id) {
+            setError("Selecione um motoboy antes de enviar o pedido para entrega.")
+            return
+          }
+
+          payload = {
+            status: "out_for_delivery",
+            out_for_delivery_at: nowIso,
+          }
+        }
+      }
+
+      if (action === "finish") {
         payload = {
           status: "delivered",
           delivered_at: nowIso,
         }
-      } else {
-        if (!order.delivery_person_id) {
-          setError("Selecione um motoboy antes de enviar o pedido para entrega.")
-          return
-        }
-
-        payload = {
-          status: "out_for_delivery",
-          out_for_delivery_at: nowIso,
-        }
       }
-    }
 
-    if (action === "finish") {
-      payload = {
-        status: "delivered",
-        delivered_at: nowIso,
-      }
-    }
-
-    setOrders((current) =>
-      current.map((item) =>
-        item.id === order.id
-          ? {
-              ...item,
-              ...payload,
-            }
-          : item
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                ...payload,
+              }
+            : item
+        )
       )
-    )
 
-    const { error } = await supabase
-      .from("orders")
-      .update(payload)
-      .eq("id", order.id)
-      .eq("restaurant_id", restaurant?.id)
+      const { error } = await supabase
+        .from("orders")
+        .update(payload)
+        .eq("id", order.id)
+        .eq("restaurant_id", restaurant?.id)
 
-    if (error) throw error
+      if (error) throw error
 
-    if (payload.status === "delivered") {
-      try {
-        await registerLoyaltyOrder(order.id)
-      } catch (loyaltyError) {
-        console.error(
-          "Pedido finalizado, mas fidelidade não registrada:",
-          loyaltyError
-        )
-
-        setError(
-          getErrorMessage(
-            loyaltyError,
-            "Pedido finalizado, mas não foi possível registrar a fidelidade."
+      if (payload.status === "delivered") {
+        try {
+          await registerLoyaltyOrder(order.id)
+        } catch (loyaltyError) {
+          console.error(
+            "Pedido finalizado, mas fidelidade não registrada:",
+            loyaltyError
           )
-        )
+
+          setError(
+            getErrorMessage(
+              loyaltyError,
+              "Pedido finalizado, mas não foi possível registrar a fidelidade."
+            )
+          )
+        }
       }
+    } catch (err) {
+      console.error("Erro ao atualizar pedido:", err)
+      setOrders(previousOrders)
+      setError(getErrorMessage(err, "Erro ao atualizar pedido."))
+    } finally {
+      setBusyOrderId(null)
     }
-  } catch (err) {
-    console.error("Erro ao atualizar pedido:", err)
-    setOrders(previousOrders)
-    setError(getErrorMessage(err, "Erro ao atualizar pedido."))
-  } finally {
-    setBusyOrderId(null)
   }
+
+function handlePrintOrder(
+  order: OrderRow,
+  items: OrderItem[],
+  mode: ThermalPrintMode
+) {
+  printThermalOrder({
+    restaurant: restaurantPrintData || getRestaurantPrintData(restaurant),
+    mode,
+    size: "80mm",
+    order: buildThermalOrderPayload(order, items),
+  })
 }
+
+function toggleOrderSelection(orderId: string) {
+  setSelectedOrderIds((current) =>
+    current.includes(orderId)
+      ? current.filter((id) => id !== orderId)
+      : [...current, orderId]
+  )
+}
+
+function clearSelectedOrders() {
+  setSelectedOrderIds([])
+}
+
+function selectVisibleOrders(orderIds: string[]) {
+  setSelectedOrderIds(orderIds)
+}
+
+function handlePrintSelectedOrders(mode: ThermalPrintMode) {
+  const selectedOrdersToPrint = orders.filter((order) =>
+    selectedOrderIds.includes(order.id)
+  )
+
+  if (selectedOrdersToPrint.length === 0) {
+    setError("Selecione pelo menos um pedido para imprimir.")
+    return
+  }
+
+  printThermalOrdersBatch({
+    restaurant: restaurantPrintData || getRestaurantPrintData(restaurant),
+    mode,
+    size: "80mm",
+    orders: selectedOrdersToPrint.map((order) =>
+      buildThermalOrderPayload(order, orderItemsByOrderId[order.id] || [])
+    ),
+  })
+}
+useEffect(() => {
+  setSelectedOrderIds((current) =>
+    current.filter((orderId) => orders.some((order) => order.id === orderId))
+  )
+}, [orders])
+
   useEffect(() => {
     if (typeof window === "undefined") return
 
@@ -1952,6 +1915,14 @@ export default function PedidosPage() {
     })
   }, [openOrders, search])
 
+  const selectedOrderIdSet = useMemo(() => {
+  return new Set(selectedOrderIds)
+}, [selectedOrderIds])
+
+const selectedVisibleOrders = useMemo(() => {
+  return filteredOrders.filter((order) => selectedOrderIdSet.has(order.id))
+}, [filteredOrders, selectedOrderIdSet])
+
   const analysisOrders = useMemo(
     () => filteredOrders.filter((order) => getBoardStatus(order.status) === "analysis"),
     [filteredOrders]
@@ -1973,151 +1944,203 @@ export default function PedidosPage() {
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
       <div className="flex flex-col gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="grid flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div className="flex flex-col gap-4">
+    <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
+      <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
+        <div className="relative min-w-0">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar cliente, telefone ou pedido..."
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-                />
-              </div>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar cliente, telefone ou pedido..."
+            className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+          />
+        </div>
 
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <Settings2 className="h-4 w-4 text-slate-500" />
+        <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
+          <Settings2 className="h-4 w-4 shrink-0 text-slate-500" />
 
-                <span className="text-sm font-medium text-slate-700">
-                  Tempo médio:
-                </span>
+          <span className="whitespace-nowrap text-sm font-semibold text-slate-700">
+            Tempo:
+          </span>
 
-                <select
-                  value={averagePrepTimeMinutes}
-                  onChange={(event) =>
-                    updateAveragePrepTime(Number(event.target.value))
-                  }
-                  disabled={savingPrepTime}
-                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                >
-                  <option value={10}>10 min</option>
-                  <option value={15}>15 min</option>
-                  <option value={20}>20 min</option>
-                  <option value={25}>25 min</option>
-                  <option value={30}>30 min</option>
-                  <option value={35}>35 min</option>
-                  <option value={40}>40 min</option>
-                  <option value={45}>45 min</option>
-                  <option value={50}>50 min</option>
-                  <option value={60}>60 min</option>
-                </select>
+          <select
+            value={averagePrepTimeMinutes}
+            onChange={(event) =>
+              updateAveragePrepTime(Number(event.target.value))
+            }
+            disabled={savingPrepTime}
+            className="h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+          >
+            <option value={10}>10 min</option>
+            <option value={15}>15 min</option>
+            <option value={20}>20 min</option>
+            <option value={25}>25 min</option>
+            <option value={30}>30 min</option>
+            <option value={35}>35 min</option>
+            <option value={40}>40 min</option>
+            <option value={45}>45 min</option>
+            <option value={50}>50 min</option>
+            <option value={60}>60 min</option>
+          </select>
 
-                {savingPrepTime && (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-                )}
-              </div>
+          {savingPrepTime && (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+          {lastUpdatedAt
+            ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}`
+            : "Aguardando dados..."}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => void refreshAll()}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+        >
+          {refreshing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCcw className="h-4 w-4" />
+          )}
+          Atualizar
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (orderAlertsEnabled) {
+              disableOrderAlerts()
+              return
+            }
+
+            void enableOrderAlerts()
+          }}
+          className={[
+            "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
+            orderAlertsEnabled
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+          ].join(" ")}
+          title={
+            notificationPermission === "denied"
+              ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
+              : undefined
+          }
+        >
+          {orderAlertsEnabled ? (
+            <Volume2 className="h-4 w-4" />
+          ) : (
+            <BellRing className="h-4 w-4" />
+          )}
+          {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
+        </button>
+      </div>
+    </div>
+
+    {filteredOrders.length > 0 && (
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-900">
+            Impressão em lote
+          </p>
+
+          <p className="mt-0.5 text-xs font-medium text-slate-500">
+            {selectedVisibleOrders.length > 0
+              ? `${selectedVisibleOrders.length} pedido(s) selecionado(s) de ${filteredOrders.length} visível(is).`
+              : "Selecione os pedidos que deseja imprimir."}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            Selecionar visíveis
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handlePrintSelectedOrders("kitchen")}
+            disabled={selectedVisibleOrders.length === 0}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ChefHat className="h-4 w-4" />
+            Cozinha ({selectedVisibleOrders.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handlePrintSelectedOrders("receipt")}
+            disabled={selectedVisibleOrders.length === 0}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Printer className="h-4 w-4" />
+            Recibos ({selectedVisibleOrders.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={clearSelectedOrders}
+            disabled={selectedVisibleOrders.length === 0}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Limpar
+          </button>
+        </div>
+      </div>
+    )}
+
+    {error && (
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        {error}
+      </div>
+    )}
+
+    {newOrderAlert && (
+      <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+              <BellRing className="h-4 w-4" />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-xs text-slate-500">
-                {lastUpdatedAt
-                  ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}`
-                  : "Aguardando dados..."}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-emerald-900">
+                Novo pedido recebido
               </p>
 
-              <button
-                type="button"
-                onClick={() => void refreshAll()}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                {refreshing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCcw className="h-4 w-4" />
-                )}
-                Atualizar
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (orderAlertsEnabled) {
-                    disableOrderAlerts()
-                    return
-                  }
-
-                  void enableOrderAlerts()
-                }}
-                className={[
-                  "inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition",
-                  orderAlertsEnabled
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                    : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
-                ].join(" ")}
-                title={
-                  notificationPermission === "denied"
-                    ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
-                    : undefined
-                }
-              >
-                {orderAlertsEnabled ? (
-                  <Volume2 className="h-4 w-4" />
-                ) : (
-                  <BellRing className="h-4 w-4" />
-                )}
-                {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
-              </button>
+              <p className="truncate text-xs font-bold text-emerald-800">
+                {newOrderAlert.orderNumber} • {newOrderAlert.customerName} • {formatBRL(newOrderAlert.total)}
+              </p>
             </div>
           </div>
 
-          {error && (
-            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          {newOrderAlert && (
-            <div className="mt-3 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-start justify-between gap-3 px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                    <BellRing className="h-5 w-5" />
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-black text-emerald-900">
-                      Novo pedido recebido
-                    </p>
-
-                    <p className="mt-0.5 text-sm font-semibold text-emerald-800">
-                      {newOrderAlert.orderNumber} • {newOrderAlert.customerName}
-                    </p>
-
-                    <p className="mt-1 text-xs font-medium text-emerald-700">
-                      Total {formatBRL(newOrderAlert.total)}. O pedido já entrou na fila de análise.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setNewOrderAlert(null)}
-                  className="rounded-full p-1 text-emerald-700 transition hover:bg-emerald-100"
-                  aria-label="Fechar alerta de novo pedido"
-                >
-                  <XCircle className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setNewOrderAlert(null)}
+            className="shrink-0 rounded-full p-1 text-emerald-700 transition hover:bg-emerald-100"
+            aria-label="Fechar alerta de novo pedido"
+          >
+            <XCircle className="h-5 w-5" />
+          </button>
         </div>
-
+      </div>
+    )}
+  </div>
+</div>
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
@@ -2136,11 +2159,13 @@ export default function PedidosPage() {
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
                 busyOrderId={busyOrderId}
+                selectedOrderIds={selectedOrderIdSet}
+                onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
-                onPrint={(order, items) => printOrderReceipt(order, items, deliveryPeople)}
+                onPrint={handlePrintOrder}
                 onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
                   void assignDeliveryPerson(orderId, deliveryPersonId)
                 }
@@ -2154,11 +2179,13 @@ export default function PedidosPage() {
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
                 busyOrderId={busyOrderId}
+                selectedOrderIds={selectedOrderIdSet}
+                onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
-                onPrint={(order, items) => printOrderReceipt(order, items, deliveryPeople)}
+                onPrint={handlePrintOrder}
                 onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
                   void assignDeliveryPerson(orderId, deliveryPersonId)
                 }
@@ -2172,11 +2199,13 @@ export default function PedidosPage() {
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
                 busyOrderId={busyOrderId}
+                selectedOrderIds={selectedOrderIdSet}
+                onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
-                onPrint={(order, items) => printOrderReceipt(order, items, deliveryPeople)}
+                onPrint={handlePrintOrder}
                 onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
                   void assignDeliveryPerson(orderId, deliveryPersonId)
                 }

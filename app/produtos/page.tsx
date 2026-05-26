@@ -38,11 +38,17 @@ import { createClient } from "@/lib/supabase/client"
 
 type AvailabilityFilter = "all" | "active" | "inactive"
 type PromotionType = "none" | "fixed" | "percentage"
+type AvailabilityType = "always" | "scheduled"
 
 type CatalogProduct = Product & {
   promotionActive: boolean
   promotionType: PromotionType
   promotionValue: number
+  availabilityType: AvailabilityType
+  availabilityWeekdays: number[]
+  availabilityStartTime: string | null
+  availabilityEndTime: string | null
+  availabilityCategory: string | null
 }
 
 type ProductSheetState = {
@@ -78,10 +84,21 @@ type DbProduct = {
   promotion_active: boolean | null
   promotion_type: string | null
   promotion_value: number | string | null
+  availability_type: string | null
+}
+
+type DbProductAvailabilityRule = {
+  id: string
+  product_id: string
+  display_category_id: string | null
+  weekdays: number[] | null
+  start_time: string | null
+  end_time: string | null
+  is_active: boolean | null
 }
 
 const PRODUCT_SELECT =
-  "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id, promotion_active, promotion_type, promotion_value"
+  "id, name, description, price, cost_price, image_url, is_available, sort_order, category_id, promotion_active, promotion_type, promotion_value, availability_type"
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -122,7 +139,23 @@ function getPromotionLabel(product: CatalogProduct) {
   return `${formatCurrency(product.promotionValue)} OFF`
 }
 
-function normalizeProduct(product: DbProduct, salesCount = 0): CatalogProduct {
+function getNormalizedAvailabilityType(
+  value: string | null | undefined
+): AvailabilityType {
+  return value === "scheduled" ? "scheduled" : "always"
+}
+
+function normalizeAvailabilityTime(value: string | null | undefined) {
+  if (!value) return null
+
+  return value.slice(0, 5)
+}
+
+function normalizeProduct(
+  product: DbProduct,
+  salesCount = 0,
+  availabilityRule?: DbProductAvailabilityRule | null
+): CatalogProduct {
   const promotionType = getNormalizedPromotionType(product.promotion_type)
   const promotionValue = Number(product.promotion_value ?? 0)
   const promotionActive =
@@ -145,6 +178,13 @@ function normalizeProduct(product: DbProduct, salesCount = 0): CatalogProduct {
     promotionActive,
     promotionType: promotionActive ? promotionType : "none",
     promotionValue: promotionActive ? promotionValue : 0,
+    availabilityType: availabilityRule
+      ? "scheduled"
+      : getNormalizedAvailabilityType(product.availability_type),
+    availabilityWeekdays: availabilityRule?.weekdays ?? [],
+    availabilityStartTime: normalizeAvailabilityTime(availabilityRule?.start_time),
+    availabilityEndTime: normalizeAvailabilityTime(availabilityRule?.end_time),
+    availabilityCategory: availabilityRule?.display_category_id ?? null,
   }
 }
 
@@ -344,8 +384,37 @@ const productsByCategory = useMemo(() => {
         (category: DbCategory) => normalizeCategory(category)
       )
 
-      const dbProducts: CatalogProduct[] = (result.products ?? []).map(
-        (product: DbProduct) => normalizeProduct(product)
+      const rawProducts = (result.products ?? []) as DbProduct[]
+      const productIds = rawProducts.map((product) => product.id)
+      const availabilityRulesByProductId = new Map<
+        string,
+        DbProductAvailabilityRule
+      >()
+
+      if (result.restaurantId && productIds.length > 0) {
+        const { data: availabilityRules, error: availabilityRulesError } =
+          await supabase
+            .from("product_availability_rules")
+            .select(
+              "id, product_id, display_category_id, weekdays, start_time, end_time, is_active"
+            )
+            .eq("restaurant_id", result.restaurantId)
+            .eq("is_active", true)
+            .in("product_id", productIds)
+
+        if (availabilityRulesError) throw availabilityRulesError
+
+        ;((availabilityRules ?? []) as DbProductAvailabilityRule[]).forEach(
+          (rule) => {
+            if (!availabilityRulesByProductId.has(rule.product_id)) {
+              availabilityRulesByProductId.set(rule.product_id, rule)
+            }
+          }
+        )
+      }
+
+      const dbProducts: CatalogProduct[] = rawProducts.map((product) =>
+        normalizeProduct(product, 0, availabilityRulesByProductId.get(product.id))
       )
 
       setRestaurantId(result.restaurantId ?? null)
@@ -365,7 +434,7 @@ const productsByCategory = useMemo(() => {
     } finally {
       setLoadingData(false)
     }
-  }, [getAccessToken, toast])
+  }, [getAccessToken, supabase, toast])
 
   useEffect(() => {
     void loadCatalog()
@@ -423,6 +492,53 @@ const productsByCategory = useMemo(() => {
           ? values.promotionType
           : "none"
         const promotionValue = promotionActive ? values.promotionValue : 0
+        const availabilityType: AvailabilityType = values.availabilityType
+        const normalizedAvailabilityWeekdays =
+          availabilityType === "scheduled" ? values.availabilityWeekdays : []
+        const normalizedAvailabilityStartTime =
+          availabilityType === "scheduled" ? values.availabilityStartTime : null
+        const normalizedAvailabilityEndTime =
+          availabilityType === "scheduled" ? values.availabilityEndTime : null
+        const normalizedAvailabilityCategory =
+          availabilityType === "scheduled"
+            ? values.availabilityCategory
+            : null
+
+        async function saveProductAvailabilityRule(productId: string) {
+          const { error: deleteRuleError } = await supabase
+            .from("product_availability_rules")
+            .delete()
+            .eq("restaurant_id", resolvedRestaurantId)
+            .eq("product_id", productId)
+
+          if (deleteRuleError) throw deleteRuleError
+
+          if (availabilityType !== "scheduled") return
+
+          if (
+            normalizedAvailabilityWeekdays.length === 0 ||
+            !normalizedAvailabilityCategory
+          ) {
+            throw new Error(
+              "Escolha os dias e a categoria da disponibilidade programada."
+            )
+          }
+
+          const { error: insertRuleError } = await supabase
+            .from("product_availability_rules")
+            .insert({
+              restaurant_id: resolvedRestaurantId,
+              product_id: productId,
+              display_category_id: normalizedAvailabilityCategory,
+              weekdays: normalizedAvailabilityWeekdays,
+              start_time: normalizedAvailabilityStartTime,
+              end_time: normalizedAvailabilityEndTime,
+              is_active: true,
+              sort_order: 0,
+            })
+
+          if (insertRuleError) throw insertRuleError
+        }
 
         if (productSheet.mode === "edit" && productSheet.productId) {
           const editingProduct = products.find(
@@ -456,6 +572,7 @@ const productsByCategory = useMemo(() => {
               promotion_active: promotionActive,
               promotion_type: promotionType,
               promotion_value: promotionValue,
+              availability_type: availabilityType,
             })
             .eq("id", productSheet.productId)
             .eq("restaurant_id", resolvedRestaurantId)
@@ -465,8 +582,18 @@ const productsByCategory = useMemo(() => {
           if (error) throw error
           if (!data) throw new Error("Produto não encontrado para atualização.")
 
+          await saveProductAvailabilityRule(productSheet.productId)
+
           const updatedProduct: CatalogProduct = {
-            ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0),
+            ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0, {
+              id: "local",
+              product_id: productSheet.productId,
+              display_category_id: normalizedAvailabilityCategory,
+              weekdays: normalizedAvailabilityWeekdays,
+              start_time: normalizedAvailabilityStartTime,
+              end_time: normalizedAvailabilityEndTime,
+              is_active: availabilityType === "scheduled",
+            }),
             imageSize: values.imageSize,
           }
 
@@ -506,6 +633,7 @@ const productsByCategory = useMemo(() => {
               promotion_active: promotionActive,
               promotion_type: promotionType,
               promotion_value: promotionValue,
+              availability_type: availabilityType,
             })
             .select(PRODUCT_SELECT)
             .single()
@@ -513,8 +641,18 @@ const productsByCategory = useMemo(() => {
           if (error) throw error
           if (!data) throw new Error("Erro ao criar produto.")
 
+          await saveProductAvailabilityRule(data.id)
+
           const newProduct: CatalogProduct = {
-            ...normalizeProduct(data as DbProduct, 0),
+            ...normalizeProduct(data as DbProduct, 0, {
+              id: "local",
+              product_id: data.id,
+              display_category_id: normalizedAvailabilityCategory,
+              weekdays: normalizedAvailabilityWeekdays,
+              start_time: normalizedAvailabilityStartTime,
+              end_time: normalizedAvailabilityEndTime,
+              is_active: availabilityType === "scheduled",
+            }),
             imageSize: values.imageSize,
           }
 

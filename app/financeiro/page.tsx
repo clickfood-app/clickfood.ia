@@ -273,6 +273,34 @@ function isCashClosingTransaction(transaction: FinancialTransaction) {
   )
 }
 
+
+function getSupabaseErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const errorRecord = error as Record<string, unknown>
+
+    const message = typeof errorRecord.message === "string" ? errorRecord.message : ""
+    const details = typeof errorRecord.details === "string" ? errorRecord.details : ""
+    const hint = typeof errorRecord.hint === "string" ? errorRecord.hint : ""
+    const code = typeof errorRecord.code === "string" ? errorRecord.code : ""
+
+    const parts = [message, details, hint, code ? `Código: ${code}` : ""].filter(Boolean)
+
+    if (parts.length > 0) {
+      return parts.join(" | ")
+    }
+  }
+
+  return fallback
+}
+
+function throwSupabaseError(error: unknown, fallback: string): never {
+  throw new Error(getSupabaseErrorMessage(error, fallback))
+}
+
 function normalizeOrderItem(raw: RawOrderItem) {
   const productId =
     typeof raw.product_id === "string"
@@ -896,40 +924,68 @@ export default function FinanceiroPage() {
     try {
       if (period !== "today") return
 
+      setIsClosingCash(true)
+
       const resolvedRestaurantId = await resolveRestaurant()
       const closingDate = getLocalDateString()
       const { startIso, endIso } = getLocalDayRange()
-
-      setIsClosingCash(true)
+      const closedAt = new Date().toISOString()
 
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser()
 
-      const { error } = await supabase.from("cash_closings").upsert(
-        {
-          restaurant_id: resolvedRestaurantId,
-          closing_date: closingDate,
-          gross_revenue: data.grossRevenue,
-          manual_income: data.manualIncome,
-          expenses: data.expenses,
-          losses: data.losses,
-          product_cost: data.productCost,
-          estimated_profit: data.estimatedProfit,
-          pix_total: data.pixTotal,
-          cash_total: data.cashTotal,
-          card_total: data.cardTotal,
-          orders_count: data.ordersCount,
-          average_ticket: data.averageTicket,
-          closed_by: user?.id ?? null,
-          closed_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "restaurant_id,closing_date",
-        }
-      )
+      if (userError) {
+        throwSupabaseError(userError, "Não foi possível identificar o usuário.")
+      }
 
-      if (error) throw error
+      const closingPayload = {
+        restaurant_id: resolvedRestaurantId,
+        closing_date: closingDate,
+        gross_revenue: data.grossRevenue,
+        manual_income: data.manualIncome,
+        expenses: data.expenses,
+        losses: data.losses,
+        product_cost: data.productCost,
+        estimated_profit: data.estimatedProfit,
+        pix_total: data.pixTotal,
+        cash_total: data.cashTotal,
+        card_total: data.cardTotal,
+        orders_count: data.ordersCount,
+        average_ticket: data.averageTicket,
+        closed_by: user?.id ?? null,
+        closed_at: closedAt,
+      }
+
+      const { data: existingClosing, error: existingClosingError } = await supabase
+        .from("cash_closings")
+        .select("id")
+        .eq("restaurant_id", resolvedRestaurantId)
+        .eq("closing_date", closingDate)
+        .limit(1)
+        .maybeSingle()
+
+      if (existingClosingError) {
+        throwSupabaseError(
+          existingClosingError,
+          "Não foi possível verificar o fechamento de caixa existente."
+        )
+      }
+
+      const closingRequest = existingClosing?.id
+        ? supabase
+            .from("cash_closings")
+            .update(closingPayload)
+            .eq("id", existingClosing.id)
+            .eq("restaurant_id", resolvedRestaurantId)
+        : supabase.from("cash_closings").insert(closingPayload)
+
+      const { error: closingError } = await closingRequest
+
+      if (closingError) {
+        throwSupabaseError(closingError, "Não foi possível salvar o fechamento de caixa.")
+      }
 
       const title = `Fechamento de caixa - ${new Intl.DateTimeFormat("pt-BR").format(
         new Date()
@@ -949,13 +1005,18 @@ export default function FinanceiroPage() {
           .select("id")
           .eq("restaurant_id", resolvedRestaurantId)
           .eq("type", "income")
-          .eq("category", "Fechamento diário")
+          .eq("origin", "cash_closing")
           .gte("occurred_at", startIso)
           .lt("occurred_at", endIso)
           .limit(1)
           .maybeSingle()
 
-      if (existingTransactionError) throw existingTransactionError
+      if (existingTransactionError) {
+        throwSupabaseError(
+          existingTransactionError,
+          "Não foi possível verificar a entrada automática do fechamento."
+        )
+      }
 
       const transactionPayload = {
         restaurant_id: resolvedRestaurantId,
@@ -966,7 +1027,7 @@ export default function FinanceiroPage() {
         amount: data.grossRevenue,
         category: "Fechamento diário",
         payment_method: "Misto",
-        occurred_at: new Date().toISOString(),
+        occurred_at: closedAt,
       }
 
       const transactionRequest = existingTransaction?.id
@@ -979,7 +1040,12 @@ export default function FinanceiroPage() {
 
       const { error: transactionError } = await transactionRequest
 
-      if (transactionError) throw transactionError
+      if (transactionError) {
+        throwSupabaseError(
+          transactionError,
+          "Não foi possível lançar o fechamento como entrada automática."
+        )
+      }
 
       await loadFinanceiro()
 
@@ -989,14 +1055,16 @@ export default function FinanceiroPage() {
           "O fechamento de hoje foi salvo e lançado como entrada automática.",
       })
     } catch (error) {
-      console.error("Erro ao fechar caixa:", error)
+      const errorMessage = getSupabaseErrorMessage(
+        error,
+        "Não foi possível fechar o caixa."
+      )
+
+      console.error("Erro ao fechar caixa:", errorMessage, error)
 
       toast({
         title: "Erro ao fechar caixa",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível fechar o caixa.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {

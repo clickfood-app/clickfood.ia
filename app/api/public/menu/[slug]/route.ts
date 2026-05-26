@@ -263,6 +263,19 @@ type ModifierOptionRow = {
   created_at?: string | null
 }
 
+type ProductAvailabilityRuleRow = {
+  id: string
+  restaurant_id: string
+  product_id: string
+  display_category_id: string | null
+  weekdays: Array<number | string> | null
+  start_time: string | null
+  end_time: string | null
+  is_active: boolean | null
+  sort_order: number | string | null
+  created_at?: string | null
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { slug } = await context.params
@@ -306,6 +319,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const [
       categoriesResult,
       productsResult,
+      availabilityRulesResult,
       deliveryRulesResult,
       ratingsResult,
     ] = await Promise.all([
@@ -322,6 +336,16 @@ export async function GET(_request: Request, context: RouteContext) {
         .select("*")
         .eq("restaurant_id", restaurant.id)
         .eq("is_available", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+
+      supabaseAdmin
+        .from("product_availability_rules")
+        .select(
+          "id, restaurant_id, product_id, display_category_id, weekdays, start_time, end_time, is_active, sort_order, created_at"
+        )
+        .eq("restaurant_id", restaurant.id)
+        .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true }),
 
@@ -366,6 +390,25 @@ export async function GET(_request: Request, context: RouteContext) {
 
       return NextResponse.json(
         { error: productsResult.error.message || "Erro ao buscar produtos." },
+        { status: 500 }
+      )
+    }
+
+    if (availabilityRulesResult.error) {
+      console.error("Erro ao buscar regras de disponibilidade públicas:", {
+        restaurantId: restaurant.id,
+        message: availabilityRulesResult.error.message,
+        details: availabilityRulesResult.error.details,
+        hint: availabilityRulesResult.error.hint,
+        code: availabilityRulesResult.error.code,
+      })
+
+      return NextResponse.json(
+        {
+          error:
+            availabilityRulesResult.error.message ||
+            "Erro ao buscar regras de disponibilidade dos produtos.",
+        },
         { status: 500 }
       )
     }
@@ -512,8 +555,18 @@ export async function GET(_request: Request, context: RouteContext) {
 
     const categories = categoriesResult.data ?? []
     const products = productsResult.data ?? []
+    const availabilityRules =
+      (availabilityRulesResult.data ?? []) as ProductAvailabilityRuleRow[]
     const deliveryRules = (deliveryRulesResult.data ?? []) as DeliveryFeeRuleRow[]
     const ratingSummary = calculateRatingSummary(ratingsResult.data ?? [])
+
+    const availabilityRulesByProduct = new Map<string, ProductAvailabilityRuleRow[]>()
+
+    for (const rule of availabilityRules) {
+      const current = availabilityRulesByProduct.get(rule.product_id) ?? []
+      current.push(rule)
+      availabilityRulesByProduct.set(rule.product_id, current)
+    }
 
     const categoriesMap = new Map(categories.map((category) => [category.id, category]))
     const productsByCategory = new Map<string, any[]>()
@@ -525,6 +578,34 @@ export async function GET(_request: Request, context: RouteContext) {
         : null
 
       const pricing = normalizeProductPricing(product as Record<string, unknown>)
+      const productAvailabilityRules = (availabilityRulesByProduct.get(product.id) ?? []).map(
+        (rule) => ({
+          id: rule.id,
+          restaurantId: rule.restaurant_id,
+          restaurant_id: rule.restaurant_id,
+          productId: rule.product_id,
+          product_id: rule.product_id,
+          displayCategoryId: rule.display_category_id,
+          display_category_id: rule.display_category_id,
+          weekdays: Array.isArray(rule.weekdays)
+            ? rule.weekdays
+                .map((weekday) => Number(weekday))
+                .filter((weekday) =>
+                  Number.isInteger(weekday) && weekday >= 0 && weekday <= 6
+                )
+            : [],
+          startTime: rule.start_time,
+          start_time: rule.start_time,
+          endTime: rule.end_time,
+          end_time: rule.end_time,
+          isActive: rule.is_active ?? true,
+          is_active: rule.is_active ?? true,
+          sortOrder: toNumber(rule.sort_order, 0),
+          sort_order: toNumber(rule.sort_order, 0),
+        })
+      )
+
+      const availabilityType = String(product.availability_type ?? "always")
 
       const normalizedProduct = {
         id: product.id,
@@ -550,6 +631,12 @@ export async function GET(_request: Request, context: RouteContext) {
         promotion_value: pricing.promotionValue,
         cost: 0,
         active: product.is_available ?? true,
+        availabilityType,
+        availability_type: availabilityType,
+        availabilityRules: productAvailabilityRules,
+        availability_rules: productAvailabilityRules,
+        productAvailabilityRules,
+        product_availability_rules: productAvailabilityRules,
         salesCount: 0,
         order: toNumber(product.sort_order, 0),
         image: product.image_url ?? null,

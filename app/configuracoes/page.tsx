@@ -5,7 +5,6 @@ import {
   Building2,
   Clock,
   CreditCard,
-  Crown,
   Settings,
   Truck,
 } from "lucide-react"
@@ -19,14 +18,12 @@ const StoreTab = lazy(() => import("@/components/settings/store-tab"))
 const OperationTab = lazy(() => import("@/components/settings/operation-tab"))
 const PaymentsTab = lazy(() => import("@/components/settings/payments-tab"))
 const DeliveryTab = lazy(() => import("@/components/settings/delivery-tab"))
-const PlanTab = lazy(() => import("@/components/settings/plan-tab"))
 
 const tabs = [
   { value: "store", label: "Dados da Loja", icon: <Building2 className="h-4 w-4" /> },
   { value: "operation", label: "Funcionamento", icon: <Clock className="h-4 w-4" /> },
   { value: "payments", label: "Pagamentos", icon: <CreditCard className="h-4 w-4" /> },
   { value: "delivery", label: "Entrega", icon: <Truck className="h-4 w-4" /> },
-  { value: "plan", label: "Plano", icon: <Crown className="h-4 w-4" /> },
 ] as const
 
 function TabSkeleton() {
@@ -122,12 +119,6 @@ export default function ConfiguracoesPage() {
           <TabsContent value="delivery">
             <Suspense fallback={<TabSkeleton />}>
               <DeliveryTab />
-            </Suspense>
-          </TabsContent>
-
-          <TabsContent value="plan">
-            <Suspense fallback={<TabSkeleton />}>
-              <PlanTab />
             </Suspense>
           </TabsContent>
         </Tabs>

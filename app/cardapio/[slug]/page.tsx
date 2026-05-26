@@ -130,6 +130,35 @@ type PromotionAwareProduct = MenuProduct & {
   } | null
 }
 
+type ProductAvailabilityRule = {
+  id?: string
+  displayCategoryId?: string | null
+  display_category_id?: string | null
+  weekdays?: Array<number | string> | null
+  weekday?: number | string | null
+  startTime?: string | null
+  start_time?: string | null
+  endTime?: string | null
+  end_time?: string | null
+  isActive?: boolean | null
+  is_active?: boolean | null
+}
+
+type ScheduledMenuProduct = MenuProduct & {
+  availabilityType?: "always" | "scheduled" | string | null
+  availability_type?: "always" | "scheduled" | string | null
+  availabilityRules?: ProductAvailabilityRule[] | null
+  availability_rules?: ProductAvailabilityRule[] | null
+  productAvailabilityRules?: ProductAvailabilityRule[] | null
+  product_availability_rules?: ProductAvailabilityRule[] | null
+}
+
+type ProductAvailabilityStatus = {
+  isAvailable: boolean
+  displayCategoryId: string | null
+  isScheduled: boolean
+}
+
 const mockModifierGroups: Record<string, ModifierGroup[]> = {
   "cat-1": [
     {
@@ -262,6 +291,147 @@ function timeToMinutes(value?: string | null, fallback = 0) {
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return fallback
 
   return hours * 60 + minutes
+}
+
+function getProductAvailabilityType(product: MenuProduct) {
+  const scheduledProduct = product as ScheduledMenuProduct
+
+  return scheduledProduct.availabilityType ?? scheduledProduct.availability_type ?? "always"
+}
+
+function getProductAvailabilityRules(product: MenuProduct) {
+  const scheduledProduct = product as ScheduledMenuProduct
+
+  const rules =
+    scheduledProduct.availabilityRules ??
+    scheduledProduct.availability_rules ??
+    scheduledProduct.productAvailabilityRules ??
+    scheduledProduct.product_availability_rules ??
+    []
+
+  return Array.isArray(rules) ? rules : []
+}
+
+function getRuleWeekdays(rule: ProductAvailabilityRule) {
+  if (Array.isArray(rule.weekdays)) {
+    return rule.weekdays
+      .map((weekday) => Number(weekday))
+      .filter((weekday) => Number.isInteger(weekday) && weekday >= 0 && weekday <= 6)
+  }
+
+  const weekday = Number(rule.weekday)
+
+  if (Number.isInteger(weekday) && weekday >= 0 && weekday <= 6) {
+    return [weekday]
+  }
+
+  return []
+}
+
+function isTimeInsideRange(currentMinutes: number, startMinutes: number, endMinutes: number) {
+  if (startMinutes === endMinutes) return true
+
+  if (endMinutes > startMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes
+  }
+
+  return currentMinutes >= startMinutes || currentMinutes < endMinutes
+}
+
+function getProductAvailabilityStatus(
+  product: MenuProduct,
+  now = new Date()
+): ProductAvailabilityStatus {
+  const availabilityType = getProductAvailabilityType(product)
+  const isScheduled = availabilityType === "scheduled"
+
+  if (!isScheduled) {
+    return {
+      isAvailable: true,
+      displayCategoryId: null,
+      isScheduled: false,
+    }
+  }
+
+  const currentWeekday = now.getDay()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+
+  const activeRule = getProductAvailabilityRules(product).find((rule) => {
+    const isRuleActive = rule.isActive ?? rule.is_active ?? true
+
+    if (!isRuleActive) return false
+
+    const weekdays = getRuleWeekdays(rule)
+
+    if (!weekdays.includes(currentWeekday)) return false
+
+    const startTime = rule.startTime ?? rule.start_time ?? null
+    const endTime = rule.endTime ?? rule.end_time ?? null
+
+    if (!startTime && !endTime) return true
+
+    const startMinutes = timeToMinutes(startTime, 0)
+    const endMinutes = timeToMinutes(endTime, 24 * 60)
+
+    return isTimeInsideRange(currentMinutes, startMinutes, endMinutes)
+  })
+
+  if (!activeRule) {
+    return {
+      isAvailable: false,
+      displayCategoryId: null,
+      isScheduled: true,
+    }
+  }
+
+  return {
+    isAvailable: true,
+    displayCategoryId: activeRule.displayCategoryId ?? activeRule.display_category_id ?? null,
+    isScheduled: true,
+  }
+}
+
+function getVisibleMenuCategories(categories: MenuCategory[], now = new Date()) {
+  const categoryMap = new Map<string, MenuCategory>()
+  const orderedCategories: MenuCategory[] = []
+
+  categories.forEach((category) => {
+    const emptyCategory = {
+      ...category,
+      products: [],
+    }
+
+    categoryMap.set(category.id, emptyCategory)
+    orderedCategories.push(emptyCategory)
+  })
+
+  const addedProducts = new Set<string>()
+
+  categories.forEach((category) => {
+    category.products.forEach((product) => {
+      const availability = getProductAvailabilityStatus(product, now)
+
+      if (!availability.isAvailable) return
+
+      const targetCategory =
+        categoryMap.get(availability.displayCategoryId ?? "") ?? categoryMap.get(category.id)
+
+      if (!targetCategory) return
+
+      const productKey = `${targetCategory.id}:${product.id}`
+
+      if (addedProducts.has(productKey)) return
+
+      targetCategory.products.push(product)
+      addedProducts.add(productKey)
+    })
+  })
+
+  return orderedCategories.filter((category) => category.products.length > 0)
+}
+
+function isScheduledProduct(product: MenuProduct) {
+  return getProductAvailabilityType(product) === "scheduled"
 }
 
 function isOpenNow(restaurant: PublicRestaurant) {
@@ -677,6 +847,13 @@ function ProductCard({
           {product.description?.trim() || "Toque para ver mais detalhes deste item."}
         </p>
 
+        {isScheduledProduct(product) && (
+          <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
+            <Timer className="h-3 w-3" />
+            Prato do dia
+          </div>
+        )}
+
         <div className="mt-2.5 flex items-end gap-2">
           {isPromotional && (
             <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-black text-orange-600">
@@ -973,6 +1150,14 @@ const modifierGroups = Array.isArray(modifierGroupsSource)
 
             <div>
               <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
+
+              {isScheduledProduct(product) && (
+                <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+                  <Timer className="h-3.5 w-3.5" />
+                  Disponível hoje
+                </div>
+              )}
+
               <p className="mt-2 text-sm leading-relaxed text-gray-500">{product.description}</p>
 
               <div className="mt-3">
@@ -3700,6 +3885,7 @@ export default function CardapioPublicoPage() {
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [customerLoyalty, setCustomerLoyalty] = useState<CustomerLoyaltyProgress | null>(null)
   const [customerOrderHistory, setCustomerOrderHistory] = useState<CustomerVisibleOrder[]>([])
+  const [availabilityClock, setAvailabilityClock] = useState(() => new Date())
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
   const categoryNavRef = useRef<HTMLDivElement>(null)
@@ -3710,6 +3896,16 @@ export default function CardapioPublicoPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const intervalId = window.setInterval(() => {
+      setAvailabilityClock(new Date())
+    }, 60_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [mounted])
 
   useEffect(() => {
     async function loadPublicMenu() {
@@ -3988,11 +4184,25 @@ export default function CardapioPublicoPage() {
     activeOrder?.customer_received_at,
   ])
 
+  const visibleCategories = useMemo(
+    () => getVisibleMenuCategories(categories, availabilityClock),
+    [categories, availabilityClock]
+  )
+
   useEffect(() => {
-    if (categories.length > 0 && !activeCategory) {
-      setActiveCategory(categories[0].id)
+    if (visibleCategories.length === 0) {
+      setActiveCategory(null)
+      return
     }
-  }, [categories, activeCategory])
+
+    const activeCategoryStillVisible = visibleCategories.some(
+      (category) => category.id === activeCategory
+    )
+
+    if (!activeCategory || !activeCategoryStillVisible) {
+      setActiveCategory(visibleCategories[0].id)
+    }
+  }, [visibleCategories, activeCategory])
 
   useEffect(() => {
     if (!mounted) return
@@ -4023,7 +4233,7 @@ export default function CardapioPublicoPage() {
     })
 
     return () => observer.disconnect()
-  }, [mounted, categories])
+  }, [mounted, visibleCategories])
 
   const addToCart = useCallback((item: Omit<CartItem, "id">) => {
     setCart((prev) => [...prev, { ...item, id: `cart-${Date.now()}-${Math.random()}` }])
@@ -4036,7 +4246,7 @@ export default function CardapioPublicoPage() {
       const suggestionIds = upsellSuggestions[categoryId]
 
       if (suggestionIds) {
-        const allProducts = categories.flatMap((c) => c.products)
+        const allProducts = visibleCategories.flatMap((c) => c.products)
 
         const suggestions = suggestionIds
           .map((id) => allProducts.find((p) => p.id === id))
@@ -4047,7 +4257,7 @@ export default function CardapioPublicoPage() {
         }
       }
     },
-    [categories, addToCart]
+    [visibleCategories, addToCart]
   )
 
   const updateCartQuantity = useCallback((cartItemId: string, delta: number) => {
@@ -4066,11 +4276,11 @@ export default function CardapioPublicoPage() {
   const cartTotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
 
   const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return categories
+    if (!searchQuery.trim()) return visibleCategories
 
     const q = searchQuery.toLowerCase()
 
-    return categories
+    return visibleCategories
       .map((cat) => ({
         ...cat,
         products: cat.products.filter(
@@ -4080,10 +4290,10 @@ export default function CardapioPublicoPage() {
         ),
       }))
       .filter((cat) => cat.products.length > 0)
-  }, [categories, searchQuery])
+  }, [visibleCategories, searchQuery])
 
   const featuredProducts = useMemo(() => {
-    return categories
+    return visibleCategories
       .flatMap((category) =>
         category.products.map((product) => ({
           product,
@@ -4091,7 +4301,7 @@ export default function CardapioPublicoPage() {
         }))
       )
       .filter(({ product }) => getProductPromotion(product).isPromotional)
-  }, [categories])
+  }, [visibleCategories])
 
   const scrollToCategory = useCallback((categoryId: string) => {
     const el = categoryRefs.current[categoryId]
@@ -4425,7 +4635,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 </p>
 
                 <p className="mt-1 truncate text-sm font-black text-gray-900">
-                  {deliveryEnabled ? `Desde ${formatPrice(startingDeliveryFee)}` : "No local"}
+                 {deliveryEnabled ? formatPrice(startingDeliveryFee) : "No local"}
                 </p>
               </div>
 
