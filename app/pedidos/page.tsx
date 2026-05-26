@@ -50,6 +50,11 @@ type OrderRow = {
   delivered_at: string | null
   cancelled_at: string | null
   accept_by: string | null
+  pix_proof_url: string | null
+  pix_proof_path: string | null
+  pix_proof_uploaded_at: string | null
+  pix_confirmed_at: string | null
+  pix_confirmed_by: string | null
 }
 
 type OrderItem = {
@@ -109,6 +114,10 @@ const OPEN_ORDER_STATUSES = [
   "on_route",
   "em_rota",
   "em rota",
+  "waiting_pix_confirmation",
+  "awaiting_pix_review",
+  "aguardando_confirmacao_pix",
+  "aguardando confirmação pix",
 ]
 
 const columnStyles = {
@@ -186,6 +195,33 @@ function normalizeStatus(status: string | null | undefined) {
   return (status || "").trim().toLowerCase()
 }
 
+function isManualPixMethod(paymentMethod: string | null | undefined) {
+  const value = normalizeStatus(paymentMethod)
+
+  return (
+    value === "pix_manual" ||
+    value === "pix_direto" ||
+    value === "pix direto" ||
+    value === "pix_manual_receipt"
+  )
+}
+
+function isPixAwaitingReview(order: Pick<OrderRow, "payment_method" | "payment_status" | "status">) {
+  const paymentStatus = normalizeStatus(order.payment_status)
+  const status = normalizeStatus(order.status)
+
+  return (
+    isManualPixMethod(order.payment_method) &&
+    (paymentStatus === "awaiting_review" ||
+      paymentStatus === "aguardando_conferencia" ||
+      paymentStatus === "aguardando conferência" ||
+      status === "waiting_pix_confirmation" ||
+      status === "awaiting_pix_review" ||
+      status === "aguardando_confirmacao_pix" ||
+      status === "aguardando confirmação pix")
+  )
+}
+
 function isAnalysisStatus(status: string | null | undefined) {
   const value = normalizeStatus(status)
 
@@ -195,7 +231,11 @@ function isAnalysisStatus(status: string | null | undefined) {
     value === "in_analysis" ||
     value === "em_analise" ||
     value === "analise" ||
-    value === "em análise"
+    value === "em análise" ||
+    value === "waiting_pix_confirmation" ||
+    value === "awaiting_pix_review" ||
+    value === "aguardando_confirmacao_pix" ||
+    value === "aguardando confirmação pix"
   )
 }
 
@@ -241,9 +281,19 @@ function isOrderVisibleOnBoard(order: Partial<OrderRow>) {
 
   const paymentMethod = String(order.payment_method || "").trim().toLowerCase()
   const paymentStatus = String(order.payment_status || "").trim().toLowerCase()
+  const status = String(order.status || "").trim().toLowerCase()
 
   if (paymentMethod === "pix") {
     return paymentStatus === "paid"
+  }
+
+  if (isManualPixMethod(paymentMethod)) {
+    return (
+      paymentStatus === "paid" ||
+      paymentStatus === "awaiting_review" ||
+      status === "waiting_pix_confirmation" ||
+      status === "awaiting_pix_review"
+    )
   }
 
   return true
@@ -356,7 +406,8 @@ function getPaymentLabel(paymentMethod: string | null) {
 
   const normalized = paymentMethod.toLowerCase()
 
-  if (normalized === "pix") return "Pix"
+  if (normalized === "pix") return "Pix automático"
+  if (isManualPixMethod(normalized)) return "Pix direto"
   if (normalized === "cash" || normalized === "dinheiro") return "Dinheiro"
   if (normalized === "credit_card" || normalized === "credito") return "Crédito"
   if (normalized === "debit_card" || normalized === "debito") return "Débito"
@@ -368,6 +419,8 @@ function getPaymentStatusLabel(paymentStatus: string | null) {
   const normalized = String(paymentStatus || "").toLowerCase()
 
   if (normalized === "paid") return "Pago"
+  if (normalized === "awaiting_review") return "Conferir Pix"
+  if (normalized === "waiting_customer_payment") return "Aguardando Pix"
   if (normalized === "pending") return "Pendente"
   if (normalized === "failed") return "Falhou"
   if (normalized === "cancelled") return "Cancelado"
@@ -420,6 +473,10 @@ function getPaymentBadgeClasses(paymentStatus: string | null) {
     return "border-emerald-200 bg-emerald-50 text-emerald-700"
   }
 
+  if (normalized === "awaiting_review" || normalized === "waiting_customer_payment") {
+    return "border-orange-200 bg-orange-50 text-orange-700"
+  }
+
   if (normalized === "failed" || normalized === "cancelled") {
     return "border-red-200 bg-red-50 text-red-700"
   }
@@ -440,6 +497,10 @@ function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
   const isPaid = isPaidOrder(order)
 
   if (status === "analysis") {
+    if (isPixAwaitingReview(order)) {
+      return "Cliente enviou comprovante. Confira antes de aceitar."
+    }
+
     if (isPaid) return "Pedido pago. Pode aceitar com segurança."
     return "Pagamento pendente. Confira a forma de pagamento."
   }
@@ -552,6 +613,7 @@ isSelected: boolean
 onToggleSelected: (orderId: string) => void
 onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
+  onConfirmPixPayment: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
   onPrint: (order: OrderRow, items: OrderItem[], mode: ThermalPrintMode) => void
@@ -570,6 +632,7 @@ isSelected,
 onToggleSelected,
 onAccept,
   onCancel,
+  onConfirmPixPayment,
   onSendToRoute,
   onFinish,
   onPrint,
@@ -580,6 +643,8 @@ onAccept,
   const isDelivery = isDeliveryOrder(order)
   const isPaid = isPaidOrder(order)
   const TypeIcon = isDelivery ? Truck : Package
+  const isPixReview = isPixAwaitingReview(order)
+  const [proofModalOpen, setProofModalOpen] = useState(false)
 
   const acceptDeadline = getAcceptDeadline(order)
   const acceptRemainingMs = acceptDeadline.getTime() - nowMs
@@ -706,6 +771,17 @@ onAccept,
             {getPaymentLabel(order.payment_method)}
           </p>
         </div>
+
+        {isPixReview && (
+          <div className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-2">
+            <p className="text-[10px] font-black uppercase tracking-wide text-orange-700">
+              Conferência Pix necessária
+            </p>
+            <p className="mt-0.5 text-xs font-semibold leading-relaxed text-orange-900">
+              Confira data, horário, valor e destinatário do comprovante antes de confirmar.
+            </p>
+          </div>
+        )}
 
         <button
   type="button"
@@ -981,31 +1057,69 @@ onAccept,
           </button>
 
           {status === "analysis" && (
-            <>
-              <button
-                type="button"
-                onClick={() => onAccept(order)}
-                disabled={isBusy}
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                )}
-                Aceitar
-              </button>
+            isPixReview ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setProofModalOpen(true)}
+                  disabled={!order.pix_proof_url}
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 shadow-sm transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Ver comprovante
+                </button>
 
-              <button
-                type="button"
-                onClick={() => onCancel(order)}
-                disabled={isBusy}
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <XCircle className="h-3.5 w-3.5" />
-                Negar
-              </button>
-            </>
+                <button
+                  type="button"
+                  onClick={() => onConfirmPixPayment(order)}
+                  disabled={isBusy}
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  Confirmar Pix
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onCancel(order)}
+                  disabled={isBusy}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  title="Cancelar pedido"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onAccept(order)}
+                  disabled={isBusy}
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  Aceitar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onCancel(order)}
+                  disabled={isBusy}
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Negar
+                </button>
+              </>
+            )
           )}
 
           {status === "preparation" && (
@@ -1043,6 +1157,90 @@ onAccept,
           )}
         </div>
       </div>
+
+      {proofModalOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setProofModalOpen(false)}
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-orange-600">
+                  Comprovante Pix
+                </p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">
+                  Pedido #{getOrderNumber(order)}
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Confira valor, data, horário e destinatário antes de confirmar.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setProofModalOpen(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                aria-label="Fechar comprovante"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">
+              {order.pix_proof_url ? (
+                <img
+                  src={order.pix_proof_url}
+                  alt={`Comprovante Pix do pedido ${getOrderNumber(order)}`}
+                  className="mx-auto max-h-[68vh] w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
+                />
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                  <p className="text-sm font-bold text-slate-700">
+                    Comprovante não disponível.
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Atualize a tela ou peça para o cliente reenviar o comprovante.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-slate-100 bg-white p-4 sm:flex-row">
+              {order.pix_proof_url && (
+                <a
+                  href={order.pix_proof_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                >
+                  Abrir imagem
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProofModalOpen(false)
+                  onConfirmPixPayment(order)
+                }}
+                disabled={isBusy}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Confirmar pagamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   )
 }
@@ -1059,6 +1257,7 @@ selectedOrderIds: Set<string>
 onToggleSelected: (orderId: string) => void
 onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
+  onConfirmPixPayment: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
   onPrint: (order: OrderRow, items: OrderItem[], mode: ThermalPrintMode) => void
@@ -1077,6 +1276,7 @@ selectedOrderIds,
 onToggleSelected,
 onAccept,
   onCancel,
+  onConfirmPixPayment,
   onSendToRoute,
   onFinish,
   onPrint,
@@ -1135,6 +1335,7 @@ isSelected={selectedOrderIds.has(order.id)}
 onToggleSelected={onToggleSelected}
 onAccept={onAccept}
               onCancel={onCancel}
+              onConfirmPixPayment={onConfirmPixPayment}
               onSendToRoute={onSendToRoute}
               onFinish={onFinish}
               onPrint={onPrint}
@@ -1400,7 +1601,7 @@ export default function PedidosPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, public_order_number, customer_name, customer_phone, status, subtotal, discount, delivery_fee, total, payment_method, payment_status, notes, created_at, delivery_person_id, accepted_at, preparation_started_at, out_for_delivery_at, delivered_at, cancelled_at, accept_by"
+          "id, public_order_number, customer_name, customer_phone, status, subtotal, discount, delivery_fee, total, payment_method, payment_status, notes, created_at, delivery_person_id, accepted_at, preparation_started_at, out_for_delivery_at, delivered_at, cancelled_at, accept_by, pix_proof_url, pix_proof_path, pix_proof_uploaded_at, pix_confirmed_at, pix_confirmed_by"
         )
         .eq("restaurant_id", restaurant.id)
         .in("status", OPEN_ORDER_STATUSES)
@@ -1686,6 +1887,48 @@ export default function PedidosPage() {
       setBusyOrderId(null)
     }
   }
+
+async function confirmPixPayment(order: OrderRow) {
+  const previousOrders = orders
+  const nowIso = new Date().toISOString()
+
+  try {
+    setBusyOrderId(order.id)
+    setError(null)
+
+    const payload: Partial<OrderRow> = {
+      payment_status: "paid",
+      status: "pending",
+      pix_confirmed_at: nowIso,
+      pix_confirmed_by: user?.id ?? null,
+    }
+
+    setOrders((current) =>
+      current.map((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              ...payload,
+            }
+          : item
+      )
+    )
+
+    const { error } = await supabase
+      .from("orders")
+      .update(payload)
+      .eq("id", order.id)
+      .eq("restaurant_id", restaurant?.id)
+
+    if (error) throw error
+  } catch (err) {
+    console.error("Erro ao confirmar Pix:", err)
+    setOrders(previousOrders)
+    setError(getErrorMessage(err, "Erro ao confirmar pagamento Pix."))
+  } finally {
+    setBusyOrderId(null)
+  }
+}
 
 function handlePrintOrder(
   order: OrderRow,
@@ -2163,6 +2406,7 @@ const selectedVisibleOrders = useMemo(() => {
                 onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
+                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
                 onPrint={handlePrintOrder}
@@ -2183,6 +2427,7 @@ const selectedVisibleOrders = useMemo(() => {
                 onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
+                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
                 onPrint={handlePrintOrder}
@@ -2203,6 +2448,7 @@ const selectedVisibleOrders = useMemo(() => {
                 onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
+                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
                 onPrint={handlePrintOrder}

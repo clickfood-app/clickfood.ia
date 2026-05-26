@@ -26,6 +26,7 @@ import {
   Utensils,
   Timer,
   Receipt,
+  Upload,
   UserRound,
   Star,
 } from "lucide-react"
@@ -57,7 +58,12 @@ interface PublicRestaurant {
   address?: string | null
   city?: string | null
   state?: string | null
-
+  pixKey?: string | null
+  pix_key?: string | null
+  pixKeyType?: string | null
+  pix_key_type?: string | null
+  pixReceiverName?: string | null
+  pix_receiver_name?: string | null
   deliveryFee: number
   deliveryFeeRules?: DeliveryFeeRule[] | null
   openTime?: string | null
@@ -1349,15 +1355,15 @@ type NeighborhoodOption = {
 
 type PixPaymentData = {
   orderId: string
-  paymentId: string
-  qrCodeBase64: string | null
-  qrCodeUrl: string | null
-  qrCode: string | null
-  pixCopyPaste: string | null
-  ticketUrl: string | null
-  status: string | null
+  paymentId?: string | null
+  qrCodeBase64?: string | null
+  qrCodeUrl?: string | null
+  qrCode?: string | null
+  pixCopyPaste?: string | null
+  ticketUrl?: string | null
+  status?: string | null
   publicOrderNumber: string | null
-  expiresAt: string | null
+  expiresAt?: string | null
 }
 
 type OrderPaymentStatusResponse = {
@@ -1484,11 +1490,97 @@ function formatPhonePreview(value: string) {
   return value
 }
 
+function sanitizePixText(value: string | null | undefined, maxLength: number, fallback: string) {
+  const normalized = (value || fallback)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase()
+
+  return (normalized || fallback).slice(0, maxLength)
+}
+
+function formatPixAmount(value: number) {
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0
+
+  return safeValue.toFixed(2)
+}
+
+function buildPixField(id: string, value: string) {
+  const size = String(value.length).padStart(2, "0")
+
+  return `${id}${size}${value}`
+}
+
+function calculatePixCrc16(payload: string) {
+  let crc = 0xffff
+
+  for (let index = 0; index < payload.length; index += 1) {
+    crc ^= payload.charCodeAt(index) << 8
+
+    for (let bit = 0; bit < 8; bit += 1) {
+      if ((crc & 0x8000) !== 0) {
+        crc = (crc << 1) ^ 0x1021
+      } else {
+        crc <<= 1
+      }
+
+      crc &= 0xffff
+    }
+  }
+
+  return crc.toString(16).toUpperCase().padStart(4, "0")
+}
+
+function buildManualPixPayload({
+  pixKey,
+  receiverName,
+  city,
+  amount,
+  txid,
+}: {
+  pixKey: string
+  receiverName: string
+  city?: string | null
+  amount: number
+  txid: string
+}) {
+  const safePixKey = pixKey.trim()
+
+  if (!safePixKey) return ""
+
+  const merchantAccountInfo =
+    buildPixField("00", "br.gov.bcb.pix") +
+    buildPixField("01", safePixKey)
+
+  const additionalData = buildPixField(
+    "05",
+    sanitizePixText(txid, 25, "CLICKFOOD")
+  )
+
+  const payloadWithoutCrc =
+    buildPixField("00", "01") +
+    buildPixField("26", merchantAccountInfo) +
+    buildPixField("52", "0000") +
+    buildPixField("53", "986") +
+    buildPixField("54", formatPixAmount(amount)) +
+    buildPixField("58", "BR") +
+    buildPixField("59", sanitizePixText(receiverName, 25, "RESTAURANTE")) +
+    buildPixField("60", sanitizePixText(city, 15, "BRASIL")) +
+    buildPixField("62", additionalData) +
+    "6304"
+
+  return `${payloadWithoutCrc}${calculatePixCrc16(payloadWithoutCrc)}`
+}
+
+
 function formatPaymentMethodLabel(method?: string | null) {
   const normalizedMethod = normalizeOrderStatus(method)
 
   if (["cash", "dinheiro"].includes(normalizedMethod)) return "Dinheiro"
-  if (["pix"].includes(normalizedMethod)) return "Pix"
+  if (["pix", "pix_manual", "pix_direto"].includes(normalizedMethod)) return "Pix"
 
   if (
     [
@@ -1567,6 +1659,7 @@ function getOrderProgressIndex(
   if (["cancelled", "canceled", "cancelado"].includes(normalizedStatus)) {
     return -1
   }
+
 
   const isCompletedStatus = [
     "completed",
@@ -1652,6 +1745,27 @@ function getOrderStatusLabel(
   if (["cancelled", "canceled", "cancelado"].includes(normalizedStatus)) {
     return "Cancelado"
   }
+
+  if (
+    [
+      "waiting_payment",
+      "aguardando_pagamento",
+      "waiting_customer_payment",
+    ].includes(normalizedStatus)
+  ) {
+    return "Aguardando pagamento"
+  }
+
+  if (
+    [
+      "waiting_pix_confirmation",
+      "aguardando_confirmacao_pix",
+      "awaiting_pix_review",
+    ].includes(normalizedStatus)
+  ) {
+    return "Aguardando conferência Pix"
+  }
+
 
   const isCompletedStatus = [
     "completed",
@@ -2354,8 +2468,8 @@ function CustomerStartModal({
 
             <p className="mt-1 text-xs text-gray-400">
               {requireDocument
-                ? "Necessário para pagamento Pix online."
-                : "Você pode completar esse dado na hora de finalizar o pedido."}
+                ? "Necessário apenas quando o restaurante exigir identificação completa."
+                : "Opcional para pedido com Pix direto."}
             </p>
           </div>
 
@@ -2840,6 +2954,8 @@ function CartSheet({
   const [isProcessing, setIsProcessing] = useState(false)
   const [pixPayment, setPixPayment] = useState<PixPaymentData | null>(null)
   const [pixCopied, setPixCopied] = useState(false)
+  const [pixProofFile, setPixProofFile] = useState<File | null>(null)
+  const [pixProofPreview, setPixProofPreview] = useState("")
   const [paymentApproved, setPaymentApproved] = useState(false)
   const [paymentCheckError, setPaymentCheckError] = useState("")
 
@@ -2897,6 +3013,8 @@ function CartSheet({
       setStep("cart")
       setPixPayment(null)
       setPixCopied(false)
+      setPixProofFile(null)
+      setPixProofPreview("")
       setPaymentApproved(false)
       setPaymentCheckError("")
       setIsProcessing(false)
@@ -2931,14 +3049,39 @@ function CartSheet({
   const total = subtotal + serviceFee + deliveryFee
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
   const isPixPayment = normalizedPaymentMethod === "pix"
-  const sanitizedCustomerDocument = onlyDigits(customer?.document)
+  const pixKey = (restaurant.pixKey ?? restaurant.pix_key ?? "").trim()
+  const pixReceiverName = (
+    restaurant.pixReceiverName ??
+    restaurant.pix_receiver_name ??
+    restaurant.name
+  ).trim()
+  const pixKeyType = (restaurant.pixKeyType ?? restaurant.pix_key_type ?? "Chave Pix").trim()
+  const pixCity = (restaurant.city ?? "BRASIL").trim()
+  const manualPixTxid = useMemo(
+    () => `CF${restaurant.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20)}`,
+    [restaurant.id]
+  )
+  const manualPixCopyPaste = useMemo(
+    () =>
+      buildManualPixPayload({
+        pixKey,
+        receiverName: pixReceiverName,
+        city: pixCity,
+        amount: total,
+        txid: manualPixTxid,
+      }),
+    [manualPixTxid, pixCity, pixKey, pixReceiverName, total]
+  )
+  const manualPixQrCodeUrl = manualPixCopyPaste
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+        manualPixCopyPaste
+      )}`
+    : ""
 
   const primaryButtonLabel = isPixPayment
-    ? paymentApproved
-      ? "Concluir pedido"
-      : pixPayment
-        ? "Aguardando pagamento"
-        : "Gerar Pix"
+    ? pixPayment
+      ? "Enviar comprovante"
+      : "Já paguei"
     : "Confirmar pedido"
 
   const formattedCustomerAddress =
@@ -2965,9 +3108,8 @@ function CartSheet({
   return false
 }
 
-    if (sanitizedCustomerDocument.length !== 11) {
-      alert("Atualize seu CPF antes de finalizar.")
-      onEditCustomer()
+    if (isPixPayment && !pixKey) {
+      alert("Este restaurante ainda não cadastrou a chave Pix.")
       return false
     }
 
@@ -2985,104 +3127,21 @@ function CartSheet({
   }
 
   const handleCopyPixCode = async () => {
-    const code = pixPayment?.pixCopyPaste || pixPayment?.qrCode || ""
+    const codeToCopy = manualPixCopyPaste || pixKey
 
-    if (!code) {
-      alert("Nao foi encontrado o codigo Pix para copiar.")
+    if (!codeToCopy) {
+      alert("Este restaurante ainda não cadastrou a chave Pix.")
       return
     }
 
     try {
-      await navigator.clipboard.writeText(code)
+      await navigator.clipboard.writeText(codeToCopy)
       setPixCopied(true)
       setTimeout(() => setPixCopied(false), 2000)
     } catch {
-      alert("Nao foi possivel copiar o codigo Pix.")
+      alert("Nao foi possivel copiar o Pix.")
     }
   }
-
-  const finishPaidOrder = () => {
-    if (pixPayment?.orderId) {
-      onOrderCreated({
-        id: pixPayment.orderId,
-        public_order_number: pixPayment.publicOrderNumber,
-        status: "pending",
-        payment_status: "paid",
-        total,
-        payment_method: "Pix",
-        order_type: orderType,
-        delivery_fee: deliveryFee,
-        service_fee: serviceFee,
-        created_at: new Date().toISOString(),
-        items: items.map((item) => ({
-          name: item.product.name,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-        })),
-      })
-    }
-
-    onClearCart()
-    onClose()
-    setStep("cart")
-    setPixPayment(null)
-    setPixCopied(false)
-    setPaymentApproved(false)
-    setPaymentCheckError("")
-  }
-
-  const checkPixPaymentStatus = useCallback(async () => {
-    if (!pixPayment?.orderId) return
-
-    try {
-      const params = new URLSearchParams({
-        orderId: pixPayment.orderId,
-        restaurantId: restaurant.id,
-      })
-
-      const response = await fetch(`/api/public/orders/status?${params.toString()}`, {
-        method: "GET",
-        cache: "no-store",
-      })
-
-      const data = (await response.json()) as OrderPaymentStatusResponse
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Erro ao consultar pagamento.")
-      }
-
-      if (data.order?.payment_status === "paid") {
-        setPaymentApproved(true)
-        setPaymentCheckError("")
-        setPixPayment((prev) => (prev ? { ...prev, status: "paid" } : prev))
-      }
-    } catch (error) {
-      setPaymentCheckError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao consultar status do pagamento."
-      )
-    }
-  }, [pixPayment?.orderId, restaurant.id])
-
-  useEffect(() => {
-    if (!open || !isPixPayment || !pixPayment?.orderId || paymentApproved) return
-
-    void checkPixPaymentStatus()
-
-    const intervalId = window.setInterval(() => {
-      void checkPixPaymentStatus()
-    }, 3000)
-
-    return () => window.clearInterval(intervalId)
-  }, [
-    open,
-    isPixPayment,
-    pixPayment?.orderId,
-    paymentApproved,
-    checkPixPaymentStatus,
-  ])
-
   const createPublicOrder = async (paymentMethodLabel: string) => {
     if (!customer) {
       throw new Error("Cliente não identificado.")
@@ -3095,6 +3154,8 @@ function CartSheet({
       })
     }
 
+    const isManualPix = paymentMethodLabel === "pix_manual"
+
     const response = await fetch("/api/public/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3102,12 +3163,16 @@ function CartSheet({
         restaurantId: restaurant.id,
         tableId: tableNumber || null,
         customerName: customer.name,
-       customerPhone: onlyDigits(customer.phone),
+        customerPhone: onlyDigits(customer.phone),
         customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
         neighborhood:
-          orderType === "delivery" ? selectedNeighborhoodOption?.neighborhood ?? undefined : undefined,
+          orderType === "delivery"
+            ? selectedNeighborhoodOption?.neighborhood ?? undefined
+            : undefined,
         orderType,
         paymentMethod: paymentMethodLabel,
+        paymentStatus: isManualPix ? "waiting_customer_payment" : undefined,
+        status: isManualPix ? "waiting_payment" : undefined,
         deliveryFee,
         serviceFee,
         items: items.map((item) => ({
@@ -3140,70 +3205,121 @@ function CartSheet({
     }
   }
 
-  const processOnlinePayment = async () => {
+  const startManualPixProofFlow = async () => {
     if (!validateForm()) return
-    if (pixPayment) return
 
-    setPaymentApproved(false)
-    setPaymentCheckError("")
     setIsProcessing(true)
+    setPaymentCheckError("")
 
     try {
-      const createdOrder = await createPublicOrder("Pix")
+      const createdOrder = await createPublicOrder("pix_manual")
 
-      const response = await fetch("/api/asaas/pix", {
+      setPixPayment({
+        orderId: createdOrder.id,
+        paymentId: createdOrder.id,
+        publicOrderNumber: createdOrder.public_order_number ?? null,
+        status: "waiting_customer_payment",
+      })
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao criar pedido Pix.")
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handlePixProofFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null
+
+    if (!file) {
+      setPixProofFile(null)
+      setPixProofPreview("")
+      return
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      alert("Envie uma imagem PNG, JPG ou WEBP.")
+      event.target.value = ""
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("O comprovante deve ter no máximo 5 MB.")
+      event.target.value = ""
+      return
+    }
+
+    if (pixProofPreview) {
+      URL.revokeObjectURL(pixProofPreview)
+    }
+
+    setPixProofFile(file)
+    setPixProofPreview(URL.createObjectURL(file))
+  }
+
+  const submitManualPixProof = async () => {
+    if (!pixPayment?.orderId) {
+      alert("Pedido Pix não encontrado.")
+      return
+    }
+
+    if (!pixProofFile) {
+      alert("Anexe a foto do comprovante para continuar.")
+      return
+    }
+
+    setIsProcessing(true)
+    setPaymentCheckError("")
+
+    try {
+      const formData = new FormData()
+
+      formData.append("restaurantId", restaurant.id)
+      formData.append("orderId", pixPayment.orderId)
+      formData.append("proof", pixProofFile)
+
+      const response = await fetch("/api/public/orders/pix-proof", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-
-          restaurantId: restaurant.id,
-          orderId: createdOrder.id,
-          publicOrderNumber: createdOrder.public_order_number,
-          customerName: customer?.name ?? "",
-         customerPhone: onlyDigits(customer?.phone ?? ""),
-          customerDocument: sanitizedCustomerDocument,
-          customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
-          customerNeighborhood:
-            orderType === "delivery"
-              ? selectedNeighborhoodOption?.neighborhood ?? null
-              : null,
-          orderType,
-          deliveryFee,
-          serviceFee,
-        }),
+        body: formData,
       })
 
       const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data?.error || "Erro ao processar pagamento Pix.")
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Erro ao enviar comprovante.")
       }
 
-      const hasPixData = Boolean(
-        data?.qrCodeBase64 || data?.qrCodeUrl || data?.pixCopyPaste || data?.qrCode
-      )
-
-      if (!hasPixData) {
-        throw new Error(
-          data?.error || "Pagamento Pix nao retornou os dados esperados."
-        )
-      }
-
-      setPixPayment({
-        orderId: createdOrder.id,
-        paymentId: String(data?.paymentId ?? createdOrder.id),
-        qrCodeBase64: data?.qrCodeBase64 ?? null,
-        qrCodeUrl: data?.qrCodeUrl ?? null,
-        qrCode: data?.qrCode ?? null,
-        pixCopyPaste: data?.pixCopyPaste ?? data?.qrCode ?? null,
-        ticketUrl: data?.ticketUrl ?? null,
-        status: data?.status ?? null,
-        publicOrderNumber:
-          data?.publicOrderNumber ?? createdOrder.public_order_number ?? null,
-        expiresAt: data?.expiresAt ?? null,
+      onOrderCreated({
+        id: pixPayment.orderId,
+        public_order_number: pixPayment.publicOrderNumber,
+        status: "waiting_pix_confirmation",
+        payment_status: "awaiting_review",
+        total,
+        payment_method: "pix_manual",
+        order_type: orderType,
+        delivery_fee: deliveryFee,
+        service_fee: serviceFee,
+        created_at: new Date().toISOString(),
+        items: items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
       })
+
+      onClearCart()
+      onClose()
+      setStep("cart")
+      setPixPayment(null)
+      setPixCopied(false)
+      setPixProofFile(null)
+      setPixProofPreview("")
+      setPaymentCheckError("")
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao processar pagamento")
+      setPaymentCheckError(
+        error instanceof Error
+          ? error.message
+          : "Erro ao enviar comprovante."
+      )
     } finally {
       setIsProcessing(false)
     }
@@ -3571,113 +3687,154 @@ function CartSheet({
                 </div>
               </div>
 
-              {isPixPayment && pixPayment && (
-                <div
-                  className={cn(
-                    "rounded-2xl border p-4",
-                    paymentApproved
-                      ? "border-green-200 bg-green-50"
-                      : "border-emerald-200 bg-emerald-50"
-                  )}
-                >
-                  {paymentApproved ? (
-                    <div className="text-center">
-                      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-white">
-                        <Check className="h-7 w-7" strokeWidth={3} />
-                      </div>
+              {isPixPayment && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="mb-3">
+                    <p className="text-sm font-black text-emerald-800">
+                      Pix direto para o restaurante
+                    </p>
 
-                      <p className="text-base font-black text-green-700">
-                        Pagamento aprovado!
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">
+                      Escaneie o QR Code ou copie o Pix copia e cola. Depois de pagar,
+                      clique em <span className="font-black">Já paguei</span>.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-emerald-100 bg-white p-3">
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                        Valor do Pix
                       </p>
 
-                      <p className="mt-1 text-sm text-green-700">
-                        Recebemos seu Pix com sucesso. Seu pedido foi enviado para o restaurante.
+                      <p className="mt-1 text-2xl font-black text-emerald-900">
+                        {formatPrice(total)}
                       </p>
 
-                      {pixPayment.publicOrderNumber && (
-                        <p className="mt-2 text-xs font-semibold text-gray-600">
-                          Pedido #{pixPayment.publicOrderNumber}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-3">
-                        <p className="text-sm font-bold text-emerald-700">
-                          Pix gerado com sucesso
-                        </p>
-
-                        <p className="text-xs text-emerald-600">
-                          Escaneie o QR Code ou copie o codigo abaixo para pagar.
-                        </p>
-
-                        {pixPayment.publicOrderNumber && (
-                          <p className="mt-1 text-xs font-medium text-gray-600">
-                            Pedido #{pixPayment.publicOrderNumber}
-                          </p>
-                        )}
-                      </div>
-
-                      {(pixPayment.qrCodeUrl || pixPayment.qrCodeBase64) && (
-                        <div className="mb-4 flex justify-center">
-                          <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      {manualPixQrCodeUrl ? (
+                        <div className="mt-3 flex justify-center">
+                          <div className="rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm">
                             <img
-                              src={
-                                pixPayment.qrCodeUrl ||
-                                `data:image/png;base64,${pixPayment.qrCodeBase64}`
-                              }
+                              src={manualPixQrCodeUrl}
                               alt="QR Code Pix"
-                              className="h-48 w-48"
+                              className="h-52 w-52"
                             />
                           </div>
                         </div>
+                      ) : (
+                        <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
+                          Cadastre uma chave Pix para gerar o QR Code.
+                        </div>
                       )}
 
-                      <div>
-                        <label className="text-xs font-semibold uppercase text-gray-500">
-                          Pix copia e cola
-                        </label>
+                      <p className="mt-3 text-xs font-semibold leading-relaxed text-emerald-700">
+                        Este QR Code facilita o pagamento, mas a confirmação ainda depende da
+                        conferência do comprovante pelo restaurante.
+                      </p>
+                    </div>
 
-                        <textarea
-                          readOnly
-                          value={pixPayment.pixCopyPaste || pixPayment.qrCode || ""}
-                          rows={4}
-                          className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-700 focus:outline-none"
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-gray-50 px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                          Recebedor
+                        </p>
+
+                        <p className="mt-1 truncate text-sm font-black text-gray-900">
+                          {pixReceiverName}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-gray-50 px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                          Cidade
+                        </p>
+
+                        <p className="mt-1 truncate text-sm font-black text-gray-900">
+                          {pixCity || "BRASIL"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                      Pix copia e cola
+                    </p>
+
+                    <textarea
+                      readOnly
+                      value={manualPixCopyPaste}
+                      rows={3}
+                      className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+                    />
+
+                    <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                      {pixKeyType}
+                    </p>
+
+                    <p className="mt-1 break-all rounded-xl bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
+                      {pixKey || "Chave Pix não cadastrada"}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyPixCode}
+                      disabled={!manualPixCopyPaste && !pixKey}
+                      className="mt-3 w-full rounded-xl py-3 text-sm font-black text-white disabled:opacity-50"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      {pixCopied ? "Pix copiado" : "Copiar Pix copia e cola"}
+                    </button>
+                  </div>
+
+                  {pixPayment && (
+                    <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 p-3">
+                      <p className="text-sm font-black text-orange-800">
+                        Envie o comprovante
+                      </p>
+
+                      <p className="mt-1 text-xs font-semibold leading-relaxed text-orange-700">
+                        O restaurante vai conferir valor, data, horário e destinatário antes de iniciar o preparo.
+                      </p>
+
+                      {pixPayment.publicOrderNumber && (
+                        <p className="mt-2 text-xs font-bold text-gray-600">
+                          Pedido #{pixPayment.publicOrderNumber}
+                        </p>
+                      )}
+
+                      <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-orange-200 bg-white px-4 py-5 text-center">
+                        <Upload className="h-6 w-6 text-orange-500" />
+
+                        <span className="mt-2 text-sm font-black text-gray-900">
+                          {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
+                        </span>
+
+                        <span className="mt-1 text-xs font-semibold text-gray-400">
+                          PNG, JPG ou WEBP até 5 MB
+                        </span>
+
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={handlePixProofFileChange}
+                          className="hidden"
                         />
-                      </div>
+                      </label>
 
-                      <div className="mt-3 grid gap-2">
-                        <button
-                          onClick={handleCopyPixCode}
-                          className="rounded-xl py-3 text-sm font-bold text-white"
-                          style={{ backgroundColor: accentColor }}
-                        >
-                          {pixCopied ? "Codigo copiado" : "Copiar codigo Pix"}
-                        </button>
-
-                        {pixPayment.ticketUrl && (
-                          <a
-                            href={pixPayment.ticketUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded-xl border border-gray-200 bg-white py-3 text-center text-sm font-semibold text-gray-700"
-                          >
-                            Abrir link do pagamento
-                          </a>
-                        )}
-
-                        <div className="flex items-center justify-center gap-2 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-emerald-700">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Aguardando confirmacao automatica do pagamento...
+                      {pixProofPreview && (
+                        <div className="mt-3 overflow-hidden rounded-2xl border border-orange-100 bg-white">
+                          <img
+                            src={pixProofPreview}
+                            alt="Comprovante Pix"
+                            className="max-h-64 w-full object-contain"
+                          />
                         </div>
+                      )}
 
-                        {paymentCheckError && (
-                          <p className="text-center text-xs text-red-600">
-                            {paymentCheckError}
-                          </p>
-                        )}
-                      </div>
-                    </>
+                      {paymentCheckError && (
+                        <p className="mt-3 text-center text-xs font-bold text-red-600">
+                          {paymentCheckError}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -3718,35 +3875,35 @@ function CartSheet({
               <button
                 onClick={() => {
                   if (isPixPayment) {
-                    if (paymentApproved) {
-                      finishPaidOrder()
+                    if (pixPayment) {
+                      void submitManualPixProof()
                       return
                     }
 
-                    void processOnlinePayment()
+                    void startManualPixProofFlow()
                     return
                   }
 
                   void createManualPaymentOrder()
                 }}
-                disabled={isProcessing || (isPixPayment && !!pixPayment && !paymentApproved)}
+                disabled={isProcessing || (isPixPayment && !!pixPayment && !pixProofFile)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 style={{
                   backgroundColor: accentColor,
                   boxShadow: `0 14px 28px -12px ${accentColor}`,
                 }}
               >
-                {isProcessing && isPixPayment ? (
+                {isProcessing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : paymentApproved ? (
-                  <Check className="h-4 w-4" />
+                ) : isPixPayment && pixPayment ? (
+                  <Upload className="h-4 w-4" />
                 ) : isPixPayment ? (
-                  <CreditCard className="h-4 w-4" />
+                  <QrCode className="h-4 w-4" />
                 ) : (
                   <Check className="h-4 w-4" />
                 )}
 
-                {isProcessing && isPixPayment ? "Processando..." : primaryButtonLabel}
+                {isProcessing ? "Processando..." : primaryButtonLabel}
               </button>
             </div>
           </>
@@ -4903,7 +5060,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         pickupEnabled={pickupEnabled}
         tableNumber={tableNumber}
         customer={publicCustomer}
-        onEditCustomer={() => openCustomerAccessModal("checkout", true)}
+        onEditCustomer={() => openCustomerAccessModal("checkout", false)}
         onSaveAddress={savePublicCustomerAddress}
         onOrderCreated={saveActiveOrder}
       />

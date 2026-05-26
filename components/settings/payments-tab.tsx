@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import {
   AlertCircle,
   CheckCircle2,
@@ -9,13 +9,17 @@ import {
   Loader2,
   Pencil,
   Plus,
+  QrCode,
   Save,
+  ShieldCheck,
   Trash2,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/components/auth/auth-provider"
+import { createClient } from "@/lib/supabase/client"
 import {
   type PaymentMethod,
   defaultPaymentMethods,
@@ -49,6 +53,17 @@ type AsaasFormState = {
   isActive: boolean
 }
 
+type PixKeyType = "cpf" | "cnpj" | "phone" | "email" | "random"
+
+type PixSettingsForm = {
+  pixEnabled: boolean
+  pixKeyType: PixKeyType
+  pixKey: string
+  pixReceiverName: string
+  pixReceiverCity: string
+  pixInstructions: string
+}
+
 const emptyAsaasForm: AsaasFormState = {
   environment: "production",
   apiKey: "",
@@ -56,9 +71,34 @@ const emptyAsaasForm: AsaasFormState = {
   isActive: true,
 }
 
+const emptyPixForm: PixSettingsForm = {
+  pixEnabled: false,
+  pixKeyType: "random",
+  pixKey: "",
+  pixReceiverName: "",
+  pixReceiverCity: "",
+  pixInstructions:
+    "Após realizar o Pix, clique em Já paguei e envie o comprovante para conferência.",
+}
+
+const pixKeyTypeOptions: Array<{ value: PixKeyType; label: string }> = [
+  { value: "cpf", label: "CPF" },
+  { value: "cnpj", label: "CNPJ" },
+  { value: "phone", label: "Telefone" },
+  { value: "email", label: "E-mail" },
+  { value: "random", label: "Chave aleatória" },
+]
+
 export default function PaymentsTab() {
+  const { restaurant } = useAuth()
+  const supabase = useMemo(() => createClient(), [])
+
   const [methods, setMethods] = useState<PaymentMethod[]>(defaultPaymentMethods)
   const [saving, setSaving] = useState(false)
+
+  const [loadingPix, setLoadingPix] = useState(true)
+  const [savingPix, setSavingPix] = useState(false)
+  const [pixForm, setPixForm] = useState<PixSettingsForm>(emptyPixForm)
 
   const [loadingAsaas, setLoadingAsaas] = useState(true)
   const [asaasConnected, setAsaasConnected] = useState(false)
@@ -83,6 +123,118 @@ export default function PaymentsTab() {
     },
     []
   )
+
+  function updatePixForm<K extends keyof PixSettingsForm>(
+    key: K,
+    value: PixSettingsForm[K]
+  ) {
+    setPixForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function loadPixSettings() {
+    if (!restaurant?.id) {
+      setLoadingPix(false)
+      return
+    }
+
+    try {
+      setLoadingPix(true)
+
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select(
+          "pix_enabled, pix_key, pix_key_type, pix_receiver_name, pix_receiver_city, pix_instructions, name, city"
+        )
+        .eq("id", restaurant.id)
+        .single()
+
+      if (error) throw error
+
+      setPixForm({
+        pixEnabled: Boolean(data?.pix_enabled),
+        pixKeyType: (data?.pix_key_type as PixKeyType) || "random",
+        pixKey: data?.pix_key || "",
+        pixReceiverName: data?.pix_receiver_name || data?.name || "",
+        pixReceiverCity: data?.pix_receiver_city || data?.city || "BRASIL",
+        pixInstructions:
+          data?.pix_instructions ||
+          "Após realizar o Pix, clique em Já paguei e envie o comprovante para conferência.",
+      })
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao carregar configurações do Pix direto."
+      )
+    } finally {
+      setLoadingPix(false)
+    }
+  }
+
+  async function handleSavePixSettings() {
+    if (!restaurant?.id) {
+      toast.error("Restaurante não identificado.")
+      return
+    }
+
+    const pixKey = pixForm.pixKey.trim()
+    const pixReceiverName = pixForm.pixReceiverName.trim()
+    const pixReceiverCity = pixForm.pixReceiverCity.trim().toUpperCase()
+    const pixInstructions = pixForm.pixInstructions.trim()
+
+    if (pixForm.pixEnabled) {
+      if (!pixKey) {
+        toast.error("Informe a chave Pix para ativar o Pix Direto.")
+        return
+      }
+
+      if (!pixReceiverName) {
+        toast.error("Informe o nome do recebedor Pix.")
+        return
+      }
+
+      if (!pixReceiverCity) {
+        toast.error("Informe a cidade do recebedor Pix.")
+        return
+      }
+    }
+
+    try {
+      setSavingPix(true)
+
+      const { error } = await supabase
+        .from("restaurants")
+        .update({
+          pix_enabled: pixForm.pixEnabled,
+          pix_key: pixKey || null,
+          pix_key_type: pixForm.pixKeyType,
+          pix_receiver_name: pixReceiverName || null,
+          pix_receiver_city: pixReceiverCity || null,
+          pix_instructions: pixInstructions || null,
+        })
+        .eq("id", restaurant.id)
+
+      if (error) throw error
+
+      setPixForm((prev) => ({
+        ...prev,
+        pixKey,
+        pixReceiverName,
+        pixReceiverCity,
+        pixInstructions,
+      }))
+
+      toast.success("Pix Direto salvo com sucesso.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao salvar Pix Direto."
+      )
+    } finally {
+      setSavingPix(false)
+    }
+  }
 
   async function loadAsaasAccount() {
     try {
@@ -112,8 +264,12 @@ export default function PaymentsTab() {
   }
 
   useEffect(() => {
-    loadAsaasAccount()
+    void loadAsaasAccount()
   }, [])
+
+  useEffect(() => {
+    void loadPixSettings()
+  }, [restaurant?.id])
 
   function openAsaasEditor() {
     setAsaasForm({
@@ -231,6 +387,159 @@ export default function PaymentsTab() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
+        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-emerald-700" />
+              <h3 className="text-base font-bold text-card-foreground">
+                Pix Direto sem taxa
+              </h3>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              O cliente paga direto na chave Pix do restaurante, envia o
+              comprovante e o pagamento é confirmado manualmente no painel.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-3 py-2">
+            <span className="text-sm font-semibold text-emerald-900">
+              {pixForm.pixEnabled ? "Ativo" : "Inativo"}
+            </span>
+            <Switch
+              checked={pixForm.pixEnabled}
+              onCheckedChange={(checked) => updatePixForm("pixEnabled", checked)}
+              disabled={loadingPix || savingPix}
+            />
+          </div>
+        </div>
+
+        {loadingPix ? (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-4 text-sm font-semibold text-emerald-700">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando configurações do Pix Direto...
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Tipo da chave Pix
+                </label>
+                <select
+                  value={pixForm.pixKeyType}
+                  onChange={(event) =>
+                    updatePixForm("pixKeyType", event.target.value as PixKeyType)
+                  }
+                  className="input-field"
+                  disabled={savingPix}
+                >
+                  {pixKeyTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Chave Pix
+                </label>
+                <input
+                  type="text"
+                  value={pixForm.pixKey}
+                  onChange={(event) => updatePixForm("pixKey", event.target.value)}
+                  className="input-field"
+                  placeholder="Cole a chave Pix do restaurante"
+                  disabled={savingPix}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Nome do recebedor
+                </label>
+                <input
+                  type="text"
+                  value={pixForm.pixReceiverName}
+                  onChange={(event) =>
+                    updatePixForm("pixReceiverName", event.target.value)
+                  }
+                  className="input-field"
+                  placeholder="Ex: Gelin Do Lucão"
+                  disabled={savingPix}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Cidade do recebedor
+                </label>
+                <input
+                  type="text"
+                  value={pixForm.pixReceiverCity}
+                  onChange={(event) =>
+                    updatePixForm("pixReceiverCity", event.target.value.toUpperCase())
+                  }
+                  className="input-field"
+                  placeholder="Ex: BELO HORIZONTE"
+                  disabled={savingPix}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Instrução para o cliente
+              </label>
+              <textarea
+                value={pixForm.pixInstructions}
+                onChange={(event) =>
+                  updatePixForm("pixInstructions", event.target.value)
+                }
+                rows={3}
+                className="input-field min-h-[92px] resize-none"
+                placeholder="Explique para o cliente como pagar e enviar o comprovante."
+                disabled={savingPix}
+              />
+            </div>
+
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">
+                    Conferência manual obrigatória
+                  </p>
+                  <p className="mt-1 text-sm text-amber-800">
+                    O QR Code facilita o pagamento, mas não confirma sozinho. O
+                    restaurante deve conferir valor, data, horário e destinatário
+                    no comprovante antes de confirmar o Pix no painel.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSavePixSettings}
+                disabled={savingPix}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingPix ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {savingPix ? "Salvando Pix..." : "Salvar Pix Direto"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
