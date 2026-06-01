@@ -2,6 +2,14 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 const DEFAULT_ONLINE_SERVICE_FEE = 1.5
+const MAX_ITEMS_PER_ORDER = 50
+const MAX_QUANTITY_PER_ITEM = 99
+const MAX_CUSTOMER_NAME_LENGTH = 120
+const MAX_CUSTOMER_PHONE_LENGTH = 20
+const MAX_ADDRESS_LENGTH = 250
+const MAX_NEIGHBORHOOD_LENGTH = 120
+const MAX_NOTE_LENGTH = 500
+const MAX_ITEM_NOTE_LENGTH = 250
 
 type CreateOrderItemInput = {
   product_id: string
@@ -83,8 +91,12 @@ type ValidatedOrderItem = {
   modifiers: NormalizedModifier[]
 }
 
-function normalizeText(value: unknown) {
-  return typeof value === "string" ? value.trim() : ""
+function normalizeText(value: unknown, maxLength?: number) {
+  const text = typeof value === "string" ? value.trim() : ""
+
+  if (!maxLength) return text
+
+  return text.slice(0, maxLength)
 }
 
 function normalizeNumber(value: unknown, fallback = 0): number {
@@ -104,6 +116,10 @@ function normalizeSearchText(value: string) {
     .toLowerCase()
 }
 
+function normalizePhone(value: unknown) {
+  return String(value || "").replace(/\D/g, "")
+}
+
 function normalizeModifiers(
   modifiers: CreateOrderItemInput["modifiers"]
 ): NormalizedModifier[] {
@@ -111,17 +127,19 @@ function normalizeModifiers(
 
   return modifiers
     .map((modifier) => {
-      const groupName = normalizeText(modifier.groupName)
-      const optionName = normalizeText(modifier.option?.name)
+      const groupName = normalizeText(modifier.groupName, 80)
+      const optionName = normalizeText(modifier.option?.name, 120)
 
       if (!groupName || !optionName) return null
 
       return {
-        groupId: normalizeText(modifier.groupId) || null,
+        groupId: normalizeText(modifier.groupId, 80) || null,
         groupName,
-        optionId: normalizeText(modifier.option?.id) || null,
+        optionId: normalizeText(modifier.option?.id, 80) || null,
         optionName,
-        optionPrice: roundMoney(Math.max(0, normalizeNumber(modifier.option?.price, 0))),
+        optionPrice: roundMoney(
+          Math.max(0, normalizeNumber(modifier.option?.price, 0))
+        ),
       }
     })
     .filter((modifier): modifier is NormalizedModifier => Boolean(modifier))
@@ -142,7 +160,10 @@ function mapPaymentMethod(value: string) {
     return "card_on_delivery"
   }
 
-  return normalized || "cash"
+  if (normalized === "cash") return "cash"
+  if (normalized === "card_on_delivery") return "card_on_delivery"
+
+  return ""
 }
 
 function buildPublicOrderNumber() {
@@ -194,60 +215,85 @@ async function getServiceFeeAmount(restaurantId: string) {
   return Math.max(0, roundMoney(serviceFee))
 }
 
+function jsonError(message: string, status = 400) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status }
+  )
+}
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as CreateOrderBody
+    let body: CreateOrderBody
 
-    const restaurantId = normalizeText(body.restaurantId)
-    const customerName = normalizeText(body.customerName)
-    const customerPhone = normalizeText(body.customerPhone)
-    const customerAddress = normalizeText(body.customerAddress)
-    const neighborhood = normalizeText(body.neighborhood)
+    try {
+      body = (await request.json()) as CreateOrderBody
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
+    }
+
+    const restaurantId = normalizeText(body.restaurantId, 80)
+    const customerName = normalizeText(
+      body.customerName,
+      MAX_CUSTOMER_NAME_LENGTH
+    )
+    const customerPhone = normalizePhone(body.customerPhone).slice(
+      0,
+      MAX_CUSTOMER_PHONE_LENGTH
+    )
+    const customerAddress = normalizeText(
+      body.customerAddress,
+      MAX_ADDRESS_LENGTH
+    )
+    const neighborhood = normalizeText(
+      body.neighborhood,
+      MAX_NEIGHBORHOOD_LENGTH
+    )
     const orderType = body.orderType === "pickup" ? "pickup" : "delivery"
-    const paymentMethodLabel = normalizeText(body.paymentMethod)
+    const paymentMethodLabel = normalizeText(body.paymentMethod, 80)
     const paymentMethod = mapPaymentMethod(paymentMethodLabel)
-    const customerNote = normalizeText(body.customerNote)
+    const customerNote = normalizeText(body.customerNote, MAX_NOTE_LENGTH)
     const items = Array.isArray(body.items) ? body.items : []
 
     if (!restaurantId) {
-      return NextResponse.json(
-        { error: "restaurantId é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("restaurantId é obrigatório.", 400)
     }
 
     if (!customerName) {
-      return NextResponse.json(
-        { error: "Nome do cliente é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("Nome do cliente é obrigatório.", 400)
     }
 
     if (!customerPhone) {
-      return NextResponse.json(
-        { error: "Telefone do cliente é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("Telefone do cliente é obrigatório.", 400)
+    }
+
+    if (customerPhone.length < 10) {
+      return jsonError("Telefone do cliente inválido.", 400)
+    }
+
+    if (!paymentMethod) {
+      return jsonError("Forma de pagamento inválida.", 400)
     }
 
     if (orderType === "delivery" && !customerAddress) {
-      return NextResponse.json(
-        { error: "Endereço é obrigatório para entrega." },
-        { status: 400 }
-      )
+      return jsonError("Endereço é obrigatório para entrega.", 400)
     }
 
     if (orderType === "delivery" && !neighborhood) {
-      return NextResponse.json(
-        { error: "Bairro é obrigatório para entrega." },
-        { status: 400 }
-      )
+      return jsonError("Bairro é obrigatório para entrega.", 400)
     }
 
     if (items.length === 0) {
-      return NextResponse.json(
-        { error: "O pedido precisa ter pelo menos 1 item." },
-        { status: 400 }
+      return jsonError("O pedido precisa ter pelo menos 1 item.", 400)
+    }
+
+    if (items.length > MAX_ITEMS_PER_ORDER) {
+      return jsonError(
+        `O pedido não pode ter mais de ${MAX_ITEMS_PER_ORDER} itens diferentes.`,
+        400
       )
     }
 
@@ -260,44 +306,37 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (restaurantError) {
-      return NextResponse.json(
-        { error: restaurantError.message || "Erro ao buscar restaurante." },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar restaurante:", restaurantError)
+
+      return jsonError("Erro ao buscar restaurante.", 500)
     }
 
     const typedRestaurant = restaurant as RestaurantRow | null
 
     if (!typedRestaurant || typedRestaurant.is_active === false) {
-      return NextResponse.json(
-        { error: "Restaurante não encontrado ou inativo." },
-        { status: 404 }
-      )
+      return jsonError("Restaurante não encontrado ou inativo.", 404)
     }
 
     if (orderType === "delivery" && typedRestaurant.delivery_enabled === false) {
-      return NextResponse.json(
-        { error: "Este restaurante não está aceitando pedidos para entrega." },
-        { status: 400 }
+      return jsonError(
+        "Este restaurante não está aceitando pedidos para entrega.",
+        400
       )
     }
 
     if (orderType === "pickup" && typedRestaurant.pickup_enabled === false) {
-      return NextResponse.json(
-        { error: "Este restaurante não está aceitando pedidos para retirada." },
-        { status: 400 }
+      return jsonError(
+        "Este restaurante não está aceitando pedidos para retirada.",
+        400
       )
     }
 
     const productIds = Array.from(
-      new Set(items.map((item) => normalizeText(item.product_id)).filter(Boolean))
+      new Set(items.map((item) => normalizeText(item.product_id, 80)).filter(Boolean))
     )
 
     if (productIds.length === 0) {
-      return NextResponse.json(
-        { error: "Nenhum produto válido foi enviado no pedido." },
-        { status: 400 }
-      )
+      return jsonError("Nenhum produto válido foi enviado no pedido.", 400)
     }
 
     const { data: products, error: productsError } = await supabaseAdmin
@@ -307,10 +346,9 @@ export async function POST(request: Request) {
       .in("id", productIds)
 
     if (productsError) {
-      return NextResponse.json(
-        { error: productsError.message || "Erro ao buscar produtos." },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar produtos:", productsError)
+
+      return jsonError("Erro ao buscar produtos.", 500)
     }
 
     const productMap = new Map(
@@ -324,41 +362,38 @@ export async function POST(request: Request) {
     const validatedOrderItems: ValidatedOrderItem[] = []
 
     for (const item of items) {
-      const productId = normalizeText(item.product_id)
-      const quantity = Math.max(1, Math.floor(normalizeNumber(item.quantity, 1)))
+      const productId = normalizeText(item.product_id, 80)
+      const quantity = Math.min(
+        MAX_QUANTITY_PER_ITEM,
+        Math.max(1, Math.floor(normalizeNumber(item.quantity, 1)))
+      )
       const product = productMap.get(productId)
-      const itemNotes = normalizeText(item.notes)
+      const itemNotes = normalizeText(item.notes, MAX_ITEM_NOTE_LENGTH)
       const itemModifiers = normalizeModifiers(item.modifiers)
 
       if (!product) {
-        return NextResponse.json(
-          { error: "Um dos produtos do pedido não foi encontrado." },
-          { status: 400 }
-        )
+        return jsonError("Um dos produtos do pedido não foi encontrado.", 400)
       }
 
       if (product.restaurant_id !== restaurantId) {
-        return NextResponse.json(
-          { error: "Produto não pertence a este restaurante." },
-          { status: 400 }
-        )
+        return jsonError("Produto não pertence a este restaurante.", 400)
       }
 
       if (product.is_available === false) {
-        return NextResponse.json(
-          { error: `O produto "${product.name}" está indisponível.` },
-          { status: 400 }
-        )
+        return jsonError(`O produto "${product.name}" está indisponível.`, 400)
       }
 
-      const basePrice = normalizeNumber(product.price, 0)
-      const clientUnitPrice = normalizeNumber(item.unit_price, basePrice)
+      const basePrice = Math.max(0, normalizeNumber(product.price, 0))
+      const clientUnitPrice = Math.max(
+        0,
+        normalizeNumber(item.unit_price, basePrice)
+      )
 
       /*
         Segurança:
-        - preço oficial vem do banco;
+        - o preço oficial vem do banco;
         - se o cliente tentar mandar preço menor, o backend ignora;
-        - se vier maior por causa de adicional/modificador, mantém o maior valor.
+        - se vier maior por adicional/modificador, mantém o maior valor.
       */
       const safeUnitPrice = roundMoney(Math.max(basePrice, clientUnitPrice))
       const lineTotal = roundMoney(safeUnitPrice * quantity)
@@ -379,11 +414,9 @@ export async function POST(request: Request) {
     const minimumOrder = normalizeNumber(typedRestaurant.minimum_order, 0)
 
     if (minimumOrder > 0 && subtotal < minimumOrder) {
-      return NextResponse.json(
-        {
-          error: `Pedido mínimo de R$ ${minimumOrder.toFixed(2).replace(".", ",")}.`,
-        },
-        { status: 400 }
+      return jsonError(
+        `Pedido mínimo de R$ ${minimumOrder.toFixed(2).replace(".", ",")}.`,
+        400
       )
     }
 
@@ -401,14 +434,9 @@ export async function POST(request: Request) {
       ])
 
     if (deliveryRulesError) {
-      return NextResponse.json(
-        {
-          error:
-            deliveryRulesError.message ||
-            "Erro ao buscar regras de taxa de entrega.",
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar regras de taxa de entrega:", deliveryRulesError)
+
+      return jsonError("Erro ao buscar regras de taxa de entrega.", 500)
     }
 
     const deliveryRules = (deliveryRulesData || []) as DeliveryFeeRuleRow[]
@@ -422,10 +450,7 @@ export async function POST(request: Request) {
       )
 
       if (deliveryRules.length > 0 && !matchedRule) {
-        return NextResponse.json(
-          { error: "Bairro não atendido por este restaurante." },
-          { status: 400 }
-        )
+        return jsonError("Bairro não atendido por este restaurante.", 400)
       }
 
       deliveryFee = matchedRule
@@ -467,10 +492,9 @@ export async function POST(request: Request) {
       .single()
 
     if (createOrderError || !createdOrder) {
-      return NextResponse.json(
-        { error: createOrderError?.message || "Erro ao criar pedido." },
-        { status: 500 }
-      )
+      console.error("Erro ao criar pedido:", createOrderError)
+
+      return jsonError("Erro ao criar pedido.", 500)
     }
 
     const orderItemsPayload = validatedOrderItems.map((item) => ({
@@ -489,16 +513,11 @@ export async function POST(request: Request) {
       .insert(orderItemsPayload)
 
     if (createOrderItemsError) {
+      console.error("Erro ao salvar itens do pedido:", createOrderItemsError)
+
       await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
 
-      return NextResponse.json(
-        {
-          error:
-            createOrderItemsError.message ||
-            "Erro ao salvar os itens do pedido.",
-        },
-        { status: 500 }
-      )
+      return jsonError("Erro ao salvar os itens do pedido.", 500)
     }
 
     return NextResponse.json({
@@ -517,14 +536,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("POST /api/public/orders error:", error)
 
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro interno ao criar pedido.",
-      },
-      { status: 500 }
-    )
+    return jsonError("Erro inesperado ao criar pedido.", 500)
   }
 }
