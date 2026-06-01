@@ -192,7 +192,7 @@ function getRecoveryPriority(customer: {
   daysInactive: number
   totalSpent: number
   ordersCount: number
-}) {
+}): LostCustomer["recoveryPriority"] {
   if (
     customer.daysInactive >= 30 &&
     customer.totalSpent >= 150 &&

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
-    apple: "/icon.png",
+    apple: "/favicon.ico",
   },
   openGraph: {
     title: "ClickFood BR",

@@ -8,7 +8,7 @@ import {
   BadgeDollarSign,
   Crown,
   Loader2,
-  Map,
+  MapIcon,
   MapPin,
   Navigation,
   Percent,
@@ -86,16 +86,6 @@ function formatNumber(value: number) {
   }).format(Number.isFinite(value) ? value : 0)
 }
 
-function formatDate(date: Date | null) {
-  if (!date) return "Sem pedido"
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date)
-}
-
 function toNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return 0
 
@@ -112,39 +102,38 @@ function toNumber(value: unknown) {
   return 0
 }
 
+function normalizeText(value?: string | null) {
+  return String(value || "").trim()
+}
+
+function normalizeNeighborhood(value?: string | null) {
+  const neighborhood = normalizeText(value)
+
+  if (!neighborhood) return "Bairro não informado"
+
+  return neighborhood
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => {
+      if (word.length <= 2) return word
+      return `${word[0]?.toUpperCase() || ""}${word.slice(1)}`
+    })
+    .join(" ")
+}
+
+function normalizeCustomerPhone(value?: string | null) {
+  return String(value || "").replace(/\D/g, "")
+}
+
 function getOrderTotal(order: OrderRecord) {
   const total = toNumber(order.total)
-
   if (total > 0) return total
 
   return toNumber(order.subtotal) + toNumber(order.delivery_fee)
 }
 
-function normalizeText(value?: string | null) {
-  return String(value || "").trim()
-}
-
-function normalizePhone(value?: string | null) {
-  return String(value || "").replace(/\D/g, "")
-}
-
-function getNeighborhood(order: OrderRecord) {
-  const neighborhood = normalizeText(order.customer_neighborhood)
-
-  if (neighborhood) return neighborhood
-
-  return "Sem bairro informado"
-}
-
-function getNeighborhoodKey(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-}
-
-function getPeriodStart(period: PeriodFilter) {
+function getPeriodStartDate(period: PeriodFilter) {
   const now = new Date()
   const start = new Date(now)
 
@@ -171,38 +160,78 @@ function getPeriodStart(period: PeriodFilter) {
   return null
 }
 
-function getDaysAgo(days: number) {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  return date
-}
-
-function getNeighborhoodStatus(neighborhood: NeighborhoodRanking) {
-  if (neighborhood.revenueShare >= 25 || neighborhood.ordersShare >= 25) {
+function getNeighborhoodStatus(item: {
+  ordersCount: number
+  revenue: number
+  trend: number
+  revenueShare: number
+}): Pick<NeighborhoodRanking, "status" | "statusLabel"> {
+  if (item.revenueShare >= 25 || item.ordersCount >= 20) {
     return {
-      status: "hot" as const,
-      label: "Bairro quente",
+      status: "hot",
+      statusLabel: "Forte",
     }
   }
 
-  if (neighborhood.trend > 0) {
+  if (item.trend > 0) {
     return {
-      status: "growth" as const,
-      label: "Crescendo",
+      status: "growth",
+      statusLabel: "Crescendo",
     }
   }
 
-  if (neighborhood.ordersCount <= 2) {
+  if (item.ordersCount >= 3) {
     return {
-      status: "weak" as const,
-      label: "Fraco",
+      status: "attention",
+      statusLabel: "Atenção",
     }
   }
 
   return {
-    status: "attention" as const,
-    label: "Monitorar",
+    status: "weak",
+    statusLabel: "Fraco",
   }
+}
+
+function getTrendPercentage(recentOrders: number, previousOrders: number) {
+  if (previousOrders === 0 && recentOrders > 0) return 100
+  if (previousOrders === 0) return 0
+
+  return ((recentOrders - previousOrders) / previousOrders) * 100
+}
+
+function getDateFromOrder(order: OrderRecord) {
+  if (!order.created_at) return null
+
+  const date = new Date(order.created_at)
+
+  if (Number.isNaN(date.getTime())) return null
+
+  return date
+}
+
+function isOrderPaid(order: OrderRecord) {
+  return String(order.payment_status || "").toLowerCase() === "paid"
+}
+
+function isOrderPending(order: OrderRecord) {
+  const paymentStatus = String(order.payment_status || "").toLowerCase()
+
+  return (
+    paymentStatus === "pending" ||
+    paymentStatus === "waiting" ||
+    paymentStatus === "aguardando"
+  )
+}
+
+function isOrderCanceled(order: OrderRecord) {
+  const status = String(order.status || "").toLowerCase()
+
+  return (
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "cancelado"
+  )
 }
 
 export default function RadarBairrosPage() {
@@ -257,22 +286,14 @@ export default function RadarBairrosPage() {
 
       setRestaurant(restaurantData)
 
-      const startDate = getPeriodStart(periodFilter)
-
-      let ordersQuery = supabase
+      const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select(
           "id, created_at, customer_name, customer_phone, customer_address, customer_neighborhood, status, payment_status, subtotal, total, delivery_fee",
         )
         .eq("restaurant_id", restaurantData.id)
         .order("created_at", { ascending: false })
-        .limit(3000)
-
-      if (startDate) {
-        ordersQuery = ordersQuery.gte("created_at", startDate.toISOString())
-      }
-
-      const { data: ordersData, error: ordersError } = await ordersQuery
+        .limit(2500)
 
       if (ordersError) throw ordersError
 
@@ -289,30 +310,38 @@ export default function RadarBairrosPage() {
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodFilter])
+  }, [])
 
-  const neighborhoodRanking = useMemo<NeighborhoodRanking[]>(() => {
+  const ranking = useMemo<NeighborhoodRanking[]>(() => {
+    const periodStart = getPeriodStartDate(periodFilter)
+    const now = new Date()
+
     const validOrders = orders.filter((order) => {
-      const status = String(order.status || "").toLowerCase()
-      const paymentStatus = String(order.payment_status || "").toLowerCase()
+      if (isOrderCanceled(order)) return false
 
-      const isCanceled =
-        status === "cancelled" ||
-        status === "canceled" ||
-        status === "cancelado"
+      const orderDate = getDateFromOrder(order)
+      if (!orderDate) return false
 
-      if (isCanceled) return false
+      if (periodStart && orderDate < periodStart) return false
 
-      if (paymentFilter === "paid") {
-        return paymentStatus === "paid"
-      }
-
-      if (paymentFilter === "pending") {
-        return paymentStatus !== "paid"
-      }
+      if (paymentFilter === "paid") return isOrderPaid(order)
+      if (paymentFilter === "pending") return isOrderPending(order)
 
       return true
     })
+
+    const totalRevenue = validOrders.reduce(
+      (sum, order) => sum + getOrderTotal(order),
+      0,
+    )
+
+    const totalOrders = validOrders.length
+
+    const recentStart = new Date(now)
+    recentStart.setDate(now.getDate() - 15)
+
+    const previousStart = new Date(now)
+    previousStart.setDate(now.getDate() - 30)
 
     const grouped = new Map<
       string,
@@ -331,21 +360,10 @@ export default function RadarBairrosPage() {
       }
     >()
 
-    const recentStart = getDaysAgo(7)
-    const previousStart = getDaysAgo(14)
-
     for (const order of validOrders) {
-      const neighborhoodName = getNeighborhood(order)
-      const key = getNeighborhoodKey(neighborhoodName)
-      const orderDate = order.created_at ? new Date(order.created_at) : null
-
-      const paymentStatus = String(order.payment_status || "").toLowerCase()
-      const isPaid = paymentStatus === "paid"
-
-      const customerKey =
-        normalizePhone(order.customer_phone) ||
-        normalizeText(order.customer_name).toLowerCase() ||
-        order.id
+      const neighborhoodName = normalizeNeighborhood(order.customer_neighborhood)
+      const key = neighborhoodName.toLowerCase()
+      const orderDate = getDateFromOrder(order)
 
       const current =
         grouped.get(key) ||
@@ -364,17 +382,19 @@ export default function RadarBairrosPage() {
         }
 
       current.ordersCount += 1
-      current.revenue += getOrderTotal(order)
-      current.deliveryFees += toNumber(order.delivery_fee)
-      current.customers.add(customerKey)
 
-      if (isPaid) {
+      if (isOrderPaid(order)) {
         current.paidOrdersCount += 1
-      } else {
+      }
+
+      if (isOrderPending(order)) {
         current.pendingOrdersCount += 1
       }
 
-      if (orderDate && !Number.isNaN(orderDate.getTime())) {
+      current.revenue += getOrderTotal(order)
+      current.deliveryFees += toNumber(order.delivery_fee)
+
+      if (orderDate) {
         if (!current.lastOrderDate || orderDate > current.lastOrderDate) {
           current.lastOrderDate = orderDate
         }
@@ -386,20 +406,21 @@ export default function RadarBairrosPage() {
         }
       }
 
+      const customerPhone = normalizeCustomerPhone(order.customer_phone)
+      const customerName = normalizeText(order.customer_name)
+
+      if (customerPhone) {
+        current.customers.add(`phone:${customerPhone}`)
+      } else if (customerName) {
+        current.customers.add(`name:${customerName.toLowerCase()}`)
+      } else {
+        current.customers.add(`order:${order.id}`)
+      }
+
       grouped.set(key, current)
     }
 
-    const totalRevenue = Array.from(grouped.values()).reduce(
-      (sum, item) => sum + item.revenue,
-      0,
-    )
-
-    const totalOrders = Array.from(grouped.values()).reduce(
-      (sum, item) => sum + item.ordersCount,
-      0,
-    )
-
-    const calculated = Array.from(grouped.values()).map((item) => {
+    const items = Array.from(grouped.values()).map((item) => {
       const averageTicket =
         item.ordersCount > 0 ? item.revenue / item.ordersCount : 0
 
@@ -412,9 +433,15 @@ export default function RadarBairrosPage() {
       const ordersShare =
         totalOrders > 0 ? (item.ordersCount / totalOrders) * 100 : 0
 
-      const trend = item.recentOrders - item.previousOrders
+      const trend = getTrendPercentage(item.recentOrders, item.previousOrders)
+      const status = getNeighborhoodStatus({
+        ordersCount: item.ordersCount,
+        revenue: item.revenue,
+        trend,
+        revenueShare,
+      })
 
-      const baseNeighborhood: NeighborhoodRanking = {
+      return {
         key: item.key,
         name: item.name,
         ordersCount: item.ordersCount,
@@ -431,20 +458,12 @@ export default function RadarBairrosPage() {
         recentOrders: item.recentOrders,
         previousOrders: item.previousOrders,
         trend,
-        status: "attention",
-        statusLabel: "Monitorar",
-      }
-
-      const status = getNeighborhoodStatus(baseNeighborhood)
-
-      return {
-        ...baseNeighborhood,
         status: status.status,
-        statusLabel: status.label,
+        statusLabel: status.statusLabel,
       }
     })
 
-    return calculated.sort((a, b) => {
+    return items.sort((a, b) => {
       if (sortFilter === "orders") return b.ordersCount - a.ordersCount
       if (sortFilter === "ticket") return b.averageTicket - a.averageTicket
       if (sortFilter === "delivery") {
@@ -454,57 +473,43 @@ export default function RadarBairrosPage() {
 
       return b.revenue - a.revenue
     })
-  }, [orders, paymentFilter, sortFilter])
+  }, [orders, paymentFilter, periodFilter, sortFilter])
 
-  const filteredNeighborhoods = useMemo(() => {
-    const search = searchTerm.toLowerCase()
+  const filteredRanking = useMemo(() => {
+    const search = searchTerm.toLowerCase().trim()
 
-    return neighborhoodRanking.filter((neighborhood) =>
-      neighborhood.name.toLowerCase().includes(search),
-    )
-  }, [neighborhoodRanking, searchTerm])
+    return ranking.filter((item) => {
+      if (!search) return true
+
+      return item.name.toLowerCase().includes(search)
+    })
+  }, [ranking, searchTerm])
 
   const summary = useMemo(() => {
-    const totalOrders = neighborhoodRanking.reduce(
-      (sum, item) => sum + item.ordersCount,
-      0,
-    )
-
-    const totalRevenue = neighborhoodRanking.reduce(
-      (sum, item) => sum + item.revenue,
-      0,
-    )
-
-    const totalDeliveryFees = neighborhoodRanking.reduce(
-      (sum, item) => sum + item.deliveryFees,
-      0,
-    )
-
-    const totalCustomers = neighborhoodRanking.reduce(
+    const totalRevenue = ranking.reduce((sum, item) => sum + item.revenue, 0)
+    const totalOrders = ranking.reduce((sum, item) => sum + item.ordersCount, 0)
+    const totalCustomers = ranking.reduce(
       (sum, item) => sum + item.uniqueCustomers,
       0,
     )
 
-    const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0
-    const averageDeliveryFee =
-      totalOrders > 0 ? totalDeliveryFees / totalOrders : 0
+    const bestNeighborhood = ranking[0] || null
 
-    const hotNeighborhoods = neighborhoodRanking.filter(
-      (item) => item.status === "hot" || item.status === "growth",
-    ).length
+    const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+    const neighborhoodsWithGrowth = ranking.filter((item) => item.trend > 0)
+      .length
 
     return {
-      totalNeighborhoods: neighborhoodRanking.length,
-      totalOrders,
       totalRevenue,
-      totalDeliveryFees,
+      totalOrders,
       totalCustomers,
+      bestNeighborhood,
       averageTicket,
-      averageDeliveryFee,
-      hotNeighborhoods,
-      topNeighborhood: neighborhoodRanking[0],
+      neighborhoodsCount: ranking.length,
+      neighborhoodsWithGrowth,
     }
-  }, [neighborhoodRanking])
+  }, [ranking])
 
   const periodOptions = [
     { value: "today", label: "Hoje" },
@@ -524,8 +529,8 @@ export default function RadarBairrosPage() {
     { value: "revenue", label: "Faturamento" },
     { value: "orders", label: "Pedidos" },
     { value: "ticket", label: "Ticket médio" },
-    { value: "delivery", label: "Taxa média" },
-    { value: "trend", label: "Tendência" },
+    { value: "delivery", label: "Taxa entrega" },
+    { value: "trend", label: "Crescimento" },
   ] as const
 
   return (
@@ -537,7 +542,7 @@ export default function RadarBairrosPage() {
               <div>
                 <div className="mb-2 flex items-center gap-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                    <Map className="h-5 w-5" />
+                    <MapIcon className="h-5 w-5" />
                   </div>
 
                   <div>
@@ -545,8 +550,8 @@ export default function RadarBairrosPage() {
                       Radar de Bairros
                     </h1>
                     <p className="text-sm text-slate-500">
-                      Descubra quais bairros mais compram, faturam e merecem
-                      campanhas específicas.
+                      Descubra quais regiões mais compram, onde vale fazer ação
+                      local e onde a entrega pesa mais.
                     </p>
                   </div>
                 </div>
@@ -609,19 +614,14 @@ export default function RadarBairrosPage() {
             <>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                      <MapPin className="h-5 w-5" />
-                    </div>
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
-                      Áreas
-                    </span>
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                    <BadgeDollarSign className="h-5 w-5" />
                   </div>
                   <p className="text-sm font-medium text-slate-500">
-                    Bairros ativos
+                    Faturamento no período
                   </p>
                   <p className="mt-1 text-2xl font-black text-slate-950">
-                    {summary.totalNeighborhoods}
+                    {formatMoney(summary.totalRevenue)}
                   </p>
                 </div>
 
@@ -630,7 +630,7 @@ export default function RadarBairrosPage() {
                     <ShoppingBag className="h-5 w-5" />
                   </div>
                   <p className="text-sm font-medium text-slate-500">
-                    Pedidos analisados
+                    Pedidos mapeados
                   </p>
                   <p className="mt-1 text-2xl font-black text-slate-950">
                     {formatNumber(summary.totalOrders)}
@@ -639,120 +639,91 @@ export default function RadarBairrosPage() {
 
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                    <BadgeDollarSign className="h-5 w-5" />
+                    <Navigation className="h-5 w-5" />
                   </div>
                   <p className="text-sm font-medium text-slate-500">
-                    Faturamento por área
+                    Bairros ativos
                   </p>
                   <p className="mt-1 text-2xl font-black text-slate-950">
-                    {formatMoney(summary.totalRevenue)}
+                    {formatNumber(summary.neighborhoodsCount)}
                   </p>
                 </div>
 
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
-                    <Crown className="h-5 w-5" />
+                    <Target className="h-5 w-5" />
                   </div>
                   <p className="text-sm font-medium text-slate-500">
-                    Bairro líder
+                    Ticket médio geral
                   </p>
-                  <p className="mt-1 line-clamp-1 text-lg font-black text-slate-950">
-                    {summary.topNeighborhood?.name || "Sem dados"}
+                  <p className="mt-1 text-2xl font-black text-slate-950">
+                    {formatMoney(summary.averageTicket)}
                   </p>
                 </div>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-2">
-                    <Navigation className="h-5 w-5 text-slate-700" />
+                    <Crown className="h-5 w-5 text-yellow-500" />
                     <h2 className="text-base font-bold text-slate-950">
-                      Leitura operacional
+                      Bairro campeão
                     </h2>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-4">
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                        Ticket médio
-                      </p>
-                      <p className="mt-1 text-lg font-black text-slate-950">
-                        {formatMoney(summary.averageTicket)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                        Taxa média
-                      </p>
-                      <p className="mt-1 text-lg font-black text-slate-950">
-                        {formatMoney(summary.averageDeliveryFee)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                        Taxas de entrega
-                      </p>
-                      <p className="mt-1 text-lg font-black text-orange-600">
-                        {formatMoney(summary.totalDeliveryFees)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                        Bairros quentes
-                      </p>
-                      <p className="mt-1 text-lg font-black text-emerald-600">
-                        {summary.hotNeighborhoods}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-slate-950">
-                        Melhor alvo de campanha
-                      </p>
-                      <p className="text-xs font-medium text-slate-500">
-                        Bairro com maior força no período.
-                      </p>
-                    </div>
-
-                    <Target className="h-5 w-5 text-emerald-500" />
-                  </div>
-
-                  {summary.topNeighborhood ? (
-                    <div className="rounded-2xl bg-emerald-50 p-4">
-                      <p className="line-clamp-1 text-base font-black text-emerald-950">
-                        {summary.topNeighborhood.name}
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  {summary.bestNeighborhood ? (
+                    <div className="rounded-2xl bg-yellow-50 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <p className="text-xs font-bold uppercase text-emerald-700/70">
-                            Faturou
+                          <p className="text-xl font-black text-yellow-950">
+                            {summary.bestNeighborhood.name}
                           </p>
-                          <p className="font-black text-emerald-800">
-                            {formatMoney(summary.topNeighborhood.revenue)}
+                          <p className="mt-1 text-sm font-semibold text-yellow-800/80">
+                            {summary.bestNeighborhood.ordersCount} pedido(s) •{" "}
+                            {formatMoney(summary.bestNeighborhood.revenue)}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase text-emerald-700/70">
-                            Pedidos
-                          </p>
-                          <p className="font-black text-emerald-800">
-                            {summary.topNeighborhood.ordersCount}
-                          </p>
-                        </div>
+
+                        <span className="rounded-full bg-yellow-200 px-3 py-1 text-xs font-black text-yellow-900">
+                          {formatPercent(summary.bestNeighborhood.revenueShare)} da
+                          receita
+                        </span>
                       </div>
                     </div>
                   ) : (
                     <div className="rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-500">
-                      Ainda não há pedidos com bairro informado.
+                      Nenhum bairro encontrado no período.
                     </div>
                   )}
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-emerald-600" />
+                    <h2 className="text-base font-bold text-slate-950">
+                      Crescimento regional
+                    </h2>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-emerald-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-700/70">
+                        Bairros crescendo
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-emerald-700">
+                        {summary.neighborhoodsWithGrowth}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Clientes únicos
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-slate-950">
+                        {formatNumber(summary.totalCustomers)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -764,8 +735,8 @@ export default function RadarBairrosPage() {
                         Ranking por bairro
                       </h2>
                       <p className="text-sm text-slate-500">
-                        Veja onde vale fazer campanha, ajustar entrega ou focar
-                        combos por região.
+                        Veja onde entram mais pedidos e onde existe oportunidade
+                        de campanha local.
                       </p>
                     </div>
 
@@ -813,172 +784,172 @@ export default function RadarBairrosPage() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1080px] text-left">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-black uppercase tracking-wide text-slate-400">
-                        <th className="px-5 py-3">Bairro</th>
-                        <th className="px-5 py-3">Pedidos</th>
-                        <th className="px-5 py-3">Faturamento</th>
-                        <th className="px-5 py-3">Ticket médio</th>
-                        <th className="px-5 py-3">Taxa média</th>
-                        <th className="px-5 py-3">Clientes</th>
-                        <th className="px-5 py-3">Participação</th>
-                        <th className="px-5 py-3">Tendência</th>
-                        <th className="px-5 py-3">Status</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {filteredNeighborhoods.length > 0 ? (
-                        filteredNeighborhoods.map((neighborhood) => (
-                          <tr
-                            key={neighborhood.key}
-                            className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
-                          >
-                            <td className="px-5 py-4">
-                              <div>
-                                <p className="font-bold text-slate-950">
-                                  {neighborhood.name}
-                                </p>
-                                <p className="mt-1 text-xs font-medium text-slate-400">
-                                  Último pedido:{" "}
-                                  {formatDate(neighborhood.lastOrderDate)}
-                                </p>
-                              </div>
-                            </td>
-
-                            <td className="px-5 py-4">
-                              <p className="text-sm font-black text-slate-900">
-                                {neighborhood.ordersCount}
-                              </p>
-                              <p className="mt-1 text-xs font-medium text-slate-400">
-                                {neighborhood.paidOrdersCount} pagos •{" "}
-                                {neighborhood.pendingOrdersCount} pendentes
-                              </p>
-                            </td>
-
-                            <td className="px-5 py-4 text-sm font-black text-slate-900">
-                              {formatMoney(neighborhood.revenue)}
-                            </td>
-
-                            <td className="px-5 py-4 text-sm font-black text-slate-900">
-                              {formatMoney(neighborhood.averageTicket)}
-                            </td>
-
-                            <td className="px-5 py-4 text-sm font-black text-orange-600">
-                              {formatMoney(neighborhood.averageDeliveryFee)}
-                            </td>
-
-                            <td className="px-5 py-4 text-sm font-black text-slate-900">
-                              {neighborhood.uniqueCustomers}
-                            </td>
-
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
-                                  <div
-                                    className="h-full rounded-full bg-emerald-500"
-                                    style={{
-                                      width: `${Math.min(
-                                        neighborhood.revenueShare,
-                                        100,
-                                      )}%`,
-                                    }}
-                                  />
-                                </div>
-
-                                <span className="text-xs font-black text-slate-600">
-                                  {formatPercent(neighborhood.revenueShare)}
-                                </span>
-                              </div>
-                            </td>
-
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-2">
-                                {neighborhood.trend > 0 ? (
-                                  <ArrowUp className="h-4 w-4 text-emerald-500" />
-                                ) : neighborhood.trend < 0 ? (
-                                  <ArrowDown className="h-4 w-4 text-red-500" />
-                                ) : (
-                                  <TrendingUp className="h-4 w-4 text-slate-400" />
-                                )}
-
-                                <span
-                                  className={cn(
-                                    "text-sm font-black",
-                                    neighborhood.trend > 0 &&
-                                      "text-emerald-600",
-                                    neighborhood.trend < 0 && "text-red-600",
-                                    neighborhood.trend === 0 &&
-                                      "text-slate-500",
-                                  )}
-                                >
-                                  {neighborhood.trend > 0
-                                    ? `+${neighborhood.trend}`
-                                    : neighborhood.trend}
-                                </span>
-                              </div>
-                            </td>
-
-                            <td className="px-5 py-4">
-                              <span
+                <div className="p-5">
+                  {filteredRanking.length > 0 ? (
+                    <div className="space-y-3">
+                      {filteredRanking.map((item, index) => (
+                        <div
+                          key={item.key}
+                          className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/20"
+                        >
+                          <div className="grid gap-4 xl:grid-cols-[60px_minmax(0,1fr)_180px_180px_160px_160px] xl:items-center">
+                            <div className="flex items-center gap-3 xl:block">
+                              <div
                                 className={cn(
-                                  "rounded-full px-2.5 py-1 text-xs font-black",
-                                  neighborhood.status === "hot" &&
-                                    "bg-emerald-100 text-emerald-700",
-                                  neighborhood.status === "growth" &&
-                                    "bg-blue-100 text-blue-700",
-                                  neighborhood.status === "attention" &&
-                                    "bg-amber-100 text-amber-700",
-                                  neighborhood.status === "weak" &&
-                                    "bg-slate-100 text-slate-600",
+                                  "flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-black",
+                                  index === 0 && "bg-yellow-100 text-yellow-700",
+                                  index === 1 && "bg-slate-100 text-slate-700",
+                                  index === 2 && "bg-orange-100 text-orange-700",
+                                  index > 2 && "bg-emerald-50 text-emerald-700",
                                 )}
                               >
-                                {neighborhood.statusLabel}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan={9}
-                            className="px-5 py-12 text-center text-sm font-medium text-slate-500"
-                          >
-                            Nenhum bairro encontrado para os filtros atuais.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                                #{index + 1}
+                              </div>
+
+                              <div className="xl:hidden">
+                                <p className="text-base font-black text-slate-950">
+                                  {item.name}
+                                </p>
+                                <p className="text-sm font-semibold text-slate-500">
+                                  {item.ordersCount} pedido(s)
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="hidden xl:block">
+                                <p className="line-clamp-1 text-base font-black text-slate-950">
+                                  {item.name}
+                                </p>
+                                <p className="mt-1 text-sm font-semibold text-slate-500">
+                                  {item.uniqueCustomers} cliente(s) único(s)
+                                </p>
+                              </div>
+
+                              <div className="mt-2 flex flex-wrap items-center gap-2 xl:mt-0">
+                                <span
+                                  className={cn(
+                                    "rounded-full px-2.5 py-1 text-xs font-black",
+                                    item.status === "hot" &&
+                                      "bg-emerald-100 text-emerald-700",
+                                    item.status === "growth" &&
+                                      "bg-blue-100 text-blue-700",
+                                    item.status === "attention" &&
+                                      "bg-amber-100 text-amber-700",
+                                    item.status === "weak" &&
+                                      "bg-slate-100 text-slate-600",
+                                  )}
+                                >
+                                  {item.statusLabel}
+                                </span>
+
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
+                                  {formatPercent(item.revenueShare)} da receita
+                                </span>
+
+                                {item.trend !== 0 ? (
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black",
+                                      item.trend > 0
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : "bg-red-100 text-red-700",
+                                    )}
+                                  >
+                                    {item.trend > 0 ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )}
+                                    {formatPercent(Math.abs(item.trend))}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Faturamento
+                              </p>
+                              <p className="mt-1 text-base font-black text-slate-950">
+                                {formatMoney(item.revenue)}
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Pedidos
+                              </p>
+                              <p className="mt-1 text-base font-black text-slate-950">
+                                {item.ordersCount}
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Ticket médio
+                              </p>
+                              <p className="mt-1 text-base font-black text-slate-950">
+                                {formatMoney(item.averageTicket)}
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Taxa média
+                              </p>
+                              <p className="mt-1 text-base font-black text-slate-950">
+                                {formatMoney(item.averageDeliveryFee)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">
+                              <ShoppingBag className="h-4 w-4" />
+                              {item.paidOrdersCount} pago(s)
+                            </div>
+
+                            <div className="flex items-center gap-2 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-700">
+                              <Percent className="h-4 w-4" />
+                              {formatPercent(item.ordersShare)} dos pedidos
+                            </div>
+
+                            <div className="flex items-center gap-2 rounded-2xl bg-blue-50 p-3 text-sm font-bold text-blue-700">
+                              <MapPin className="h-4 w-4" />
+                              {item.lastOrderDate
+                                ? `Último pedido em ${item.lastOrderDate.toLocaleDateString("pt-BR")}`
+                                : "Sem data recente"}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+                      <MapPin className="mx-auto h-8 w-8 text-slate-400" />
+                      <p className="mt-3 text-sm font-bold text-slate-700">
+                        Nenhum bairro encontrado
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Tente mudar os filtros ou aguarde novos pedidos com
+                        bairro preenchido.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
                 <div className="flex gap-3">
-                  <Percent className="mt-0.5 h-5 w-5 flex-none" />
+                  <AlertTriangle className="mt-0.5 h-5 w-5 flex-none" />
                   <div>
                     <p className="font-black">Como usar esse radar</p>
                     <p className="mt-1 font-medium">
-                      Bairros com muito faturamento merecem campanhas próprias,
-                      combos direcionados e atenção especial na entrega. Bairros
-                      com taxa média alta podem indicar oportunidade de ajustar
-                      regiões, motoboy ou valor mínimo de pedido.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                <div className="flex gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 flex-none" />
-                  <div>
-                    <p className="font-black">Atenção</p>
-                    <p className="mt-1 font-medium">
-                      Esse radar depende do campo de bairro salvo nos pedidos.
-                      Quando o cliente não tiver bairro identificado, o pedido
-                      entra como “Sem bairro informado”.
+                      Use os bairros fortes para campanhas locais e os bairros
+                      com ticket médio alto para ofertas premium. Se a taxa média
+                      de entrega estiver alta em um bairro, avalie pedido mínimo,
+                      taxa diferenciada ou campanha com retirada.
                     </p>
                   </div>
                 </div>
