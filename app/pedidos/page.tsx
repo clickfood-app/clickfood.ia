@@ -117,7 +117,7 @@ type NewOrderAlert = {
   createdAt: string
 }
 
-type BoardStatus = "analysis" | "preparation" | "ready" | "on_route"
+type BoardStatus = "analysis" | "preparation" | "ready"
 
 const supabase = createClient()
 
@@ -137,12 +137,6 @@ const OPEN_ORDER_STATUSES = [
   "aguardando",
   "ready",
   "pronto",
-  "out_for_delivery",
-  "saiu_para_entrega",
-  "delivering",
-  "on_route",
-  "em_rota",
-  "em rota",
   "waiting_pix_confirmation",
   "awaiting_pix_review",
   "aguardando_confirmacao_pix",
@@ -182,17 +176,6 @@ const columnStyles = {
     badge: "bg-emerald-100 text-emerald-700",
     button: "bg-emerald-600 hover:bg-emerald-700 text-white",
     progress: "bg-emerald-500",
-  },
-  on_route: {
-    title: "EM ROTA",
-    description: "Saiu para entrega",
-    icon: Truck,
-    header: "bg-purple-600",
-    body: "bg-purple-50/40",
-    border: "border-purple-200",
-    badge: "bg-purple-100 text-purple-700",
-    button: "bg-purple-600 hover:bg-purple-700 text-white",
-    progress: "bg-purple-500",
   },
 } satisfies Record<BoardStatus, Record<string, string | typeof Clock3>>
 
@@ -304,25 +287,11 @@ function isReadyStatus(status: string | null | undefined) {
   )
 }
 
-function isOnRouteStatus(status: string | null | undefined) {
-  const value = normalizeStatus(status)
-
-  return (
-    value === "out_for_delivery" ||
-    value === "saiu_para_entrega" ||
-    value === "delivering" ||
-    value === "on_route" ||
-    value === "em_rota" ||
-    value === "em rota"
-  )
-}
 
 function getBoardStatus(status: string | null | undefined): BoardStatus | null {
   if (isAnalysisStatus(status)) return "analysis"
   if (isPreparationStatus(status)) return "preparation"
   if (isReadyStatus(status)) return "ready"
-  if (isOnRouteStatus(status)) return "on_route"
-
   return null
 }
 
@@ -474,6 +443,83 @@ function getCustomerName(order: OrderRow) {
 
 function getCustomerPhone(order: OrderRow) {
   return order.customer_phone?.trim() || "Sem telefone"
+}
+
+function getOrderTextField(order: OrderRow, keys: string[]) {
+  const rawOrder = order as unknown as Record<string, unknown>
+
+  for (const key of keys) {
+    const value = rawOrder[key]
+
+    if (typeof value === "string" && value.trim()) return value.trim()
+    if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  }
+
+  return null
+}
+
+function getOrderCpf(order: OrderRow) {
+  return getOrderTextField(order, [
+    "customer_cpf",
+    "customer_document",
+    "customer_tax_id",
+    "document",
+    "cpf",
+    "tax_id",
+  ])
+}
+
+function getOrderAddress(order: OrderRow) {
+  const directAddress = getOrderTextField(order, [
+    "customer_address",
+    "delivery_address",
+    "delivery_full_address",
+    "full_address",
+    "address",
+    "shipping_address",
+  ])
+
+  if (directAddress) return directAddress
+
+  const street = getOrderTextField(order, [
+    "customer_street",
+    "delivery_street",
+    "street",
+    "shipping_street",
+  ])
+  const number = getOrderTextField(order, [
+    "customer_number",
+    "delivery_number",
+    "address_number",
+    "number",
+  ])
+  const neighborhood = getOrderTextField(order, [
+    "customer_neighborhood",
+    "delivery_neighborhood",
+    "neighborhood",
+    "bairro",
+  ])
+  const complement = getOrderTextField(order, [
+    "customer_complement",
+    "delivery_complement",
+    "complement",
+  ])
+  const city = getOrderTextField(order, [
+    "customer_city",
+    "delivery_city",
+    "city",
+  ])
+
+  const mainAddress = [street, number].filter(Boolean).join(", ")
+  const fullAddress = [mainAddress, neighborhood, complement, city]
+    .filter(Boolean)
+    .join(" • ")
+
+  return fullAddress || null
+}
+
+function buildPrintNotes(order: OrderRow) {
+  return order.notes?.trim() || null
 }
 
 function getAcceptDeadline(order: OrderRow) {
@@ -636,13 +682,11 @@ function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
   }
 
   if (status === "ready") {
-    if (isDelivery) return "Cozinha marcou como pronto. Selecione o motoboy e envie."
-    return "Cozinha marcou como pronto. Sirva ou finalize o pedido."
+    if (isDelivery) return "Pedido pronto. Selecione o motoboy e envie."
+    return "Pedido pronto. Finalize o atendimento."
   }
 
-  if (isDelivery) return "Pedido em rota com entregador vinculado."
-
-  return "Pedido finalizado na operação."
+  return "Pedido em andamento."
 }
 
 function normalizeOrderItem(raw: Record<string, unknown>): OrderItem {
@@ -720,6 +764,43 @@ function buildThermalOrderPayload(
   order: OrderRow,
   items: OrderItem[]
 ): ThermalPrintOrder {
+  const deliveryAddress = getOrderAddress(order)
+  const customerCpf = getOrderCpf(order)
+
+  const street = getOrderTextField(order, [
+    "customer_street",
+    "delivery_street",
+    "street",
+    "shipping_street",
+  ])
+
+  const number = getOrderTextField(order, [
+    "customer_number",
+    "delivery_number",
+    "address_number",
+    "number",
+  ])
+
+  const neighborhood = getOrderTextField(order, [
+    "customer_neighborhood",
+    "delivery_neighborhood",
+    "neighborhood",
+    "bairro",
+  ])
+
+  const complement = getOrderTextField(order, [
+    "customer_complement",
+    "delivery_complement",
+    "complement",
+  ])
+
+  const reference = getOrderTextField(order, [
+    "customer_reference",
+    "delivery_reference",
+    "address_reference",
+    "reference",
+  ])
+
   return {
     id: order.id,
     publicOrderNumber: getOrderNumber(order),
@@ -728,13 +809,21 @@ function buildThermalOrderPayload(
     customer: {
       name: getCustomerName(order),
       phone: getCustomerPhone(order),
+      cpf: customerCpf,
+      document: customerCpf,
+      address: deliveryAddress,
+      street,
+      number,
+      neighborhood,
+      complement,
+      reference,
     },
     items: items.map((item) => ({
       name: getOrderItemPrintName(item),
       quantity: item.quantity,
       price: item.quantity > 0 ? item.total / item.quantity : item.total,
     })),
-    notes: order.notes,
+    notes: buildPrintNotes(order),
     subtotal: toPrintNumber(order.subtotal),
     deliveryFee: toPrintNumber(order.delivery_fee),
     discount: toPrintNumber(order.discount),
@@ -752,6 +841,7 @@ type OrderCardProps = {
   averagePrepTimeMinutes: number
   nowMs: number
   busyOrderId: string | null
+  kdsEnabled: boolean
   isSelected: boolean
   onToggleSelected: (orderId: string) => void
   onAccept: (order: OrderRow) => void
@@ -771,6 +861,7 @@ function OrderCard({
   averagePrepTimeMinutes,
   nowMs,
   busyOrderId,
+  kdsEnabled,
   isSelected,
   onToggleSelected,
   onAccept,
@@ -787,6 +878,8 @@ function OrderCard({
   const isPaid = isPaidOrder(order)
   const TypeIcon = isDelivery ? Truck : Package
   const isPixReview = isPixAwaitingReview(order)
+  const deliveryAddress = getOrderAddress(order)
+  const customerCpf = getOrderCpf(order)
   const [proofModalOpen, setProofModalOpen] = useState(false)
 
   const acceptDeadline = getAcceptDeadline(order)
@@ -834,9 +927,7 @@ function OrderCard({
               ? "bg-amber-500"
               : status === "preparation"
                 ? "bg-blue-600"
-                : status === "ready"
-                  ? "bg-emerald-600"
-                  : "bg-purple-600",
+                : "bg-emerald-600",
         ].join(" ")}
       />
 
@@ -912,6 +1003,22 @@ function OrderCard({
             </span>
           </div>
         </div>
+
+        {(deliveryAddress || customerCpf) && (
+          <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-2.5 py-2">
+            {deliveryAddress && (
+              <p className="text-[11px] font-bold leading-relaxed text-blue-900">
+                Endereço: {deliveryAddress}
+              </p>
+            )}
+
+            {customerCpf && (
+              <p className="mt-0.5 text-[11px] font-bold leading-relaxed text-blue-900">
+                CPF: {customerCpf}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1.5">
           <p className="min-w-0 truncate text-[11px] font-semibold text-slate-700">
@@ -1046,26 +1153,7 @@ function OrderCard({
             </>
           )}
 
-          {status === "on_route" && (
-            <>
-              <div className="mb-1 flex items-center justify-between text-[11px]">
-                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700">
-                  <Truck className="h-3 w-3" />
-                  {order.out_for_delivery_at
-                    ? formatElapsedTime(order.out_for_delivery_at, nowMs)
-                    : "Em rota"}
-                </span>
 
-                <span className="text-slate-400">
-                  saiu às {order.out_for_delivery_at ? formatTimeOnly(order.out_for_delivery_at) : "--:--"}
-                </span>
-              </div>
-
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full w-2/3 rounded-full bg-emerald-500" />
-              </div>
-            </>
-          )}
         </div>
 
         <div className="mt-2 rounded-lg border border-slate-100 bg-white p-2 shadow-inner">
@@ -1147,7 +1235,7 @@ function OrderCard({
           </div>
         )}
 
-        {isDelivery && (status === "preparation" || status === "ready" || status === "on_route") && (
+        {isDelivery && (status === "preparation" || status === "ready") && (
           <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/70 p-2">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
@@ -1314,9 +1402,27 @@ function OrderCard({
           )}
 
           {status === "preparation" && (
-            <div className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700">
-              Aguardando cozinha
-            </div>
+            kdsEnabled ? (
+              <div className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700">
+                Aguardando cozinha
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => (isDelivery ? onSendToRoute(order) : onFinish(order))}
+                disabled={isBusy || (isDelivery && !order.delivery_person_id)}
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : isDelivery ? (
+                  <Truck className="h-3.5 w-3.5" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
+                {isDelivery ? "Enviar" : "Finalizar"}
+              </button>
+            )
           )}
 
           {status === "ready" && (
@@ -1337,21 +1443,7 @@ function OrderCard({
             </button>
           )}
 
-          {status === "on_route" && (
-            <button
-              type="button"
-              onClick={() => onFinish(order)}
-              disabled={isBusy}
-              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isBusy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-              Finalizar
-            </button>
-          )}
+
         </div>
       </div>
 
@@ -1422,6 +1514,19 @@ function OrderCard({
                 type="button"
                 onClick={() => {
                   setProofModalOpen(false)
+                  onCancel(order)
+                }}
+                disabled={isBusy}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <XCircle className="h-4 w-4" />
+                Cancelar pedido
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProofModalOpen(false)
                   onConfirmPixPayment(order)
                 }}
                 disabled={isBusy}
@@ -1450,6 +1555,7 @@ type BoardColumnProps = {
   averagePrepTimeMinutes: number
   nowMs: number
   busyOrderId: string | null
+  kdsEnabled: boolean
   selectedOrderIds: Set<string>
   onToggleSelected: (orderId: string) => void
   onAccept: (order: OrderRow) => void
@@ -1469,6 +1575,7 @@ function BoardColumn({
   averagePrepTimeMinutes,
   nowMs,
   busyOrderId,
+  kdsEnabled,
   selectedOrderIds,
   onToggleSelected,
   onAccept,
@@ -1528,6 +1635,7 @@ function BoardColumn({
               averagePrepTimeMinutes={averagePrepTimeMinutes}
               nowMs={nowMs}
               busyOrderId={busyOrderId}
+              kdsEnabled={kdsEnabled}
               isSelected={selectedOrderIds.has(order.id)}
               onToggleSelected={onToggleSelected}
               onAccept={onAccept}
@@ -1568,6 +1676,7 @@ export default function PedidosPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [nowMs, setNowMs] = useState(Date.now())
   const [orderAlertsEnabled, setOrderAlertsEnabled] = useState(false)
+  const [kdsEnabled, setKdsEnabled] = useState(true)
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | "unsupported"
   >("default")
@@ -1649,6 +1758,21 @@ export default function PedidosPage() {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("clickfood_order_alerts_enabled")
     }
+  }, [])
+
+  const toggleKdsEnabled = useCallback(() => {
+    setKdsEnabled((current) => {
+      const nextValue = !current
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "clickfood_kds_enabled",
+          nextValue ? "true" : "false"
+        )
+      }
+
+      return nextValue
+    })
   }, [])
 
   const enableOrderAlerts = useCallback(async () => {
@@ -1797,9 +1921,7 @@ export default function PedidosPage() {
 
       const { data, error } = await supabase
         .from("orders")
-        .select(
-          "id, public_order_number, customer_name, customer_phone, status, subtotal, discount, delivery_fee, total, payment_method, payment_status, notes, created_at, delivery_person_id, accepted_at, preparation_started_at, out_for_delivery_at, delivered_at, cancelled_at, accept_by, pix_proof_url, pix_proof_path, pix_proof_uploaded_at, pix_confirmed_at, pix_confirmed_by"
-        )
+        .select("*")
         .eq("restaurant_id", restaurant.id)
         .in("status", OPEN_ORDER_STATUSES)
         .order("created_at", { ascending: false })
@@ -2303,6 +2425,8 @@ export default function PedidosPage() {
       window.localStorage.getItem("clickfood_order_alerts_enabled") === "true"
     )
 
+    setKdsEnabled(window.localStorage.getItem("clickfood_kds_enabled") !== "false")
+
     if ("Notification" in window) {
       setNotificationPermission(Notification.permission)
     } else {
@@ -2496,10 +2620,6 @@ export default function PedidosPage() {
     [filteredOrders]
   )
 
-  const onRouteOrders = useMemo(
-    () => filteredOrders.filter((order) => getBoardStatus(order.status) === "on_route"),
-    [filteredOrders]
-  )
 
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
@@ -2574,6 +2694,25 @@ export default function PedidosPage() {
                     <RefreshCcw className="h-4 w-4" />
                   )}
                   Atualizar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleKdsEnabled}
+                  className={[
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
+                    kdsEnabled
+                      ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      : "border-slate-300 bg-slate-900 text-white hover:bg-slate-800",
+                  ].join(" ")}
+                  title={
+                    kdsEnabled
+                      ? "KDS ativo: a cozinha controla quando o pedido fica pronto."
+                      : "KDS desativado: a aba Pedidos controla envio/finalização."
+                  }
+                >
+                  <ChefHat className="h-4 w-4" />
+                  {kdsEnabled ? "KDS ativo" : "KDS desativado"}
                 </button>
 
                 <button
@@ -2711,7 +2850,7 @@ export default function PedidosPage() {
           </div>
         ) : (
           <div className="overflow-x-auto pb-2">
-            <div className="grid min-w-[1520px] grid-cols-4 gap-4">
+            <div className="grid min-w-[1140px] grid-cols-3 gap-4">
               <BoardColumn
                 status="analysis"
                 orders={analysisOrders}
@@ -2720,6 +2859,7 @@ export default function PedidosPage() {
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
                 busyOrderId={busyOrderId}
+                kdsEnabled={kdsEnabled}
                 selectedOrderIds={selectedOrderIdSet}
                 onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
@@ -2741,6 +2881,7 @@ export default function PedidosPage() {
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
                 busyOrderId={busyOrderId}
+                kdsEnabled={kdsEnabled}
                 selectedOrderIds={selectedOrderIdSet}
                 onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
@@ -2762,6 +2903,7 @@ export default function PedidosPage() {
                 averagePrepTimeMinutes={averagePrepTimeMinutes}
                 nowMs={nowMs}
                 busyOrderId={busyOrderId}
+                kdsEnabled={kdsEnabled}
                 selectedOrderIds={selectedOrderIdSet}
                 onToggleSelected={toggleOrderSelection}
                 onAccept={(order) => void updateOrder(order, "accept")}
@@ -2775,26 +2917,7 @@ export default function PedidosPage() {
                 }
               />
 
-              <BoardColumn
-                status="on_route"
-                orders={onRouteOrders}
-                orderItemsByOrderId={orderItemsByOrderId}
-                deliveryPeople={deliveryPeople}
-                averagePrepTimeMinutes={averagePrepTimeMinutes}
-                nowMs={nowMs}
-                busyOrderId={busyOrderId}
-                selectedOrderIds={selectedOrderIdSet}
-                onToggleSelected={toggleOrderSelection}
-                onAccept={(order) => void updateOrder(order, "accept")}
-                onCancel={(order) => void updateOrder(order, "cancel")}
-                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
-                onSendToRoute={(order) => void updateOrder(order, "route")}
-                onFinish={(order) => void updateOrder(order, "finish")}
-                onPrint={handlePrintOrder}
-                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                  void assignDeliveryPerson(orderId, deliveryPersonId)
-                }
-              />
+
             </div>
           </div>
         )}
