@@ -79,6 +79,133 @@ function pickFirstBoolean(source: Record<string, unknown>, keys: string[], fallb
   return fallback
 }
 
+
+function pickFirstString(
+  source: Record<string, unknown>,
+  keys: string[],
+  fallback: string | null = null
+) {
+  for (const key of keys) {
+    if (!(key in source)) continue
+
+    const value = source[key]
+
+    if (value === null || value === undefined || value === "") continue
+
+    const stringValue = String(value).trim()
+
+    if (stringValue) return stringValue
+  }
+
+  return fallback
+}
+
+function normalizeUpsellRule(row: Record<string, unknown>, index: number) {
+  const title = pickFirstString(row, [
+    "offered_title",
+    "offeredTitle",
+    "title",
+    "name",
+    "offer_title",
+    "offerTitle",
+    "label",
+  ])
+
+  const description = pickFirstString(row, [
+    "offered_description",
+    "offeredDescription",
+    "description",
+    "offer_description",
+    "offerDescription",
+    "subtitle",
+  ])
+
+  const triggerProductId = pickFirstString(row, [
+    "trigger_product_id",
+    "triggerProductId",
+    "source_product_id",
+    "sourceProductId",
+    "parent_product_id",
+    "parentProductId",
+    "product_id",
+    "productId",
+  ])
+
+  const triggerCategoryId = pickFirstString(row, [
+    "trigger_category_id",
+    "triggerCategoryId",
+    "source_category_id",
+    "sourceCategoryId",
+    "category_id",
+    "categoryId",
+  ])
+
+  const offerProductId = pickFirstString(row, [
+    "offered_product_id",
+    "offeredProductId",
+    "offer_product_id",
+    "offerProductId",
+    "upsell_product_id",
+    "upsellProductId",
+    "target_product_id",
+    "targetProductId",
+    "suggested_product_id",
+    "suggestedProductId",
+    "recommended_product_id",
+    "recommendedProductId",
+    "product_to_offer_id",
+    "productToOfferId",
+  ])
+
+  const isActive = pickFirstBoolean(row, [
+    "is_active",
+    "isActive",
+    "active",
+    "enabled",
+    "is_enabled",
+    "isEnabled",
+  ], true)
+
+  const minSubtotal = pickFirstNumber(row, [
+    "min_subtotal",
+    "minSubtotal",
+    "min_cart_total",
+    "minCartTotal",
+    "min_order_total",
+    "minOrderTotal",
+    "minimum_order_total",
+    "minimumOrderTotal",
+    "minimum_cart_total",
+    "minimumCartTotal",
+  ], 0)
+
+  return {
+    id: String(row.id ?? `upsell-${index}`),
+    title,
+    description,
+    isActive,
+    is_active: isActive,
+    triggerProductId,
+    trigger_product_id: triggerProductId,
+    triggerCategoryId,
+    trigger_category_id: triggerCategoryId,
+    offerProductId,
+    offer_product_id: offerProductId,
+    offeredProductId: offerProductId,
+    offered_product_id: offerProductId,
+    minSubtotal: minSubtotal ?? 0,
+    min_subtotal: minSubtotal ?? 0,
+    minimumCartTotal: minSubtotal ?? 0,
+    minimum_cart_total: minSubtotal ?? 0,
+    discountType: pickFirstString(row, ["discount_type", "discountType"], null),
+    discount_type: pickFirstString(row, ["discount_type", "discountType"], null),
+    discountValue: pickFirstNumber(row, ["discount_value", "discountValue"], 0) ?? 0,
+    discount_value: pickFirstNumber(row, ["discount_value", "discountValue"], 0) ?? 0,
+    sortOrder: pickFirstNumber(row, ["priority", "sort_order", "sortOrder"], index) ?? index,
+    sort_order: pickFirstNumber(row, ["priority", "sort_order", "sortOrder"], index) ?? index,
+  }
+}
+
 function normalizeProductPricing(product: Record<string, unknown>) {
   const basePrice = toNumber(product.price, 0)
 
@@ -285,6 +412,11 @@ type ProductAvailabilityRuleRow = {
   created_at?: string | null
 }
 
+type UpsellRuleRow = Record<string, unknown> & {
+  id?: string
+  restaurant_id?: string
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { slug } = await context.params
@@ -333,6 +465,7 @@ export async function GET(_request: Request, context: RouteContext) {
       ratingsResult,
       modifierGroupsResult,
       modifierGroupLinksResult,
+      upsellRulesResult,
     ] = await Promise.all([
       supabaseAdmin
         .from("categories")
@@ -393,6 +526,11 @@ export async function GET(_request: Request, context: RouteContext) {
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true }),
+
+      supabaseAdmin
+        .from("upsell_rules")
+        .select("*")
+        .eq("restaurant_id", restaurant.id),
     ])
 
     if (categoriesResult.error) {
@@ -498,6 +636,21 @@ export async function GET(_request: Request, context: RouteContext) {
   { error: "Erro ao carregar complementos do cardápio." },
   { status: 500 }
 )
+    }
+
+    if (upsellRulesResult.error) {
+      console.error("Erro ao buscar upsells públicos:", {
+        restaurantId: restaurant.id,
+        message: upsellRulesResult.error.message,
+        details: upsellRulesResult.error.details,
+        hint: upsellRulesResult.error.hint,
+        code: upsellRulesResult.error.code,
+      })
+
+      return NextResponse.json(
+        { error: "Erro ao carregar ofertas do cardápio." },
+        { status: 500 }
+      )
     }
 
     const modifierGroups = (modifierGroupsResult.data ?? []) as ModifierGroupRow[]
@@ -626,6 +779,10 @@ export async function GET(_request: Request, context: RouteContext) {
       (availabilityRulesResult.data ?? []) as ProductAvailabilityRuleRow[]
     const deliveryRules = (deliveryRulesResult.data ?? []) as DeliveryFeeRuleRow[]
     const ratingSummary = calculateRatingSummary(ratingsResult.data ?? [])
+    const upsellRules = ((upsellRulesResult.data ?? []) as UpsellRuleRow[])
+      .map((rule, index) => normalizeUpsellRule(rule, index))
+      .filter((rule) => rule.isActive && Boolean(rule.offerProductId))
+      .sort((a, b) => a.sortOrder - b.sortOrder)
 
     const availabilityRulesByProduct = new Map<string, ProductAvailabilityRuleRow[]>()
 
@@ -819,6 +976,10 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({
       restaurant: normalizedRestaurant,
       categories: normalizedCategories.sort((a, b) => a.order - b.order),
+      campaigns: {
+        upsellRules,
+      },
+      upsellRules,
     })
   } catch (error) {
     console.error("GET /api/public/menu/[slug] error:", error)

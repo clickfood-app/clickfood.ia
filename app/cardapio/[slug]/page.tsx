@@ -262,11 +262,6 @@ const productMeta: Record<
   "prod-15": {},
 }
 
-const upsellSuggestions: Record<string, string[]> = {
-  "cat-1": ["prod-13", "prod-6"],
-  "cat-4": ["prod-6", "prod-8"],
-}
-
 const WEEK_DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
 
 function normalizeNeighborhood(value: string) {
@@ -1407,67 +1402,92 @@ function UpsellModal({
   onAdd: (product: MenuProduct) => void
   onSkip: () => void
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onSkip} />
+  const firstSuggestion = suggestions[0]
 
-      <div className="relative z-10 w-full max-w-md rounded-t-3xl bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 sm:rounded-3xl">
-        <div className="mb-4 text-center">
-          <div
-            className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
-            style={{ backgroundColor: `${accentColor}14` }}
-          >
-            <Sparkles className="h-6 w-6" style={{ color: accentColor }} />
+  if (!firstSuggestion) return null
+
+  return (
+    <div className="fixed bottom-24 left-3 right-3 z-50 mx-auto max-w-lg animate-in slide-in-from-bottom-3 duration-300">
+      <div className="overflow-hidden rounded-[22px] border border-blue-100 bg-white shadow-[0_22px_55px_-28px_rgba(15,23,42,0.65)]">
+        <div className="flex items-center gap-3 p-3">
+          {firstSuggestion.imageUrl ? (
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
+              <Image
+                src={firstSuggestion.imageUrl}
+                alt={firstSuggestion.name}
+                fill
+                className="object-cover"
+                sizes="64px"
+              />
+            </div>
+          ) : (
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-50">
+              <Utensils className="h-7 w-7 text-blue-300" />
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+              Combina com seu pedido
+            </p>
+
+            <h3 className="mt-0.5 line-clamp-1 text-sm font-black text-gray-900">
+              {firstSuggestion.name}
+            </h3>
+
+            <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-gray-500">
+              {firstSuggestion.description || "Adicione este item ao carrinho."}
+            </p>
+
+            <p className="mt-1 text-sm font-black text-gray-900">
+              {formatPrice(firstSuggestion.price)}
+            </p>
           </div>
 
-          <h3 className="text-lg font-bold text-gray-900">Que tal adicionar?</h3>
-          <p className="text-sm text-gray-500">Sugestoes que combinam com seu pedido</p>
-        </div>
-
-        <div className="space-y-2">
-          {suggestions.map((product) => (
+          <div className="flex shrink-0 flex-col gap-2">
             <button
-              key={product.id}
-              onClick={() => onAdd(product)}
-              className="flex w-full items-center gap-3 rounded-xl bg-gray-50 p-3 text-left transition-all hover:bg-gray-100"
+              type="button"
+              onClick={() => onAdd(firstSuggestion)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white shadow-lg active:scale-95"
+              style={{ backgroundColor: accentColor }}
+              aria-label={`Adicionar ${firstSuggestion.name}`}
             >
-              {product.imageUrl ? (
-                <div className="relative h-14 w-14 overflow-hidden rounded-lg">
-                  <Image src={product.imageUrl} alt={product.name} fill className="object-cover" sizes="56px" />
-                </div>
-              ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-gray-200">
-                  <Utensils className="h-6 w-6 text-gray-400" />
-                </div>
-              )}
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-gray-900">{product.name}</p>
-                <p className="truncate text-xs text-gray-500">{product.description}</p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold" style={{ color: accentColor }}>
-                  {formatPrice(product.price)}
-                </span>
-
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full"
-                  style={{ backgroundColor: accentColor }}
-                >
-                  <Plus className="h-4 w-4 text-white" />
-                </div>
-              </div>
+              <Plus className="h-5 w-5" strokeWidth={3} />
             </button>
-          ))}
+
+            <button
+              type="button"
+              onClick={onSkip}
+              className="flex h-8 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 active:scale-95"
+              aria-label="Fechar sugestão"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        <button
-          onClick={onSkip}
-          className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
-        >
-          Nao, obrigado
-        </button>
+        {suggestions.length > 1 && (
+          <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {suggestions.slice(1, 4).map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => onAdd(product)}
+                  className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-2.5 py-2 text-left active:scale-95"
+                >
+                  <span className="max-w-[120px] truncate text-xs font-black text-gray-800">
+                    {product.name}
+                  </span>
+
+                  <span className="text-xs font-black" style={{ color: accentColor }}>
+                    + {formatPrice(product.price)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1574,7 +1594,29 @@ type OrderStep = {
   label: string
 }
 
-const ONLINE_SERVICE_FEE = 1.5
+type PublicUpsellRule = {
+  id: string
+  title?: string | null
+  description?: string | null
+  isActive?: boolean | null
+  is_active?: boolean | null
+  triggerProductId?: string | null
+  trigger_product_id?: string | null
+  triggerCategoryId?: string | null
+  trigger_category_id?: string | null
+  offerProductId?: string | null
+  offer_product_id?: string | null
+  minSubtotal?: number | string | null
+  min_subtotal?: number | string | null
+  sortOrder?: number | string | null
+  sort_order?: number | string | null
+}
+
+type PublicMenuCampaigns = {
+  upsellRules: PublicUpsellRule[]
+}
+
+const ONLINE_SERVICE_FEE = 0
 
 function onlyDigits(value: string | null | undefined) {
   return (value || "").replace(/\D/g, "")
@@ -2202,11 +2244,13 @@ function OrderTrackingCard({
   order,
   accentColor,
   restaurantWhatsApp,
+  hasActiveLoyaltyCampaign,
   onConfirmReceived,
 }: {
   order: CustomerVisibleOrder
   accentColor: string
   restaurantWhatsApp?: string | null
+  hasActiveLoyaltyCampaign: boolean
   onConfirmReceived: (rating: number, review: string) => Promise<void> | void
 }) {
   const [showReviewForm, setShowReviewForm] = useState(false)
@@ -2316,7 +2360,7 @@ function OrderTrackingCard({
                           className={cn(
                             "flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black transition-all",
                             isDone ? "text-white" : "bg-gray-200 text-gray-400",
-                            isCurrent && "ring-4 ring-orange-100"
+                            isCurrent && "ring-4 ring-blue-100"
                           )}
                           style={isDone ? { backgroundColor: accentColor } : undefined}
                         >
@@ -2337,8 +2381,9 @@ function OrderTrackingCard({
                         <div
                           className={cn(
                             "mt-3 h-0.5 w-7 rounded-full",
-                            progressIndex > index ? "bg-orange-400" : "bg-gray-200"
+                            progressIndex > index ? "" : "bg-gray-200"
                           )}
+                          style={progressIndex > index ? { backgroundColor: accentColor } : undefined}
                         />
                       )}
                     </React.Fragment>
@@ -2361,7 +2406,9 @@ function OrderTrackingCard({
                   </p>
 
                   <p className="mt-1 text-[11px] font-semibold leading-relaxed text-green-700">
-                    Seu selo de fidelidade será contado automaticamente na sua conta.
+                    {hasActiveLoyaltyCampaign
+                      ? "Seu selo de fidelidade será contado automaticamente na sua conta."
+                      : "Obrigado por confirmar. Sua avaliação ajuda o restaurante a melhorar."}
                   </p>
                 </div>
               </div>
@@ -2936,7 +2983,9 @@ function CustomerProfileModal({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4 scrollbar-hide">
-              <ProfileLoyaltyCoins loyalty={loyalty} accentColor={accentColor} />
+              {loyalty?.loyalty_campaigns?.is_active && (
+                <ProfileLoyaltyCoins loyalty={loyalty} accentColor={accentColor} />
+              )}
 
               {activeOrder && !activeOrder.customer_received_at && (
                 <div className="mt-3 rounded-[20px] border border-blue-100 bg-blue-50 p-3.5">
@@ -3109,6 +3158,7 @@ function CartSheet({
   const [customerAddress, setCustomerAddress] = useState("")
   const [selectedNeighborhoodKey, setSelectedNeighborhoodKey] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
+  const [pixCardOpen, setPixCardOpen] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [pixPayment, setPixPayment] = useState<PixPaymentData | null>(null)
   const [pixCopied, setPixCopied] = useState(false)
@@ -3175,6 +3225,7 @@ function CartSheet({
       setPixProofPreview("")
       setPaymentApproved(false)
       setPaymentCheckError("")
+      setPixCardOpen(false)
       setIsProcessing(false)
     }
   }, [open])
@@ -3192,11 +3243,12 @@ function CartSheet({
       setPixCopied(false)
       setPaymentApproved(false)
       setPaymentCheckError("")
+      setPixCardOpen(false)
     }
   }, [paymentMethod])
 
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
-  const serviceFee = items.length > 0 ? ONLINE_SERVICE_FEE : 0
+  const serviceFee = 0
   const deliveryFee =
     orderType === "delivery"
       ? hasNeighborhoodRules
@@ -3204,7 +3256,7 @@ function CartSheet({
         : restaurant.deliveryFee
       : 0
 
-  const total = subtotal + serviceFee + deliveryFee
+  const total = subtotal + deliveryFee
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
   const isPixPayment = normalizedPaymentMethod === "pix"
   const pixKey = (restaurant.pixKey ?? restaurant.pix_key ?? "").trim()
@@ -3244,8 +3296,8 @@ function CartSheet({
 
   const primaryButtonLabel = isPixPayment
     ? pixPayment
-      ? "Enviar comprovante"
-      : "Já paguei"
+      ? "Abrir comprovante Pix"
+      : "Pagar com Pix"
     : "Confirmar pedido"
 
   const formattedCustomerAddress =
@@ -3533,6 +3585,7 @@ function CartSheet({
   if (!open) return null
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
@@ -3656,10 +3709,12 @@ function CartSheet({
                     <span>{formatPrice(subtotal)}</span>
                   </div>
 
-                  <div className="flex justify-between text-gray-500">
-                    <span>Taxa de serviço online</span>
-                    <span>{formatPrice(serviceFee)}</span>
-                  </div>
+                  {serviceFee > 0 && (
+                    <div className="flex justify-between text-gray-500">
+                      <span>Taxa de serviço online</span>
+                      <span>{formatPrice(serviceFee)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -3678,7 +3733,7 @@ function CartSheet({
                   }}
                 >
                   <span className="text-sm font-bold">Continuar</span>
-                  <span className="text-sm font-bold">{formatPrice(subtotal + serviceFee)}</span>
+                  <span className="text-sm font-bold">{formatPrice(subtotal)}</span>
                 </button>
               </div>
             )}
@@ -3813,7 +3868,13 @@ function CartSheet({
                   ].map((method) => (
                     <button
                       key={method.id}
-                      onClick={() => setPaymentMethod(method.label)}
+                      onClick={() => {
+                        setPaymentMethod(method.label)
+
+                        if (method.id === "pix") {
+                          setPixCardOpen(true)
+                        }
+                      }}
                       className={cn(
                         "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-all",
                         paymentMethod === method.label ? "ring-2" : "bg-gray-50 hover:bg-gray-100"
@@ -3852,155 +3913,33 @@ function CartSheet({
               </div>
 
               {isPixPayment && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                  <div className="mb-3">
-                    <p className="text-sm font-black text-emerald-800">
-                      Pix direto para o restaurante
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => setPixCardOpen(true)}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left transition-colors hover:bg-blue-100/70"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                      <QrCode className="h-5 w-5" />
+                    </div>
 
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">
-                      Escaneie o QR Code ou copie o Pix copia e cola. Depois de pagar,
-                      clique em <span className="font-black">Já paguei</span>.
-                    </p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-gray-900">
+                        {pixPayment ? "Comprovante Pix pendente" : "Pagamento Pix selecionado"}
+                      </p>
+
+                      <p className="truncate text-xs font-semibold text-gray-500">
+                        {pixPayment
+                          ? "Toque para anexar o comprovante."
+                          : "Toque para abrir o QR Code e o Pix copia e cola."}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="rounded-2xl border border-emerald-100 bg-white p-3">
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 text-center">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                        Valor do Pix
-                      </p>
-
-                      <p className="mt-1 text-2xl font-black text-emerald-900">
-                        {formatPrice(total)}
-                      </p>
-
-                      {manualPixQrCodeUrl ? (
-                        <div className="mt-3 flex justify-center">
-                          <div className="rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm">
-                            <img
-                              src={manualPixQrCodeUrl}
-                              alt="QR Code Pix"
-                              className="h-52 w-52"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
-                          Cadastre uma chave Pix válida para gerar o QR Code.
-                        </div>
-                      )}
-
-                      <p className="mt-3 text-xs font-semibold leading-relaxed text-emerald-700">
-                        Este QR Code facilita o pagamento, mas a confirmação ainda depende da
-                        conferência do comprovante pelo restaurante.
-                      </p>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="rounded-xl bg-gray-50 px-3 py-2">
-                        <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-                          Recebedor
-                        </p>
-
-                        <p className="mt-1 truncate text-sm font-black text-gray-900">
-                          {pixReceiverName}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 px-3 py-2">
-                        <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-                          Cidade
-                        </p>
-
-                        <p className="mt-1 truncate text-sm font-black text-gray-900">
-                          {pixCity || "BRASIL"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
-                      Pix copia e cola
-                    </p>
-
-                    <textarea
-                      readOnly
-                      value={manualPixCopyPaste}
-                      rows={3}
-                      className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
-                    />
-
-                    <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
-                      {pixKeyType}
-                    </p>
-
-                    <p className="mt-1 break-all rounded-xl bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
-                      {pixKey || "Chave Pix não cadastrada"}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={handleCopyPixCode}
-                      disabled={!manualPixCopyPaste && !pixKey}
-                      className="mt-3 w-full rounded-xl py-3 text-sm font-black text-white disabled:opacity-50"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      {pixCopied ? "Pix copiado" : "Copiar Pix copia e cola"}
-                    </button>
-                  </div>
-
-                  {pixPayment && (
-                    <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 p-3">
-                      <p className="text-sm font-black text-orange-800">
-                        Envie o comprovante
-                      </p>
-
-                      <p className="mt-1 text-xs font-semibold leading-relaxed text-orange-700">
-                        O restaurante vai conferir valor, data, horário e destinatário antes de iniciar o preparo.
-                      </p>
-
-                      {pixPayment.publicOrderNumber && (
-                        <p className="mt-2 text-xs font-bold text-gray-600">
-                          Pedido #{pixPayment.publicOrderNumber}
-                        </p>
-                      )}
-
-                      <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-orange-200 bg-white px-4 py-5 text-center">
-                        <Upload className="h-6 w-6 text-orange-500" />
-
-                        <span className="mt-2 text-sm font-black text-gray-900">
-                          {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
-                        </span>
-
-                        <span className="mt-1 text-xs font-semibold text-gray-400">
-                          PNG, JPG ou WEBP até 5 MB
-                        </span>
-
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          onChange={handlePixProofFileChange}
-                          className="hidden"
-                        />
-                      </label>
-
-                      {pixProofPreview && (
-                        <div className="mt-3 overflow-hidden rounded-2xl border border-orange-100 bg-white">
-                          <img
-                            src={pixProofPreview}
-                            alt="Comprovante Pix"
-                            className="max-h-64 w-full object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {paymentCheckError && (
-                        <p className="mt-3 text-center text-xs font-bold text-red-600">
-                          {paymentCheckError}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                  <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+                    Abrir
+                  </span>
+                </button>
               )}
             </div>
 
@@ -4011,10 +3950,12 @@ function CartSheet({
                   <span>{formatPrice(subtotal)}</span>
                 </div>
 
-                <div className="flex justify-between text-gray-500">
-                  <span>Taxa de serviço online</span>
-                  <span>{formatPrice(serviceFee)}</span>
-                </div>
+                {serviceFee > 0 && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>Taxa de serviço online</span>
+                    <span>{formatPrice(serviceFee)}</span>
+                  </div>
+                )}
 
                 {orderType === "delivery" && selectedNeighborhoodOption && (
                   <div className="flex justify-between text-gray-500">
@@ -4039,18 +3980,13 @@ function CartSheet({
               <button
                 onClick={() => {
                   if (isPixPayment) {
-                    if (pixPayment) {
-                      void submitManualPixProof()
-                      return
-                    }
-
-                    void startManualPixProofFlow()
+                    setPixCardOpen(true)
                     return
                   }
 
                   void createManualPaymentOrder()
                 }}
-                disabled={isProcessing || (isPixPayment && !!pixPayment && !pixProofFile)}
+                disabled={isProcessing}
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 style={{
                   backgroundColor: accentColor,
@@ -4059,8 +3995,6 @@ function CartSheet({
               >
                 {isProcessing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isPixPayment && pixPayment ? (
-                  <Upload className="h-4 w-4" />
                 ) : isPixPayment ? (
                   <QrCode className="h-4 w-4" />
                 ) : (
@@ -4074,6 +4008,221 @@ function CartSheet({
         )}
       </div>
     </div>
+
+    {isPixPayment && pixCardOpen && step === "checkout" && (
+      <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+        <div
+          className="absolute inset-0"
+          onClick={() => {
+            if (!isProcessing) {
+              setPixCardOpen(false)
+            }
+          }}
+          aria-hidden="true"
+        />
+
+        <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+          <button
+            type="button"
+            onClick={() => setPixCardOpen(false)}
+            disabled={isProcessing}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 disabled:opacity-50"
+            aria-label="Fechar Pix"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          {!pixPayment ? (
+            <div className="pr-0">
+              <div className="pr-10">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+                  Pagamento Pix
+                </p>
+
+                <h4 className="mt-1 text-xl font-black text-gray-900">
+                  Pague direto ao restaurante
+                </h4>
+
+                <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+                  Escaneie o QR Code ou copie o Pix copia e cola. Depois toque em
+                  <span className="font-black text-gray-800"> Já paguei</span> para anexar o comprovante.
+                </p>
+              </div>
+
+              <div className="mt-4 rounded-[24px] border border-blue-100 bg-blue-50/70 p-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
+                  Valor do Pix
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-blue-950">
+                  {formatPrice(total)}
+                </p>
+
+                <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
+                  {manualPixQrCodeUrl ? (
+                    <div className="flex justify-center">
+                      <img
+                        src={manualPixQrCodeUrl}
+                        alt="QR Code Pix"
+                        className="h-52 w-52 rounded-xl"
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
+                      Cadastre uma chave Pix válida para gerar o QR Code.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                    Recebedor
+                  </p>
+
+                  <p className="mt-1 truncate text-sm font-black text-gray-900">
+                    {pixReceiverName}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                    Cidade
+                  </p>
+
+                  <p className="mt-1 truncate text-sm font-black text-gray-900">
+                    {pixCity || "BRASIL"}
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                Pix copia e cola
+              </p>
+
+              <textarea
+                readOnly
+                value={manualPixCopyPaste}
+                rows={3}
+                className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+              />
+
+              <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                {pixKeyType}
+              </p>
+
+              <p className="mt-1 break-all rounded-xl bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
+                {pixKey || "Chave Pix não cadastrada"}
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyPixCode}
+                  disabled={!manualPixCopyPaste && !pixKey}
+                  className="rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 disabled:opacity-50"
+                >
+                  {pixCopied ? "Copiado" : "Copiar Pix"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void startManualPixProofFlow()}
+                  disabled={isProcessing || !manualPixCopyPaste}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-lg disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Já paguei
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="pr-0">
+              <div className="pr-10">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+                  Comprovante Pix
+                </p>
+
+                <h4 className="mt-1 text-xl font-black text-gray-900">
+                  Agora anexe o print do pagamento
+                </h4>
+
+                <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+                  O restaurante vai conferir valor, data, horário e destinatário antes de iniciar o preparo.
+                </p>
+              </div>
+
+              {pixPayment.publicOrderNumber && (
+                <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+                  <p className="text-[9px] font-black uppercase text-blue-500">
+                    Pedido gerado
+                  </p>
+
+                  <p className="text-sm font-black text-blue-900">
+                    #{pixPayment.publicOrderNumber}
+                  </p>
+                </div>
+              )}
+
+              <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-blue-200 bg-blue-50/60 px-4 py-6 text-center transition-colors hover:bg-blue-50">
+                <Upload className="h-7 w-7 text-blue-600" />
+
+                <span className="mt-2 text-sm font-black text-gray-900">
+                  {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
+                </span>
+
+                <span className="mt-1 text-xs font-semibold text-gray-400">
+                  PNG, JPG ou WEBP até 5 MB
+                </span>
+
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handlePixProofFileChange}
+                  className="hidden"
+                />
+              </label>
+
+              {pixProofPreview && (
+                <div className="mt-3 overflow-hidden rounded-2xl border border-blue-100 bg-white">
+                  <img
+                    src={pixProofPreview}
+                    alt="Comprovante Pix"
+                    className="max-h-64 w-full object-contain"
+                  />
+                </div>
+              )}
+
+              {paymentCheckError && (
+                <p className="mt-3 text-center text-xs font-bold text-red-600">
+                  {paymentCheckError}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => void submitManualPixProof()}
+                disabled={isProcessing || !pixProofFile}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white shadow-lg disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Enviar comprovante
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
@@ -4195,6 +4344,9 @@ export default function CardapioPublicoPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [upsellProducts, setUpsellProducts] = useState<MenuProduct[] | null>(null)
+  const [menuCampaigns, setMenuCampaigns] = useState<PublicMenuCampaigns>({
+    upsellRules: [],
+  })
   const [activeOrder, setActiveOrder] = useState<CustomerVisibleOrder | null>(null)
   const [restaurant, setRestaurant] = useState<PublicRestaurant | null>(null)
   const [categories, setCategories] = useState<MenuCategory[]>([])
@@ -4244,12 +4396,22 @@ export default function CardapioPublicoPage() {
           throw new Error(result.error || "Erro ao carregar cardápio público.")
         }
 
+        const resultCampaigns = result.campaigns as Partial<PublicMenuCampaigns> | undefined
+
         setRestaurant((result.restaurant ?? null) as PublicRestaurant | null)
         setCategories((result.categories ?? []) as MenuCategory[])
+        setMenuCampaigns({
+          upsellRules: Array.isArray(resultCampaigns?.upsellRules)
+            ? (resultCampaigns.upsellRules as PublicUpsellRule[])
+            : Array.isArray(result.upsellRules)
+              ? (result.upsellRules as PublicUpsellRule[])
+              : [],
+        })
       } catch (error) {
         console.error("Erro ao carregar cardápio público:", error)
         setRestaurant(null)
         setCategories([])
+        setMenuCampaigns({ upsellRules: [] })
       } finally {
         setIsLoadingMenu(false)
       }
@@ -4556,6 +4718,23 @@ export default function CardapioPublicoPage() {
     return () => observer.disconnect()
   }, [mounted, visibleCategories])
 
+  const productById = useMemo(() => {
+    const map = new Map<string, MenuProduct>()
+
+    visibleCategories.forEach((category) => {
+      category.products.forEach((product) => {
+        map.set(product.id, product)
+      })
+    })
+
+    return map
+  }, [visibleCategories])
+
+  const cartSubtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
+    [cart]
+  )
+
   const addToCart = useCallback((item: Omit<CartItem, "id">) => {
     setCart((prev) => [...prev, { ...item, id: `cart-${Date.now()}-${Math.random()}` }])
   }, [])
@@ -4564,21 +4743,60 @@ export default function CardapioPublicoPage() {
     (item: Omit<CartItem, "id">, categoryId: string) => {
       addToCart(item)
 
-      const suggestionIds = upsellSuggestions[categoryId]
+      const nextSubtotal = cartSubtotal + item.unitPrice * item.quantity
+      const productsAlreadyInCart = new Set(cart.map((cartItem) => cartItem.product.id))
+      productsAlreadyInCart.add(item.product.id)
 
-      if (suggestionIds) {
-        const allProducts = visibleCategories.flatMap((c) => c.products)
+      const usedOfferIds = new Set<string>()
 
-        const suggestions = suggestionIds
-          .map((id) => allProducts.find((p) => p.id === id))
-          .filter((p): p is MenuProduct => !!p)
+      const suggestions = menuCampaigns.upsellRules
+        .filter((rule) => {
+          const isActive = rule.isActive ?? rule.is_active ?? true
 
-        if (suggestions.length > 0) {
-          setUpsellProducts(suggestions)
-        }
+          if (!isActive) return false
+
+          const triggerProductId = rule.triggerProductId ?? rule.trigger_product_id ?? null
+          const triggerCategoryId = rule.triggerCategoryId ?? rule.trigger_category_id ?? null
+          const hasTrigger = Boolean(triggerProductId || triggerCategoryId)
+
+          if (!hasTrigger) return false
+
+          const matchesProduct = triggerProductId === item.product.id
+          const matchesCategory = triggerCategoryId === categoryId
+
+          if (!matchesProduct && !matchesCategory) return false
+
+          const minSubtotal = Number(rule.minSubtotal ?? rule.min_subtotal ?? 0)
+
+          if (Number.isFinite(minSubtotal) && minSubtotal > 0 && nextSubtotal < minSubtotal) {
+            return false
+          }
+
+          return true
+        })
+        .map((rule) => {
+          const offerProductId = rule.offerProductId ?? rule.offer_product_id ?? null
+
+          if (!offerProductId) return null
+          if (usedOfferIds.has(offerProductId)) return null
+          if (productsAlreadyInCart.has(offerProductId)) return null
+
+          const offerProduct = productById.get(offerProductId)
+
+          if (!offerProduct) return null
+
+          usedOfferIds.add(offerProductId)
+
+          return offerProduct
+        })
+        .filter((product): product is MenuProduct => Boolean(product))
+        .slice(0, 4)
+
+      if (suggestions.length > 0) {
+        setUpsellProducts(suggestions)
       }
     },
-    [visibleCategories, addToCart]
+    [addToCart, cart, cartSubtotal, menuCampaigns.upsellRules, productById]
   )
 
   const updateCartQuantity = useCallback((cartItemId: string, delta: number) => {
@@ -4993,8 +5211,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         {activeOrder && (
           <OrderTrackingCard
             order={activeOrder}
-            accentColor={accentColor}
+            accentColor={themeColor}
             restaurantWhatsApp={restaurant.whatsapp}
+            hasActiveLoyaltyCampaign={Boolean(customerLoyalty?.loyalty_campaigns?.is_active)}
             onConfirmReceived={confirmActiveOrderReceived}
           />
         )}
