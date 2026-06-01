@@ -306,9 +306,9 @@ export async function GET(_request: Request, context: RouteContext) {
       })
 
       return NextResponse.json(
-        { error: restaurantError.message || "Erro ao buscar restaurante." },
-        { status: 500 }
-      )
+  { error: "Erro ao carregar o cardápio público." },
+  { status: 500 }
+)
     }
 
     if (!restaurant) {
@@ -405,9 +405,9 @@ export async function GET(_request: Request, context: RouteContext) {
       })
 
       return NextResponse.json(
-        { error: categoriesResult.error.message || "Erro ao buscar categorias." },
-        { status: 500 }
-      )
+  { error: "Erro ao carregar categorias do cardápio." },
+  { status: 500 }
+)
     }
 
     if (productsResult.error) {
@@ -420,9 +420,9 @@ export async function GET(_request: Request, context: RouteContext) {
       })
 
       return NextResponse.json(
-        { error: productsResult.error.message || "Erro ao buscar produtos." },
-        { status: 500 }
-      )
+  { error: "Erro ao carregar produtos do cardápio." },
+  { status: 500 }
+)
     }
 
     if (availabilityRulesResult.error) {
@@ -435,13 +435,9 @@ export async function GET(_request: Request, context: RouteContext) {
       })
 
       return NextResponse.json(
-        {
-          error:
-            availabilityRulesResult.error.message ||
-            "Erro ao buscar regras de disponibilidade dos produtos.",
-        },
-        { status: 500 }
-      )
+  { error: "Erro ao carregar disponibilidade dos produtos." },
+  { status: 500 }
+)
     }
 
     if (deliveryRulesResult.error) {
@@ -454,9 +450,9 @@ export async function GET(_request: Request, context: RouteContext) {
       })
 
       return NextResponse.json(
-        { error: deliveryRulesResult.error.message || "Erro ao buscar regras de entrega." },
-        { status: 500 }
-      )
+  { error: "Erro ao carregar taxas de entrega." },
+  { status: 500 }
+)
     }
 
     if (ratingsResult.error) {
@@ -469,9 +465,9 @@ export async function GET(_request: Request, context: RouteContext) {
       })
 
       return NextResponse.json(
-        { error: ratingsResult.error.message || "Erro ao buscar avaliações." },
-        { status: 500 }
-      )
+  { error: "Erro ao carregar avaliações do restaurante." },
+  { status: 500 }
+)
     }
 
     if (modifierGroupsResult.error) {
@@ -483,14 +479,10 @@ export async function GET(_request: Request, context: RouteContext) {
         code: modifierGroupsResult.error.code,
       })
 
-      return NextResponse.json(
-        {
-          error:
-            modifierGroupsResult.error.message ||
-            "Erro ao buscar grupos de complementos do cardápio.",
-        },
-        { status: 500 }
-      )
+     return NextResponse.json(
+  { error: "Erro ao carregar complementos do cardápio." },
+  { status: 500 }
+)
     }
 
     if (modifierGroupLinksResult.error) {
@@ -503,13 +495,9 @@ export async function GET(_request: Request, context: RouteContext) {
       })
 
       return NextResponse.json(
-        {
-          error:
-            modifierGroupLinksResult.error.message ||
-            "Erro ao buscar vínculos de complementos do cardápio.",
-        },
-        { status: 500 }
-      )
+  { error: "Erro ao carregar complementos do cardápio." },
+  { status: 500 }
+)
     }
 
     const modifierGroups = (modifierGroupsResult.data ?? []) as ModifierGroupRow[]
@@ -539,13 +527,9 @@ export async function GET(_request: Request, context: RouteContext) {
         })
 
         return NextResponse.json(
-          {
-            error:
-              modifierOptionsError.message ||
-              "Erro ao buscar opções de complementos do cardápio.",
-          },
-          { status: 500 }
-        )
+  { error: "Erro ao carregar complementos do cardápio." },
+  { status: 500 }
+)
       }
 
       modifierOptions = (modifierOptionsData ?? []) as ModifierOptionRow[]
