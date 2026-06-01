@@ -146,22 +146,42 @@ function normalizeModifiers(
 }
 
 function mapPaymentMethod(value: string) {
-  const normalized = value.trim().toLowerCase()
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_")
 
-  if (normalized === "pix") return "pix"
-  if (normalized === "dinheiro") return "cash"
+  if (
+    normalized === "pix" ||
+    normalized === "pix_manual" ||
+    normalized === "pix_direto" ||
+    normalized === "pix_direct" ||
+    normalized === "pix_sem_taxa"
+  ) {
+    return "pix"
+  }
+
+  if (
+    normalized === "dinheiro" ||
+    normalized === "cash" ||
+    normalized === "money"
+  ) {
+    return "cash"
+  }
 
   if (
     normalized === "cartao" ||
-    normalized === "cartão" ||
-    normalized === "cartao na entrega" ||
-    normalized === "cartão na entrega"
+    normalized === "cartao_na_entrega" ||
+    normalized === "cartao_entrega" ||
+    normalized === "card" ||
+    normalized === "card_on_delivery" ||
+    normalized === "credito" ||
+    normalized === "debito"
   ) {
     return "card_on_delivery"
   }
-
-  if (normalized === "cash") return "cash"
-  if (normalized === "card_on_delivery") return "card_on_delivery"
 
   return ""
 }
