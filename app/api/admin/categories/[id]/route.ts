@@ -7,17 +7,22 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Variáveis públicas do Supabase não configuradas.")
+    throw new Error("supabase_config_missing")
   }
 
   const authHeader = req.headers.get("authorization")
-  const token = authHeader?.replace("Bearer ", "")
+  const token = authHeader?.replace(/^Bearer\s+/i, "").trim()
 
   if (!token) {
-    throw new Error("Token não enviado.")
+    throw new Error("unauthorized")
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
 
   const {
     data: { user },
@@ -25,7 +30,7 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   } = await authClient.auth.getUser(token)
 
   if (error || !user) {
-    throw new Error("Usuário não autenticado.")
+    throw new Error("unauthorized")
   }
 
   return user
@@ -37,64 +42,97 @@ type RouteContext = {
   }>
 }
 
+function cleanText(value: unknown, maxLength = 120) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
+function jsonError(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status })
+}
+
 export async function DELETE(req: Request, context: RouteContext) {
   try {
     const user = await getAuthenticatedUserFromRequest(req)
     const { id } = await context.params
+    const categoryId = cleanText(id, 80)
+
+    if (!categoryId) {
+      return jsonError("Categoria não informada.", 400)
+    }
 
     const { data: restaurant, error: restaurantError } = await supabaseAdmin
       .from("restaurants")
       .select("id")
       .eq("owner_id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (restaurantError || !restaurant) {
-      return NextResponse.json(
-        { error: "Restaurante não encontrado." },
-        { status: 404 }
-      )
+    if (restaurantError) {
+      console.error("Erro ao buscar restaurante para excluir categoria:", {
+        userId: user.id,
+        categoryId,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
+
+      return jsonError("Erro ao buscar restaurante.", 500)
+    }
+
+    if (!restaurant) {
+      return jsonError("Restaurante não encontrado.", 404)
     }
 
     const { count, error: productsError } = await supabaseAdmin
       .from("products")
       .select("id", { count: "exact", head: true })
       .eq("restaurant_id", restaurant.id)
-      .eq("category_id", id)
+      .eq("category_id", categoryId)
 
     if (productsError) {
-      return NextResponse.json(
-        { error: productsError.message },
-        { status: 400 }
-      )
+      console.error("Erro ao verificar produtos da categoria:", {
+        restaurantId: restaurant.id,
+        categoryId,
+        message: productsError.message,
+        code: productsError.code,
+      })
+
+      return jsonError("Erro ao verificar produtos vinculados.", 500)
     }
 
     if ((count ?? 0) > 0) {
-      return NextResponse.json(
-        { error: "Esta categoria possui produtos vinculados." },
-        { status: 400 }
-      )
+      return jsonError("Esta categoria possui produtos vinculados.", 400)
     }
 
-    const { error } = await supabaseAdmin
+    const { data: deletedCategory, error } = await supabaseAdmin
       .from("categories")
       .delete()
-      .eq("id", id)
+      .eq("id", categoryId)
       .eq("restaurant_id", restaurant.id)
+      .select("id")
+      .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      console.error("Erro ao excluir categoria:", {
+        restaurantId: restaurant.id,
+        categoryId,
+        message: error.message,
+        code: error.code,
+      })
+
+      return jsonError("Erro ao excluir categoria.", 500)
+    }
+
+    if (!deletedCategory) {
+      return jsonError("Categoria não encontrada.", 404)
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao excluir categoria.",
-      },
-      { status: 500 }
-    )
+    console.error("DELETE /api/admin/categories/[id] error:", error)
+
+    if (error instanceof Error && error.message === "unauthorized") {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    return jsonError("Erro ao excluir categoria.", 500)
   }
 }

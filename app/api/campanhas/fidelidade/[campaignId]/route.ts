@@ -8,17 +8,22 @@ async function getAuthenticatedUser(req: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Variáveis públicas do Supabase não configuradas.")
+    throw new Error("supabase_config_missing")
   }
 
   const authHeader = req.headers.get("authorization")
-  const token = authHeader?.replace("Bearer ", "")
+  const token = authHeader?.replace(/^Bearer\s+/i, "").trim()
 
   if (!token) {
-    throw new Error("Token não enviado.")
+    throw new Error("unauthorized")
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
 
   const {
     data: { user },
@@ -26,10 +31,24 @@ async function getAuthenticatedUser(req: NextRequest) {
   } = await authClient.auth.getUser(token)
 
   if (error || !user) {
-    throw new Error("Usuário não autenticado.")
+    throw new Error("unauthorized")
   }
 
   return user
+}
+
+function cleanText(value: unknown, maxLength = 120) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
+function jsonError(message: string, status = 400) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status }
+  )
 }
 
 export async function DELETE(
@@ -38,12 +57,10 @@ export async function DELETE(
 ) {
   try {
     const { campaignId } = await context.params
+    const safeCampaignId = cleanText(campaignId, 80)
 
-    if (!campaignId) {
-      return NextResponse.json(
-        { success: false, error: "ID da campanha não enviado." },
-        { status: 400 }
-      )
+    if (!safeCampaignId) {
+      return jsonError("ID da campanha não enviado.", 400)
     }
 
     const user = await getAuthenticatedUser(req)
@@ -52,61 +69,72 @@ export async function DELETE(
       .from("restaurants")
       .select("id")
       .eq("owner_id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (restaurantError || !restaurant) {
-      return NextResponse.json(
-        { success: false, error: "Restaurante não encontrado." },
-        { status: 404 }
-      )
+    if (restaurantError) {
+      console.error("Erro ao buscar restaurante para excluir campanha:", {
+        userId: user.id,
+        campaignId: safeCampaignId,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
+
+      return jsonError("Erro ao buscar restaurante.", 500)
+    }
+
+    if (!restaurant) {
+      return jsonError("Restaurante não encontrado.", 404)
     }
 
     const { data: campaign, error: campaignError } = await supabaseAdmin
       .from("loyalty_campaigns")
       .select("id, restaurant_id")
-      .eq("id", campaignId)
+      .eq("id", safeCampaignId)
       .eq("restaurant_id", restaurant.id)
-      .single()
+      .maybeSingle()
 
-    if (campaignError || !campaign) {
-      return NextResponse.json(
-        { success: false, error: "Campanha não encontrada." },
-        { status: 404 }
-      )
+    if (campaignError) {
+      console.error("Erro ao buscar campanha para exclusão:", {
+        restaurantId: restaurant.id,
+        campaignId: safeCampaignId,
+        message: campaignError.message,
+        code: campaignError.code,
+      })
+
+      return jsonError("Erro ao buscar campanha.", 500)
+    }
+
+    if (!campaign) {
+      return jsonError("Campanha não encontrada.", 404)
     }
 
     const { error: deleteCampaignError } = await supabaseAdmin
       .from("loyalty_campaigns")
       .delete()
       .eq("restaurant_id", restaurant.id)
-      .eq("id", campaignId)
+      .eq("id", safeCampaignId)
 
     if (deleteCampaignError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Erro ao excluir campanha de fidelidade.",
-          details: deleteCampaignError.message,
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao excluir campanha de fidelidade:", {
+        restaurantId: restaurant.id,
+        campaignId: safeCampaignId,
+        message: deleteCampaignError.message,
+        code: deleteCampaignError.code,
+      })
+
+      return jsonError("Erro ao excluir campanha de fidelidade.", 500)
     }
 
     return NextResponse.json({
       success: true,
     })
   } catch (error) {
-    console.error("Erro ao excluir campanha de fidelidade:", error)
+    console.error("DELETE /api/campanhas/fidelidade/[campaignId] error:", error)
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro inesperado ao excluir campanha.",
-      },
-      { status: 500 }
-    )
+    if (error instanceof Error && error.message === "unauthorized") {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    return jsonError("Erro inesperado ao excluir campanha.", 500)
   }
 }

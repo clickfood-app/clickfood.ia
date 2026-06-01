@@ -71,6 +71,10 @@ type AsaasSplitRule = {
   fixedValue: number
 }
 
+function cleanText(value: unknown, maxLength = 160) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
 function onlyDigits(value: string | undefined | null) {
   return (value || "").replace(/\D/g, "")
 }
@@ -98,19 +102,14 @@ function getEnvNumber(name: string, fallback: number) {
 function getClickFoodSplitRules(orderTotal: number): AsaasSplitRule[] {
   const walletId = process.env.ASAAS_CLICKFOOD_WALLET_ID?.trim() || ""
   const fixedValue = getEnvNumber("ASAAS_CLICKFOOD_SPLIT_FIXED_VALUE", 1)
-  const minimumOrderTotal = getEnvNumber("ASAAS_CLICKFOOD_SPLIT_MIN_ORDER_TOTAL", 3)
+  const minimumOrderTotal = getEnvNumber(
+    "ASAAS_CLICKFOOD_SPLIT_MIN_ORDER_TOTAL",
+    3
+  )
 
-  if (!walletId) {
-    return []
-  }
-
-  if (!Number.isFinite(fixedValue) || fixedValue <= 0) {
-    return []
-  }
-
-  if (!Number.isFinite(orderTotal) || orderTotal < minimumOrderTotal) {
-    return []
-  }
+  if (!walletId) return []
+  if (!Number.isFinite(fixedValue) || fixedValue <= 0) return []
+  if (!Number.isFinite(orderTotal) || orderTotal < minimumOrderTotal) return []
 
   return [
     {
@@ -136,53 +135,55 @@ function isPixPaymentMethod(paymentMethod: string | null) {
   return normalizedPaymentMethod === "pix"
 }
 
+function jsonError(message: string, status = 400, extra?: Record<string, unknown>) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+      ...(extra || {}),
+    },
+    { status }
+  )
+}
+
 export async function POST(req: NextRequest) {
   let pixCreationLockOrderId: string | null = null
   let asaasPaymentWasCreated = false
 
   try {
-    const body = (await req.json()) as CreatePixPaymentBody
+    let body: CreatePixPaymentBody
 
-    const restaurantId = body.restaurantId?.trim()
-    const orderId = body.orderId?.trim()
-    const customerName = body.customerName?.trim()
+    try {
+      body = (await req.json()) as CreatePixPaymentBody
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
+    }
+
+    const restaurantId = cleanText(body.restaurantId, 80)
+    const orderId = cleanText(body.orderId, 80)
+    const customerName = cleanText(body.customerName, 120)
     const customerPhone = onlyDigits(body.customerPhone)
     const customerDocument = onlyDigits(body.customerDocument)
-    const customerEmail = body.customerEmail?.trim() || undefined
+    const customerEmail = cleanText(body.customerEmail, 160) || undefined
 
     if (!restaurantId) {
-      return NextResponse.json(
-        { success: false, error: "restaurantId é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("restaurantId é obrigatório.", 400)
     }
 
     if (!orderId) {
-      return NextResponse.json(
-        { success: false, error: "orderId é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("orderId é obrigatório.", 400)
     }
 
     if (!customerName) {
-      return NextResponse.json(
-        { success: false, error: "customerName é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("customerName é obrigatório.", 400)
     }
 
     if (!customerPhone) {
-      return NextResponse.json(
-        { success: false, error: "customerPhone é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("customerPhone é obrigatório.", 400)
     }
 
     if (customerDocument.length !== 11) {
-      return NextResponse.json(
-        { success: false, error: "CPF inválido para pagamento Pix." },
-        { status: 400 }
-      )
+      return jsonError("CPF inválido para pagamento Pix.", 400)
     }
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -192,60 +193,44 @@ export async function POST(req: NextRequest) {
       )
       .eq("id", orderId)
       .eq("restaurant_id", restaurantId)
-      .single()
+      .maybeSingle()
 
     if (orderError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: orderError.message || "Erro ao buscar pedido.",
-          details: orderError.details || null,
-          hint: orderError.hint || null,
-          code: orderError.code || null,
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar pedido para Pix Asaas:", {
+        restaurantId,
+        orderId,
+        message: orderError.message,
+        code: orderError.code,
+      })
+
+      return jsonError("Erro ao buscar pedido.", 500)
     }
 
     const typedOrder = order as OrderRow | null
 
     if (!typedOrder) {
-      return NextResponse.json(
-        { success: false, error: "Pedido não encontrado." },
-        { status: 404 }
-      )
+      return jsonError("Pedido não encontrado.", 404)
     }
 
     if (!isPixPaymentMethod(typedOrder.payment_method)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Este pedido não foi criado com forma de pagamento Pix.",
-        },
-        { status: 400 }
+      return jsonError(
+        "Este pedido não foi criado com forma de pagamento Pix.",
+        400
       )
     }
 
     if (isPaidPaymentStatus(typedOrder.payment_status)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Este pedido já está pago.",
-          orderId: typedOrder.id,
-          publicOrderNumber:
-            typedOrder.public_order_number || body.publicOrderNumber || null,
-        },
-        { status: 409 }
-      )
+      return jsonError("Este pedido já está pago.", 409, {
+        orderId: typedOrder.id,
+        publicOrderNumber:
+          typedOrder.public_order_number || body.publicOrderNumber || null,
+      })
     }
 
     const orderTotal = Number(typedOrder.total || 0)
 
     if (!Number.isFinite(orderTotal) || orderTotal <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Total do pedido inválido para cobrança Pix." },
-        { status: 400 }
-      )
+      return jsonError("Total do pedido inválido para cobrança Pix.", 400)
     }
 
     const asaasAccount = await getRestaurantAsaasAccount(restaurantId)
@@ -282,13 +267,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (typedOrder.asaas_payment_status === "CREATING_PIX") {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "A cobrança Pix deste pedido já está sendo criada. Aguarde alguns segundos e tente novamente.",
-        },
-        { status: 409 }
+      return jsonError(
+        "A cobrança Pix deste pedido já está sendo criada. Aguarde alguns segundos e tente novamente.",
+        409
       )
     }
 
@@ -305,28 +286,20 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (lockError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            lockError.message ||
-            "Erro ao preparar pedido para cobrança Pix.",
-          details: lockError.details || null,
-          hint: lockError.hint || null,
-          code: lockError.code || null,
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao criar trava de Pix Asaas:", {
+        restaurantId,
+        orderId: typedOrder.id,
+        message: lockError.message,
+        code: lockError.code,
+      })
+
+      return jsonError("Erro ao preparar pedido para cobrança Pix.", 500)
     }
 
     if (!lockedOrder) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "A cobrança Pix deste pedido já foi iniciada. Aguarde alguns segundos e tente novamente.",
-        },
-        { status: 409 }
+      return jsonError(
+        "A cobrança Pix deste pedido já foi iniciada. Aguarde alguns segundos e tente novamente.",
+        409
       )
     }
 
@@ -387,18 +360,20 @@ export async function POST(req: NextRequest) {
       .eq("id", typedOrder.id)
 
     if (paymentUpdateError) {
-      return NextResponse.json(
+      console.error("Cobrança Pix criada, mas erro ao salvar no pedido:", {
+        restaurantId,
+        orderId: typedOrder.id,
+        paymentId: payment.id,
+        message: paymentUpdateError.message,
+        code: paymentUpdateError.code,
+      })
+
+      return jsonError(
+        "Cobrança Pix criada, mas houve erro ao salvar os dados no pedido.",
+        500,
         {
-          success: false,
-          error:
-            paymentUpdateError.message ||
-            "Cobrança Pix criada, mas erro ao salvar dados do pagamento no pedido.",
-          details: paymentUpdateError.details || null,
-          hint: paymentUpdateError.hint || null,
-          code: paymentUpdateError.code || null,
           paymentId: payment.id,
-        },
-        { status: 500 }
+        }
       )
     }
 
@@ -418,18 +393,20 @@ export async function POST(req: NextRequest) {
       .eq("id", typedOrder.id)
 
     if (pixUpdateError) {
-      return NextResponse.json(
+      console.error("Erro ao salvar vencimento do QR Code Pix:", {
+        restaurantId,
+        orderId: typedOrder.id,
+        paymentId: payment.id,
+        message: pixUpdateError.message,
+        code: pixUpdateError.code,
+      })
+
+      return jsonError(
+        "Cobrança Pix criada, mas houve erro ao salvar o vencimento do QR Code.",
+        500,
         {
-          success: false,
-          error:
-            pixUpdateError.message ||
-            "Cobrança Pix criada, mas erro ao salvar vencimento do QR Code.",
-          details: pixUpdateError.details || null,
-          hint: pixUpdateError.hint || null,
-          code: pixUpdateError.code || null,
           paymentId: payment.id,
-        },
-        { status: 500 }
+        }
       )
     }
 
@@ -461,15 +438,8 @@ export async function POST(req: NextRequest) {
         .is("asaas_payment_id", null)
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao criar cobrança Pix no Asaas.",
-      },
-      { status: 500 }
-    )
+    console.error("POST /api/asaas/pix error:", error)
+
+    return jsonError("Erro ao criar cobrança Pix no Asaas.", 500)
   }
 }

@@ -71,17 +71,22 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Variáveis públicas do Supabase não configuradas.")
+    throw new Error("supabase_config_missing")
   }
 
   const authHeader = req.headers.get("authorization")
-  const token = authHeader?.replace("Bearer ", "").trim()
+  const token = authHeader?.replace(/^Bearer\s+/i, "").trim()
 
   if (!token) {
-    throw new Error("Token de autenticação não enviado.")
+    throw new Error("unauthorized")
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
 
   const {
     data: { user },
@@ -89,27 +94,42 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   } = await authClient.auth.getUser(token)
 
   if (error || !user) {
-    throw new Error("Usuário não autenticado.")
+    throw new Error("unauthorized")
   }
 
   return user
 }
 
+function cleanText(value: unknown, maxLength = 120) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
+function jsonError(message: string, status = 400) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status }
+  )
+}
+
 export async function POST(req: Request) {
   try {
     const user = await getAuthenticatedUserFromRequest(req)
-    const body = await req.json()
 
-    const orderId = String(body?.order_id || body?.orderId || "").trim()
+    let body: Record<string, unknown>
+
+    try {
+      body = (await req.json()) as Record<string, unknown>
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
+    }
+
+    const orderId = cleanText(body.order_id || body.orderId, 80)
 
     if (!orderId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "ID do pedido não enviado.",
-        },
-        { status: 400 }
-      )
+      return jsonError("ID do pedido não enviado.", 400)
     }
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -121,17 +141,17 @@ export async function POST(req: Request) {
       .maybeSingle()
 
     if (orderError) {
-      throw new Error(`Erro ao buscar pedido: ${orderError.message}`)
+      console.error("Erro ao buscar pedido para registrar fidelidade:", {
+        orderId,
+        message: orderError.message,
+        code: orderError.code,
+      })
+
+      return jsonError("Erro ao buscar pedido.", 500)
     }
 
     if (!order) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Pedido não encontrado.",
-        },
-        { status: 404 }
-      )
+      return jsonError("Pedido não encontrado.", 404)
     }
 
     const currentOrder = order as Order
@@ -144,16 +164,21 @@ export async function POST(req: Request) {
       .maybeSingle()
 
     if (restaurantError) {
-      throw new Error(`Erro ao validar restaurante: ${restaurantError.message}`)
+      console.error("Erro ao validar restaurante para fidelidade:", {
+        orderId,
+        restaurantId: currentOrder.restaurant_id,
+        userId: user.id,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
+
+      return jsonError("Erro ao validar restaurante.", 500)
     }
 
     if (!restaurant) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Você não tem permissão para registrar fidelidade neste pedido.",
-        },
-        { status: 403 }
+      return jsonError(
+        "Você não tem permissão para registrar fidelidade neste pedido.",
+        403
       )
     }
 
@@ -193,7 +218,14 @@ export async function POST(req: Request) {
       .order("created_at", { ascending: false })
 
     if (campaignsError) {
-      throw new Error(`Erro ao buscar campanhas: ${campaignsError.message}`)
+      console.error("Erro ao buscar campanhas de fidelidade:", {
+        restaurantId: currentOrder.restaurant_id,
+        orderId,
+        message: campaignsError.message,
+        code: campaignsError.code,
+      })
+
+      return jsonError("Erro ao buscar campanhas de fidelidade.", 500)
     }
 
     const validCampaign = ((campaigns || []) as LoyaltyCampaign[]).find(
@@ -228,9 +260,15 @@ export async function POST(req: Request) {
         .maybeSingle()
 
     if (existingProgressError) {
-      throw new Error(
-        `Erro ao buscar progresso do cliente: ${existingProgressError.message}`
-      )
+      console.error("Erro ao buscar progresso de fidelidade:", {
+        restaurantId: currentOrder.restaurant_id,
+        campaignId: validCampaign.id,
+        customerPhone,
+        message: existingProgressError.message,
+        code: existingProgressError.code,
+      })
+
+      return jsonError("Erro ao buscar progresso do cliente.", 500)
     }
 
     if (
@@ -255,9 +293,15 @@ export async function POST(req: Request) {
       .maybeSingle()
 
     if (existingStampError) {
-      throw new Error(
-        `Erro ao verificar selo do pedido: ${existingStampError.message}`
-      )
+      console.error("Erro ao verificar selo existente:", {
+        restaurantId: currentOrder.restaurant_id,
+        campaignId: validCampaign.id,
+        orderId: currentOrder.id,
+        message: existingStampError.message,
+        code: existingStampError.code,
+      })
+
+      return jsonError("Erro ao verificar selo do pedido.", 500)
     }
 
     if (existingStamp) {
@@ -295,7 +339,15 @@ export async function POST(req: Request) {
         })
       }
 
-      throw new Error(`Erro ao registrar selo: ${insertStampError.message}`)
+      console.error("Erro ao registrar selo:", {
+        restaurantId: currentOrder.restaurant_id,
+        campaignId: validCampaign.id,
+        orderId: currentOrder.id,
+        message: insertStampError.message,
+        code: insertStampError.code,
+      })
+
+      return jsonError("Erro ao registrar selo.", 500)
     }
 
     const { count: totalStamps, error: countStampsError } = await supabaseAdmin
@@ -306,7 +358,15 @@ export async function POST(req: Request) {
       .eq("customer_phone", customerPhone)
 
     if (countStampsError) {
-      throw new Error(`Erro ao contar selos: ${countStampsError.message}`)
+      console.error("Erro ao contar selos:", {
+        restaurantId: currentOrder.restaurant_id,
+        campaignId: validCampaign.id,
+        customerPhone,
+        message: countStampsError.message,
+        code: countStampsError.code,
+      })
+
+      return jsonError("Erro ao contar selos.", 500)
     }
 
     const currentOrders = Math.min(Number(totalStamps || 1), requiredOrders)
@@ -338,9 +398,15 @@ export async function POST(req: Request) {
           .single()
 
       if (updateProgressError) {
-        throw new Error(
-          `Erro ao atualizar progresso: ${updateProgressError.message}`
-        )
+        console.error("Erro ao atualizar progresso:", {
+          restaurantId: currentOrder.restaurant_id,
+          campaignId: validCampaign.id,
+          customerPhone,
+          message: updateProgressError.message,
+          code: updateProgressError.code,
+        })
+
+        return jsonError("Erro ao atualizar progresso.", 500)
       }
 
       progress = updatedProgress
@@ -363,9 +429,15 @@ export async function POST(req: Request) {
           .single()
 
       if (createProgressError) {
-        throw new Error(
-          `Erro ao criar progresso: ${createProgressError.message}`
-        )
+        console.error("Erro ao criar progresso:", {
+          restaurantId: currentOrder.restaurant_id,
+          campaignId: validCampaign.id,
+          customerPhone,
+          message: createProgressError.message,
+          code: createProgressError.code,
+        })
+
+        return jsonError("Erro ao criar progresso.", 500)
       }
 
       progress = createdProgress
@@ -379,17 +451,12 @@ export async function POST(req: Request) {
       progress,
     })
   } catch (error) {
-    console.error("Erro ao registrar fidelidade:", error)
+    console.error("POST /api/loyalty/register-order error:", error)
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro inesperado ao registrar fidelidade.",
-      },
-      { status: 500 }
-    )
+    if (error instanceof Error && error.message === "unauthorized") {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    return jsonError("Erro inesperado ao registrar fidelidade.", 500)
   }
 }

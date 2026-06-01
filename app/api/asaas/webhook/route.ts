@@ -31,6 +31,10 @@ type RestaurantAsaasAccountRow = {
 
 const PAID_EVENTS = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"])
 
+function normalizeText(value: unknown, maxLength = 160) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
 function isPaidPaymentStatus(paymentStatus: string | null) {
   const normalizedPaymentStatus = String(paymentStatus || "")
     .trim()
@@ -47,43 +51,60 @@ function getNextOperationalStatus(currentStatus: string | null) {
   return currentStatus || "pending"
 }
 
+function jsonError(message: string, status = 400) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status }
+  )
+}
+
+function jsonOk(payload: Record<string, unknown>) {
+  return NextResponse.json({
+    success: true,
+    ...payload,
+  })
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as AsaasWebhookBody
+    let body: AsaasWebhookBody
 
-    const receivedToken = req.headers.get("asaas-access-token")
-    const event = body.event || null
-    const paymentId = body.payment?.id || null
-    const paymentStatus = body.payment?.status || null
-    const externalReference = body.payment?.externalReference || null
+    try {
+      body = (await req.json()) as AsaasWebhookBody
+    } catch {
+      return jsonError("Payload inválido.", 400)
+    }
 
-    const shouldMarkAsPaid = !!event && PAID_EVENTS.has(event)
+    const receivedToken = normalizeText(req.headers.get("asaas-access-token"), 500)
+    const event = normalizeText(body.event, 80)
+    const paymentId = normalizeText(body.payment?.id, 120)
+    const paymentStatus = normalizeText(body.payment?.status, 80)
+    const externalReference = normalizeText(
+      body.payment?.externalReference,
+      120
+    )
+
+    const shouldMarkAsPaid = Boolean(event) && PAID_EVENTS.has(event)
 
     if (!externalReference) {
       if (!shouldMarkAsPaid) {
-        return NextResponse.json({
-          success: true,
+        return jsonOk({
           received: true,
           ignored: true,
-          reason: "externalReference ausente em evento não pago.",
-          event,
-          paymentId,
-          paymentStatus,
-          externalReference,
+          reason: "Evento sem referência externa ignorado.",
         })
       }
 
-      return NextResponse.json(
-        {
-          success: false,
-          step: "external_reference_ausente",
-          error: "externalReference não enviado no webhook.",
-          event,
-          paymentId,
-          paymentStatus,
-        },
-        { status: 400 }
-      )
+      console.error("Webhook Asaas pago sem externalReference:", {
+        event,
+        paymentId,
+        paymentStatus,
+      })
+
+      return jsonError("Referência externa ausente.", 400)
     }
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -95,34 +116,33 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (orderError) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "buscar_pedido",
-          error: orderError.message || "Erro ao buscar pedido do webhook.",
-          details: orderError.details || null,
-          hint: orderError.hint || null,
-          code: orderError.code || null,
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar pedido no webhook Asaas:", {
+        externalReference,
+        event,
+        paymentId,
+        paymentStatus,
+        message: orderError.message,
+        code: orderError.code,
+      })
+
+      return jsonError("Erro ao buscar pedido do webhook.", 500)
     }
 
     const typedOrder = order as OrderRow | null
 
     if (!typedOrder) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "pedido_nao_encontrado",
-          error: "Pedido do webhook não encontrado.",
-          externalReference,
-          event,
-          paymentId,
-          paymentStatus,
-        },
-        { status: 404 }
-      )
+      console.warn("Pedido do webhook Asaas não encontrado:", {
+        externalReference,
+        event,
+        paymentId,
+        paymentStatus,
+      })
+
+      return jsonOk({
+        received: true,
+        ignored: true,
+        reason: "Pedido não encontrado.",
+      })
     }
 
     const { data: account, error: accountError } = await supabaseAdmin
@@ -132,56 +152,49 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (accountError) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "buscar_conta_asaas",
-          error:
-            accountError.message ||
-            "Erro ao buscar conta Asaas do restaurante.",
-          details: accountError.details || null,
-          hint: accountError.hint || null,
-          code: accountError.code || null,
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar conta Asaas no webhook:", {
+        restaurantId: typedOrder.restaurant_id,
+        orderId: typedOrder.id,
+        message: accountError.message,
+        code: accountError.code,
+      })
+
+      return jsonError("Erro ao validar conta Asaas.", 500)
     }
 
     const typedAccount = account as RestaurantAsaasAccountRow | null
 
     if (!typedAccount || !typedAccount.is_active) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "conta_asaas_inativa",
-          error: "Conta Asaas do restaurante não encontrada ou inativa.",
-        },
-        { status: 404 }
-      )
+      console.warn("Webhook recebido para conta Asaas inativa/inexistente:", {
+        restaurantId: typedOrder.restaurant_id,
+        orderId: typedOrder.id,
+        event,
+        paymentId,
+      })
+
+      return jsonError("Conta Asaas não encontrada ou inativa.", 404)
     }
 
     if (!typedAccount.webhook_token_encrypted) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "token_nao_configurado",
-          error: "Token do webhook do restaurante não configurado.",
-        },
-        { status: 400 }
-      )
+      console.error("Webhook token Asaas não configurado:", {
+        restaurantId: typedOrder.restaurant_id,
+        orderId: typedOrder.id,
+      })
+
+      return jsonError("Token do webhook não configurado.", 400)
     }
 
     const expectedToken = decryptText(typedAccount.webhook_token_encrypted)
 
     if (!receivedToken || receivedToken !== expectedToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "token_invalido",
-          error: "Token do webhook inválido.",
-        },
-        { status: 401 }
-      )
+      console.warn("Token inválido no webhook Asaas:", {
+        restaurantId: typedOrder.restaurant_id,
+        orderId: typedOrder.id,
+        event,
+        paymentId,
+      })
+
+      return jsonError("Token do webhook inválido.", 401)
     }
 
     if (
@@ -189,54 +202,44 @@ export async function POST(req: NextRequest) {
       paymentId &&
       typedOrder.asaas_payment_id !== paymentId
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "payment_id_divergente",
-          error: "O payment.id do webhook não pertence a este pedido.",
-          orderId: typedOrder.id,
-          expectedPaymentId: typedOrder.asaas_payment_id,
-          receivedPaymentId: paymentId,
-          event,
-          paymentStatus,
-        },
-        { status: 409 }
-      )
+      console.warn("Payment ID divergente no webhook Asaas:", {
+        orderId: typedOrder.id,
+        expectedPaymentId: typedOrder.asaas_payment_id,
+        receivedPaymentId: paymentId,
+        event,
+        paymentStatus,
+      })
+
+      return jsonError("Pagamento não pertence a este pedido.", 409)
     }
 
     if (!shouldMarkAsPaid) {
       const { error: ignoredUpdateError } = await supabaseAdmin
         .from("orders")
         .update({
-          asaas_payment_status: paymentStatus || typedOrder.asaas_payment_status,
+          asaas_payment_status:
+            paymentStatus || typedOrder.asaas_payment_status,
           asaas_payment_id: typedOrder.asaas_payment_id || paymentId || null,
         })
         .eq("id", typedOrder.id)
 
       if (ignoredUpdateError) {
-        return NextResponse.json(
-          {
-            success: false,
-            step: "atualizar_status_ignorado",
-            error:
-              ignoredUpdateError.message ||
-              "Erro ao atualizar status do evento ignorado.",
-            details: ignoredUpdateError.details || null,
-            hint: ignoredUpdateError.hint || null,
-            code: ignoredUpdateError.code || null,
-          },
-          { status: 500 }
-        )
+        console.error("Erro ao atualizar evento Asaas ignorado:", {
+          orderId: typedOrder.id,
+          event,
+          paymentId,
+          paymentStatus,
+          message: ignoredUpdateError.message,
+          code: ignoredUpdateError.code,
+        })
+
+        return jsonError("Erro ao atualizar status do pedido.", 500)
       }
 
-      return NextResponse.json({
-        success: true,
+      return jsonOk({
         received: true,
         ignored: true,
         event,
-        paymentId,
-        paymentStatus,
-        externalReference,
       })
     }
 
@@ -253,31 +256,24 @@ export async function POST(req: NextRequest) {
         .eq("id", typedOrder.id)
 
       if (alreadyPaidUpdateError) {
-        return NextResponse.json(
-          {
-            success: false,
-            step: "atualizar_pedido_ja_pago",
-            error:
-              alreadyPaidUpdateError.message ||
-              "Erro ao atualizar dados do pedido já pago.",
-            details: alreadyPaidUpdateError.details || null,
-            hint: alreadyPaidUpdateError.hint || null,
-            code: alreadyPaidUpdateError.code || null,
-          },
-          { status: 500 }
-        )
+        console.error("Erro ao atualizar pedido já pago no webhook Asaas:", {
+          orderId: typedOrder.id,
+          event,
+          paymentId,
+          paymentStatus,
+          message: alreadyPaidUpdateError.message,
+          code: alreadyPaidUpdateError.code,
+        })
+
+        return jsonError("Erro ao atualizar pedido já pago.", 500)
       }
 
-      return NextResponse.json({
-        success: true,
+      return jsonOk({
         received: true,
         processed: true,
         alreadyPaid: true,
         updatedOrder: false,
         event,
-        paymentId,
-        paymentStatus,
-        externalReference,
       })
     }
 
@@ -294,17 +290,16 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (updateError) {
-      return NextResponse.json(
-        {
-          success: false,
-          step: "atualizar_pedido",
-          error: updateError.message || "Erro ao atualizar pedido.",
-          details: updateError.details || null,
-          hint: updateError.hint || null,
-          code: updateError.code || null,
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao marcar pedido como pago pelo webhook Asaas:", {
+        orderId: typedOrder.id,
+        event,
+        paymentId,
+        paymentStatus,
+        message: updateError.message,
+        code: updateError.code,
+      })
+
+      return jsonError("Erro ao atualizar pedido.", 500)
     }
 
     const { data: loyaltyStampResult, error: loyaltyStampError } =
@@ -313,38 +308,28 @@ export async function POST(req: NextRequest) {
       })
 
     if (loyaltyStampError) {
-      console.error("Erro ao processar selo de fidelidade:", loyaltyStampError)
+      console.error("Erro ao processar selo de fidelidade:", {
+        orderId: typedOrder.id,
+        message: loyaltyStampError.message,
+        code: loyaltyStampError.code,
+      })
     }
 
-    return NextResponse.json({
-      success: true,
+    return jsonOk({
       received: true,
       processed: true,
       updatedOrder: true,
-      shouldMarkAsPaid: true,
       event,
-      paymentId,
-      paymentStatus,
-      externalReference,
       order: updatedOrder,
       loyaltyStamp: {
         processed: !loyaltyStampError,
         result: loyaltyStampResult || null,
-        error: loyaltyStampError?.message || null,
       },
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        step: "erro_geral",
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao processar webhook do Asaas.",
-      },
-      { status: 500 }
-    )
+    console.error("POST /api/asaas/webhook error:", error)
+
+    return jsonError("Erro ao processar webhook do Asaas.", 500)
   }
 }
 

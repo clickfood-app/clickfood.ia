@@ -7,17 +7,22 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Variáveis públicas do Supabase não configuradas.")
+    throw new Error("supabase_config_missing")
   }
 
   const authHeader = req.headers.get("authorization")
-  const token = authHeader?.replace("Bearer ", "")
+  const token = authHeader?.replace(/^Bearer\s+/i, "").trim()
 
   if (!token) {
-    throw new Error("Token não enviado.")
+    throw new Error("unauthorized")
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
 
   const {
     data: { user },
@@ -25,10 +30,14 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   } = await authClient.auth.getUser(token)
 
   if (error || !user) {
-    throw new Error("Usuário não autenticado.")
+    throw new Error("unauthorized")
   }
 
   return user
+}
+
+function jsonError(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status })
 }
 
 export async function GET(req: Request) {
@@ -39,13 +48,20 @@ export async function GET(req: Request) {
       .from("restaurants")
       .select("id")
       .eq("owner_id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (restaurantError || !restaurant) {
-      return NextResponse.json(
-        { error: "Restaurante não encontrado." },
-        { status: 404 }
-      )
+    if (restaurantError) {
+      console.error("Erro ao buscar restaurante no catálogo admin:", {
+        userId: user.id,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
+
+      return jsonError("Erro ao buscar restaurante.", 500)
+    }
+
+    if (!restaurant) {
+      return jsonError("Restaurante não encontrado.", 404)
     }
 
     const [categoriesResult, productsResult] = await Promise.all([
@@ -65,17 +81,23 @@ export async function GET(req: Request) {
     ])
 
     if (categoriesResult.error) {
-      return NextResponse.json(
-        { error: categoriesResult.error.message },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar categorias no catálogo admin:", {
+        restaurantId: restaurant.id,
+        message: categoriesResult.error.message,
+        code: categoriesResult.error.code,
+      })
+
+      return jsonError("Erro ao carregar categorias.", 500)
     }
 
     if (productsResult.error) {
-      return NextResponse.json(
-        { error: productsResult.error.message },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar produtos no catálogo admin:", {
+        restaurantId: restaurant.id,
+        message: productsResult.error.message,
+        code: productsResult.error.code,
+      })
+
+      return jsonError("Erro ao carregar produtos.", 500)
     }
 
     return NextResponse.json({
@@ -84,14 +106,12 @@ export async function GET(req: Request) {
       products: productsResult.data ?? [],
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao carregar catálogo do admin.",
-      },
-      { status: 500 }
-    )
+    console.error("GET /api/admin/catalog error:", error)
+
+    if (error instanceof Error && error.message === "unauthorized") {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    return jsonError("Erro ao carregar catálogo do admin.", 500)
   }
 }

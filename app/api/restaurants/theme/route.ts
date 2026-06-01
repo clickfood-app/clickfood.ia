@@ -6,14 +6,14 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Variáveis públicas do Supabase não configuradas.")
+    throw new Error("supabase_config_missing")
   }
 
   const authHeader = req.headers.get("authorization")
-  const token = authHeader?.replace("Bearer ", "")
+  const token = authHeader?.replace(/^Bearer\s+/i, "").trim()
 
   if (!token) {
-    throw new Error("Token não enviado.")
+    throw new Error("unauthorized")
   }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -34,38 +34,64 @@ async function getAuthenticatedUserFromRequest(req: Request) {
   } = await supabase.auth.getUser(token)
 
   if (error || !user) {
-    throw new Error("Usuário não autenticado.")
+    throw new Error("unauthorized")
   }
 
   return { user, supabase }
 }
 
+function cleanText(value: unknown, maxLength = 500) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
+function jsonError(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status })
+}
+
 export async function POST(req: Request) {
   try {
     const { user, supabase } = await getAuthenticatedUserFromRequest(req)
-    const body = await req.json()
 
-    const payload = {
-      logo_url: body.logo_url || null,
-      cover_image_url: body.cover_image_url || null,
-      theme_color: body.theme_color || null,
-      theme_mode: body.theme_mode || "dark",
-      floating_cart_bg_color: body.floating_cart_bg_color || "#7c3aed",
-      floating_cart_text_color: body.floating_cart_text_color || "#ffffff",
-      floating_cart_number_color: body.floating_cart_number_color || "#ffffff",
+    let body: Record<string, unknown>
+
+    try {
+      body = (await req.json()) as Record<string, unknown>
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
     }
 
-    const { data: existingRestaurant, error: existingRestaurantError } = await supabase
-      .from("restaurants")
-      .select("id")
-      .eq("owner_id", user.id)
-      .single()
+    const payload = {
+      logo_url: cleanText(body.logo_url, 700) || null,
+      cover_image_url: cleanText(body.cover_image_url, 700) || null,
+      theme_color: cleanText(body.theme_color, 40) || null,
+      theme_mode: cleanText(body.theme_mode, 40) || "dark",
+      floating_cart_bg_color:
+        cleanText(body.floating_cart_bg_color, 40) || "#7c3aed",
+      floating_cart_text_color:
+        cleanText(body.floating_cart_text_color, 40) || "#ffffff",
+      floating_cart_number_color:
+        cleanText(body.floating_cart_number_color, 40) || "#ffffff",
+    }
 
-    if (existingRestaurantError || !existingRestaurant) {
-      return NextResponse.json(
-        { error: "Restaurante não encontrado para este usuário." },
-        { status: 404 }
-      )
+    const { data: existingRestaurant, error: existingRestaurantError } =
+      await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("owner_id", user.id)
+        .maybeSingle()
+
+    if (existingRestaurantError) {
+      console.error("Erro ao buscar restaurante para salvar tema:", {
+        userId: user.id,
+        message: existingRestaurantError.message,
+        code: existingRestaurantError.code,
+      })
+
+      return jsonError("Erro ao buscar restaurante.", 500)
+    }
+
+    if (!existingRestaurant) {
+      return jsonError("Restaurante não encontrado para este usuário.", 404)
     }
 
     const { data: restaurant, error: updateError } = await supabase
@@ -79,23 +105,23 @@ export async function POST(req: Request) {
       .single()
 
     if (updateError) {
-      console.error("Erro ao salvar tema do restaurante:", updateError)
-      return NextResponse.json(
-        { error: updateError.message || "Erro ao salvar personalização." },
-        { status: 400 }
-      )
+      console.error("Erro ao salvar tema do restaurante:", {
+        restaurantId: existingRestaurant.id,
+        message: updateError.message,
+        code: updateError.code,
+      })
+
+      return jsonError("Erro ao salvar personalização.", 500)
     }
 
     return NextResponse.json({ restaurant }, { status: 200 })
   } catch (error) {
-    console.error("Erro na rota /api/restaurants/theme:", error)
+    console.error("POST /api/restaurants/theme error:", error)
 
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Erro interno ao salvar personalização.",
-      },
-      { status: 500 }
-    )
+    if (error instanceof Error && error.message === "unauthorized") {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    return jsonError("Erro interno ao salvar personalização.", 500)
   }
 }

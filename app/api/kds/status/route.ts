@@ -1,16 +1,32 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
+type KdsStatusBody = {
+  order_id?: string
+  status?: string
+}
+
+function cleanText(value: unknown, maxLength = 120) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
+function jsonError(message: string, status = 400) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status }
+  )
+}
+
 export async function PATCH(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
-    const token = authHeader?.replace("Bearer ", "").trim()
+    const token = authHeader?.replace(/^Bearer\s+/i, "").trim()
 
     if (!token) {
-      return NextResponse.json(
-        { success: false, error: "Usuário não autenticado." },
-        { status: 401 },
-      )
+      return jsonError("Usuário não autenticado.", 401)
     }
 
     const {
@@ -19,29 +35,26 @@ export async function PATCH(request: NextRequest) {
     } = await supabaseAdmin.auth.getUser(token)
 
     if (userError || !user) {
-      return NextResponse.json(
-        { success: false, error: "Sessão inválida." },
-        { status: 401 },
-      )
+      return jsonError("Sessão inválida.", 401)
     }
 
-    const body = await request.json()
+    let body: KdsStatusBody
 
-    const orderId = String(body.order_id || "").trim()
-    const status = String(body.status || "").trim()
+    try {
+      body = (await request.json()) as KdsStatusBody
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
+    }
+
+    const orderId = cleanText(body.order_id, 80)
+    const status = cleanText(body.status, 40)
 
     if (!orderId) {
-      return NextResponse.json(
-        { success: false, error: "Pedido não informado." },
-        { status: 400 },
-      )
+      return jsonError("Pedido não informado.", 400)
     }
 
     if (!["preparing", "ready"].includes(status)) {
-      return NextResponse.json(
-        { success: false, error: "Status inválido para o KDS." },
-        { status: 400 },
-      )
+      return jsonError("Status inválido para o KDS.", 400)
     }
 
     const { data: restaurant, error: restaurantError } = await supabaseAdmin
@@ -52,19 +65,17 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle()
 
     if (restaurantError) {
-      console.error("Erro ao buscar restaurante no KDS:", restaurantError)
+      console.error("Erro ao buscar restaurante no KDS:", {
+        userId: user.id,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
 
-      return NextResponse.json(
-        { success: false, error: "Erro ao buscar restaurante." },
-        { status: 500 },
-      )
+      return jsonError("Erro ao buscar restaurante.", 500)
     }
 
     if (!restaurant) {
-      return NextResponse.json(
-        { success: false, error: "Restaurante não encontrado." },
-        { status: 404 },
-      )
+      return jsonError("Restaurante não encontrado.", 404)
     }
 
     const { data: updatedOrder, error: updateError } = await supabaseAdmin
@@ -78,43 +89,28 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle()
 
     if (updateError) {
-      console.error("Erro ao atualizar pedido no KDS:", updateError)
+      console.error("Erro ao atualizar pedido no KDS:", {
+        restaurantId: restaurant.id,
+        orderId,
+        status,
+        message: updateError.message,
+        code: updateError.code,
+      })
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: updateError.message || "Erro ao atualizar pedido.",
-        },
-        { status: 500 },
-      )
+      return jsonError("Erro ao atualizar pedido.", 500)
     }
 
     if (!updatedOrder) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Pedido não encontrado para este restaurante.",
-        },
-        { status: 404 },
-      )
+      return jsonError("Pedido não encontrado para este restaurante.", 404)
     }
 
     return NextResponse.json({
       success: true,
       order: updatedOrder,
     })
-  } catch (err) {
-    console.error("Erro inesperado ao atualizar pedido no KDS:", err)
+  } catch (error) {
+    console.error("Erro inesperado ao atualizar pedido no KDS:", error)
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : "Erro inesperado ao atualizar pedido no KDS.",
-      },
-      { status: 500 },
-    )
+    return jsonError("Erro inesperado ao atualizar pedido no KDS.", 500)
   }
 }

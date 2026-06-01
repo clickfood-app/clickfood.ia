@@ -26,6 +26,10 @@ type AsaasAccountRow = {
   updated_at: string | null
 }
 
+function jsonError(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status })
+}
+
 async function getAuthenticatedUser() {
   const supabase = await createClient()
 
@@ -35,7 +39,7 @@ async function getAuthenticatedUser() {
   } = await supabase.auth.getUser()
 
   if (error || !user) {
-    throw new Error("Usuário não autenticado.")
+    throw new Error("unauthorized")
   }
 
   return user
@@ -48,8 +52,18 @@ async function getRestaurantIdByOwner(ownerId: string) {
     .eq("owner_id", ownerId)
     .maybeSingle()
 
-  if (error || !restaurant) {
-    throw new Error("Restaurante não encontrado.")
+  if (error) {
+    console.error("Erro ao buscar restaurante para conta Asaas:", {
+      ownerId,
+      message: error.message,
+      code: error.code,
+    })
+
+    throw new Error("restaurant_lookup_failed")
+  }
+
+  if (!restaurant) {
+    throw new Error("restaurant_not_found")
   }
 
   return restaurant.id
@@ -73,6 +87,22 @@ function formatAccount(data: AsaasAccountRow | null) {
     : null
 }
 
+function normalizeEnvironment(value: unknown): "sandbox" | "production" {
+  return value === "production" ? "production" : "sandbox"
+}
+
+function cleanText(value: unknown, maxLength = 500) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
+function isAuthError(error: unknown) {
+  return error instanceof Error && error.message === "unauthorized"
+}
+
+function isRestaurantNotFound(error: unknown) {
+  return error instanceof Error && error.message === "restaurant_not_found"
+}
+
 export async function GET() {
   try {
     const user = await getAuthenticatedUser()
@@ -87,10 +117,13 @@ export async function GET() {
       .maybeSingle<AsaasAccountRow>()
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message || "Erro ao carregar conta Asaas." },
-        { status: 500 }
-      )
+      console.error("Erro ao carregar conta Asaas:", {
+        restaurantId,
+        message: error.message,
+        code: error.code,
+      })
+
+      return jsonError("Erro ao carregar conta Asaas.", 500)
     }
 
     return NextResponse.json({
@@ -98,15 +131,17 @@ export async function GET() {
       account: formatAccount(data),
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao buscar conta Asaas.",
-      },
-      { status: 401 }
-    )
+    console.error("GET /api/asaas/account error:", error)
+
+    if (isAuthError(error)) {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    if (isRestaurantNotFound(error)) {
+      return jsonError("Restaurante não encontrado.", 404)
+    }
+
+    return jsonError("Erro ao buscar conta Asaas.", 500)
   }
 }
 
@@ -114,33 +149,32 @@ export async function POST(req: Request) {
   try {
     const user = await getAuthenticatedUser()
     const restaurantId = await getRestaurantIdByOwner(user.id)
-    const body = (await req.json()) as SaveAsaasAccountBody
 
-    const environment =
-      body.environment === "production" ? "production" : "sandbox"
-    const apiKey = body.apiKey?.trim()
-    const webhookToken = body.webhookToken?.trim()
-    const walletId = body.walletId?.trim() || null
-    const userAgent = body.userAgent?.trim() || "clickfood"
+    let body: SaveAsaasAccountBody
+
+    try {
+      body = (await req.json()) as SaveAsaasAccountBody
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
+    }
+
+    const environment = normalizeEnvironment(body.environment)
+    const apiKey = cleanText(body.apiKey, 700)
+    const webhookToken = cleanText(body.webhookToken, 700)
+    const walletId = cleanText(body.walletId, 120) || null
+    const userAgent = cleanText(body.userAgent, 120) || "clickfood"
     const isActive = body.isActive ?? true
 
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "API Key do Asaas é obrigatória." },
-        { status: 400 }
-      )
+      return jsonError("API Key do Asaas é obrigatória.", 400)
     }
 
     if (!webhookToken) {
-      return NextResponse.json(
-        { error: "Token do webhook do Asaas é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("Token do webhook do Asaas é obrigatório.", 400)
     }
 
     const encryptedApiKey = encryptText(apiKey)
     const encryptedWebhookToken = encryptText(webhookToken)
-
     const now = new Date().toISOString()
 
     const payload = {
@@ -167,10 +201,13 @@ export async function POST(req: Request) {
       .single<AsaasAccountRow>()
 
     if (upsertError) {
-      return NextResponse.json(
-        { error: upsertError.message || "Erro ao salvar conta Asaas." },
-        { status: 500 }
-      )
+      console.error("Erro ao salvar conta Asaas:", {
+        restaurantId,
+        message: upsertError.message,
+        code: upsertError.code,
+      })
+
+      return jsonError("Erro ao salvar conta Asaas.", 500)
     }
 
     return NextResponse.json({
@@ -180,15 +217,17 @@ export async function POST(req: Request) {
       account: formatAccount(data),
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao salvar conta Asaas.",
-      },
-      { status: 401 }
-    )
+    console.error("POST /api/asaas/account error:", error)
+
+    if (isAuthError(error)) {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    if (isRestaurantNotFound(error)) {
+      return jsonError("Restaurante não encontrado.", 404)
+    }
+
+    return jsonError("Erro ao salvar conta Asaas.", 500)
   }
 }
 
@@ -196,7 +235,14 @@ export async function PUT(req: Request) {
   try {
     const user = await getAuthenticatedUser()
     const restaurantId = await getRestaurantIdByOwner(user.id)
-    const body = (await req.json()) as SaveAsaasAccountBody
+
+    let body: SaveAsaasAccountBody
+
+    try {
+      body = (await req.json()) as SaveAsaasAccountBody
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
+    }
 
     const { data: existingAccount, error: existingError } = await supabaseAdmin
       .from("restaurant_asaas_accounts")
@@ -205,35 +251,28 @@ export async function PUT(req: Request) {
       .maybeSingle()
 
     if (existingError) {
-      return NextResponse.json(
-        {
-          error:
-            existingError.message || "Erro ao buscar conexão Asaas existente.",
-        },
-        { status: 500 }
-      )
+      console.error("Erro ao buscar conexão Asaas existente:", {
+        restaurantId,
+        message: existingError.message,
+        code: existingError.code,
+      })
+
+      return jsonError("Erro ao buscar conexão Asaas existente.", 500)
     }
 
-    const environment =
-      body.environment === "production" ? "production" : "sandbox"
-    const apiKey = body.apiKey?.trim()
-    const webhookToken = body.webhookToken?.trim()
-    const walletId = body.walletId?.trim() || null
-    const userAgent = body.userAgent?.trim() || "clickfood"
+    const environment = normalizeEnvironment(body.environment)
+    const apiKey = cleanText(body.apiKey, 700)
+    const webhookToken = cleanText(body.webhookToken, 700)
+    const walletId = cleanText(body.walletId, 120) || null
+    const userAgent = cleanText(body.userAgent, 120) || "clickfood"
     const isActive = body.isActive ?? true
 
     if (!existingAccount && !apiKey) {
-      return NextResponse.json(
-        { error: "API Key do Asaas é obrigatória." },
-        { status: 400 }
-      )
+      return jsonError("API Key do Asaas é obrigatória.", 400)
     }
 
     if (!existingAccount && !webhookToken) {
-      return NextResponse.json(
-        { error: "Token do webhook do Asaas é obrigatório." },
-        { status: 400 }
-      )
+      return jsonError("Token do webhook do Asaas é obrigatório.", 400)
     }
 
     const now = new Date().toISOString()
@@ -242,12 +281,12 @@ export async function PUT(req: Request) {
       const payload = {
         restaurant_id: restaurantId,
         environment,
-        api_key_encrypted: encryptText(apiKey as string),
-        webhook_token_encrypted: encryptText(webhookToken as string),
+        api_key_encrypted: encryptText(apiKey),
+        webhook_token_encrypted: encryptText(webhookToken),
         wallet_id: walletId,
         user_agent: userAgent,
-        api_key_last4: getLast4(apiKey as string),
-        webhook_token_last4: getLast4(webhookToken as string),
+        api_key_last4: getLast4(apiKey),
+        webhook_token_last4: getLast4(webhookToken),
         is_active: isActive,
         connected_at: now,
         updated_at: now,
@@ -263,10 +302,13 @@ export async function PUT(req: Request) {
         .single<AsaasAccountRow>()
 
       if (insertError) {
-        return NextResponse.json(
-          { error: insertError.message || "Erro ao criar conexão Asaas." },
-          { status: 500 }
-        )
+        console.error("Erro ao criar conexão Asaas:", {
+          restaurantId,
+          message: insertError.message,
+          code: insertError.code,
+        })
+
+        return jsonError("Erro ao criar conexão Asaas.", 500)
       }
 
       return NextResponse.json({
@@ -306,10 +348,13 @@ export async function PUT(req: Request) {
       .single<AsaasAccountRow>()
 
     if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message || "Erro ao atualizar conexão Asaas." },
-        { status: 500 }
-      )
+      console.error("Erro ao atualizar conexão Asaas:", {
+        restaurantId,
+        message: updateError.message,
+        code: updateError.code,
+      })
+
+      return jsonError("Erro ao atualizar conexão Asaas.", 500)
     }
 
     return NextResponse.json({
@@ -319,14 +364,16 @@ export async function PUT(req: Request) {
       account: formatAccount(data),
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao atualizar conexão Asaas.",
-      },
-      { status: 401 }
-    )
+    console.error("PUT /api/asaas/account error:", error)
+
+    if (isAuthError(error)) {
+      return jsonError("Não autorizado.", 401)
+    }
+
+    if (isRestaurantNotFound(error)) {
+      return jsonError("Restaurante não encontrado.", 404)
+    }
+
+    return jsonError("Erro ao atualizar conexão Asaas.", 500)
   }
 }

@@ -2,22 +2,32 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
+export const runtime = "nodejs"
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"]
+
 async function getAuthenticatedUserFromRequest(req: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Variáveis públicas do Supabase não configuradas.")
+    throw new Error("Configuração do Supabase ausente.")
   }
 
   const authHeader = req.headers.get("authorization")
-  const token = authHeader?.replace("Bearer ", "")
+  const token = authHeader?.replace(/^Bearer\s+/i, "").trim()
 
   if (!token) {
-    throw new Error("Token não enviado.")
+    throw new Error("Usuário não autenticado.")
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
 
   const {
     data: { user },
@@ -37,6 +47,10 @@ function getExtensionFromMimeType(contentType: string) {
   return "jpg"
 }
 
+function jsonError(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status })
+}
+
 export async function POST(req: Request) {
   try {
     const user = await getAuthenticatedUserFromRequest(req)
@@ -45,45 +59,46 @@ export async function POST(req: Request) {
       .from("restaurants")
       .select("id")
       .eq("owner_id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (restaurantError || !restaurant) {
-      return NextResponse.json(
-        { error: "Restaurante não encontrado." },
-        { status: 404 }
-      )
+    if (restaurantError) {
+      console.error("Erro ao buscar restaurante para upload de logo:", {
+        userId: user.id,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
+
+      return jsonError("Erro ao buscar restaurante.", 500)
+    }
+
+    if (!restaurant) {
+      return jsonError("Restaurante não encontrado.", 404)
     }
 
     const formData = await req.formData()
     const file = formData.get("file")
 
     if (!(file instanceof File)) {
-      return NextResponse.json(
-        { error: "Arquivo não enviado." },
-        { status: 400 }
-      )
+      return jsonError("Arquivo não enviado.", 400)
     }
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      return NextResponse.json(
-        { error: "Formato inválido. Use JPG, PNG ou WEBP." },
-        { status: 400 }
-      )
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return jsonError("Formato inválido. Use JPG, PNG ou WEBP.", 400)
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "A logo deve ter no máximo 5MB." },
-        { status: 400 }
-      )
+    if (file.size <= 0) {
+      return jsonError("Arquivo inválido.", 400)
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return jsonError("A logo deve ter no máximo 5MB.", 400)
     }
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
     const extension = getExtensionFromMimeType(file.type)
-    const uniqueSuffix = Date.now()
-    const filePath = `restaurants/${restaurant.id}/logo/logo-${uniqueSuffix}.${extension}`
+    const filePath = `restaurants/${restaurant.id}/logo/logo-${Date.now()}-${crypto.randomUUID()}.${extension}`
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from("restaurant-assets")
@@ -94,10 +109,12 @@ export async function POST(req: Request) {
       })
 
     if (uploadError) {
-      return NextResponse.json(
-        { error: uploadError.message },
-        { status: 400 }
-      )
+      console.error("Erro ao enviar logo para Storage:", {
+        restaurantId: restaurant.id,
+        message: uploadError.message,
+      })
+
+      return jsonError("Erro ao enviar logo.", 500)
     }
 
     const { data: publicUrlData } = supabaseAdmin.storage
@@ -105,10 +122,7 @@ export async function POST(req: Request) {
       .getPublicUrl(filePath)
 
     if (!publicUrlData?.publicUrl) {
-      return NextResponse.json(
-        { error: "Não foi possível gerar a URL pública da logo." },
-        { status: 400 }
-      )
+      return jsonError("Não foi possível gerar a URL pública da logo.", 500)
     }
 
     const cleanLogoUrl = publicUrlData.publicUrl.split("?")[0]
@@ -125,10 +139,15 @@ export async function POST(req: Request) {
       .single()
 
     if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 400 }
-      )
+      console.error("Erro ao salvar URL da logo no restaurante:", {
+        restaurantId: restaurant.id,
+        message: updateError.message,
+        code: updateError.code,
+      })
+
+      await supabaseAdmin.storage.from("restaurant-assets").remove([filePath])
+
+      return jsonError("Erro ao salvar logo no restaurante.", 500)
     }
 
     return NextResponse.json({
@@ -138,14 +157,8 @@ export async function POST(req: Request) {
       restaurant: updatedRestaurant,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao enviar logo.",
-      },
-      { status: 500 }
-    )
+    console.error("POST /api/admin/upload/logo-image error:", error)
+
+    return jsonError("Erro ao enviar logo.", 500)
   }
 }
