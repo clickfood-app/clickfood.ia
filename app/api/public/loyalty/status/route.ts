@@ -5,37 +5,34 @@ function onlyDigits(value: string | null | undefined) {
   return (value || "").replace(/\D/g, "")
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message
-  return "Erro inesperado ao buscar fidelidade."
+function cleanText(value: string | null | undefined, maxLength = 120) {
+  return (value || "").trim().slice(0, maxLength)
+}
+
+function jsonError(message: string, status = 400) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status }
+  )
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
 
-    const restaurantId = searchParams.get("restaurantId")
-    const orderId = searchParams.get("orderId")
+    const restaurantId = cleanText(searchParams.get("restaurantId"), 80)
+    const orderId = cleanText(searchParams.get("orderId"), 80)
     const customerPhoneFromUrl = onlyDigits(searchParams.get("customerPhone"))
 
     if (!restaurantId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "ID do restaurante não enviado.",
-        },
-        { status: 400 }
-      )
+      return jsonError("ID do restaurante não enviado.", 400)
     }
 
     if (!orderId && !customerPhoneFromUrl) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "ID do pedido ou telefone do cliente não enviado.",
-        },
-        { status: 400 }
-      )
+      return jsonError("ID do pedido ou telefone do cliente não enviado.", 400)
     }
 
     let customerPhone = customerPhoneFromUrl
@@ -50,7 +47,14 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
 
       if (orderError) {
-        throw orderError
+        console.error("Erro ao buscar pedido para fidelidade pública:", {
+          restaurantId,
+          orderId,
+          message: orderError.message,
+          code: orderError.code,
+        })
+
+        return jsonError("Erro ao buscar fidelidade.", 500)
       }
 
       if (!order) {
@@ -70,24 +74,27 @@ export async function GET(request: NextRequest) {
     }
 
     if (!customerPhone) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Telefone do cliente não encontrado.",
-        },
-        { status: 400 }
-      )
+      return jsonError("Telefone do cliente não encontrado.", 400)
     }
 
     const { data: loyalty, error: loyaltyError } = await supabaseAdmin
       .from("customer_loyalties")
-      .select("*")
+      .select(
+        "id, restaurant_id, campaign_id, customer_phone, customer_name, current_orders, required_orders, reward_available, reward_redeemed, last_order_id, created_at, updated_at"
+      )
       .eq("restaurant_id", restaurantId)
       .eq("customer_phone", customerPhone)
       .maybeSingle()
 
     if (loyaltyError) {
-      throw loyaltyError
+      console.error("Erro ao buscar fidelidade pública:", {
+        restaurantId,
+        customerPhone,
+        message: loyaltyError.message,
+        code: loyaltyError.code,
+      })
+
+      return jsonError("Erro ao buscar fidelidade.", 500)
     }
 
     if (!loyalty) {
@@ -110,7 +117,14 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
 
       if (campaignError) {
-        throw campaignError
+        console.error("Erro ao buscar campanha de fidelidade pública:", {
+          restaurantId,
+          campaignId: loyalty.campaign_id,
+          message: campaignError.message,
+          code: campaignError.code,
+        })
+
+        return jsonError("Erro ao buscar campanha de fidelidade.", 500)
       }
 
       campaign = campaignData
@@ -126,14 +140,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Erro ao buscar status de fidelidade:", error)
+    console.error("GET /api/public/loyalty/status error:", error)
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: getErrorMessage(error),
-      },
-      { status: 500 }
-    )
+    return jsonError("Erro inesperado ao buscar fidelidade.", 500)
   }
 }
