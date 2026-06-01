@@ -57,12 +57,24 @@ type OrderRow = {
   pix_confirmed_by: string | null
 }
 
+type OrderItemModifier = {
+  groupId: string | null
+  optionId: string | null
+  groupName: string
+  optionName: string
+  optionPrice: number
+}
+
 type OrderItem = {
   id: string
   order_id: string
+  product_id: string | null
   name: string
   quantity: number
   total: number
+  notes: string | null
+  modifiers: OrderItemModifier[]
+  stock_deducted_at: string | null
 }
 
 type DeliveryPerson = {
@@ -71,6 +83,23 @@ type DeliveryPerson = {
   phone: string | null
   is_active: boolean
   created_at: string
+}
+
+type OrderItemStockDeductionRow = {
+  id: string
+  product_id: string | null
+  quantity: number | string | null
+}
+
+type ProductRecipeStockRow = {
+  product_id: string | null
+  stock_item_id: string | null
+  quantity: number | string | null
+}
+
+type StockQuantityRow = {
+  id: string
+  current_quantity: number | string | null
 }
 
 type RestaurantPrintData = {
@@ -88,7 +117,7 @@ type NewOrderAlert = {
   createdAt: string
 }
 
-type BoardStatus = "analysis" | "preparation" | "on_route"
+type BoardStatus = "analysis" | "preparation" | "ready" | "on_route"
 
 const supabase = createClient()
 
@@ -134,7 +163,7 @@ const columnStyles = {
   },
   preparation: {
     title: "EM PREPARO",
-    description: "Produção na cozinha",
+    description: "Na cozinha",
     icon: ChefHat,
     header: "bg-blue-600",
     body: "bg-blue-50/40",
@@ -143,16 +172,27 @@ const columnStyles = {
     button: "bg-blue-600 hover:bg-blue-700 text-white",
     progress: "bg-blue-500",
   },
-  on_route: {
-    title: "EM ROTA",
-    description: "Saiu para entrega",
-    icon: Truck,
+  ready: {
+    title: "PRONTOS",
+    description: "Cozinha finalizou",
+    icon: CheckCircle2,
     header: "bg-emerald-600",
     body: "bg-emerald-50/40",
     border: "border-emerald-200",
     badge: "bg-emerald-100 text-emerald-700",
-    button: "bg-purple-600 hover:bg-purple-700 text-white",
+    button: "bg-emerald-600 hover:bg-emerald-700 text-white",
     progress: "bg-emerald-500",
+  },
+  on_route: {
+    title: "EM ROTA",
+    description: "Saiu para entrega",
+    icon: Truck,
+    header: "bg-purple-600",
+    body: "bg-purple-50/40",
+    border: "border-purple-200",
+    badge: "bg-purple-100 text-purple-700",
+    button: "bg-purple-600 hover:bg-purple-700 text-white",
+    progress: "bg-purple-500",
   },
 } satisfies Record<BoardStatus, Record<string, string | typeof Clock3>>
 
@@ -249,9 +289,18 @@ function isPreparationStatus(status: string | null | undefined) {
     value === "em_preparo" ||
     value === "em preparo" ||
     value === "waiting" ||
-    value === "aguardando" ||
+    value === "aguardando"
+  )
+}
+
+function isReadyStatus(status: string | null | undefined) {
+  const value = normalizeStatus(status)
+
+  return (
     value === "ready" ||
-    value === "pronto"
+    value === "pronto" ||
+    value === "done" ||
+    value === "prepared"
   )
 }
 
@@ -271,6 +320,7 @@ function isOnRouteStatus(status: string | null | undefined) {
 function getBoardStatus(status: string | null | undefined): BoardStatus | null {
   if (isAnalysisStatus(status)) return "analysis"
   if (isPreparationStatus(status)) return "preparation"
+  if (isReadyStatus(status)) return "ready"
   if (isOnRouteStatus(status)) return "on_route"
 
   return null
@@ -315,6 +365,65 @@ function formatBRL(value: number | string | null | undefined) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value || 0))
+}
+
+function cleanText(value: unknown) {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function normalizeOrderItemModifiers(rawModifiers: unknown): OrderItemModifier[] {
+  if (!Array.isArray(rawModifiers)) return []
+
+  return rawModifiers
+    .map((rawModifier) => {
+      if (!rawModifier || typeof rawModifier !== "object") return null
+
+      const modifier = rawModifier as Record<string, unknown>
+
+      const groupName = cleanText(
+        modifier.groupName ?? modifier.group_name ?? modifier.group
+      )
+
+      const optionName = cleanText(
+        modifier.optionName ?? modifier.option_name ?? modifier.name ?? modifier.option
+      )
+
+      const optionPrice = Number(
+        modifier.optionPrice ?? modifier.option_price ?? modifier.price ?? 0
+      )
+
+      if (!groupName && !optionName) return null
+
+      return {
+        groupId: cleanText(modifier.groupId ?? modifier.group_id) || null,
+        optionId: cleanText(modifier.optionId ?? modifier.option_id) || null,
+        groupName: groupName || "Complemento",
+        optionName: optionName || "Opção",
+        optionPrice: Number.isFinite(optionPrice) ? optionPrice : 0,
+      }
+    })
+    .filter((modifier): modifier is OrderItemModifier => Boolean(modifier))
+}
+
+function formatOrderItemModifier(modifier: OrderItemModifier) {
+  const price =
+    modifier.optionPrice > 0 ? ` +${formatBRL(modifier.optionPrice)}` : ""
+
+  return `${modifier.groupName}: ${modifier.optionName}${price}`
+}
+
+function getSafeOrderItemModifiers(item: OrderItem) {
+  return Array.isArray(item.modifiers) ? item.modifiers : []
+}
+
+function getOrderItemPrintName(item: OrderItem) {
+  const modifierLines = getSafeOrderItemModifiers(item).map(
+    (modifier) => `  • ${formatOrderItemModifier(modifier)}`
+  )
+
+  const notesLine = item.notes ? [`  Obs: ${item.notes}`] : []
+
+  return [item.name, ...modifierLines, ...notesLine].join("\n")
 }
 
 function formatTimeOnly(value: string) {
@@ -411,6 +520,7 @@ function getPaymentLabel(paymentMethod: string | null) {
   if (normalized === "cash" || normalized === "dinheiro") return "Dinheiro"
   if (normalized === "credit_card" || normalized === "credito") return "Crédito"
   if (normalized === "debit_card" || normalized === "debito") return "Débito"
+  if (normalized === "mesa") return "Mesa"
 
   return paymentMethod
 }
@@ -430,9 +540,13 @@ function getPaymentStatusLabel(paymentStatus: string | null) {
 
 function isDeliveryOrder(order: OrderRow) {
   const deliveryFee = Number(order.delivery_fee || 0)
+  const paymentMethod = normalizeStatus(order.payment_method)
+  const customerName = normalizeStatus(order.customer_name)
   const notes = normalizeStatus(order.notes)
 
   const isLocalOrPickup =
+    paymentMethod === "mesa" ||
+    customerName.includes("mesa") ||
     notes.includes("retirada") ||
     notes.includes("retirar") ||
     notes.includes("balcao") ||
@@ -459,6 +573,11 @@ function isDeliveryOrder(order: OrderRow) {
 }
 
 function getOrderTypeLabel(order: OrderRow) {
+  const paymentMethod = normalizeStatus(order.payment_method)
+  const customerName = normalizeStatus(order.customer_name)
+
+  if (paymentMethod === "mesa" || customerName.includes("mesa")) return "Mesa"
+
   return isDeliveryOrder(order) ? "Entrega" : "Retirada"
 }
 
@@ -485,6 +604,13 @@ function getPaymentBadgeClasses(paymentStatus: string | null) {
 }
 
 function getOrderTypeClasses(order: OrderRow) {
+  const paymentMethod = normalizeStatus(order.payment_method)
+  const customerName = normalizeStatus(order.customer_name)
+
+  if (paymentMethod === "mesa" || customerName.includes("mesa")) {
+    return "border-orange-200 bg-orange-50 text-orange-700"
+  }
+
   if (isDeliveryOrder(order)) {
     return "border-blue-200 bg-blue-50 text-blue-700"
   }
@@ -506,13 +632,17 @@ function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
   }
 
   if (status === "preparation") {
-    if (isDelivery) return "Entrega: selecione o motoboy antes de enviar."
-    return "Retirada: não precisa selecionar motoboy."
+    return "Pedido em produção na cozinha."
+  }
+
+  if (status === "ready") {
+    if (isDelivery) return "Cozinha marcou como pronto. Selecione o motoboy e envie."
+    return "Cozinha marcou como pronto. Sirva ou finalize o pedido."
   }
 
   if (isDelivery) return "Pedido em rota com entregador vinculado."
 
-  return "Retirada pronta para finalizar."
+  return "Pedido finalizado na operação."
 }
 
 function normalizeOrderItem(raw: Record<string, unknown>): OrderItem {
@@ -538,9 +668,22 @@ function normalizeOrderItem(raw: Record<string, unknown>): OrderItem {
   return {
     id: String(raw.id || crypto.randomUUID()),
     order_id: String(raw.order_id || ""),
+    product_id:
+      raw.product_id === null || raw.product_id === undefined
+        ? null
+        : String(raw.product_id),
     name,
     quantity,
     total,
+    notes:
+      raw.notes === null || raw.notes === undefined
+        ? null
+        : String(raw.notes),
+    modifiers: normalizeOrderItemModifiers(raw.modifiers),
+    stock_deducted_at:
+      raw.stock_deducted_at === null || raw.stock_deducted_at === undefined
+        ? null
+        : String(raw.stock_deducted_at),
   }
 }
 
@@ -587,7 +730,7 @@ function buildThermalOrderPayload(
       phone: getCustomerPhone(order),
     },
     items: items.map((item) => ({
-      name: item.name,
+      name: getOrderItemPrintName(item),
       quantity: item.quantity,
       price: item.quantity > 0 ? item.total / item.quantity : item.total,
     })),
@@ -609,9 +752,9 @@ type OrderCardProps = {
   averagePrepTimeMinutes: number
   nowMs: number
   busyOrderId: string | null
-isSelected: boolean
-onToggleSelected: (orderId: string) => void
-onAccept: (order: OrderRow) => void
+  isSelected: boolean
+  onToggleSelected: (orderId: string) => void
+  onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
   onConfirmPixPayment: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
@@ -628,9 +771,9 @@ function OrderCard({
   averagePrepTimeMinutes,
   nowMs,
   busyOrderId,
-isSelected,
-onToggleSelected,
-onAccept,
+  isSelected,
+  onToggleSelected,
+  onAccept,
   onCancel,
   onConfirmPixPayment,
   onSendToRoute,
@@ -691,7 +834,9 @@ onAccept,
               ? "bg-amber-500"
               : status === "preparation"
                 ? "bg-blue-600"
-                : "bg-emerald-600",
+                : status === "ready"
+                  ? "bg-emerald-600"
+                  : "bg-purple-600",
         ].join(" ")}
       />
 
@@ -715,6 +860,12 @@ onAccept,
               {status === "analysis" && acceptRemainingMs <= 10000 && (
                 <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700">
                   Alta
+                </span>
+              )}
+
+              {status === "ready" && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                  Cozinha pronto
                 </span>
               )}
             </div>
@@ -784,28 +935,28 @@ onAccept,
         )}
 
         <button
-  type="button"
-  onClick={() => onToggleSelected(order.id)}
-  className={[
-    "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg border text-xs font-black transition",
-    isSelected
-      ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-  ].join(" ")}
->
-  <span
-    className={[
-      "flex h-4 w-4 items-center justify-center rounded border",
-      isSelected
-        ? "border-blue-600 bg-blue-600 text-white"
-        : "border-slate-300 bg-white",
-    ].join(" ")}
-  >
-    {isSelected && <CheckCircle2 className="h-3 w-3" />}
-  </span>
+          type="button"
+          onClick={() => onToggleSelected(order.id)}
+          className={[
+            "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg border text-xs font-black transition",
+            isSelected
+              ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "flex h-4 w-4 items-center justify-center rounded border",
+              isSelected
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-slate-300 bg-white",
+            ].join(" ")}
+          >
+            {isSelected && <CheckCircle2 className="h-3 w-3" />}
+          </span>
 
-  {isSelected ? "Selecionado para impressão" : "Selecionar para impressão"}
-</button>
+          {isSelected ? "Selecionado para impressão" : "Selecionar para impressão"}
+        </button>
 
         <div className="mt-2">
           {status === "analysis" && (
@@ -876,6 +1027,25 @@ onAccept,
             </>
           )}
 
+          {status === "ready" && (
+            <>
+              <div className="mb-1 flex items-center justify-between text-[11px]">
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Pronto na cozinha
+                </span>
+
+                <span className="text-slate-400">
+                  finalizar atendimento
+                </span>
+              </div>
+
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full w-full rounded-full bg-emerald-500" />
+              </div>
+            </>
+          )}
+
           {status === "on_route" && (
             <>
               <div className="mb-1 flex items-center justify-between text-[11px]">
@@ -914,22 +1084,43 @@ onAccept,
               {visibleItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between gap-2 text-xs"
+                  className="rounded-lg border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-xs"
                 >
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 px-1 text-[10px] font-black text-slate-600">
-                      {item.quantity}x
-                    </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-slate-600">
+                        {item.quantity}x
+                      </span>
 
-                    <span className="truncate font-semibold text-slate-700">
-                      {item.name}
-                    </span>
+                      <span className="truncate font-semibold text-slate-800">
+                        {item.name}
+                      </span>
+                    </div>
+
+                    {item.total > 0 && (
+                      <span className="shrink-0 text-[11px] font-bold text-slate-600">
+                        {formatBRL(item.total)}
+                      </span>
+                    )}
                   </div>
 
-                  {item.total > 0 && (
-                    <span className="shrink-0 text-[11px] font-bold text-slate-500">
-                      {formatBRL(item.total)}
-                    </span>
+                  {getSafeOrderItemModifiers(item).length > 0 && (
+                    <div className="mt-1 space-y-0.5 pl-6">
+                      {getSafeOrderItemModifiers(item).map((modifier, index) => (
+                        <p
+                          key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
+                          className="text-[11px] font-semibold leading-relaxed text-blue-700"
+                        >
+                          • {formatOrderItemModifier(modifier)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {item.notes && (
+                    <p className="mt-1 pl-6 text-[11px] font-semibold leading-relaxed text-amber-700">
+                      Obs: {item.notes}
+                    </p>
                   )}
                 </div>
               ))}
@@ -956,7 +1147,7 @@ onAccept,
           </div>
         )}
 
-        {isDelivery && (status === "preparation" || status === "on_route") && (
+        {isDelivery && (status === "preparation" || status === "ready" || status === "on_route") && (
           <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/70 p-2">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
@@ -977,7 +1168,7 @@ onAccept,
               )}
             </div>
 
-            {status === "preparation" ? (
+            {status === "preparation" || status === "ready" ? (
               <select
                 value={order.delivery_person_id || ""}
                 onChange={(event) =>
@@ -1123,11 +1314,17 @@ onAccept,
           )}
 
           {status === "preparation" && (
+            <div className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700">
+              Aguardando cozinha
+            </div>
+          )}
+
+          {status === "ready" && (
             <button
               type="button"
               onClick={() => (isDelivery ? onSendToRoute(order) : onFinish(order))}
               disabled={isBusy || (isDelivery && !order.delivery_person_id)}
-              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isBusy ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1136,7 +1333,7 @@ onAccept,
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               )}
-              {isDelivery ? "Enviar" : "Finalizar"}
+              {isDelivery ? "Enviar" : "Servido"}
             </button>
           )}
 
@@ -1253,9 +1450,9 @@ type BoardColumnProps = {
   averagePrepTimeMinutes: number
   nowMs: number
   busyOrderId: string | null
-selectedOrderIds: Set<string>
-onToggleSelected: (orderId: string) => void
-onAccept: (order: OrderRow) => void
+  selectedOrderIds: Set<string>
+  onToggleSelected: (orderId: string) => void
+  onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
   onConfirmPixPayment: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
@@ -1272,9 +1469,9 @@ function BoardColumn({
   averagePrepTimeMinutes,
   nowMs,
   busyOrderId,
-selectedOrderIds,
-onToggleSelected,
-onAccept,
+  selectedOrderIds,
+  onToggleSelected,
+  onAccept,
   onCancel,
   onConfirmPixPayment,
   onSendToRoute,
@@ -1331,9 +1528,9 @@ onAccept,
               averagePrepTimeMinutes={averagePrepTimeMinutes}
               nowMs={nowMs}
               busyOrderId={busyOrderId}
-isSelected={selectedOrderIds.has(order.id)}
-onToggleSelected={onToggleSelected}
-onAccept={onAccept}
+              isSelected={selectedOrderIds.has(order.id)}
+              onToggleSelected={onToggleSelected}
+              onAccept={onAccept}
               onCancel={onCancel}
               onConfirmPixPayment={onConfirmPixPayment}
               onSendToRoute={onSendToRoute}
@@ -1358,7 +1555,7 @@ export default function PedidosPage() {
   const [deliveryPeople, setDeliveryPeople] = useState<DeliveryPerson[]>([])
   const [averagePrepTimeMinutes, setAveragePrepTimeMinutes] = useState(30)
   const [restaurantPrintData, setRestaurantPrintData] =
-  useState<RestaurantPrintData | null>(null)
+    useState<RestaurantPrintData | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -1651,34 +1848,34 @@ export default function PedidosPage() {
   }
 
   async function loadRestaurantSettings() {
-  if (!restaurant?.id) return
+    if (!restaurant?.id) return
 
-  try {
-    const session = await ensureSupabaseSession()
+    try {
+      const session = await ensureSupabaseSession()
 
-    if (!session) return
+      if (!session) return
 
-    const { data, error } = await supabase
-      .from("restaurants")
-      .select("name, logo_url, phone, address, average_prep_time_minutes")
-      .eq("id", restaurant.id)
-      .single()
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("name, logo_url, phone, address, average_prep_time_minutes")
+        .eq("id", restaurant.id)
+        .single()
 
-    if (error) throw error
+      if (error) throw error
 
-    setAveragePrepTimeMinutes(Number(data.average_prep_time_minutes || 30))
+      setAveragePrepTimeMinutes(Number(data.average_prep_time_minutes || 30))
 
-    setRestaurantPrintData({
-      name: data.name?.trim() || "Restaurante",
-      logoUrl: data.logo_url || null,
-      phone: data.phone || null,
-      address: data.address || null,
-    })
-  } catch (err) {
-    console.error("Erro ao carregar configurações do restaurante:", err)
-    setError(getErrorMessage(err, "Erro ao carregar configurações do restaurante."))
+      setRestaurantPrintData({
+        name: data.name?.trim() || "Restaurante",
+        logoUrl: data.logo_url || null,
+        phone: data.phone || null,
+        address: data.address || null,
+      })
+    } catch (err) {
+      console.error("Erro ao carregar configurações do restaurante:", err)
+      setError(getErrorMessage(err, "Erro ao carregar configurações do restaurante."))
+    }
   }
-}
 
   async function updateAveragePrepTime(nextValue: number) {
     if (!restaurant?.id) return
@@ -1789,6 +1986,105 @@ export default function PedidosPage() {
     return result
   }
 
+  async function deductStockForOrder(orderId: string) {
+    if (!restaurant?.id) {
+      throw new Error("Restaurante não encontrado para baixar estoque.")
+    }
+
+    const deductedAt = new Date().toISOString()
+
+    const { data: claimedItems, error: claimError } = await supabase
+      .from("order_items")
+      .update({ stock_deducted_at: deductedAt })
+      .eq("order_id", orderId)
+      .is("stock_deducted_at", null)
+      .not("product_id", "is", null)
+      .select("id, product_id, quantity")
+
+    if (claimError) throw claimError
+
+    const orderItemsToDeduct = ((claimedItems || []) as OrderItemStockDeductionRow[])
+      .filter((item) => item.product_id && Number(item.quantity || 0) > 0)
+
+    if (orderItemsToDeduct.length === 0) return
+
+    const quantityByProductId = new Map<string, number>()
+
+    for (const item of orderItemsToDeduct) {
+      if (!item.product_id) continue
+
+      const productId = String(item.product_id)
+      const quantity = Number(item.quantity || 0)
+
+      quantityByProductId.set(
+        productId,
+        (quantityByProductId.get(productId) || 0) + quantity
+      )
+    }
+
+    const productIds = Array.from(quantityByProductId.keys())
+
+    if (productIds.length === 0) return
+
+    const { data: recipeRows, error: recipeError } = await supabase
+      .from("product_recipe_items")
+      .select("product_id, stock_item_id, quantity")
+      .eq("restaurant_id", restaurant.id)
+      .in("product_id", productIds)
+
+    if (recipeError) throw recipeError
+
+    const deductionByStockItemId = new Map<string, number>()
+
+    for (const recipe of (recipeRows || []) as ProductRecipeStockRow[]) {
+      if (!recipe.product_id || !recipe.stock_item_id) continue
+
+      const soldQuantity = quantityByProductId.get(String(recipe.product_id)) || 0
+      const recipeQuantity = Number(recipe.quantity || 0)
+      const totalDeduction = soldQuantity * recipeQuantity
+
+      if (totalDeduction <= 0) continue
+
+      const stockItemId = String(recipe.stock_item_id)
+
+      deductionByStockItemId.set(
+        stockItemId,
+        (deductionByStockItemId.get(stockItemId) || 0) + totalDeduction
+      )
+    }
+
+    const stockItemIds = Array.from(deductionByStockItemId.keys())
+
+    if (stockItemIds.length === 0) return
+
+    const { data: stockRows, error: stockError } = await supabase
+      .from("stock_items")
+      .select("id, current_quantity")
+      .eq("restaurant_id", restaurant.id)
+      .in("id", stockItemIds)
+
+    if (stockError) throw stockError
+
+    for (const stockItem of (stockRows || []) as StockQuantityRow[]) {
+      const deductionQuantity = deductionByStockItemId.get(stockItem.id) || 0
+
+      if (deductionQuantity <= 0) continue
+
+      const currentQuantity = Number(stockItem.current_quantity || 0)
+      const nextQuantity = currentQuantity - deductionQuantity
+
+      const { error: updateStockError } = await supabase
+        .from("stock_items")
+        .update({
+          current_quantity: nextQuantity,
+        })
+        .eq("id", stockItem.id)
+        .eq("restaurant_id", restaurant.id)
+
+      if (updateStockError) throw updateStockError
+    }
+  }
+
   async function updateOrder(
     order: OrderRow,
     action: "accept" | "cancel" | "route" | "finish"
@@ -1862,6 +2158,21 @@ export default function PedidosPage() {
 
       if (error) throw error
 
+      if (action === "accept") {
+        try {
+          await deductStockForOrder(order.id)
+        } catch (stockError) {
+          console.error("Pedido aceito, mas estoque não foi baixado:", stockError)
+
+          setError(
+            getErrorMessage(
+              stockError,
+              "Pedido aceito, mas não foi possível baixar o estoque automaticamente."
+            )
+          )
+        }
+      }
+
       if (payload.status === "delivered") {
         try {
           await registerLoyaltyOrder(order.id)
@@ -1888,101 +2199,102 @@ export default function PedidosPage() {
     }
   }
 
-async function confirmPixPayment(order: OrderRow) {
-  const previousOrders = orders
-  const nowIso = new Date().toISOString()
+  async function confirmPixPayment(order: OrderRow) {
+    const previousOrders = orders
+    const nowIso = new Date().toISOString()
 
-  try {
-    setBusyOrderId(order.id)
-    setError(null)
+    try {
+      setBusyOrderId(order.id)
+      setError(null)
 
-    const payload: Partial<OrderRow> = {
-      payment_status: "paid",
-      status: "pending",
-      pix_confirmed_at: nowIso,
-      pix_confirmed_by: user?.id ?? null,
-    }
+      const payload: Partial<OrderRow> = {
+        payment_status: "paid",
+        status: "pending",
+        pix_confirmed_at: nowIso,
+        pix_confirmed_by: user?.id ?? null,
+      }
 
-    setOrders((current) =>
-      current.map((item) =>
-        item.id === order.id
-          ? {
-              ...item,
-              ...payload,
-            }
-          : item
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                ...payload,
+              }
+            : item
+        )
       )
+
+      const { error } = await supabase
+        .from("orders")
+        .update(payload)
+        .eq("id", order.id)
+        .eq("restaurant_id", restaurant?.id)
+
+      if (error) throw error
+    } catch (err) {
+      console.error("Erro ao confirmar Pix:", err)
+      setOrders(previousOrders)
+      setError(getErrorMessage(err, "Erro ao confirmar pagamento Pix."))
+    } finally {
+      setBusyOrderId(null)
+    }
+  }
+
+  function handlePrintOrder(
+    order: OrderRow,
+    items: OrderItem[],
+    mode: ThermalPrintMode
+  ) {
+    printThermalOrder({
+      restaurant: restaurantPrintData || getRestaurantPrintData(restaurant),
+      mode,
+      size: "80mm",
+      order: buildThermalOrderPayload(order, items),
+    })
+  }
+
+  function toggleOrderSelection(orderId: string) {
+    setSelectedOrderIds((current) =>
+      current.includes(orderId)
+        ? current.filter((id) => id !== orderId)
+        : [...current, orderId]
+    )
+  }
+
+  function clearSelectedOrders() {
+    setSelectedOrderIds([])
+  }
+
+  function selectVisibleOrders(orderIds: string[]) {
+    setSelectedOrderIds(orderIds)
+  }
+
+  function handlePrintSelectedOrders(mode: ThermalPrintMode) {
+    const selectedOrdersToPrint = orders.filter((order) =>
+      selectedOrderIds.includes(order.id)
     )
 
-    const { error } = await supabase
-      .from("orders")
-      .update(payload)
-      .eq("id", order.id)
-      .eq("restaurant_id", restaurant?.id)
+    if (selectedOrdersToPrint.length === 0) {
+      setError("Selecione pelo menos um pedido para imprimir.")
+      return
+    }
 
-    if (error) throw error
-  } catch (err) {
-    console.error("Erro ao confirmar Pix:", err)
-    setOrders(previousOrders)
-    setError(getErrorMessage(err, "Erro ao confirmar pagamento Pix."))
-  } finally {
-    setBusyOrderId(null)
-  }
-}
-
-function handlePrintOrder(
-  order: OrderRow,
-  items: OrderItem[],
-  mode: ThermalPrintMode
-) {
-  printThermalOrder({
-    restaurant: restaurantPrintData || getRestaurantPrintData(restaurant),
-    mode,
-    size: "80mm",
-    order: buildThermalOrderPayload(order, items),
-  })
-}
-
-function toggleOrderSelection(orderId: string) {
-  setSelectedOrderIds((current) =>
-    current.includes(orderId)
-      ? current.filter((id) => id !== orderId)
-      : [...current, orderId]
-  )
-}
-
-function clearSelectedOrders() {
-  setSelectedOrderIds([])
-}
-
-function selectVisibleOrders(orderIds: string[]) {
-  setSelectedOrderIds(orderIds)
-}
-
-function handlePrintSelectedOrders(mode: ThermalPrintMode) {
-  const selectedOrdersToPrint = orders.filter((order) =>
-    selectedOrderIds.includes(order.id)
-  )
-
-  if (selectedOrdersToPrint.length === 0) {
-    setError("Selecione pelo menos um pedido para imprimir.")
-    return
+    printThermalOrdersBatch({
+      restaurant: restaurantPrintData || getRestaurantPrintData(restaurant),
+      mode,
+      size: "80mm",
+      orders: selectedOrdersToPrint.map((order) =>
+        buildThermalOrderPayload(order, orderItemsByOrderId[order.id] || [])
+      ),
+    })
   }
 
-  printThermalOrdersBatch({
-    restaurant: restaurantPrintData || getRestaurantPrintData(restaurant),
-    mode,
-    size: "80mm",
-    orders: selectedOrdersToPrint.map((order) =>
-      buildThermalOrderPayload(order, orderItemsByOrderId[order.id] || [])
-    ),
-  })
-}
-useEffect(() => {
-  setSelectedOrderIds((current) =>
-    current.filter((orderId) => orders.some((order) => order.id === orderId))
-  )
-}, [orders])
+  useEffect(() => {
+    setSelectedOrderIds((current) =>
+      current.filter((orderId) => orders.some((order) => order.id === orderId))
+    )
+  }, [orders])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -2159,12 +2471,12 @@ useEffect(() => {
   }, [openOrders, search])
 
   const selectedOrderIdSet = useMemo(() => {
-  return new Set(selectedOrderIds)
-}, [selectedOrderIds])
+    return new Set(selectedOrderIds)
+  }, [selectedOrderIds])
 
-const selectedVisibleOrders = useMemo(() => {
-  return filteredOrders.filter((order) => selectedOrderIdSet.has(order.id))
-}, [filteredOrders, selectedOrderIdSet])
+  const selectedVisibleOrders = useMemo(() => {
+    return filteredOrders.filter((order) => selectedOrderIdSet.has(order.id))
+  }, [filteredOrders, selectedOrderIdSet])
 
   const analysisOrders = useMemo(
     () => filteredOrders.filter((order) => getBoardStatus(order.status) === "analysis"),
@@ -2179,6 +2491,11 @@ const selectedVisibleOrders = useMemo(() => {
     [filteredOrders]
   )
 
+  const readyOrders = useMemo(
+    () => filteredOrders.filter((order) => getBoardStatus(order.status) === "ready"),
+    [filteredOrders]
+  )
+
   const onRouteOrders = useMemo(
     () => filteredOrders.filter((order) => getBoardStatus(order.status) === "on_route"),
     [filteredOrders]
@@ -2188,202 +2505,203 @@ const selectedVisibleOrders = useMemo(() => {
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
       <div className="flex flex-col gap-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-  <div className="flex flex-col gap-4">
-    <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
-      <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
-        <div className="relative min-w-0">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
+              <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
+                <div className="relative min-w-0">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar cliente, telefone ou pedido..."
-            className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-          />
-        </div>
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar cliente, telefone ou pedido..."
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+                  />
+                </div>
 
-        <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
-          <Settings2 className="h-4 w-4 shrink-0 text-slate-500" />
+                <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
+                  <Settings2 className="h-4 w-4 shrink-0 text-slate-500" />
 
-          <span className="whitespace-nowrap text-sm font-semibold text-slate-700">
-            Tempo:
-          </span>
+                  <span className="whitespace-nowrap text-sm font-semibold text-slate-700">
+                    Tempo:
+                  </span>
 
-          <select
-            value={averagePrepTimeMinutes}
-            onChange={(event) =>
-              updateAveragePrepTime(Number(event.target.value))
-            }
-            disabled={savingPrepTime}
-            className="h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-          >
-            <option value={10}>10 min</option>
-            <option value={15}>15 min</option>
-            <option value={20}>20 min</option>
-            <option value={25}>25 min</option>
-            <option value={30}>30 min</option>
-            <option value={35}>35 min</option>
-            <option value={40}>40 min</option>
-            <option value={45}>45 min</option>
-            <option value={50}>50 min</option>
-            <option value={60}>60 min</option>
-          </select>
+                  <select
+                    value={averagePrepTimeMinutes}
+                    onChange={(event) =>
+                      updateAveragePrepTime(Number(event.target.value))
+                    }
+                    disabled={savingPrepTime}
+                    className="h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                  >
+                    <option value={10}>10 min</option>
+                    <option value={15}>15 min</option>
+                    <option value={20}>20 min</option>
+                    <option value={25}>25 min</option>
+                    <option value={30}>30 min</option>
+                    <option value={35}>35 min</option>
+                    <option value={40}>40 min</option>
+                    <option value={45}>45 min</option>
+                    <option value={50}>50 min</option>
+                    <option value={60}>60 min</option>
+                  </select>
 
-          {savingPrepTime && (
-            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
-          )}
-        </div>
-      </div>
+                  {savingPrepTime && (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
+                  )}
+                </div>
+              </div>
 
-      <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-          {lastUpdatedAt
-            ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              })}`
-            : "Aguardando dados..."}
-        </p>
+              <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+                  {lastUpdatedAt
+                    ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}`
+                    : "Aguardando dados..."}
+                </p>
 
-        <button
-          type="button"
-          onClick={() => void refreshAll()}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-        >
-          {refreshing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCcw className="h-4 w-4" />
-          )}
-          Atualizar
-        </button>
+                <button
+                  type="button"
+                  onClick={() => void refreshAll()}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  {refreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-4 w-4" />
+                  )}
+                  Atualizar
+                </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (orderAlertsEnabled) {
-              disableOrderAlerts()
-              return
-            }
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (orderAlertsEnabled) {
+                      disableOrderAlerts()
+                      return
+                    }
 
-            void enableOrderAlerts()
-          }}
-          className={[
-            "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
-            orderAlertsEnabled
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
-          ].join(" ")}
-          title={
-            notificationPermission === "denied"
-              ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
-              : undefined
-          }
-        >
-          {orderAlertsEnabled ? (
-            <Volume2 className="h-4 w-4" />
-          ) : (
-            <BellRing className="h-4 w-4" />
-          )}
-          {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
-        </button>
-      </div>
-    </div>
-
-    {filteredOrders.length > 0 && (
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-sm font-black text-slate-900">
-            Impressão em lote
-          </p>
-
-          <p className="mt-0.5 text-xs font-medium text-slate-500">
-            {selectedVisibleOrders.length > 0
-              ? `${selectedVisibleOrders.length} pedido(s) selecionado(s) de ${filteredOrders.length} visível(is).`
-              : "Selecione os pedidos que deseja imprimir."}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
-          >
-            Selecionar visíveis
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePrintSelectedOrders("kitchen")}
-            disabled={selectedVisibleOrders.length === 0}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <ChefHat className="h-4 w-4" />
-            Cozinha ({selectedVisibleOrders.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePrintSelectedOrders("receipt")}
-            disabled={selectedVisibleOrders.length === 0}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <Printer className="h-4 w-4" />
-            Recibos ({selectedVisibleOrders.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={clearSelectedOrders}
-            disabled={selectedVisibleOrders.length === 0}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            Limpar
-          </button>
-        </div>
-      </div>
-    )}
-
-    {error && (
-      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-        {error}
-      </div>
-    )}
-
-    {newOrderAlert && (
-      <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-              <BellRing className="h-4 w-4" />
+                    void enableOrderAlerts()
+                  }}
+                  className={[
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
+                    orderAlertsEnabled
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+                  ].join(" ")}
+                  title={
+                    notificationPermission === "denied"
+                      ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
+                      : undefined
+                  }
+                >
+                  {orderAlertsEnabled ? (
+                    <Volume2 className="h-4 w-4" />
+                  ) : (
+                    <BellRing className="h-4 w-4" />
+                  )}
+                  {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
+                </button>
+              </div>
             </div>
 
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-emerald-900">
-                Novo pedido recebido
-              </p>
+            {filteredOrders.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-black text-slate-900">
+                    Impressão em lote
+                  </p>
 
-              <p className="truncate text-xs font-bold text-emerald-800">
-                {newOrderAlert.orderNumber} • {newOrderAlert.customerName} • {formatBRL(newOrderAlert.total)}
-              </p>
-            </div>
+                  <p className="mt-0.5 text-xs font-medium text-slate-500">
+                    {selectedVisibleOrders.length > 0
+                      ? `${selectedVisibleOrders.length} pedido(s) selecionado(s) de ${filteredOrders.length} visível(is).`
+                      : "Selecione os pedidos que deseja imprimir."}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
+                    className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Selecionar visíveis
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePrintSelectedOrders("kitchen")}
+                    disabled={selectedVisibleOrders.length === 0}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <ChefHat className="h-4 w-4" />
+                    Cozinha ({selectedVisibleOrders.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePrintSelectedOrders("receipt")}
+                    disabled={selectedVisibleOrders.length === 0}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Recibos ({selectedVisibleOrders.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={clearSelectedOrders}
+                    disabled={selectedVisibleOrders.length === 0}
+                    className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {error}
+              </div>
+            )}
+
+            {newOrderAlert && (
+              <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                      <BellRing className="h-4 w-4" />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-emerald-900">
+                        Novo pedido recebido
+                      </p>
+
+                      <p className="truncate text-xs font-bold text-emerald-800">
+                        {newOrderAlert.orderNumber} • {newOrderAlert.customerName} • {formatBRL(newOrderAlert.total)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewOrderAlert(null)}
+                    className="shrink-0 rounded-full p-1 text-emerald-700 transition hover:bg-emerald-100"
+                    aria-label="Fechar alerta de novo pedido"
+                  >
+                    <XCircle className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-
-          <button
-            type="button"
-            onClick={() => setNewOrderAlert(null)}
-            className="shrink-0 rounded-full p-1 text-emerald-700 transition hover:bg-emerald-100"
-            aria-label="Fechar alerta de novo pedido"
-          >
-            <XCircle className="h-5 w-5" />
-          </button>
         </div>
-      </div>
-    )}
-  </div>
-</div>
+
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
@@ -2393,7 +2711,7 @@ const selectedVisibleOrders = useMemo(() => {
           </div>
         ) : (
           <div className="overflow-x-auto pb-2">
-            <div className="grid min-w-[1140px] grid-cols-3 gap-4">
+            <div className="grid min-w-[1520px] grid-cols-4 gap-4">
               <BoardColumn
                 status="analysis"
                 orders={analysisOrders}
@@ -2418,6 +2736,27 @@ const selectedVisibleOrders = useMemo(() => {
               <BoardColumn
                 status="preparation"
                 orders={preparationOrders}
+                orderItemsByOrderId={orderItemsByOrderId}
+                deliveryPeople={deliveryPeople}
+                averagePrepTimeMinutes={averagePrepTimeMinutes}
+                nowMs={nowMs}
+                busyOrderId={busyOrderId}
+                selectedOrderIds={selectedOrderIdSet}
+                onToggleSelected={toggleOrderSelection}
+                onAccept={(order) => void updateOrder(order, "accept")}
+                onCancel={(order) => void updateOrder(order, "cancel")}
+                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                onSendToRoute={(order) => void updateOrder(order, "route")}
+                onFinish={(order) => void updateOrder(order, "finish")}
+                onPrint={handlePrintOrder}
+                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                  void assignDeliveryPerson(orderId, deliveryPersonId)
+                }
+              />
+
+              <BoardColumn
+                status="ready"
+                orders={readyOrders}
                 orderItemsByOrderId={orderItemsByOrderId}
                 deliveryPeople={deliveryPeople}
                 averagePrepTimeMinutes={averagePrepTimeMinutes}

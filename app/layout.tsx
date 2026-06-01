@@ -2,7 +2,6 @@ import React from "react"
 import type { Metadata } from "next"
 import { Toaster } from "sonner"
 import { AuthProvider } from "@/components/auth/auth-provider"
-
 import "./globals.css"
 
 export const metadata: Metadata = {

@@ -487,215 +487,218 @@ const productsByCategory = useMemo(() => {
   }, [])
 
   const saveProduct = useCallback(
-    async (values: ProductEditorValues) => {
-      try {
-        const resolvedRestaurantId = await resolveRestaurantId()
-        const promotionActive =
-          values.promotionActive &&
-          values.promotionType !== "none" &&
-          values.promotionValue > 0
-        const promotionType: PromotionType = promotionActive
-          ? values.promotionType
-          : "none"
-        const promotionValue = promotionActive ? values.promotionValue : 0
-        const availabilityType: AvailabilityType = values.availabilityType
-        const normalizedAvailabilityWeekdays =
-          availabilityType === "scheduled" ? values.availabilityWeekdays : []
-        const normalizedAvailabilityStartTime =
-          availabilityType === "scheduled" ? values.availabilityStartTime : null
-        const normalizedAvailabilityEndTime =
-          availabilityType === "scheduled" ? values.availabilityEndTime : null
-        const normalizedAvailabilityCategory =
-          availabilityType === "scheduled"
-            ? values.availabilityCategory
-            : null
+  async (values: ProductEditorValues) => {
+    try {
+      const resolvedRestaurantId = await resolveRestaurantId()
+      const promotionActive =
+        values.promotionActive &&
+        values.promotionType !== "none" &&
+        values.promotionValue > 0
+      const promotionType: PromotionType = promotionActive
+        ? values.promotionType
+        : "none"
+      const promotionValue = promotionActive ? values.promotionValue : 0
+      const availabilityType: AvailabilityType = values.availabilityType
+      const normalizedAvailabilityWeekdays =
+        availabilityType === "scheduled" ? values.availabilityWeekdays : []
+      const normalizedAvailabilityStartTime =
+        availabilityType === "scheduled" ? values.availabilityStartTime : null
+      const normalizedAvailabilityEndTime =
+        availabilityType === "scheduled" ? values.availabilityEndTime : null
+      const normalizedAvailabilityCategory =
+        availabilityType === "scheduled"
+          ? values.availabilityCategory
+          : null
 
-        async function saveProductAvailabilityRule(productId: string) {
-          const { error: deleteRuleError } = await supabase
-            .from("product_availability_rules")
-            .delete()
-            .eq("restaurant_id", resolvedRestaurantId)
-            .eq("product_id", productId)
+      async function saveProductAvailabilityRule(productId: string) {
+        const { error: deleteRuleError } = await supabase
+          .from("product_availability_rules")
+          .delete()
+          .eq("restaurant_id", resolvedRestaurantId)
+          .eq("product_id", productId)
 
-          if (deleteRuleError) throw deleteRuleError
+        if (deleteRuleError) throw deleteRuleError
 
-          if (availabilityType !== "scheduled") return
+        if (availabilityType !== "scheduled") return
 
-          if (
-            normalizedAvailabilityWeekdays.length === 0 ||
-            !normalizedAvailabilityCategory
-          ) {
-            throw new Error(
-              "Escolha os dias e a categoria da disponibilidade programada."
-            )
-          }
-
-          const { error: insertRuleError } = await supabase
-            .from("product_availability_rules")
-            .insert({
-              restaurant_id: resolvedRestaurantId,
-              product_id: productId,
-              display_category_id: normalizedAvailabilityCategory,
-              weekdays: normalizedAvailabilityWeekdays,
-              start_time: normalizedAvailabilityStartTime,
-              end_time: normalizedAvailabilityEndTime,
-              is_active: true,
-              sort_order: 0,
-            })
-
-          if (insertRuleError) throw insertRuleError
+        if (
+          normalizedAvailabilityWeekdays.length === 0 ||
+          !normalizedAvailabilityCategory
+        ) {
+          throw new Error(
+            "Escolha os dias e a categoria da disponibilidade programada."
+          )
         }
 
-        if (productSheet.mode === "edit" && productSheet.productId) {
-          const editingProduct = products.find(
-            (product) => product.id === productSheet.productId
-          )
-
-          if (!editingProduct) return
-
-          setSavingProductId(editingProduct.id)
-
-          const targetOrder =
-            editingProduct.category === values.category
-              ? editingProduct.order
-              : products.filter(
-                  (product) =>
-                    product.category === values.category &&
-                    product.id !== editingProduct.id
-                ).length
-
-          const { data, error } = await supabase
-            .from("products")
-            .update({
-              name: values.name,
-              description: values.description || null,
-              price: values.price,
-              cost_price: values.cost,
-              category_id: values.category,
-              is_available: values.active,
-              image_url: values.image || null,
-              sort_order: targetOrder,
-              promotion_active: promotionActive,
-              promotion_type: promotionType,
-              promotion_value: promotionValue,
-              availability_type: availabilityType,
-            })
-            .eq("id", productSheet.productId)
-            .eq("restaurant_id", resolvedRestaurantId)
-            .select(PRODUCT_SELECT)
-            .single()
-
-          if (error) throw error
-          if (!data) throw new Error("Produto não encontrado para atualização.")
-
-          await saveProductAvailabilityRule(productSheet.productId)
-
-          const updatedProduct: CatalogProduct = {
-            ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0, {
-              id: "local",
-              product_id: productSheet.productId,
-              display_category_id: normalizedAvailabilityCategory,
-              weekdays: normalizedAvailabilityWeekdays,
-              start_time: normalizedAvailabilityStartTime,
-              end_time: normalizedAvailabilityEndTime,
-              is_active: availabilityType === "scheduled",
-            }),
-            imageSize: values.imageSize,
-          }
-
-          setProducts((prev) =>
-            sortByOrder(
-              prev.map((product) =>
-                product.id === updatedProduct.id ? updatedProduct : product
-              )
-            )
-          )
-
-          toast({
-            title: "Produto atualizado",
-            description: `"${values.name}" foi atualizado com sucesso.`,
+        const { error: insertRuleError } = await supabase
+          .from("product_availability_rules")
+          .insert({
+            restaurant_id: resolvedRestaurantId,
+            product_id: productId,
+            display_category_id: normalizedAvailabilityCategory,
+            weekdays: normalizedAvailabilityWeekdays,
+            start_time: normalizedAvailabilityStartTime,
+            end_time: normalizedAvailabilityEndTime,
+            is_active: true,
+            sort_order: 0,
           })
-        } else {
-          const resolvedCategoryId = values.category
 
-          setSavingProductId("new")
+        if (insertRuleError) throw insertRuleError
+      }
 
-          const targetOrder = products.filter(
-            (product) => product.category === resolvedCategoryId
-          ).length
+      if (productSheet.mode === "edit" && productSheet.productId) {
+        const editingProduct = products.find(
+          (product) => product.id === productSheet.productId
+        )
 
-          const { data, error } = await supabase
-            .from("products")
-            .insert({
-              restaurant_id: resolvedRestaurantId,
-              category_id: resolvedCategoryId,
-              name: values.name,
-              description: values.description || null,
-              price: values.price,
-              cost_price: values.cost,
-              image_url: values.image || null,
-              is_available: values.active,
-              sort_order: targetOrder,
-              promotion_active: promotionActive,
-              promotion_type: promotionType,
-              promotion_value: promotionValue,
-              availability_type: availabilityType,
-            })
-            .select(PRODUCT_SELECT)
-            .single()
+        if (!editingProduct) return null
 
-          if (error) throw error
-          if (!data) throw new Error("Erro ao criar produto.")
+        setSavingProductId(editingProduct.id)
 
-          await saveProductAvailabilityRule(data.id)
+        const targetOrder =
+          editingProduct.category === values.category
+            ? editingProduct.order
+            : products.filter(
+                (product) =>
+                  product.category === values.category &&
+                  product.id !== editingProduct.id
+              ).length
 
-          const newProduct: CatalogProduct = {
-            ...normalizeProduct(data as DbProduct, 0, {
-              id: "local",
-              product_id: data.id,
-              display_category_id: normalizedAvailabilityCategory,
-              weekdays: normalizedAvailabilityWeekdays,
-              start_time: normalizedAvailabilityStartTime,
-              end_time: normalizedAvailabilityEndTime,
-              is_active: availabilityType === "scheduled",
-            }),
-            imageSize: values.imageSize,
-          }
-
-          setProducts((prev) => sortByOrder([...prev, newProduct]))
-
-          toast({
-            title: "Produto criado",
-            description: `"${values.name}" foi adicionado ao catálogo.`,
+        const { data, error } = await supabase
+          .from("products")
+          .update({
+            name: values.name,
+            description: values.description || null,
+            price: values.price,
+            cost_price: values.cost,
+            category_id: values.category,
+            is_available: values.active,
+            image_url: values.image || null,
+            sort_order: targetOrder,
+            promotion_active: promotionActive,
+            promotion_type: promotionType,
+            promotion_value: promotionValue,
+            availability_type: availabilityType,
           })
+          .eq("id", productSheet.productId)
+          .eq("restaurant_id", resolvedRestaurantId)
+          .select(PRODUCT_SELECT)
+          .single()
+
+        if (error) throw error
+        if (!data) throw new Error("Produto não encontrado para atualização.")
+
+        await saveProductAvailabilityRule(productSheet.productId)
+
+        const updatedProduct: CatalogProduct = {
+          ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0, {
+            id: "local",
+            product_id: productSheet.productId,
+            display_category_id: normalizedAvailabilityCategory,
+            weekdays: normalizedAvailabilityWeekdays,
+            start_time: normalizedAvailabilityStartTime,
+            end_time: normalizedAvailabilityEndTime,
+            is_active: availabilityType === "scheduled",
+          }),
+          imageSize: values.imageSize,
         }
 
-        closeProductSheet()
-      } catch (error) {
-        console.error("Erro ao salvar produto:", error)
+        setProducts((prev) =>
+          sortByOrder(
+            prev.map((product) =>
+              product.id === updatedProduct.id ? updatedProduct : product
+            )
+          )
+        )
 
         toast({
-          title: "Erro ao salvar produto",
-          description:
-            error instanceof Error
-              ? error.message
-              : "Não foi possível salvar o produto.",
-          variant: "destructive",
+          title: "Produto atualizado",
+          description: `"${values.name}" foi atualizado com sucesso.`,
         })
-      } finally {
-        setSavingProductId(null)
+
+        return productSheet.productId
       }
-    },
-    [
-      closeProductSheet,
-      productSheet.mode,
-      productSheet.productId,
-      products,
-      resolveRestaurantId,
-      supabase,
-      toast,
-    ]
-  )
+
+      const resolvedCategoryId = values.category
+
+      setSavingProductId("new")
+
+      const targetOrder = products.filter(
+        (product) => product.category === resolvedCategoryId
+      ).length
+
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
+          restaurant_id: resolvedRestaurantId,
+          category_id: resolvedCategoryId,
+          name: values.name,
+          description: values.description || null,
+          price: values.price,
+          cost_price: values.cost,
+          image_url: values.image || null,
+          is_available: values.active,
+          sort_order: targetOrder,
+          promotion_active: promotionActive,
+          promotion_type: promotionType,
+          promotion_value: promotionValue,
+          availability_type: availabilityType,
+        })
+        .select(PRODUCT_SELECT)
+        .single()
+
+      if (error) throw error
+      if (!data) throw new Error("Erro ao criar produto.")
+
+      await saveProductAvailabilityRule(data.id)
+
+      const newProduct: CatalogProduct = {
+        ...normalizeProduct(data as DbProduct, 0, {
+          id: "local",
+          product_id: data.id,
+          display_category_id: normalizedAvailabilityCategory,
+          weekdays: normalizedAvailabilityWeekdays,
+          start_time: normalizedAvailabilityStartTime,
+          end_time: normalizedAvailabilityEndTime,
+          is_active: availabilityType === "scheduled",
+        }),
+        imageSize: values.imageSize,
+      }
+
+      setProducts((prev) => sortByOrder([...prev, newProduct]))
+
+      toast({
+        title: "Produto criado",
+        description: `"${values.name}" foi adicionado ao catálogo.`,
+      })
+
+      return data.id
+    } catch (error) {
+      console.error("Erro ao salvar produto:", error)
+
+      toast({
+        title: "Erro ao salvar produto",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar o produto.",
+        variant: "destructive",
+      })
+
+      return null
+    } finally {
+      setSavingProductId(null)
+    }
+  },
+  [
+    productSheet.mode,
+    productSheet.productId,
+    products,
+    resolveRestaurantId,
+    supabase,
+    toast,
+  ]
+)
 
   const toggleProductActive = useCallback(
     async (productId: string) => {

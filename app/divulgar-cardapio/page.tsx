@@ -1,20 +1,28 @@
 "use client"
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react"
+import {
+  type ChangeEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import Image from "next/image"
 import {
   Check,
   Copy,
+  Download,
   ExternalLink,
-  Eye,
   ImageIcon,
   Link2,
   Loader2,
   Palette,
-  RefreshCw,
+  QrCode,
   Save,
   Share2,
-  Sparkles,
+  Smartphone,
   Store,
+  Trash2,
   Upload,
   X,
 } from "lucide-react"
@@ -24,7 +32,7 @@ import { cn } from "@/lib/utils"
 
 type Restaurant = {
   id: string
-  name: string | null
+  name: string
   slug: string | null
   description: string | null
   logo_url: string | null
@@ -32,38 +40,41 @@ type Restaurant = {
   theme_color: string | null
 }
 
-const MAX_IMAGE_SIZE_KB = 5 * 1024
-const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_KB * 1024
-const MAX_IMAGE_SIZE_LABEL = "5 MB"
-const STORAGE_BUCKET = "restaurant-assets"
+type ImageType = "logo" | "cover"
+
 const CLICKFOOD_BLUE = "#2563eb"
 const CLICKFOOD_ORANGE = "#f97316"
+const MAX_FILE_SIZE_MB = 5
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
-export default function DivulgarCardapioPage() {
+export default function CardapioIndexPage() {
   const supabase = useMemo(() => createClient(), [])
+
+  const logoInputRef = useRef<HTMLInputElement | null>(null)
+  const coverInputRef = useRef<HTMLInputElement | null>(null)
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
-  const [isUploadingCover, setIsUploadingCover] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [previewKey, setPreviewKey] = useState(0)
+  const [showQrCode, setShowQrCode] = useState(false)
+  const [showMobilePreview, setShowMobilePreview] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState<ImageType | null>(null)
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [logoUrl, setLogoUrl] = useState("")
   const [coverImageUrl, setCoverImageUrl] = useState("")
-  const themeColor = CLICKFOOD_BLUE
-  const accentColor = CLICKFOOD_ORANGE
 
   const publicMenuUrl =
     typeof window !== "undefined" && restaurant?.slug
       ? `${window.location.origin}/cardapio/${restaurant.slug}`
       : ""
 
-  const previewUrl = publicMenuUrl
-    ? `${publicMenuUrl}?preview=${previewKey}`
+  const qrCodeUrl = publicMenuUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=18&data=${encodeURIComponent(
+        publicMenuUrl
+      )}`
     : ""
 
   useEffect(() => {
@@ -87,17 +98,14 @@ export default function DivulgarCardapioPage() {
 
         const { data, error } = await supabase
           .from("restaurants")
-          .select("id, name, slug, description, logo_url, cover_image_url, theme_color")
+          .select(
+            "id, name, slug, description, logo_url, cover_image_url, theme_color"
+          )
           .eq("owner_id", user.id)
-          .maybeSingle()
+          .single()
 
         if (error) {
           throw error
-        }
-
-        if (!data) {
-          setRestaurant(null)
-          return
         }
 
         setRestaurant(data as Restaurant)
@@ -106,118 +114,14 @@ export default function DivulgarCardapioPage() {
         setLogoUrl(data.logo_url ?? "")
         setCoverImageUrl(data.cover_image_url ?? "")
       } catch (error) {
-        console.error("Erro ao carregar dados do cardápio:", error)
-        setRestaurant(null)
+        console.error("Erro ao carregar cardápio:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    void loadRestaurant()
+    loadRestaurant()
   }, [supabase])
-
-  function validateImage(file: File) {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"]
-
-    if (!allowedTypes.includes(file.type)) {
-      alert("Envie uma imagem em PNG, JPG ou WEBP.")
-      return false
-    }
-
-    if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      alert(`A imagem deve ter no máximo ${MAX_IMAGE_SIZE_LABEL}.`)
-      return false
-    }
-
-    return true
-  }
-
-  async function uploadRestaurantImage(file: File, type: "logo" | "cover") {
-    if (!restaurant) return null
-    if (!validateImage(file)) return null
-
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError || !session?.user?.id) {
-      throw new Error("Sessão expirada. Faça login novamente.")
-    }
-
-    const extension =
-      file.type === "image/png"
-        ? "png"
-        : file.type === "image/webp"
-          ? "webp"
-          : "jpg"
-
-    const filePath = `restaurants/${session.user.id}/${restaurant.id}/${type}-${Date.now()}.${extension}`
-
-    const { error: uploadError } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        contentType: file.type,
-        upsert: true,
-      })
-
-    if (uploadError) {
-      throw new Error(uploadError.message || "Erro ao enviar imagem.")
-    }
-
-    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath)
-
-    if (!data.publicUrl) {
-      throw new Error("Imagem enviada, mas a URL pública não foi retornada.")
-    }
-
-    return data.publicUrl
-  }
-
-  async function handleLogoUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ""
-
-    if (!file) return
-
-    try {
-      setIsUploadingLogo(true)
-
-      const uploadedUrl = await uploadRestaurantImage(file, "logo")
-
-      if (!uploadedUrl) return
-
-      setLogoUrl(uploadedUrl)
-    } catch (error) {
-      console.error("Erro ao enviar logo:", error)
-      alert(error instanceof Error ? error.message : "Erro ao enviar logo.")
-    } finally {
-      setIsUploadingLogo(false)
-    }
-  }
-
-  async function handleCoverUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ""
-
-    if (!file) return
-
-    try {
-      setIsUploadingCover(true)
-
-      const uploadedUrl = await uploadRestaurantImage(file, "cover")
-
-      if (!uploadedUrl) return
-
-      setCoverImageUrl(uploadedUrl)
-    } catch (error) {
-      console.error("Erro ao enviar capa:", error)
-      alert(error instanceof Error ? error.message : "Erro ao enviar imagem de capa.")
-    } finally {
-      setIsUploadingCover(false)
-    }
-  }
 
   async function handleSave() {
     if (!restaurant) return
@@ -225,18 +129,14 @@ export default function DivulgarCardapioPage() {
     try {
       setIsSaving(true)
 
-      const nextName = name.trim()
-      const nextDescription = description.trim()
-      const nextLogoUrl = logoUrl.trim()
-      const nextCoverImageUrl = coverImageUrl.trim()
-
       const { error } = await supabase
         .from("restaurants")
         .update({
-          name: nextName,
-          description: nextDescription || null,
-          logo_url: nextLogoUrl || null,
-          cover_image_url: nextCoverImageUrl || null,
+          name: name.trim(),
+          description: description.trim() || null,
+          logo_url: logoUrl.trim() || null,
+          cover_image_url: coverImageUrl.trim() || null,
+          theme_color: CLICKFOOD_BLUE,
         })
         .eq("id", restaurant.id)
 
@@ -246,15 +146,14 @@ export default function DivulgarCardapioPage() {
 
       setRestaurant({
         ...restaurant,
-        name: nextName,
-        description: nextDescription || null,
-        logo_url: nextLogoUrl || null,
-        cover_image_url: nextCoverImageUrl || null,
+        name: name.trim(),
+        description: description.trim() || null,
+        logo_url: logoUrl.trim() || null,
+        cover_image_url: coverImageUrl.trim() || null,
+        theme_color: CLICKFOOD_BLUE,
       })
 
-      setPreviewKey((current) => current + 1)
-
-      alert("Cardápio atualizado com sucesso!")
+      alert("Cardápio salvo com sucesso!")
     } catch (error) {
       console.error("Erro ao salvar cardápio:", error)
       alert("Erro ao salvar cardápio.")
@@ -272,203 +171,331 @@ export default function DivulgarCardapioPage() {
 
       setTimeout(() => {
         setCopied(false)
-      }, 1800)
+      }, 2000)
     } catch {
       alert("Não foi possível copiar o link.")
     }
   }
 
-  if (isLoading) {
-    return (
-      <AdminLayout title="Cardápio">
-        <div className="flex min-h-[70vh] items-center justify-center">
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+  function handleGenerateQrCode() {
+    if (!publicMenuUrl) {
+      alert("Link do cardápio não encontrado.")
+      return
+    }
+
+    setShowQrCode(true)
+  }
+
+  function handleDownloadQrCode() {
+    if (!qrCodeUrl) return
+
+    const link = document.createElement("a")
+    link.href = qrCodeUrl
+    link.download = `qrcode-cardapio-${restaurant?.slug ?? "clickfood"}.png`
+    link.target = "_blank"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  async function handleImageUpload(
+    event: ChangeEvent<HTMLInputElement>,
+    imageType: ImageType
+  ) {
+    if (!restaurant) return
+
+    const file = event.target.files?.[0]
+
+    if (!file) return
+
+    try {
+      if (!file.type.startsWith("image/")) {
+        alert("Envie apenas imagens PNG, JPG ou WEBP.")
+        return
+      }
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        alert(`A imagem precisa ter no máximo ${MAX_FILE_SIZE_MB} MB.`)
+        return
+      }
+
+      setUploadingImage(imageType)
+
+      const extension =
+        file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+        "png"
+
+      const filePath = `restaurants/${restaurant.id}/${imageType}-${Date.now()}.${extension}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("restaurant-assets")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        })
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data } = supabase.storage
+        .from("restaurant-assets")
+        .getPublicUrl(filePath)
+
+      if (imageType === "logo") {
+        setLogoUrl(data.publicUrl)
+      } else {
+        setCoverImageUrl(data.publicUrl)
+      }
+    } catch (error) {
+      console.error("Erro ao enviar imagem:", error)
+      alert("Erro ao enviar imagem.")
+    } finally {
+      setUploadingImage(null)
+      event.target.value = ""
+    }
+  }
+
+  function handleRemoveImage(imageType: ImageType) {
+    if (imageType === "logo") {
+      setLogoUrl("")
+      return
+    }
+
+    setCoverImageUrl("")
+  }
+
+  const content = (() => {
+    if (isLoading) {
+      return (
+        <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4">
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
             <span className="text-sm font-semibold text-slate-600">
               Carregando cardápio...
             </span>
           </div>
         </div>
-      </AdminLayout>
-    )
-  }
+      )
+    }
 
-  if (!restaurant) {
-    return (
-      <AdminLayout title="Cardápio">
-        <div className="flex min-h-[70vh] items-center justify-center px-4">
-          <div className="max-w-md rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-              <Store className="h-7 w-7 text-slate-500" />
+    if (!restaurant) {
+      return (
+        <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100">
+              <Store className="h-6 w-6 text-slate-500" />
             </div>
 
-            <h1 className="text-xl font-black text-slate-950">
+            <h1 className="text-lg font-black text-slate-950">
               Restaurante não encontrado
             </h1>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Não encontrei um restaurante vinculado à sua conta.
+              Não encontramos um restaurante vinculado à sua conta.
             </p>
           </div>
         </div>
-      </AdminLayout>
-    )
-  }
+      )
+    }
 
-  return (
-    <AdminLayout title="Cardápio">
-      <div className="space-y-5">
-        <div className="sticky top-4 z-20 overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-sm shadow-slate-200/70 backdrop-blur-xl">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.14),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(249,115,22,0.10),transparent_30%)]" />
+    return (
+      <div className="min-h-screen bg-slate-50 px-3 pb-20 pt-4 sm:px-4 lg:px-6 lg:pb-6">
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          className="hidden"
+          onChange={(event) => handleImageUpload(event, "logo")}
+        />
 
-          <div className="relative flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between lg:p-5">
-            <div className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Cardápio digital
-                </span>
+        <input
+          ref={coverInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          className="hidden"
+          onChange={(event) => handleImageUpload(event, "cover")}
+        />
 
-                <span className="inline-flex items-center gap-2 rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
-                  Identidade pública
-                </span>
+        <div className="mx-auto max-w-7xl space-y-3">
+          <header className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="mb-1 inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+                  <Palette className="h-3 w-3" />
+                  Cardápio
+                </div>
+
+                <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
+                  Aparência e divulgação
+                </h1>
+
+                <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                  Edite dados públicos, imagens, link e QR Code do cardápio.
+                </p>
               </div>
 
-              <h1 className="text-2xl font-black tracking-tight text-slate-950">
-                Editor De Cardápio
-              </h1>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="hidden h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:inline-flex"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
 
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                Configure como o cliente enxerga seu restaurante e use o link público
-                para vender pelo Instagram, WhatsApp e QR Code.
-              </p>
+                {isSaving ? "Salvando..." : "Salvar"}
+              </button>
             </div>
+          </header>
 
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white shadow-xl shadow-slate-950/15 transition hover:-translate-y-0.5 hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-
-              {isSaving ? "Salvando..." : "Salvar alterações"}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="space-y-5">
-            <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
-              <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
-                      <Share2 className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <h2 className="text-base font-black text-slate-950">
-                        Link público
-                      </h2>
-
-                      <p className="text-sm text-slate-500">
-                        Copie e divulgue em qualquer canal.
-                      </p>
-                    </div>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <main className="space-y-3">
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <Share2 className="h-4 w-4" />
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row lg:w-[560px]">
-                    <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm">
-                      <Link2 className="h-4 w-4 shrink-0 text-slate-400" />
-                      <span className="truncate">
-                        {publicMenuUrl || "Slug do restaurante não encontrado"}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleCopyLink}
-                      disabled={!publicMenuUrl}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      {copied ? "Copiado" : "Copiar"}
-                    </button>
-
-                    <a
-                      href={publicMenuUrl || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50",
-                        !publicMenuUrl && "pointer-events-none opacity-50",
-                      )}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Abrir
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3 p-5 sm:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                    Bio do Instagram
-                  </p>
-                  <p className="mt-1 text-sm font-black text-slate-950">
-                    Link direto
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                    WhatsApp
-                  </p>
-                  <p className="mt-1 text-sm font-black text-slate-950">
-                    Envie para clientes
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                    QR Code
-                  </p>
-                  <p className="mt-1 text-sm font-black text-slate-950">
-                    Ideal para balcão
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
-              <div className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50 px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                    <Palette className="h-5 w-5" />
-                  </div>
-
-                  <div>
-                    <h2 className="text-lg font-black text-slate-950">
-                      Identidade do cardápio
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-black text-slate-950">
+                      Divulgação
                     </h2>
 
-                    <p className="text-sm text-slate-500">
-                      Dados exibidos no topo do cardápio público.
+                    <p className="text-xs text-slate-500">
+                      Link público e QR Code do cardápio.
                     </p>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-5 p-5">
-                <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+                <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                  <div className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+                    <Link2 className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="truncate">
+                      {publicMenuUrl || "Slug do restaurante não encontrado"}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleCopyLink}
+                    disabled={!publicMenuUrl}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+
+                    {copied ? "Copiado" : "Copiar"}
+                  </button>
+
+                  <a
+                    href={publicMenuUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50",
+                      !publicMenuUrl && "pointer-events-none opacity-50"
+                    )}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Abrir
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateQrCode}
+                    disabled={!publicMenuUrl}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <QrCode className="h-4 w-4" />
+                    Gerar QR Code
+                  </button>
+                </div>
+
+                {showQrCode && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="mx-auto flex h-32 w-32 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white p-2 sm:mx-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={qrCodeUrl}
+                          alt="QR Code do cardápio"
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-black text-slate-950">
+                              QR Code gerado
+                            </h3>
+
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              Use em mesas, balcão, embalagem, panfleto ou
+                              Instagram.
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setShowQrCode(false)}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={handleDownloadQrCode}
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800"
+                          >
+                            <Download className="h-4 w-4" />
+                            Baixar PNG
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleCopyLink}
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                          >
+                            <Copy className="h-4 w-4" />
+                            Copiar link
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                    <Store className="h-4 w-4" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-black text-slate-950">
+                      Dados principais
+                    </h2>
+
+                    <p className="text-xs text-slate-500">
+                      Nome e descrição exibidos no cardápio.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-[11px] font-black uppercase tracking-wide text-slate-500">
                       Nome do restaurante
                     </label>
 
@@ -476,263 +503,365 @@ export default function DivulgarCardapioPage() {
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       placeholder="Nome do restaurante"
-                      className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-[11px] font-black uppercase tracking-wide text-slate-500">
                       Descrição curta
                     </label>
 
                     <input
                       value={description}
                       onChange={(event) => setDescription(event.target.value)}
-                      placeholder="Ex: Hambúrguer artesanal, porções e bebidas geladas."
-                      className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      placeholder="Ex: Hambúrguer artesanal, porções e bebidas."
+                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
                 </div>
+              </section>
 
-                <div className="grid gap-3">
-                  <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                          {logoUrl ? (
-                            <img
-                              src={logoUrl}
-                              alt="Logo do restaurante"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <ImageIcon className="h-6 w-6 text-slate-400" />
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-slate-950">
-                            Logo do restaurante
-                          </p>
-
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
-                            Aparece no topo do cardápio. PNG, JPG ou WEBP até{" "}
-                            {MAX_IMAGE_SIZE_LABEL}.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-black text-white transition hover:bg-black">
-                          {isUploadingLogo ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Upload className="h-4 w-4" />
-                          )}
-
-                          {isUploadingLogo ? "Enviando..." : "Trocar"}
-
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp"
-                            onChange={handleLogoUpload}
-                            disabled={isUploadingLogo}
-                            className="hidden"
-                          />
-                        </label>
-
-                        {logoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setLogoUrl("")}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-red-50 hover:text-red-600"
-                            aria-label="Remover logo"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-700">
+                    <ImageIcon className="h-4 w-4" />
                   </div>
 
-                  <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                          {coverImageUrl ? (
-                            <img
-                              src={coverImageUrl}
-                              alt="Capa do cardápio"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <ImageIcon className="h-6 w-6 text-slate-400" />
-                          )}
-                        </div>
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-black text-slate-950">
+                      Imagens
+                    </h2>
 
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-slate-950">
-                            Capa do cardápio
-                          </p>
-
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
-                            Imagem horizontal de impacto para abertura do cardápio.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-black text-white transition hover:bg-black">
-                          {isUploadingCover ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Upload className="h-4 w-4" />
-                          )}
-
-                          {isUploadingCover ? "Enviando..." : "Trocar"}
-
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp"
-                            onChange={handleCoverUpload}
-                            disabled={isUploadingCover}
-                            className="hidden"
-                          />
-                        </label>
-
-                        {coverImageUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setCoverImageUrl("")}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-red-50 hover:text-red-600"
-                            aria-label="Remover capa"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    <p className="text-xs text-slate-500">
+                      Logo e capa do cardápio. PNG, JPG ou WEBP até 5 MB.
+                    </p>
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                        Cores oficiais do cardápio
-                      </p>
+                <div className="space-y-2">
+                  <ImageRow
+                    title="Logo do restaurante"
+                    description="Imagem pequena que aparece no topo do cardápio."
+                    imageUrl={logoUrl}
+                    imageAlt="Logo do restaurante"
+                    imageType="logo"
+                    isUploading={uploadingImage === "logo"}
+                    onUpload={() => logoInputRef.current?.click()}
+                    onRemove={() => handleRemoveImage("logo")}
+                  />
 
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Mantém a identidade visual da ClickFood em todos os restaurantes.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                        <span
-                          className="h-4 w-4 rounded-full border border-slate-200"
-                          style={{ backgroundColor: themeColor }}
-                        />
-                        <span className="text-xs font-black text-slate-700">
-                          Azul ClickFood
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                        <span
-                          className="h-4 w-4 rounded-full border border-slate-200"
-                          style={{ backgroundColor: accentColor }}
-                        />
-                        <span className="text-xs font-black text-slate-700">
-                          Laranja destaque
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  <ImageRow
+                    title="Capa do cardápio"
+                    description="Imagem horizontal principal do cardápio público."
+                    imageUrl={coverImageUrl}
+                    imageAlt="Capa do cardápio"
+                    imageType="cover"
+                    isUploading={uploadingImage === "cover"}
+                    onUpload={() => coverInputRef.current?.click()}
+                    onRemove={() => handleRemoveImage("cover")}
+                  />
                 </div>
-              </div>
-            </section>
-          </div>
+              </section>
 
-          <aside className="xl:sticky xl:top-28 xl:self-start">
-            <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                <div>
-                  <h2 className="text-lg font-black text-slate-950">
-                    Preview completo
-                  </h2>
-
-                  <p className="text-sm text-slate-500">
-                    Role a tela como no celular do cliente.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewKey((current) => current + 1)}
-                    disabled={!publicMenuUrl}
-                    className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label="Atualizar preview"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
-
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
-                    <Eye className="h-5 w-5" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.12),transparent_35%),linear-gradient(180deg,#f8fafc,#ffffff)] p-5">
-                <div className="mx-auto max-w-[330px] rounded-[42px] bg-slate-950 p-2 shadow-2xl shadow-slate-950/25">
-                  <div className="mb-2 flex justify-center pt-1">
-                    <div className="h-1.5 w-16 rounded-full bg-white/20" />
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <Palette className="h-4 w-4" />
                   </div>
 
-                  <div className="overflow-hidden rounded-[34px] bg-white">
-                    {previewUrl ? (
-                      <iframe
-                        key={previewKey}
-                        src={previewUrl}
-                        title="Preview do cardápio público"
-                        className="h-[650px] w-full border-0 bg-white"
-                        loading="lazy"
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-black text-slate-950">
+                      Cores oficiais do cardápio
+                    </h2>
+
+                    <p className="text-xs leading-5 text-slate-500">
+                      O restaurante não edita a cor. A ClickFood mantém o padrão
+                      azul e laranja em todos os cardápios.
+                    </p>
+                  </div>
+
+                  <div className="hidden shrink-0 items-center gap-2 sm:flex">
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">
+                      <span
+                        className="h-3.5 w-3.5 rounded-full"
+                        style={{ backgroundColor: CLICKFOOD_BLUE }}
                       />
-                    ) : (
-                      <div className="flex h-[650px] items-center justify-center bg-slate-50 p-6 text-center">
-                        <div>
-                          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-                            <Store className="h-7 w-7 text-slate-400" />
-                          </div>
+                      Azul
+                    </span>
 
-                          <p className="text-sm font-black text-slate-950">
-                            Preview indisponível
-                          </p>
-
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
-                            O restaurante precisa ter um slug público para abrir a prévia.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-2 flex justify-center pb-1">
-                    <div className="h-1 w-20 rounded-full bg-white/20" />
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">
+                      <span
+                        className="h-3.5 w-3.5 rounded-full"
+                        style={{ backgroundColor: CLICKFOOD_ORANGE }}
+                      />
+                      Laranja
+                    </span>
                   </div>
                 </div>
+              </section>
 
-                <p className="mt-4 text-center text-xs leading-5 text-slate-500">
-                  Depois de alterar nome, logo ou capa, clique em{" "}
-                  <span className="font-black text-slate-700">Salvar alterações</span>{" "}
-                  para atualizar o preview público.
-                </p>
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowMobilePreview((current) => !current)}
+                  className="flex w-full items-center justify-between gap-3"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                      <Smartphone className="h-4 w-4" />
+                    </span>
+
+                    <span className="min-w-0 text-left">
+                      <span className="block text-sm font-black text-slate-950">
+                        Preview do cardápio
+                      </span>
+
+                      <span className="block text-xs text-slate-500">
+                        Fica fechado no celular para não ocupar tela.
+                      </span>
+                    </span>
+                  </span>
+
+                  <span className="text-xs font-black text-blue-600">
+                    {showMobilePreview ? "Fechar" : "Ver"}
+                  </span>
+                </button>
+
+                {showMobilePreview && (
+                  <div className="mt-3">
+                    <CompactPreview
+                      name={name}
+                      description={description}
+                      logoUrl={logoUrl}
+                      coverImageUrl={coverImageUrl}
+                    />
+                  </div>
+                )}
+              </section>
+            </main>
+
+            <aside className="hidden lg:block">
+              <div className="sticky top-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-black text-slate-950">
+                      Preview
+                    </h2>
+
+                    <p className="text-xs text-slate-500">Prévia compacta.</p>
+                  </div>
+
+                  <Smartphone className="h-5 w-5 text-slate-400" />
+                </div>
+
+                <CompactPreview
+                  name={name}
+                  description={description}
+                  logoUrl={logoUrl}
+                  coverImageUrl={coverImageUrl}
+                />
               </div>
-            </section>
-          </aside>
+            </aside>
+          </div>
+        </div>
+
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white p-2 shadow-[0_-10px_30px_rgba(15,23,42,0.10)] sm:hidden">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+
+            {isSaving ? "Salvando..." : "Salvar alterações"}
+          </button>
         </div>
       </div>
-    </AdminLayout>
+    )
+  })()
+
+  return <AdminLayout>{content}</AdminLayout>
+}
+
+type ImageRowProps = {
+  title: string
+  description: string
+  imageUrl: string
+  imageAlt: string
+  imageType: ImageType
+  isUploading: boolean
+  onUpload: () => void
+  onRemove: () => void
+}
+
+function ImageRow({
+  title,
+  description,
+  imageUrl,
+  imageAlt,
+  imageType,
+  isUploading,
+  onUpload,
+  onRemove,
+}: ImageRowProps) {
+  return (
+    <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center">
+      <div
+        className={cn(
+          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white",
+          imageType === "logo" ? "h-16 w-16" : "h-16 w-24"
+        )}
+      >
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={imageAlt}
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <ImageIcon className="h-5 w-5 text-slate-400" />
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <h3 className="text-sm font-black text-slate-950">{title}</h3>
+
+        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+
+        <p className="mt-1 text-[11px] font-semibold text-slate-400">
+          {imageUrl ? "Imagem carregada." : "Nenhuma imagem adicionada."}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+        <button
+          type="button"
+          onClick={onUpload}
+          disabled={isUploading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+
+          {isUploading ? "Enviando" : "Trocar"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={!imageUrl || isUploading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Trash2 className="h-4 w-4" />
+          Remover
+        </button>
+      </div>
+    </div>
+  )
+}
+
+type CompactPreviewProps = {
+  name: string
+  description: string
+  logoUrl: string
+  coverImageUrl: string
+}
+
+function CompactPreview({
+  name,
+  description,
+  logoUrl,
+  coverImageUrl,
+}: CompactPreviewProps) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="relative h-36">
+        {coverImageUrl ? (
+          <Image
+            src={coverImageUrl}
+            alt="Capa do cardápio"
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(135deg, ${CLICKFOOD_BLUE}, ${CLICKFOOD_ORANGE})`,
+            }}
+          />
+        )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
+
+        <div className="absolute bottom-3 left-3 right-3 flex items-end gap-2">
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/30 bg-white shadow-lg">
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt="Logo do restaurante"
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <Store className="h-6 w-6 text-slate-400" />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-black text-white">
+              {name || "Nome do restaurante"}
+            </h3>
+
+            <p className="mt-1 line-clamp-2 text-xs leading-4 text-white/75">
+              {description || "Descrição curta do restaurante aparecerá aqui."}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 border-t border-slate-200 bg-white text-center">
+        <div className="px-2 py-3">
+          <p className="text-[10px] font-black uppercase text-slate-400">
+            Status
+          </p>
+          <p className="mt-1 text-xs font-black text-slate-950">Aberto</p>
+        </div>
+
+        <div className="border-x border-slate-200 px-2 py-3">
+          <p className="text-[10px] font-black uppercase text-slate-400">
+            Entrega
+          </p>
+          <p className="mt-1 text-xs font-black text-slate-950">Ativa</p>
+        </div>
+
+        <div className="px-2 py-3">
+          <p className="text-[10px] font-black uppercase text-slate-400">
+            Tema
+          </p>
+
+          <div className="mt-1 flex justify-center gap-1">
+            <span
+              className="h-4 w-4 rounded-full border border-slate-200"
+              style={{ backgroundColor: CLICKFOOD_BLUE }}
+            />
+
+            <span
+              className="h-4 w-4 rounded-full border border-slate-200"
+              style={{ backgroundColor: CLICKFOOD_ORANGE }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

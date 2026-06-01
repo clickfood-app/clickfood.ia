@@ -676,189 +676,224 @@ async function handleDeleteCampaign() {
 
   return (
     <AdminLayout title="Card Fidelidade">
-      <div className="space-y-6">
-        <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm">
-          <div className="flex flex-col gap-4 bg-gradient-to-r from-blue-50 via-white to-orange-50 p-5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-orange-100 bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-orange-600 shadow-sm">
-                <Trophy className="h-4 w-4" />
-                Fidelidade com retorno financeiro
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#2563eb]">
+                <Trophy className="h-3.5 w-3.5" />
+                Fidelidade
               </div>
 
-              <h1 className="text-2xl font-black tracking-tight text-slate-950">
+              <h1 className="text-xl font-black tracking-tight text-slate-950">
                 Card Fidelidade
               </h1>
 
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                Acompanhe clientes participantes, pontuação, receita gerada,
-                custo das recompensas e retorno de cada campanha.
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                Crie campanhas simples para fazer o cliente voltar, acompanhar
+                progresso e medir se a recompensa está se pagando.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => setShowForm((current) => !current)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2563eb] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
             >
-              {showForm ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
-              {showForm ? "Fechar cadastro" : "Nova campanha"}
+              {showForm ? <X className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+              {showForm ? "Fechar" : "Nova campanha"}
             </button>
           </div>
-        </div>
+        </section>
 
         {errorMessage && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {errorMessage}
           </div>
         )}
 
         {successMessage && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
             {successMessage}
           </div>
         )}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
-              <Users className="h-6 w-6" />
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  Participantes
+                </p>
+                <strong className="mt-2 block text-2xl font-black text-slate-950">
+                  {globalInsights.participantsCount}
+                </strong>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+                <Users className="h-5 w-5" />
+              </div>
             </div>
-            <p className="text-sm font-semibold text-slate-500">Participantes</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {globalInsights.participantsCount}
-            </strong>
-            <span className="mt-1 block text-xs font-semibold text-slate-400">
+            <p className="mt-2 text-xs font-medium text-slate-500">
               {campaigns.length} campanha{campaigns.length === 1 ? "" : "s"} criada
               {campaigns.length === 1 ? "" : "s"}
-            </span>
+            </p>
           </div>
 
-          <div className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
-              <TrendingUp className="h-6 w-6" />
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  Receita gerada
+                </p>
+                <strong className="mt-2 block text-2xl font-black text-slate-950">
+                  {formatCurrency(globalInsights.totalRevenue)}
+                </strong>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+                <TrendingUp className="h-5 w-5" />
+              </div>
             </div>
-            <p className="text-sm font-semibold text-slate-500">Receita gerada</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {formatCurrency(globalInsights.totalRevenue)}
-            </strong>
-            <span className="mt-1 block text-xs font-semibold text-slate-400">
-              Pedidos válidos das campanhas
-            </span>
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              Pedidos válidos nas campanhas
+            </p>
           </div>
 
-          <div className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-[#f97316]">
-              <Wallet className="h-6 w-6" />
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  Custo realizado
+                </p>
+                <strong className="mt-2 block text-2xl font-black text-slate-950">
+                  {formatCurrency(globalInsights.realizedCost)}
+                </strong>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[#f97316]">
+                <Wallet className="h-5 w-5" />
+              </div>
             </div>
-            <p className="text-sm font-semibold text-slate-500">Custo realizado</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {formatCurrency(globalInsights.realizedCost)}
-            </strong>
-            <span className="mt-1 block text-xs font-semibold text-slate-400">
+            <p className="mt-2 text-xs font-medium text-slate-500">
               Prêmios já resgatados
-            </span>
+            </p>
           </div>
 
-          <div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-              <DollarSign className="h-6 w-6" />
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  Retorno bruto
+                </p>
+                <strong className="mt-2 block text-2xl font-black text-emerald-700">
+                  {formatCurrency(globalInsights.grossReturn)}
+                </strong>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                <DollarSign className="h-5 w-5" />
+              </div>
             </div>
-            <p className="text-sm font-semibold text-slate-500">Retorno bruto</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {formatCurrency(globalInsights.grossReturn)}
-            </strong>
-            <span className="mt-1 block text-xs font-semibold text-slate-400">
+            <p className="mt-2 text-xs font-medium text-slate-500">
               Receita menos custo realizado
-            </span>
+            </p>
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <ShoppingBag className="mb-4 h-6 w-6 text-[#2563eb]" />
-            <p className="text-sm font-medium text-slate-500">Campanhas ativas</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {activeCampaigns.length}
-            </strong>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Trophy className="mb-4 h-6 w-6 text-[#f97316]" />
-            <p className="text-sm font-medium text-slate-500">Campanhas pausadas</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {inactiveCampaigns.length}
-            </strong>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Gift className="mb-4 h-6 w-6 text-[#2563eb]" />
-            <p className="text-sm font-medium text-slate-500">Campanhas criadas</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {campaigns.length}
-            </strong>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Target className="mb-4 h-6 w-6 text-[#f97316]" />
-            <p className="text-sm font-medium text-slate-500">Pedidos monitorados</p>
-            <strong className="mt-2 block text-2xl font-black text-slate-950">
-              {orders.length}
-            </strong>
-          </div>
+        <section className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+            <BadgeCheck className="h-4 w-4" />
+            {activeCampaigns.length} ativa{activeCampaigns.length === 1 ? "" : "s"}
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">
+            <Gift className="h-4 w-4" />
+            {inactiveCampaigns.length} pausada{inactiveCampaigns.length === 1 ? "" : "s"}
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-[#2563eb]">
+            <ShoppingBag className="h-4 w-4" />
+            {orders.length} pedido{orders.length === 1 ? "" : "s"} monitorado
+            {orders.length === 1 ? "" : "s"}
+          </span>
         </section>
 
         {showForm && (
-          <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-sm">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
-                <Gift className="h-6 w-6" />
-              </div>
-
+          <section className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-black text-slate-950">
-                  Criar nova campanha de fidelidade
+                <h2 className="text-base font-black text-slate-950">
+                  Nova campanha
                 </h2>
-                <p className="text-sm text-slate-500">
-                  Configure a meta, pedido mínimo, recompensa e o custo estimado
-                  do prêmio para medir o retorno da campanha.
+                <p className="mt-1 text-sm text-slate-500">
+                  Configure uma regra objetiva. O restaurante precisa entender em
+                  poucos segundos o que o cliente ganha e quando ganha.
                 </p>
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setForm(initialFormState)
+                  setShowForm(false)
+                }}
+                className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
             </div>
 
-            <form onSubmit={handleCreateCampaign} className="grid gap-4 lg:grid-cols-2">
-              <div className="lg:col-span-2">
-                <label className="mb-1 block text-sm font-bold text-slate-700">
+            <form onSubmit={handleCreateCampaign} className="grid gap-3 lg:grid-cols-12">
+              <div className="lg:col-span-5">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
                   Nome da campanha
                 </label>
                 <input
                   value={form.title}
                   onChange={(event) => updateForm("title", event.target.value)}
-                  placeholder="Ex: Compre 10 pizzas e ganhe 1 grátis"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder="Ex: Compre 10 e ganhe 1"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
-              <div className="lg:col-span-2">
-                <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Descrição
+              <div className="lg:col-span-4">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                  Recompensa
                 </label>
-                <textarea
-                  value={form.description}
-                  onChange={(event) => updateForm("description", event.target.value)}
-                  placeholder="Explique a regra da campanha para o restaurante."
-                  rows={3}
-                  className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                <input
+                  value={form.reward_description}
+                  onChange={(event) =>
+                    updateForm("reward_description", event.target.value)
+                  }
+                  placeholder="Ex: Pizza grande grátis"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Quantidade de pedidos
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                  Tipo
+                </label>
+                <select
+                  value={form.reward_type}
+                  onChange={(event) =>
+                    updateForm(
+                      "reward_type",
+                      event.target.value as LoyaltyCampaign["reward_type"]
+                    )
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="custom">Personalizado</option>
+                  <option value="free_item">Item grátis</option>
+                  <option value="fixed_discount">Desconto fixo</option>
+                  <option value="percentage_discount">Desconto %</option>
+                </select>
+              </div>
+
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                  Pedidos necessários
                 </label>
                 <select
                   value={form.required_orders}
                   onChange={(event) => updateForm("required_orders", event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 >
                   {Array.from({ length: 10 }).map((_, index) => {
                     const value = String(index + 1)
@@ -872,8 +907,8 @@ async function handleDeleteCampaign() {
                 </select>
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-slate-700">
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
                   Pedido mínimo
                 </label>
                 <input
@@ -884,35 +919,14 @@ async function handleDeleteCampaign() {
                   onChange={(event) =>
                     updateForm("minimum_order_amount", event.target.value)
                   }
-                  placeholder="Ex: 30,00"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder="30,00"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Tipo de recompensa
-                </label>
-                <select
-                  value={form.reward_type}
-                  onChange={(event) =>
-                    updateForm(
-                      "reward_type",
-                      event.target.value as LoyaltyCampaign["reward_type"]
-                    )
-                  }
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="custom">Personalizado</option>
-                  <option value="free_item">Item grátis</option>
-                  <option value="fixed_discount">Desconto fixo</option>
-                  <option value="percentage_discount">Desconto %</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Custo estimado da recompensa
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                  Custo do prêmio
                 </label>
                 <input
                   type="number"
@@ -920,76 +934,59 @@ async function handleDeleteCampaign() {
                   step="0.01"
                   value={form.reward_value}
                   onChange={(event) => updateForm("reward_value", event.target.value)}
-                  placeholder="Ex: 70,00"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                />
-                <p className="mt-1 text-xs font-medium text-slate-400">
-                  Use esse campo para medir quanto o restaurante gasta quando o
-                  cliente resgata o prêmio.
-                </p>
-              </div>
-
-              <div className="lg:col-span-2">
-                <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Recompensa
-                </label>
-                <input
-                  value={form.reward_description}
-                  onChange={(event) =>
-                    updateForm("reward_description", event.target.value)
-                  }
-                  placeholder="Ex: Ganhe 1 pizza grande grátis"
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder="70,00"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Início da campanha
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                  Início
                 </label>
                 <input
                   type="date"
                   value={form.starts_at}
                   onChange={(event) => updateForm("starts_at", event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-slate-700">
-                  Fim da campanha
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                  Fim
                 </label>
                 <input
                   type="date"
                   value={form.ends_at}
                   onChange={(event) => updateForm("ends_at", event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row lg:col-span-2">
+              <div className="lg:col-span-9">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                  Observação interna
+                </label>
+                <input
+                  value={form.description}
+                  onChange={(event) => updateForm("description", event.target.value)}
+                  placeholder="Opcional. Ex: válida apenas para delivery ou produtos selecionados."
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                />
+              </div>
+
+              <div className="flex items-end lg:col-span-3">
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2563eb] px-5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Save className="h-5 w-5" />
+                    <Save className="h-4 w-4" />
                   )}
                   {isSaving ? "Salvando..." : "Salvar campanha"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm(initialFormState)
-                    setShowForm(false)
-                  }}
-                  className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
-                >
-                  Cancelar
                 </button>
               </div>
             </form>
@@ -997,29 +994,29 @@ async function handleDeleteCampaign() {
         )}
 
         {isLoading ? (
-          <section className="flex items-center justify-center rounded-[28px] border border-slate-200 bg-white p-10 shadow-sm">
+          <section className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
             <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
               <Loader2 className="h-5 w-5 animate-spin text-[#2563eb]" />
               Carregando campanhas...
             </div>
           </section>
         ) : campaigns.length === 0 ? (
-          <section className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#2563eb]">
-              <Gift className="h-7 w-7" />
+          <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+              <Gift className="h-6 w-6" />
             </div>
 
-            <h2 className="text-xl font-black text-slate-950">
+            <h2 className="text-lg font-black text-slate-950">
               Nenhum card fidelidade criado ainda
             </h2>
 
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-              Crie uma regra como: “a cada 10 pedidos acima de R$ 30, o cliente
-              ganha uma pizza de R$ 70” e acompanhe o retorno da campanha.
+              Crie uma campanha simples, como “compre 10 pedidos acima de R$ 30
+              e ganhe uma pizza”. Depois acompanhe clientes, prêmios e retorno.
             </p>
           </section>
         ) : (
-          <section className="grid gap-5 xl:grid-cols-2">
+          <section className="space-y-4">
             {campaigns.map((campaign) => {
               const insight = insightsByCampaignId.get(campaign.id)
               const campaignParticipants = insight?.participants || []
@@ -1034,170 +1031,99 @@ async function handleDeleteCampaign() {
               return (
                 <article
                   key={campaign.id}
-                  className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm"
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                 >
-                  <div className="border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-orange-50 p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2563eb] shadow-sm ring-1 ring-blue-100">
-                          <Gift className="h-6 w-6" />
-                        </div>
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${
+                            campaign.is_active
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {campaign.is_active ? "Ativa" : "Pausada"}
+                        </span>
 
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-lg font-black text-slate-950">
-                              {campaign.title}
-                            </h2>
+                        <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#2563eb]">
+                          {campaign.required_orders} pedido
+                          {campaign.required_orders === 1 ? "" : "s"}
+                        </span>
 
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-black ${
-                                campaign.is_active
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-slate-100 text-slate-500"
-                              }`}
-                            >
-                              {campaign.is_active ? "Ativa" : "Pausada"}
-                            </span>
-                          </div>
-
-                          <p className="mt-1 text-sm leading-6 text-slate-600">
-                            {campaign.description || "Sem descrição informada."}
-                          </p>
-                        </div>
+                        <span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#f97316]">
+                          Mínimo {formatCurrency(campaign.minimum_order_amount)}
+                        </span>
                       </div>
+
+                      <h2 className="mt-3 text-lg font-black tracking-tight text-slate-950">
+                        {campaign.title}
+                      </h2>
+
+                      <p className="mt-1 text-sm font-medium text-slate-500">
+                        {campaign.description || "Sem observação interna."}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCampaign(campaign)}
+                        className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-bold transition ${
+                          campaign.is_active
+                            ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            : "bg-[#2563eb] text-white hover:bg-blue-700"
+                        }`}
+                      >
+                        {campaign.is_active ? "Pausar" : "Ativar"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(campaign)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Excluir
+                      </button>
                     </div>
                   </div>
 
-                  <div className="space-y-5 p-5">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-                          <ShoppingBag className="h-4 w-4" />
-                          Regra
-                        </div>
-                        <p className="text-sm font-black text-slate-900">
-                          {campaign.required_orders} pedido
-                          {campaign.required_orders === 1 ? "" : "s"}
-                        </p>
-                        <p className="mt-1 text-xs font-medium text-slate-500">
-                          Pedido mínimo: {formatCurrency(campaign.minimum_order_amount)}
-                        </p>
+                  <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                        <Trophy className="h-4 w-4 text-[#f97316]" />
+                        Recompensa
                       </div>
-
-                      <div className="rounded-2xl bg-orange-50 p-4">
-                        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-orange-500">
-                          <Trophy className="h-4 w-4" />
-                          Recompensa
-                        </div>
-                        <p className="text-sm font-black text-slate-900">
-                          {campaign.reward_description}
-                        </p>
-                        <p className="mt-1 text-xs font-medium text-slate-600">
-                          {getRewardTypeLabel(campaign.reward_type)} •{" "}
-                          {getRewardValueLabel(campaign)}
-                        </p>
-                      </div>
+                      <p className="line-clamp-2 text-sm font-black text-slate-950">
+                        {campaign.reward_description}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        {getRewardTypeLabel(campaign.reward_type)} • {getRewardValueLabel(campaign)}
+                      </p>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                          Participantes
-                        </p>
-                        <strong className="mt-2 block text-lg font-black text-slate-950">
-                          {insight?.participantsCount || 0}
-                        </strong>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                        <Target className="h-4 w-4 text-[#2563eb]" />
+                        Viabilidade
                       </div>
-
-                      <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                          Receita
-                        </p>
-                        <strong className="mt-2 block text-lg font-black text-[#2563eb]">
-                          {formatCurrency(insight?.totalRevenue || 0)}
-                        </strong>
-                      </div>
-
-                      <div className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                          Custo realizado
-                        </p>
-                        <strong className="mt-2 block text-lg font-black text-[#f97316]">
-                          {formatCurrency(insight?.realizedCost || 0)}
-                        </strong>
-                      </div>
-
-                      <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                          Retorno bruto
-                        </p>
-                        <strong className="mt-2 block text-lg font-black text-emerald-700">
-                          {formatCurrency(insight?.grossReturn || 0)}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-2xl bg-blue-50 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wide text-blue-500">
-                          Ticket médio
-                        </p>
-                        <strong className="mt-2 block text-base font-black text-slate-950">
-                          {formatCurrency(insight?.averageTicket || 0)}
-                        </strong>
-                      </div>
-
-                      <div className="rounded-2xl bg-orange-50 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wide text-orange-500">
-                          Custo potencial
-                        </p>
-                        <strong className="mt-2 block text-base font-black text-slate-950">
-                          {formatCurrency(insight?.potentialCost || 0)}
-                        </strong>
-                      </div>
-
-                      <div className="rounded-2xl bg-emerald-50 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">
-                          Prêmios resgatados
-                        </p>
-                        <strong className="mt-2 block text-base font-black text-slate-950">
-                          {insight?.redeemedRewards || 0}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="mb-3 flex items-center gap-2">
-                        <Target className="h-5 w-5 text-[#f97316]" />
-                        <h3 className="text-sm font-black text-slate-950">
-                          Viabilidade da campanha
-                        </h3>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                            Receita mínima por cliente
-                          </p>
-                          <strong className="mt-1 block text-sm font-black text-slate-950">
+                          <p className="font-bold text-slate-400">Receita mín.</p>
+                          <strong className="mt-1 block font-black text-slate-950">
                             {formatCurrency(minimumRevenuePerReward)}
                           </strong>
                         </div>
-
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                            Custo do prêmio
-                          </p>
-                          <strong className="mt-1 block text-sm font-black text-slate-950">
+                          <p className="font-bold text-slate-400">Custo</p>
+                          <strong className="mt-1 block font-black text-slate-950">
                             {formatCurrency(rewardCost)}
                           </strong>
                         </div>
-
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                            Retorno mínimo estimado
-                          </p>
-                          <strong className="mt-1 block text-sm font-black text-emerald-700">
+                          <p className="font-bold text-slate-400">Retorno</p>
+                          <strong className="mt-1 block font-black text-emerald-700">
                             {formatCurrency(estimatedReturnPerReward)}
                             {estimatedMargin > 0 ? ` • ${estimatedMargin}%` : ""}
                           </strong>
@@ -1205,158 +1131,157 @@ async function handleDeleteCampaign() {
                       </div>
                     </div>
 
-                    <div>
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-950">
-                            Clientes participando
-                          </h3>
-                          <p className="text-xs font-medium text-slate-500">
-                            Pontuação, total gasto e status de recompensa.
-                          </p>
-                        </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                        <CalendarDays className="h-4 w-4 text-slate-500" />
+                        Período
+                      </div>
+                      <p className="text-sm font-black text-slate-950">
+                        {formatDate(campaign.starts_at)} até {formatDate(campaign.ends_at)}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        Criada em {formatDate(campaign.created_at)}
+                      </p>
+                    </div>
+                  </div>
 
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-[#2563eb]">
-                          {insight?.availableRewards || 0} prêmio
-                          {(insight?.availableRewards || 0) === 1 ? "" : "s"} liberado
-                          {(insight?.availableRewards || 0) === 1 ? "" : "s"}
-                        </span>
+                  <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                        Participantes
+                      </p>
+                      <strong className="mt-1 block text-lg font-black text-slate-950">
+                        {insight?.participantsCount || 0}
+                      </strong>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                        Receita
+                      </p>
+                      <strong className="mt-1 block text-lg font-black text-[#2563eb]">
+                        {formatCurrency(insight?.totalRevenue || 0)}
+                      </strong>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                        Ticket médio
+                      </p>
+                      <strong className="mt-1 block text-lg font-black text-slate-950">
+                        {formatCurrency(insight?.averageTicket || 0)}
+                      </strong>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                        Prêmios liberados
+                      </p>
+                      <strong className="mt-1 block text-lg font-black text-[#f97316]">
+                        {insight?.availableRewards || 0}
+                      </strong>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                        Retorno bruto
+                      </p>
+                      <strong className="mt-1 block text-lg font-black text-emerald-700">
+                        {formatCurrency(insight?.grossReturn || 0)}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white">
+                    <div className="flex flex-col gap-2 border-b border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-black text-slate-950">
+                          Clientes participando
+                        </h3>
+                        <p className="text-xs font-medium text-slate-500">
+                          Lista compacta com progresso, gasto e status do prêmio.
+                        </p>
                       </div>
 
-                      {campaignParticipants.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-center">
-                          <UserRound className="mx-auto mb-2 h-6 w-6 text-slate-300" />
-                          <p className="text-sm font-bold text-slate-600">
-                            Nenhum cliente participando ainda.
-                          </p>
-                          <p className="mt-1 text-xs text-slate-400">
-                            Quando um pedido válido entrar nessa campanha, o cliente
-                            aparecerá aqui com pontuação e retorno gerado.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {campaignParticipants.slice(0, 6).map((participant) => (
-                            <div
-                              key={participant.id}
-                              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                            >
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
-                                      <UserRound className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-black text-slate-950">
-                                        {participant.customer_name || "Cliente sem nome"}
-                                      </p>
-                                      <p className="text-xs font-medium text-slate-400">
-                                        {formatPhone(participant.customer_phone)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
+                      <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-[#2563eb]">
+                        {campaignParticipants.length} cliente
+                        {campaignParticipants.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
 
-                                <span
-                                  className={`w-fit rounded-full px-3 py-1 text-xs font-black ${participant.statusClassName}`}
-                                >
-                                  {participant.statusLabel}
+                    {campaignParticipants.length === 0 ? (
+                      <div className="p-5 text-center">
+                        <UserRound className="mx-auto mb-2 h-6 w-6 text-slate-300" />
+                        <p className="text-sm font-bold text-slate-600">
+                          Nenhum cliente participando ainda.
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Quando um pedido válido entrar, o cliente aparece aqui.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {campaignParticipants.slice(0, 6).map((participant) => (
+                          <div
+                            key={participant.id}
+                            className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,1fr)_120px_140px] lg:items-center"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-slate-950">
+                                {participant.customer_name || "Cliente sem nome"}
+                              </p>
+                              <p className="text-xs font-medium text-slate-400">
+                                {formatPhone(participant.customer_phone)}
+                              </p>
+                            </div>
+
+                            <div>
+                              <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-500">
+                                <span>
+                                  {participant.currentOrdersNumber}/
+                                  {participant.requiredOrdersNumber} pedidos
                                 </span>
+                                <span>{participant.progressPercentage}%</span>
                               </div>
 
-                              <div className="mt-4">
-                                <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
-                                  <span>
-                                    {participant.currentOrdersNumber}/
-                                    {participant.requiredOrdersNumber} pedidos
-                                  </span>
-                                  <span>{participant.progressPercentage}%</span>
-                                </div>
-
-                                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-[#2563eb] to-[#f97316]"
-                                    style={{ width: `${participant.progressPercentage}%` }}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                                <div className="rounded-2xl bg-slate-50 p-3">
-                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                    Total gasto
-                                  </p>
-                                  <strong className="mt-1 block text-sm font-black text-slate-950">
-                                    {formatCurrency(participant.totalSpent)}
-                                  </strong>
-                                </div>
-
-                                <div className="rounded-2xl bg-slate-50 p-3">
-                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                    Ticket médio
-                                  </p>
-                                  <strong className="mt-1 block text-sm font-black text-slate-950">
-                                    {formatCurrency(participant.averageTicket)}
-                                  </strong>
-                                </div>
-
-                                <div className="rounded-2xl bg-slate-50 p-3">
-                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                    Falta ganhar
-                                  </p>
-                                  <strong className="mt-1 block text-sm font-black text-slate-950">
-                                    {participant.missingOrders} pedido
-                                    {participant.missingOrders === 1 ? "" : "s"}
-                                  </strong>
-                                </div>
+                              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-[#2563eb] to-[#f97316]"
+                                  style={{ width: `${participant.progressPercentage}%` }}
+                                />
                               </div>
                             </div>
-                          ))}
 
-                          {campaignParticipants.length > 6 && (
-                            <p className="text-center text-xs font-semibold text-slate-400">
-                              Mostrando 6 de {campaignParticipants.length} participantes.
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                            <div>
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                Total gasto
+                              </p>
+                              <strong className="text-sm font-black text-slate-950">
+                                {formatCurrency(participant.totalSpent)}
+                              </strong>
+                            </div>
 
-                    <div className="flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
-                        <BadgeCheck className="h-4 w-4 text-[#2563eb]" />
-                        Criada em {formatDate(campaign.created_at)}
+                            <div className="flex flex-col gap-1 lg:items-end">
+                              <span
+                                className={`w-fit rounded-full px-3 py-1 text-xs font-black ${participant.statusClassName}`}
+                              >
+                                {participant.statusLabel}
+                              </span>
+                              <p className="text-xs font-semibold text-slate-400">
+                                Falta {participant.missingOrders} pedido
+                                {participant.missingOrders === 1 ? "" : "s"}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {campaignParticipants.length > 6 && (
+                          <p className="p-3 text-center text-xs font-semibold text-slate-400">
+                            Mostrando 6 de {campaignParticipants.length} participantes.
+                          </p>
+                        )}
                       </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
-                        <CalendarDays className="h-4 w-4 text-slate-400" />
-                        {formatDate(campaign.starts_at)} até {formatDate(campaign.ends_at)}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleCampaign(campaign)}
-                          className={`inline-flex h-10 items-center justify-center rounded-2xl px-4 text-sm font-bold transition ${
-                            campaign.is_active
-                              ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                              : "bg-[#2563eb] text-white hover:bg-blue-700"
-                          }`}
-                        >
-                          {campaign.is_active ? "Pausar campanha" : "Ativar campanha"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(campaign)}
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Excluir
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </article>
               )
@@ -1366,10 +1291,10 @@ async function handleDeleteCampaign() {
 
         {deleteTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-red-100 bg-white shadow-2xl">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-red-100 bg-white shadow-2xl">
               <div className="bg-gradient-to-r from-red-50 via-white to-orange-50 p-5">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 ring-1 ring-red-100">
                     <AlertTriangle className="h-6 w-6" />
                   </div>
 
@@ -1387,7 +1312,7 @@ async function handleDeleteCampaign() {
               </div>
 
               <div className="space-y-4 p-5">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                     Campanha selecionada
                   </p>
@@ -1404,7 +1329,7 @@ async function handleDeleteCampaign() {
                     type="button"
                     onClick={() => setDeleteTarget(null)}
                     disabled={isDeleting}
-                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Cancelar
                   </button>
@@ -1413,7 +1338,7 @@ async function handleDeleteCampaign() {
                     type="button"
                     onClick={handleDeleteCampaign}
                     disabled={isDeleting}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isDeleting ? (
                       <Loader2 className="h-5 w-5 animate-spin" />

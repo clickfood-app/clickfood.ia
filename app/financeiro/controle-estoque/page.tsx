@@ -1,24 +1,23 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import {
   AlertTriangle,
-  Boxes,
+  CheckCircle2,
+  ClipboardCheck,
   Edit3,
-  FolderPlus,
   Loader2,
+  MinusCircle,
   Package,
   PlusCircle,
   RefreshCcw,
   Save,
   Search,
-  Tags,
   Trash2,
-  Wallet,
   X,
 } from "lucide-react"
 
@@ -32,25 +31,12 @@ type BaseUnitType =
   | "caixa"
   | "porcao"
 
-type StockCategory = {
-  id: string
-  restaurant_id: string
-  name: string
-  description: string | null
-  color: string
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
 type StockItem = {
   id: string
   restaurant_id: string
   name: string
-  category: string | null
-  category_id: string | null
   base_unit_type: BaseUnitType
-  cost_per_base_unit: number | string
+  cost_per_base_unit: number | string | null
   current_quantity: number | string
   minimum_quantity: number | string
   is_active: boolean
@@ -60,11 +46,20 @@ type StockItem = {
 
 type StockForm = {
   name: string
-  category_id: string
   base_unit_type: BaseUnitType
-  cost_per_base_unit: string
   current_quantity: string
   minimum_quantity: string
+}
+
+type StockMovementType = "purchase" | "sale" | "adjustment"
+type StockStatus = "ok" | "low" | "zero"
+type StockFilter = "all" | StockStatus
+
+type ActiveAction = {
+  itemId: string
+  type: "entry" | "exit" | "count"
+  quantity: string
+  notes: string
 }
 
 const unitOptions: { value: BaseUnitType; label: string }[] = [
@@ -80,18 +75,9 @@ const unitOptions: { value: BaseUnitType; label: string }[] = [
 
 const emptyForm: StockForm = {
   name: "",
-  category_id: "",
   base_unit_type: "unidade",
-  cost_per_base_unit: "",
   current_quantity: "",
   minimum_quantity: "",
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(Number(value || 0))
 }
 
 function formatNumber(value: number) {
@@ -109,48 +95,50 @@ function getUnitLabel(unit: BaseUnitType) {
   return unitOptions.find((item) => item.value === unit)?.label || unit
 }
 
-function MetricCard({
+function getStockStatus(item: StockItem): StockStatus {
+  const quantity = Number(item.current_quantity || 0)
+  const minimum = Number(item.minimum_quantity || 0)
+
+  if (quantity <= 0) return "zero"
+  if (minimum > 0 && quantity <= minimum) return "low"
+
+  return "ok"
+}
+
+function getStatusLabel(status: StockStatus) {
+  if (status === "zero") return "Zerado"
+  if (status === "low") return "Baixo"
+
+  return "OK"
+}
+
+function getActionLabel(type: ActiveAction["type"]) {
+  if (type === "entry") return "Entrada"
+  if (type === "exit") return "Saída"
+
+  return "Conferência"
+}
+
+function StatBox({
   title,
   value,
-  subtitle,
   icon,
-  tone = "slate",
 }: {
   title: string
   value: string
-  subtitle: string
-  icon: React.ReactNode
-  tone?: "slate" | "green" | "amber" | "red" | "blue"
+  icon: ReactNode
 }) {
-  const toneClass = {
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    amber: "bg-amber-50 text-amber-700 ring-amber-100",
-    red: "bg-red-50 text-red-700 ring-red-100",
-    blue: "bg-blue-50 text-blue-700 ring-blue-100",
-  }[tone]
-
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-500">{title}</p>
-
-          <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
-            {value}
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            {title}
           </p>
-
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
-            {subtitle}
-          </p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
         </div>
 
-        <div
-          className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1",
-            toneClass
-          )}
-        >
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
           {icon}
         </div>
       </div>
@@ -158,52 +146,9 @@ function MetricCard({
   )
 }
 
-function Panel({
-  title,
-  subtitle,
-  icon,
-  children,
-  className,
-}: {
-  title: string
-  subtitle?: string
-  icon?: React.ReactNode
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <section
-      className={cn(
-        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
-        className
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-black tracking-tight text-slate-950">
-            {title}
-          </h2>
-
-          {subtitle && (
-            <p className="mt-1 text-sm leading-5 text-slate-500">{subtitle}</p>
-          )}
-        </div>
-
-        {icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-            {icon}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-5">{children}</div>
-    </section>
-  )
-}
-
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
       {message}
     </div>
   )
@@ -215,15 +160,15 @@ export default function ControleEstoquePage() {
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [items, setItems] = useState<StockItem[]>([])
-  const [categories, setCategories] = useState<StockCategory[]>([])
   const [form, setForm] = useState<StockForm>(emptyForm)
-  const [newCategoryName, setNewCategoryName] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState<StockFilter>("all")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [activeAction, setActiveAction] = useState<ActiveAction | null>(null)
+  const [isMovingStock, setIsMovingStock] = useState(false)
 
   const resolveRestaurant = useCallback(async () => {
     if (restaurantId) return restaurantId
@@ -256,28 +201,18 @@ export default function ControleEstoquePage() {
 
       const resolvedRestaurantId = await resolveRestaurant()
 
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from("stock_categories")
-        .select("id, restaurant_id, name, description, color, is_active, created_at, updated_at")
-        .eq("restaurant_id", resolvedRestaurantId)
-        .eq("is_active", true)
-        .order("name", { ascending: true })
-
-      if (categoriesError) throw categoriesError
-
-      const { data: itemsData, error: itemsError } = await supabase
+      const { data, error } = await supabase
         .from("stock_items")
         .select(
-          "id, restaurant_id, name, category, category_id, base_unit_type, cost_per_base_unit, current_quantity, minimum_quantity, is_active, created_at, updated_at"
+          "id, restaurant_id, name, base_unit_type, cost_per_base_unit, current_quantity, minimum_quantity, is_active, created_at, updated_at"
         )
         .eq("restaurant_id", resolvedRestaurantId)
         .eq("is_active", true)
         .order("name", { ascending: true })
 
-      if (itemsError) throw itemsError
+      if (error) throw error
 
-      setCategories((categoriesData ?? []) as StockCategory[])
-      setItems((itemsData ?? []) as StockItem[])
+      setItems((data ?? []) as StockItem[])
     } catch (error) {
       console.error("Erro ao carregar estoque:", error)
 
@@ -290,7 +225,6 @@ export default function ControleEstoquePage() {
         variant: "destructive",
       })
 
-      setCategories([])
       setItems([])
     } finally {
       setIsLoading(false)
@@ -301,107 +235,45 @@ export default function ControleEstoquePage() {
     void loadStockData()
   }, [loadStockData])
 
-  const categoriesById = useMemo(() => {
-    return new Map(categories.map((category) => [category.id, category]))
-  }, [categories])
+  const lowStockItems = useMemo(() => {
+    return items.filter((item) => getStockStatus(item) === "low")
+  }, [items])
 
-  const getItemCategoryName = useCallback(
-    (item: StockItem) => {
-      if (item.category_id && categoriesById.has(item.category_id)) {
-        return categoriesById.get(item.category_id)?.name || null
-      }
+  const zeroStockItems = useMemo(() => {
+    return items.filter((item) => getStockStatus(item) === "zero")
+  }, [items])
 
-      return item.category || null
-    },
-    [categoriesById]
-  )
+  const okStockItems = useMemo(() => {
+    return items.filter((item) => getStockStatus(item) === "ok")
+  }, [items])
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
-    if (!normalizedSearch) return items
+    return items
+      .filter((item) => {
+        const status = getStockStatus(item)
+        const matchesFilter = filter === "all" || status === filter
+        const matchesSearch =
+          !normalizedSearch || item.name.toLowerCase().includes(normalizedSearch)
 
-    return items.filter((item) => {
-      const categoryName = getItemCategoryName(item)
+        return matchesFilter && matchesSearch
+      })
+      .sort((a, b) => {
+        const statusOrder: Record<StockStatus, number> = {
+          zero: 0,
+          low: 1,
+          ok: 2,
+        }
 
-      return (
-        item.name.toLowerCase().includes(normalizedSearch) ||
-        String(categoryName || "").toLowerCase().includes(normalizedSearch)
-      )
-    })
-  }, [items, search, getItemCategoryName])
+        const statusDiff =
+          statusOrder[getStockStatus(a)] - statusOrder[getStockStatus(b)]
 
-  const totalStockValue = useMemo(() => {
-    return items.reduce((sum, item) => {
-      return (
-        sum +
-        Number(item.current_quantity || 0) *
-          Number(item.cost_per_base_unit || 0)
-      )
-    }, 0)
-  }, [items])
+        if (statusDiff !== 0) return statusDiff
 
-  const lowStockItems = useMemo(() => {
-    return items.filter((item) => {
-      return (
-        Number(item.minimum_quantity || 0) > 0 &&
-        Number(item.current_quantity || 0) <= Number(item.minimum_quantity || 0)
-      )
-    })
-  }, [items])
-
-  const mostValuableItem = useMemo(() => {
-    return [...items].sort((a, b) => {
-      const valueA =
-        Number(a.current_quantity || 0) * Number(a.cost_per_base_unit || 0)
-      const valueB =
-        Number(b.current_quantity || 0) * Number(b.cost_per_base_unit || 0)
-
-      return valueB - valueA
-    })[0]
-  }, [items])
-
-  const categorySummary = useMemo(() => {
-    const summary = new Map<
-      string,
-      {
-        id: string
-        name: string
-        totalValue: number
-        itemsCount: number
-      }
-    >()
-
-    for (const item of items) {
-      const categoryId = item.category_id || "sem-categoria"
-      const categoryName =
-        item.category_id && categoriesById.has(item.category_id)
-          ? categoriesById.get(item.category_id)?.name || "Sem categoria"
-          : item.category || "Sem categoria"
-
-      const current =
-        summary.get(categoryId) ??
-        ({
-          id: categoryId,
-          name: categoryName,
-          totalValue: 0,
-          itemsCount: 0,
-        } satisfies {
-          id: string
-          name: string
-          totalValue: number
-          itemsCount: number
-        })
-
-      current.totalValue +=
-        Number(item.current_quantity || 0) * Number(item.cost_per_base_unit || 0)
-      current.itemsCount += 1
-
-      summary.set(categoryId, current)
-    }
-
-    return Array.from(summary.values()).sort((a, b) => b.totalValue - a.totalValue)
-  }, [items, categoriesById])
+        return a.name.localeCompare(b.name)
+      })
+  }, [items, search, filter])
 
   const resetForm = () => {
     setForm(emptyForm)
@@ -410,12 +282,11 @@ export default function ControleEstoquePage() {
 
   const handleEdit = (item: StockItem) => {
     setEditingId(item.id)
+    setActiveAction(null)
 
     setForm({
       name: item.name,
-      category_id: item.category_id || "",
       base_unit_type: item.base_unit_type,
-      cost_per_base_unit: String(item.cost_per_base_unit ?? ""),
       current_quantity: String(item.current_quantity ?? ""),
       minimum_quantity: String(item.minimum_quantity ?? ""),
     })
@@ -423,108 +294,35 @@ export default function ControleEstoquePage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const handleCreateCategory = async () => {
+  const handleSaveItem = async () => {
     try {
       const resolvedRestaurantId = await resolveRestaurant()
-      const name = newCategoryName.trim()
-
-      if (!name) {
-        toast({
-          title: "Informe o nome da categoria",
-          description: "Exemplo: Carnes, Grãos, Embalagens, Bebidas.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      setIsCreatingCategory(true)
-
-      const { data, error } = await supabase
-        .from("stock_categories")
-        .insert({
-          restaurant_id: resolvedRestaurantId,
-          name,
-        })
-        .select("id")
-        .single()
-
-      if (error) throw error
-
-      toast({
-        title: "Categoria criada",
-        description: "A categoria de insumos foi criada com sucesso.",
-      })
-
-      setNewCategoryName("")
-
-      await loadStockData()
-
-      if (data?.id) {
-        setForm((current) => ({
-          ...current,
-          category_id: data.id,
-        }))
-      }
-    } catch (error) {
-      console.error("Erro ao criar categoria:", error)
-
-      toast({
-        title: "Erro ao criar categoria",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível criar a categoria.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsCreatingCategory(false)
-    }
-  }
-
-  const handleSave = async () => {
-    try {
-      const resolvedRestaurantId = await resolveRestaurant()
-
       const name = form.name.trim()
-      const selectedCategory = form.category_id
-        ? categoriesById.get(form.category_id)
-        : null
-
-      const costPerBaseUnit = parseNumber(form.cost_per_base_unit)
       const currentQuantity = parseNumber(form.current_quantity)
       const minimumQuantity = parseNumber(form.minimum_quantity)
 
       if (!name) {
         toast({
           title: "Informe o nome do item",
-          description: "Exemplo: arroz, carne, pão brioche, óleo.",
+          description: "Exemplo: arroz, carne, óleo, embalagem, refrigerante.",
           variant: "destructive",
         })
         return
       }
 
-      if (costPerBaseUnit < 0 || Number.isNaN(costPerBaseUnit)) {
+      if (Number.isNaN(currentQuantity) || currentQuantity < 0) {
         toast({
-          title: "Custo inválido",
-          description: "Informe um custo válido para esse item.",
+          title: "Quantidade atual inválida",
+          description: "Informe uma quantidade atual maior ou igual a zero.",
           variant: "destructive",
         })
         return
       }
 
-      if (currentQuantity < 0 || Number.isNaN(currentQuantity)) {
-        toast({
-          title: "Quantidade inválida",
-          description: "Informe uma quantidade atual válida.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      if (minimumQuantity < 0 || Number.isNaN(minimumQuantity)) {
+      if (Number.isNaN(minimumQuantity) || minimumQuantity < 0) {
         toast({
           title: "Estoque mínimo inválido",
-          description: "Informe uma quantidade mínima válida.",
+          description: "Informe uma quantidade mínima maior ou igual a zero.",
           variant: "destructive",
         })
         return
@@ -532,22 +330,16 @@ export default function ControleEstoquePage() {
 
       setIsSaving(true)
 
-      const payload = {
-        restaurant_id: resolvedRestaurantId,
-        name,
-        category_id: selectedCategory?.id || null,
-        category: selectedCategory?.name || null,
-        base_unit_type: form.base_unit_type,
-        cost_per_base_unit: costPerBaseUnit,
-        current_quantity: currentQuantity,
-        minimum_quantity: minimumQuantity,
-        is_active: true,
-      }
-
       if (editingId) {
         const { error } = await supabase
           .from("stock_items")
-          .update(payload)
+          .update({
+            name,
+            base_unit_type: form.base_unit_type,
+            current_quantity: currentQuantity,
+            minimum_quantity: minimumQuantity,
+            is_active: true,
+          })
           .eq("id", editingId)
           .eq("restaurant_id", resolvedRestaurantId)
 
@@ -555,16 +347,26 @@ export default function ControleEstoquePage() {
 
         toast({
           title: "Item atualizado",
-          description: "O item do estoque foi atualizado com sucesso.",
+          description: "A contagem do item foi atualizada.",
         })
       } else {
-        const { error } = await supabase.from("stock_items").insert(payload)
+        const { error } = await supabase.from("stock_items").insert({
+          restaurant_id: resolvedRestaurantId,
+          name,
+          category: null,
+          category_id: null,
+          base_unit_type: form.base_unit_type,
+          cost_per_base_unit: 0,
+          current_quantity: currentQuantity,
+          minimum_quantity: minimumQuantity,
+          is_active: true,
+        })
 
         if (error) throw error
 
         toast({
           title: "Item cadastrado",
-          description: "O item foi adicionado ao controle de estoque.",
+          description: "O item foi adicionado ao estoque.",
         })
       }
 
@@ -586,7 +388,176 @@ export default function ControleEstoquePage() {
     }
   }
 
+  const openStockAction = (item: StockItem, type: ActiveAction["type"]) => {
+    setEditingId(null)
+    setForm(emptyForm)
+
+    setActiveAction({
+      itemId: item.id,
+      type,
+      quantity: type === "count" ? String(item.current_quantity ?? 0) : "",
+      notes: "",
+    })
+  }
+
+  const handleStockAction = async () => {
+    try {
+      if (!activeAction) return
+
+      const resolvedRestaurantId = await resolveRestaurant()
+      const selectedItem = items.find((item) => item.id === activeAction.itemId)
+      const quantity = parseNumber(activeAction.quantity)
+
+      if (!selectedItem) {
+        toast({
+          title: "Item não encontrado",
+          description: "Atualize a página e tente novamente.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (Number.isNaN(quantity)) {
+        toast({
+          title: "Quantidade inválida",
+          description: "Informe uma quantidade válida.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (activeAction.type !== "count" && quantity <= 0) {
+        toast({
+          title: "Quantidade inválida",
+          description: "Entrada e saída precisam ser maiores que zero.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (activeAction.type === "count" && quantity < 0) {
+        toast({
+          title: "Contagem inválida",
+          description: "A contagem final não pode ser negativa.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const currentQuantity = Number(selectedItem.current_quantity || 0)
+      const unitCost = Number(selectedItem.cost_per_base_unit || 0)
+
+      let movementType: StockMovementType = "adjustment"
+      let signedQuantity = 0
+      let nextQuantity = currentQuantity
+
+      if (activeAction.type === "entry") {
+        movementType = "purchase"
+        signedQuantity = quantity
+        nextQuantity = currentQuantity + quantity
+      }
+
+      if (activeAction.type === "exit") {
+        movementType = "sale"
+        signedQuantity = quantity * -1
+        nextQuantity = currentQuantity - quantity
+      }
+
+      if (activeAction.type === "count") {
+        movementType = "adjustment"
+        signedQuantity = quantity - currentQuantity
+        nextQuantity = quantity
+      }
+
+      if (nextQuantity < 0) {
+        toast({
+          title: "Estoque insuficiente",
+          description: "Essa saída deixaria o estoque negativo.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (activeAction.type === "count" && signedQuantity === 0) {
+        toast({
+          title: "Contagem já conferida",
+          description: "A quantidade informada é igual ao saldo atual.",
+        })
+        setActiveAction(null)
+        return
+      }
+
+      setIsMovingStock(true)
+
+      const { error: updateError } = await supabase
+        .from("stock_items")
+        .update({
+          current_quantity: nextQuantity,
+        })
+        .eq("id", selectedItem.id)
+        .eq("restaurant_id", resolvedRestaurantId)
+
+      if (updateError) throw updateError
+
+      const notePrefix =
+        activeAction.type === "count"
+          ? `Conferência manual. Saldo anterior: ${formatNumber(
+              currentQuantity
+            )}. Saldo contado: ${formatNumber(nextQuantity)}.`
+          : `${getActionLabel(activeAction.type)} manual.`
+
+      const notes = [notePrefix, activeAction.notes.trim()]
+        .filter(Boolean)
+        .join(" ")
+
+      const { error: movementError } = await supabase
+        .from("stock_movements")
+        .insert({
+          restaurant_id: resolvedRestaurantId,
+          stock_item_id: selectedItem.id,
+          movement_type: movementType,
+          quantity: signedQuantity,
+          unit_cost: unitCost,
+          total_cost: signedQuantity * unitCost,
+          reference_type: "manual",
+          reference_id: null,
+          notes,
+        })
+
+      if (movementError) throw movementError
+
+      toast({
+        title: "Estoque atualizado",
+        description: `${selectedItem.name} agora tem ${formatNumber(
+          nextQuantity
+        )} ${getUnitLabel(selectedItem.base_unit_type).toLowerCase()}.`,
+      })
+
+      setActiveAction(null)
+      await loadStockData()
+    } catch (error) {
+      console.error("Erro ao atualizar estoque:", error)
+
+      toast({
+        title: "Erro ao atualizar estoque",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível atualizar a contagem.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsMovingStock(false)
+    }
+  }
+
   const handleDelete = async (itemId: string) => {
+    const shouldDelete = window.confirm(
+      "Remover este item do controle de estoque? Ele não será apagado do banco, apenas ficará inativo."
+    )
+
+    if (!shouldDelete) return
+
     try {
       const resolvedRestaurantId = await resolveRestaurant()
 
@@ -602,10 +573,11 @@ export default function ControleEstoquePage() {
 
       toast({
         title: "Item removido",
-        description: "O item foi removido do controle ativo de estoque.",
+        description: "O item saiu da lista ativa do estoque.",
       })
 
       if (editingId === itemId) resetForm()
+      if (activeAction?.itemId === itemId) setActiveAction(null)
 
       await loadStockData()
     } catch (error) {
@@ -626,22 +598,21 @@ export default function ControleEstoquePage() {
 
   return (
     <AdminLayout title="Controle de estoque">
-      <div className="space-y-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-950">
+            <h1 className="text-xl font-black tracking-tight text-slate-950">
               Controle de estoque
             </h1>
-
             <p className="mt-1 text-sm text-slate-500">
-              Cadastre insumos, custos, categorias e quantidades para calcular perdas com precisão.
+              Contagem simples: cadastre o item, informe o mínimo e registre entrada, saída ou conferência.
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => void loadStockData()}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
           >
             <RefreshCcw className="h-4 w-4" />
             Atualizar
@@ -649,7 +620,7 @@ export default function ControleEstoquePage() {
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
+          <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-slate-200 bg-white">
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando estoque...
@@ -657,380 +628,364 @@ export default function ControleEstoquePage() {
           </div>
         ) : (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
-                title="Valor em estoque"
-                value={formatCurrency(totalStockValue)}
-                subtitle="Soma estimada dos itens ativos"
-                tone="green"
-                icon={<Wallet className="h-5 w-5" />}
-              />
-
-              <MetricCard
-                title="Itens cadastrados"
+            <section className="grid gap-3 md:grid-cols-4">
+              <StatBox
+                title="Itens"
                 value={String(items.length)}
-                subtitle="Insumos ativos no controle"
-                tone="blue"
-                icon={<Package className="h-5 w-5" />}
+                icon={<Package className="h-4 w-4" />}
               />
-
-              <MetricCard
-                title="Estoque baixo"
+              <StatBox
+                title="OK"
+                value={String(okStockItems.length)}
+                icon={<CheckCircle2 className="h-4 w-4" />}
+              />
+              <StatBox
+                title="Baixo"
                 value={String(lowStockItems.length)}
-                subtitle="Itens abaixo ou no mínimo"
-                tone={lowStockItems.length > 0 ? "red" : "green"}
-                icon={<AlertTriangle className="h-5 w-5" />}
+                icon={<AlertTriangle className="h-4 w-4" />}
               />
-
-              <MetricCard
-                title="Categorias"
-                value={String(categories.length)}
-                subtitle={
-                  mostValuableItem
-                    ? `Maior valor: ${mostValuableItem.name}`
-                    : "Organize por tipo de insumo"
-                }
-                tone="slate"
-                icon={<Boxes className="h-5 w-5" />}
+              <StatBox
+                title="Zerado"
+                value={String(zeroStockItems.length)}
+                icon={<X className="h-4 w-4" />}
               />
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[0.9fr_1.3fr]">
-              <div className="space-y-5">
-                <Panel
-                  title="Categorias de insumos"
-                  subtitle="Organize carnes, grãos, embalagens, bebidas e outros grupos"
-                  icon={<Tags className="h-5 w-5" />}
-                >
-                  <div className="flex gap-2">
-                    <input
-                      value={newCategoryName}
-                      onChange={(event) => setNewCategoryName(event.target.value)}
-                      placeholder="Ex: Carnes, Grãos, Embalagens..."
-                      className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                    />
+            <section className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-black text-slate-950">
+                    {editingId ? "Editar item" : "Cadastrar item"}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Só o necessário para controlar quantidade.
+                  </p>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => void handleCreateCategory()}
-                      disabled={isCreatingCategory}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isCreatingCategory ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <FolderPlus className="h-4 w-4" />
-                      )}
-                      Criar
-                    </button>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    {categories.length === 0 ? (
-                      <EmptyState message="Nenhuma categoria criada ainda." />
-                    ) : (
-                      categories.map((category) => {
-                        const summary = categorySummary.find(
-                          (item) => item.id === category.id
-                        )
-
-                        return (
-                          <div
-                            key={category.id}
-                            className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-3"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-slate-900">
-                                {category.name}
-                              </p>
-                              <p className="text-xs font-semibold text-slate-500">
-                                {summary?.itemsCount || 0} item(ns) •{" "}
-                                {formatCurrency(summary?.totalValue || 0)}
-                              </p>
-                            </div>
-
-                            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">
-                              Ativa
-                            </span>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                </Panel>
-
-                <Panel
-                  title={editingId ? "Editar item" : "Cadastrar item"}
-                  subtitle="Esses dados serão usados no cálculo automático de perdas"
-                  icon={editingId ? <Edit3 className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
-                >
-                  <div className="grid gap-4">
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                        Nome do insumo
-                      </label>
-
-                      <input
-                        value={form.name}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            name: event.target.value,
-                          }))
-                        }
-                        placeholder="Ex: Arroz, carne, queijo, óleo..."
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                        Categoria
-                      </label>
-
-                      <select
-                        value={form.category_id}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            category_id: event.target.value,
-                          }))
-                        }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
-                      >
-                        <option value="">Sem categoria</option>
-
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                          Unidade base
-                        </label>
-
-                        <select
-                          value={form.base_unit_type}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              base_unit_type: event.target.value as BaseUnitType,
-                            }))
-                          }
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
-                        >
-                          {unitOptions.map((unit) => (
-                            <option key={unit.value} value={unit.value}>
-                              {unit.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                          Custo por unidade base
-                        </label>
-
-                        <input
-                          value={form.cost_per_base_unit}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              cost_per_base_unit: event.target.value,
-                            }))
-                          }
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0,00"
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                          Quantidade atual
-                        </label>
-
-                        <input
-                          value={form.current_quantity}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              current_quantity: event.target.value,
-                            }))
-                          }
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          placeholder="0"
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                          Estoque mínimo
-                        </label>
-
-                        <input
-                          value={form.minimum_quantity}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              minimum_quantity: event.target.value,
-                            }))
-                          }
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          placeholder="0"
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                        Exemplo de cálculo
-                      </p>
-
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                        Se esse item custa{" "}
-                        <strong>{formatCurrency(parseNumber(form.cost_per_base_unit))}</strong>{" "}
-                        por {getUnitLabel(form.base_unit_type).toLowerCase()}, a aba de perdas
-                        conseguirá calcular automaticamente quanto custou cada desperdício.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <button
-                        type="button"
-                        onClick={() => void handleSave()}
-                        disabled={isSaving}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isSaving ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4" />
-                        )}
-
-                        {editingId ? "Salvar alterações" : "Cadastrar item"}
-                      </button>
-
-                      {editingId && (
-                        <button
-                          type="button"
-                          onClick={resetForm}
-                          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-                        >
-                          <X className="h-4 w-4" />
-                          Cancelar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </Panel>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancelar
+                  </button>
+                )}
               </div>
 
-              <Panel
-                title="Itens do estoque"
-                subtitle="Insumos ativos cadastrados no restaurante"
-                icon={<Package className="h-5 w-5" />}
-              >
-                <div className="mb-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
-                  <Search className="h-4 w-4 text-slate-400" />
-
+              <div className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_auto] md:items-end">
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Item
+                  </label>
                   <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar por nome ou categoria..."
-                    className="h-11 w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Ex: Arroz, carne, óleo, embalagem..."
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                   />
                 </div>
 
-                <div className="space-y-3">
-                  {filteredItems.length === 0 ? (
-                    <EmptyState message="Nenhum item encontrado no estoque." />
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Unidade
+                  </label>
+                  <select
+                    value={form.base_unit_type}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        base_unit_type: event.target.value as BaseUnitType,
+                      }))
+                    }
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                  >
+                    {unitOptions.map((unit) => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Atual
+                  </label>
+                  <input
+                    value={form.current_quantity}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        current_quantity: event.target.value,
+                      }))
+                    }
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    placeholder="0"
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Mínimo
+                  </label>
+                  <input
+                    value={form.minimum_quantity}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        minimum_quantity: event.target.value,
+                      }))
+                    }
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    placeholder="0"
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSaveItem()}
+                  disabled={isSaving}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    filteredItems.map((item) => {
-                      const quantity = Number(item.current_quantity || 0)
-                      const minimum = Number(item.minimum_quantity || 0)
-                      const unitCost = Number(item.cost_per_base_unit || 0)
-                      const totalValue = quantity * unitCost
-                      const isLowStock = minimum > 0 && quantity <= minimum
-                      const categoryName = getItemCategoryName(item)
+                    <Save className="h-4 w-4" />
+                  )}
+                  {editingId ? "Salvar" : "Cadastrar"}
+                </button>
+              </div>
+            </section>
 
-                      return (
-                        <div
-                          key={item.id}
-                          className={cn(
-                            "rounded-2xl border px-4 py-4 transition",
-                            isLowStock
-                              ? "border-red-200 bg-red-50"
-                              : "border-slate-200 bg-slate-50 hover:bg-white"
-                          )}
-                        >
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-base font-black text-slate-950">
-                                  {item.name}
-                                </p>
+            <section className="rounded-xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-200 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-base font-black text-slate-950">
+                      Lista de estoque
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      Use os botões da linha para lançar entrada, saída ou conferir a quantidade real.
+                    </p>
+                  </div>
 
-                                {categoryName && (
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">
-                                    {categoryName}
-                                  </span>
-                                )}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 sm:w-[280px]">
+                      <Search className="h-4 w-4 text-slate-400" />
+                      <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Buscar item..."
+                        className="h-full w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                      />
+                    </div>
 
-                                {isLowStock && (
-                                  <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-black text-red-700 ring-1 ring-red-200">
-                                    Estoque baixo
-                                  </span>
-                                )}
-                              </div>
+                    <select
+                      value={filter}
+                      onChange={(event) => setFilter(event.target.value as StockFilter)}
+                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-slate-500"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="zero">Zerados</option>
+                      <option value="low">Baixo estoque</option>
+                      <option value="ok">OK</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
 
-                              <p className="mt-1 text-sm font-medium text-slate-500">
-                                {formatNumber(quantity)}{" "}
-                                {getUnitLabel(item.base_unit_type).toLowerCase()} em estoque • mínimo{" "}
+              <div className="overflow-x-auto">
+                {filteredItems.length === 0 ? (
+                  <div className="p-4">
+                    <EmptyState message="Nenhum item encontrado." />
+                  </div>
+                ) : (
+                  <table className="w-full min-w-[900px] border-collapse text-sm">
+                    <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">Item</th>
+                        <th className="px-4 py-3">Qtd atual</th>
+                        <th className="px-4 py-3">Mínimo</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-200">
+                      {filteredItems.map((item) => {
+                        const quantity = Number(item.current_quantity || 0)
+                        const minimum = Number(item.minimum_quantity || 0)
+                        const status = getStockStatus(item)
+                        const isActionOpen = activeAction?.itemId === item.id
+
+                        return (
+                          <tr
+                            key={item.id}
+                            className={cn(
+                              "align-top",
+                              status === "zero" && "bg-red-50/60",
+                              status === "low" && "bg-amber-50/60"
+                            )}
+                          >
+                            <td className="px-4 py-3">
+                              <p className="font-black text-slate-950">{item.name}</p>
+                              <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                                Unidade: {getUnitLabel(item.base_unit_type)}
+                              </p>
+
+                              {isActionOpen && (
+                                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                                  <div className="grid gap-3 md:grid-cols-[0.8fr_1fr]">
+                                    <div>
+                                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        {activeAction.type === "count"
+                                          ? "Quantidade contada"
+                                          : "Quantidade"}
+                                      </label>
+                                      <input
+                                        value={activeAction.quantity}
+                                        onChange={(event) =>
+                                          setActiveAction((current) =>
+                                            current
+                                              ? {
+                                                  ...current,
+                                                  quantity: event.target.value,
+                                                }
+                                              : current
+                                          )
+                                        }
+                                        type="number"
+                                        min={activeAction.type === "count" ? "0" : "0.001"}
+                                        step="0.001"
+                                        placeholder="0"
+                                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        Observação opcional
+                                      </label>
+                                      <input
+                                        value={activeAction.notes}
+                                        onChange={(event) =>
+                                          setActiveAction((current) =>
+                                            current
+                                              ? {
+                                                  ...current,
+                                                  notes: event.target.value,
+                                                }
+                                              : current
+                                          )
+                                        }
+                                        placeholder="Ex: contagem do fechamento, perda, reposição..."
+                                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleStockAction()}
+                                      disabled={isMovingStock}
+                                      className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {isMovingStock ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Save className="h-4 w-4" />
+                                      )}
+                                      Confirmar {getActionLabel(activeAction.type)}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveAction(null)}
+                                      className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                                    >
+                                      <X className="h-4 w-4" />
+                                      Fechar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <p className="text-lg font-black text-slate-950">
+                                {formatNumber(quantity)}
+                              </p>
+                              <p className="text-xs font-semibold text-slate-500">
+                                {getUnitLabel(item.base_unit_type).toLowerCase()}
+                              </p>
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <p className="font-black text-slate-800">
                                 {formatNumber(minimum)}
                               </p>
-                            </div>
+                            </td>
 
-                            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[420px]">
-                              <div className="rounded-xl bg-white px-3 py-2">
-                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                                  Custo base
-                                </p>
-                                <p className="mt-1 text-sm font-black text-slate-950">
-                                  {formatCurrency(unitCost)}
-                                </p>
-                              </div>
+                            <td className="px-4 py-3">
+                              <span
+                                className={cn(
+                                  "inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1",
+                                  status === "ok" &&
+                                    "bg-emerald-50 text-emerald-700 ring-emerald-200",
+                                  status === "low" &&
+                                    "bg-amber-50 text-amber-700 ring-amber-200",
+                                  status === "zero" &&
+                                    "bg-red-50 text-red-700 ring-red-200"
+                                )}
+                              >
+                                {getStatusLabel(status)}
+                              </span>
+                            </td>
 
-                              <div className="rounded-xl bg-white px-3 py-2">
-                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                                  Valor total
-                                </p>
-                                <p className="mt-1 text-sm font-black text-slate-950">
-                                  {formatCurrency(totalValue)}
-                                </p>
-                              </div>
+                            <td className="px-4 py-3">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openStockAction(item, "entry")}
+                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                                >
+                                  <PlusCircle className="h-4 w-4" />
+                                  Entrada
+                                </button>
 
-                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openStockAction(item, "exit")}
+                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100"
+                                >
+                                  <MinusCircle className="h-4 w-4" />
+                                  Saída
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => openStockAction(item, "count")}
+                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 hover:bg-blue-100"
+                                >
+                                  <ClipboardCheck className="h-4 w-4" />
+                                  Conferir
+                                </button>
+
                                 <button
                                   type="button"
                                   onClick={() => handleEdit(item)}
-                                  className="inline-flex h-full min-h-[52px] flex-1 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200 transition hover:text-blue-700 hover:ring-blue-200"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                                   aria-label="Editar item"
                                 >
                                   <Edit3 className="h-4 w-4" />
@@ -1040,7 +995,7 @@ export default function ControleEstoquePage() {
                                   type="button"
                                   onClick={() => void handleDelete(item.id)}
                                   disabled={deletingId === item.id}
-                                  className="inline-flex h-full min-h-[52px] flex-1 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200 transition hover:text-red-700 hover:ring-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                                   aria-label="Remover item"
                                 >
                                   {deletingId === item.id ? (
@@ -1050,72 +1005,15 @@ export default function ControleEstoquePage() {
                                   )}
                                 </button>
                               </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </Panel>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </section>
-
-            {categorySummary.length > 0 && (
-              <Panel
-                title="Valor por categoria"
-                subtitle="Veja onde está concentrado o dinheiro parado em estoque"
-                icon={<Tags className="h-5 w-5" />}
-              >
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {categorySummary.map((category) => (
-                    <div
-                      key={category.id}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <p className="truncate text-sm font-black text-slate-950">
-                        {category.name}
-                      </p>
-
-                      <p className="mt-2 text-xl font-black text-slate-950">
-                        {formatCurrency(category.totalValue)}
-                      </p>
-
-                      <p className="mt-1 text-xs font-semibold text-slate-500">
-                        {category.itemsCount} item(ns) cadastrado(s)
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-            )}
-
-            {lowStockItems.length > 0 && (
-              <Panel
-                title="Alertas de estoque baixo"
-                subtitle="Itens que precisam de atenção antes de faltar"
-                icon={<AlertTriangle className="h-5 w-5" />}
-              >
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {lowStockItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-2xl border border-red-100 bg-red-50 p-4"
-                    >
-                      <p className="font-black text-red-700">{item.name}</p>
-
-                      <p className="mt-2 text-sm font-semibold leading-5 text-red-700">
-                        Estoque atual: {formatNumber(Number(item.current_quantity || 0))}{" "}
-                        {getUnitLabel(item.base_unit_type).toLowerCase()}
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold leading-5 text-red-700">
-                        Mínimo configurado: {formatNumber(Number(item.minimum_quantity || 0))}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-            )}
           </>
         )}
       </div>

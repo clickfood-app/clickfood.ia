@@ -1,11 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   BadgeDollarSign,
   CalendarDays,
   Clock3,
+  Copy,
   ImageIcon,
+  Link2,
+  Loader2,
   Package2,
   Percent,
   Plus,
@@ -77,6 +80,10 @@ type ModifierGroupDraft = {
   options: ModifierOptionDraft[]
 }
 
+type ReusableModifierGroup = ModifierGroupDraft & {
+  id: string
+}
+
 type DbModifierGroup = {
   id: string
   name: string
@@ -84,6 +91,7 @@ type DbModifierGroup = {
   min_select: number | null
   max_select: number | null
   sort_order: number | null
+  is_active: boolean | null
 }
 
 type DbModifierOption = {
@@ -92,6 +100,13 @@ type DbModifierOption = {
   name: string
   price: number | string | null
   sort_order: number | null
+  is_active: boolean | null
+}
+
+type DbModifierGroupLink = {
+  group_id: string
+  sort_order: number | null
+  is_active: boolean | null
 }
 
 const WEEKDAYS: WeekdayOption[] = [
@@ -130,7 +145,7 @@ interface ProductEditorSheetProps {
   defaultCategoryId?: string
   product?: ProductWithPromotion | null
   onOpenChange: (open: boolean) => void
-  onSave: (values: ProductEditorValues) => void
+  onSave: (values: ProductEditorValues) => Promise<string | null> | string | null
 }
 
 function formatMoneyInput(value: number): string {
@@ -196,6 +211,47 @@ function getDiscountValue(price: number, type: PromotionType, value: number) {
   return 0
 }
 
+function normalizeModifierGroup(
+  group: DbModifierGroup,
+  options: DbModifierOption[]
+): ReusableModifierGroup {
+  return {
+    id: group.id,
+    name: group.name,
+    required: Boolean(group.required),
+    minSelect: Number(group.min_select ?? 0),
+    maxSelect: Math.max(Number(group.max_select ?? 1), 1),
+    sortOrder: Number(group.sort_order ?? 0),
+    options: options
+      .filter((option) => option.group_id === group.id)
+      .sort(
+        (first, second) =>
+          Number(first.sort_order ?? 0) - Number(second.sort_order ?? 0)
+      )
+      .map((option, optionIndex) => ({
+        id: option.id,
+        name: option.name,
+        price: Number(option.price ?? 0),
+        sortOrder: Number(option.sort_order ?? optionIndex),
+      })),
+  }
+}
+
+function duplicateModifierGroup(group: ReusableModifierGroup): ModifierGroupDraft {
+  return {
+    name: `${group.name} personalizado`,
+    required: group.required,
+    minSelect: group.minSelect,
+    maxSelect: group.maxSelect,
+    sortOrder: 0,
+    options: group.options.map((option, optionIndex) => ({
+      name: option.name,
+      price: option.price,
+      sortOrder: optionIndex,
+    })),
+  }
+}
+
 export default function ProductEditorSheet({
   open,
   mode,
@@ -222,12 +278,128 @@ export default function ProductEditorSheet({
   const [availabilityEndTime, setAvailabilityEndTime] = useState("")
   const [availabilityCategory, setAvailabilityCategory] = useState("")
   const [loadingAvailability, setLoadingAvailability] = useState(false)
-  const [modifierGroups, setModifierGroups] = useState<ModifierGroupDraft[]>([])
+  const [restaurantId, setRestaurantId] = useState<string | null>(null)
+  const [availableModifierGroups, setAvailableModifierGroups] = useState<
+    ReusableModifierGroup[]
+  >([])
+  const [selectedModifierGroupIds, setSelectedModifierGroupIds] = useState<
+    string[]
+  >([])
+  const [newModifierGroups, setNewModifierGroups] = useState<
+    ModifierGroupDraft[]
+  >([])
   const [loadingModifiers, setLoadingModifiers] = useState(false)
   const [savingModifiers, setSavingModifiers] = useState(false)
   const [modifiersTouched, setModifiersTouched] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
+
+  const resolveRestaurantId = useCallback(async () => {
+    if (restaurantId) return restaurantId
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError) throw userError
+    if (!user) throw new Error("Usuário não autenticado.")
+
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from("restaurants")
+      .select("id")
+      .eq("owner_id", user.id)
+      .single()
+
+    if (restaurantError) throw restaurantError
+    if (!restaurant?.id) throw new Error("Restaurante não encontrado.")
+
+    setRestaurantId(restaurant.id)
+
+    return restaurant.id
+  }, [restaurantId, supabase])
+
+  const loadModifierData = useCallback(
+    async (productIdToLoad?: string | null) => {
+      try {
+        setLoadingModifiers(true)
+
+        const resolvedRestaurantId = await resolveRestaurantId()
+
+        const { data: groupsData, error: groupsError } = await supabase
+          .from("modifier_groups")
+          .select("id, name, required, min_select, max_select, sort_order, is_active")
+          .eq("restaurant_id", resolvedRestaurantId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+
+        if (groupsError) throw groupsError
+
+        const groups = (groupsData ?? []) as DbModifierGroup[]
+        const groupIds = groups.map((group) => group.id)
+
+        let options: DbModifierOption[] = []
+
+        if (groupIds.length > 0) {
+          const { data: optionsData, error: optionsError } = await supabase
+            .from("modifier_group_options")
+            .select("id, group_id, name, price, sort_order, is_active")
+            .eq("restaurant_id", resolvedRestaurantId)
+            .eq("is_active", true)
+            .in("group_id", groupIds)
+            .order("sort_order", { ascending: true })
+
+          if (optionsError) throw optionsError
+
+          options = (optionsData ?? []) as DbModifierOption[]
+        }
+
+        const normalizedGroups = groups.map((group) =>
+          normalizeModifierGroup(group, options)
+        )
+
+        setAvailableModifierGroups(normalizedGroups)
+
+        if (!productIdToLoad) {
+          setSelectedModifierGroupIds([])
+          setNewModifierGroups([])
+          setModifiersTouched(false)
+          return
+        }
+
+        const { data: linksData, error: linksError } = await supabase
+          .from("product_modifier_group_links")
+          .select("group_id, sort_order, is_active")
+          .eq("restaurant_id", resolvedRestaurantId)
+          .eq("product_id", productIdToLoad)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+
+        if (linksError) throw linksError
+
+        const links = (linksData ?? []) as DbModifierGroupLink[]
+
+        setSelectedModifierGroupIds(
+          links
+            .filter((link) =>
+              normalizedGroups.some((group) => group.id === link.group_id)
+            )
+            .map((link) => link.group_id)
+        )
+        setNewModifierGroups([])
+        setModifiersTouched(false)
+      } catch (error) {
+        console.error("Erro ao carregar complementos reutilizáveis:", error)
+        setAvailableModifierGroups([])
+        setSelectedModifierGroupIds([])
+        setNewModifierGroups([])
+        setModifiersTouched(false)
+      } finally {
+        setLoadingModifiers(false)
+      }
+    },
+    [resolveRestaurantId, supabase]
+  )
 
   useEffect(() => {
     if (!open) return
@@ -267,9 +439,16 @@ export default function ProductEditorSheet({
     setAvailabilityStartTime("")
     setAvailabilityEndTime("")
     setAvailabilityCategory(defaultCategoryId ?? categories[0]?.id ?? "")
-    setModifierGroups([])
+    setSelectedModifierGroupIds([])
+    setNewModifierGroups([])
     setModifiersTouched(false)
   }, [categories, defaultCategoryId, mode, open, product])
+
+  useEffect(() => {
+    if (!open) return
+
+    void loadModifierData(mode === "edit" ? product?.id ?? null : null)
+  }, [loadModifierData, mode, open, product?.id])
 
   useEffect(() => {
     let cancelled = false
@@ -320,96 +499,7 @@ export default function ProductEditorSheet({
     return () => {
       cancelled = true
     }
-  }, [
-    mode,
-    open,
-    product?.availabilityCategory,
-    product?.availabilityEndTime,
-    product?.availabilityStartTime,
-    product?.availabilityType,
-    product?.availabilityWeekdays,
-    product?.category,
-    product?.id,
-    supabase,
-  ])
-
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadModifierGroups() {
-      if (!open || mode !== "edit" || !product?.id) {
-        setModifierGroups([])
-        setModifiersTouched(false)
-        return
-      }
-
-      try {
-        setLoadingModifiers(true)
-
-        const { data: groupsData, error: groupsError } = await supabase
-          .from("product_modifier_groups")
-          .select("id, name, required, min_select, max_select, sort_order")
-          .eq("product_id", product.id)
-          .order("sort_order", { ascending: true })
-
-        if (groupsError) throw groupsError
-
-        const groups = (groupsData ?? []) as DbModifierGroup[]
-        const groupIds = groups.map((group) => group.id)
-
-        let options: DbModifierOption[] = []
-
-        if (groupIds.length > 0) {
-          const { data: optionsData, error: optionsError } = await supabase
-            .from("product_modifier_options")
-            .select("id, group_id, name, price, sort_order")
-            .in("group_id", groupIds)
-            .order("sort_order", { ascending: true })
-
-          if (optionsError) throw optionsError
-
-          options = (optionsData ?? []) as DbModifierOption[]
-        }
-
-        if (cancelled) return
-
-        setModifierGroups(
-          groups.map((group, groupIndex) => ({
-            id: group.id,
-            name: group.name,
-            required: Boolean(group.required),
-            minSelect: Number(group.min_select ?? 0),
-            maxSelect: Math.max(Number(group.max_select ?? 1), 1),
-            sortOrder: Number(group.sort_order ?? groupIndex),
-            options: options
-              .filter((option) => option.group_id === group.id)
-              .map((option, optionIndex) => ({
-                id: option.id,
-                name: option.name,
-                price: Number(option.price ?? 0),
-                sortOrder: Number(option.sort_order ?? optionIndex),
-              })),
-          }))
-        )
-        setModifiersTouched(false)
-      } catch (error) {
-        console.error("Erro ao carregar complementos:", error)
-        if (!cancelled) {
-          setModifierGroups([])
-          setModifiersTouched(false)
-        }
-      } finally {
-        if (!cancelled) setLoadingModifiers(false)
-      }
-    }
-
-    void loadModifierGroups()
-
-    return () => {
-      cancelled = true
-    }
-  }, [mode, open, product?.id, supabase])
+  }, [mode, open, product?.category, product?.id, supabase])
 
   const numericPrice = parseMoneyInput(price)
   const numericCost = parseMoneyInput(cost)
@@ -426,6 +516,17 @@ export default function ProductEditorSheet({
   const previewMargin = getMargin(finalPrice, numericCost)
   const baseProfit = getProfit(numericPrice, numericCost)
   const baseMargin = getMargin(numericPrice, numericCost)
+
+  const selectedExistingGroups = useMemo(() => {
+    return selectedModifierGroupIds
+      .map((groupId) =>
+        availableModifierGroups.find((group) => group.id === groupId)
+      )
+      .filter((group): group is ReusableModifierGroup => Boolean(group))
+  }, [availableModifierGroups, selectedModifierGroupIds])
+
+  const totalModifierGroups =
+    selectedModifierGroupIds.length + newModifierGroups.length
 
   const canSave = useMemo(() => {
     const validPromotion =
@@ -488,36 +589,49 @@ export default function ProductEditorSheet({
     })
   }
 
-  const addModifierGroup = () => {
+  const toggleExistingModifierGroup = (groupId: string) => {
     setModifiersTouched(true)
-    setModifierGroups((currentGroups) => [
+
+    setSelectedModifierGroupIds((currentGroupIds) => {
+      if (currentGroupIds.includes(groupId)) {
+        return currentGroupIds.filter((item) => item !== groupId)
+      }
+
+      return [...currentGroupIds, groupId]
+    })
+  }
+
+  const addNewModifierGroup = () => {
+    setModifiersTouched(true)
+    setNewModifierGroups((currentGroups) => [
       ...currentGroups,
       createEmptyModifierGroup(currentGroups.length),
     ])
   }
 
-  const removeModifierGroup = (groupIndex: number) => {
+  const removeNewModifierGroup = (groupIndex: number) => {
     setModifiersTouched(true)
-    setModifierGroups((currentGroups) =>
+    setNewModifierGroups((currentGroups) =>
       currentGroups.filter((_, index) => index !== groupIndex)
     )
   }
 
-  const updateModifierGroup = (
+  const updateNewModifierGroup = (
     groupIndex: number,
     updates: Partial<ModifierGroupDraft>
   ) => {
     setModifiersTouched(true)
-    setModifierGroups((currentGroups) =>
+    setNewModifierGroups((currentGroups) =>
       currentGroups.map((group, index) =>
         index === groupIndex ? { ...group, ...updates } : group
       )
     )
   }
 
-  const addModifierOption = (groupIndex: number) => {
+  const addNewModifierOption = (groupIndex: number) => {
     setModifiersTouched(true)
-    setModifierGroups((currentGroups) =>
+
+    setNewModifierGroups((currentGroups) =>
       currentGroups.map((group, index) => {
         if (index !== groupIndex) return group
 
@@ -536,13 +650,14 @@ export default function ProductEditorSheet({
     )
   }
 
-  const updateModifierOption = (
+  const updateNewModifierOption = (
     groupIndex: number,
     optionIndex: number,
     updates: Partial<ModifierOptionDraft>
   ) => {
     setModifiersTouched(true)
-    setModifierGroups((currentGroups) =>
+
+    setNewModifierGroups((currentGroups) =>
       currentGroups.map((group, currentGroupIndex) => {
         if (currentGroupIndex !== groupIndex) return group
 
@@ -558,9 +673,10 @@ export default function ProductEditorSheet({
     )
   }
 
-  const removeModifierOption = (groupIndex: number, optionIndex: number) => {
+  const removeNewModifierOption = (groupIndex: number, optionIndex: number) => {
     setModifiersTouched(true)
-    setModifierGroups((currentGroups) =>
+
+    setNewModifierGroups((currentGroups) =>
       currentGroups.map((group, currentGroupIndex) => {
         if (currentGroupIndex !== groupIndex) return group
 
@@ -572,10 +688,27 @@ export default function ProductEditorSheet({
     )
   }
 
-  const saveModifierGroups = async (options?: { silent?: boolean }) => {
-    if (mode !== "edit" || !product?.id) return true
+  const duplicateExistingGroupForProduct = (group: ReusableModifierGroup) => {
+    setModifiersTouched(true)
 
-    const normalizedGroups = modifierGroups
+    setSelectedModifierGroupIds((currentGroupIds) =>
+      currentGroupIds.filter((groupId) => groupId !== group.id)
+    )
+
+    setNewModifierGroups((currentGroups) => [
+      ...currentGroups,
+      {
+        ...duplicateModifierGroup(group),
+        sortOrder: currentGroups.length,
+      },
+    ])
+  }
+
+  const saveProductModifierGroups = async (
+    savedProductId: string,
+    options?: { silent?: boolean }
+  ) => {
+    const normalizedNewGroups = newModifierGroups
       .map((group, groupIndex) => ({
         ...group,
         name: group.name.trim(),
@@ -593,13 +726,13 @@ export default function ProductEditorSheet({
       }))
       .filter((group) => group.name.length > 0)
 
-    const invalidGroup = normalizedGroups.find(
+    const invalidGroup = normalizedNewGroups.find(
       (group) => group.options.length === 0 || group.minSelect > group.maxSelect
     )
 
     if (invalidGroup) {
       alert(
-        "Revise os complementos: cada grupo precisa ter ao menos uma opção e o mínimo não pode ser maior que o máximo."
+        "Revise os complementos: cada grupo novo precisa ter ao menos uma opção e o mínimo não pode ser maior que o máximo."
       )
       return false
     }
@@ -607,80 +740,69 @@ export default function ProductEditorSheet({
     try {
       setSavingModifiers(true)
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+      const resolvedRestaurantId = await resolveRestaurantId()
 
-      if (userError) throw userError
-      if (!user) throw new Error("Usuário não autenticado.")
-
-      const { data: restaurant, error: restaurantError } = await supabase
-        .from("restaurants")
-        .select("id")
-        .eq("owner_id", user.id)
-        .single()
-
-      if (restaurantError) throw restaurantError
-      if (!restaurant?.id) throw new Error("Restaurante não encontrado.")
-
-      const { data: existingGroupsData, error: existingGroupsError } =
-        await supabase
-          .from("product_modifier_groups")
-          .select("id")
-          .eq("product_id", product.id)
-          .eq("restaurant_id", restaurant.id)
-
-      if (existingGroupsError) throw existingGroupsError
-
-      const existingGroupIds = ((existingGroupsData ?? []) as { id: string }[]).map(
-        (group) => group.id
+      const validExistingGroupIds = Array.from(
+        new Set(
+          selectedModifierGroupIds.filter((groupId) =>
+            availableModifierGroups.some((group) => group.id === groupId)
+          )
+        )
       )
 
-      if (existingGroupIds.length > 0) {
-        const { error: deleteOptionsError } = await supabase
-          .from("product_modifier_options")
-          .delete()
-          .in("group_id", existingGroupIds)
+      const { error: deleteLinksError } = await supabase
+        .from("product_modifier_group_links")
+        .delete()
+        .eq("restaurant_id", resolvedRestaurantId)
+        .eq("product_id", savedProductId)
 
-        if (deleteOptionsError) throw deleteOptionsError
+      if (deleteLinksError) throw deleteLinksError
+
+      if (validExistingGroupIds.length > 0) {
+        const linksToInsert = validExistingGroupIds.map((groupId, index) => ({
+          restaurant_id: resolvedRestaurantId,
+          product_id: savedProductId,
+          group_id: groupId,
+          sort_order: index,
+          is_active: true,
+        }))
+
+        const { error: insertLinksError } = await supabase
+          .from("product_modifier_group_links")
+          .insert(linksToInsert)
+
+        if (insertLinksError) throw insertLinksError
       }
 
-      const { error: deleteGroupsError } = await supabase
-        .from("product_modifier_groups")
-        .delete()
-        .eq("product_id", product.id)
-        .eq("restaurant_id", restaurant.id)
+      let nextSortOrder = validExistingGroupIds.length
 
-      if (deleteGroupsError) throw deleteGroupsError
-
-      const savedGroups: ModifierGroupDraft[] = []
-
-      for (const group of normalizedGroups) {
+      for (const group of normalizedNewGroups) {
         const safeMaxSelect = Math.max(group.maxSelect, 1)
         const safeMinSelect = group.required
           ? Math.max(Math.min(group.minSelect, safeMaxSelect), 1)
           : Math.min(group.minSelect, safeMaxSelect)
 
         const { data: insertedGroup, error: groupError } = await supabase
-          .from("product_modifier_groups")
+          .from("modifier_groups")
           .insert({
-            restaurant_id: restaurant.id,
-            product_id: product.id,
+            restaurant_id: resolvedRestaurantId,
             name: group.name,
             required: group.required,
             min_select: safeMinSelect,
             max_select: safeMaxSelect,
-            sort_order: group.sortOrder,
+            sort_order: availableModifierGroups.length + nextSortOrder,
             is_active: true,
           })
           .select("id")
           .single()
 
         if (groupError) throw groupError
-        if (!insertedGroup?.id) throw new Error("Erro ao salvar grupo de complemento.")
+        if (!insertedGroup?.id) {
+          throw new Error("Erro ao salvar grupo de complemento.")
+        }
 
         const optionsToInsert = group.options.map((option) => ({
+          restaurant_id: resolvedRestaurantId,
           group_id: insertedGroup.id,
           name: option.name,
           price: option.price,
@@ -689,28 +811,27 @@ export default function ProductEditorSheet({
         }))
 
         const { error: optionsError } = await supabase
-          .from("product_modifier_options")
+          .from("modifier_group_options")
           .insert(optionsToInsert)
 
         if (optionsError) throw optionsError
 
-        savedGroups.push({
-          id: insertedGroup.id,
-          name: group.name,
-          required: group.required,
-          minSelect: safeMinSelect,
-          maxSelect: safeMaxSelect,
-          sortOrder: group.sortOrder,
-          options: group.options.map((option) => ({
-            name: option.name,
-            price: option.price,
-            sortOrder: option.sortOrder,
-          })),
-        })
+        const { error: linkError } = await supabase
+          .from("product_modifier_group_links")
+          .insert({
+            restaurant_id: resolvedRestaurantId,
+            product_id: savedProductId,
+            group_id: insertedGroup.id,
+            sort_order: nextSortOrder,
+            is_active: true,
+          })
+
+        if (linkError) throw linkError
+
+        nextSortOrder += 1
       }
 
-      setModifierGroups(savedGroups)
-      setModifiersTouched(false)
+      await loadModifierData(savedProductId)
 
       if (!options?.silent) {
         alert("Complementos salvos com sucesso.")
@@ -731,47 +852,59 @@ export default function ProductEditorSheet({
   }
 
   const handleSave = async () => {
-    if (!canSave || savingModifiers) return
+    if (!canSave || savingModifiers || loadingModifiers) return
 
-    if (mode === "edit" && product?.id && modifiersTouched) {
-      const modifiersSaved = await saveModifierGroups({ silent: true })
+    const savedProductId = await Promise.resolve(
+      onSave({
+        name: name.trim(),
+        description: description.trim(),
+        price: Math.round(numericPrice * 100) / 100,
+        cost: Math.round(numericCost * 100) / 100,
+        category,
+        active,
+        image,
+        imageSize: product?.image === image ? product.imageSize : undefined,
+        promotionActive: normalizedPromotionActive,
+        promotionType: normalizedPromotionActive ? promotionType : "none",
+        promotionValue: normalizedPromotionActive
+          ? roundMoney(numericPromotionValue)
+          : 0,
+        availabilityType,
+        availabilityWeekdays:
+          availabilityType === "scheduled" ? availabilityWeekdays : [],
+        availabilityStartTime:
+          availabilityType === "scheduled" && availabilityStartTime
+            ? availabilityStartTime
+            : null,
+        availabilityEndTime:
+          availabilityType === "scheduled" && availabilityEndTime
+            ? availabilityEndTime
+            : null,
+        availabilityCategory:
+          availabilityType === "scheduled" ? availabilityCategory : null,
+      })
+    )
+
+    if (!savedProductId) return
+
+    const shouldSaveModifiers = mode === "create" || modifiersTouched
+
+    if (shouldSaveModifiers) {
+      const modifiersSaved = await saveProductModifierGroups(savedProductId, {
+        silent: true,
+      })
 
       if (!modifiersSaved) return
     }
 
-    onSave({
-      name: name.trim(),
-      description: description.trim(),
-      price: Math.round(numericPrice * 100) / 100,
-      cost: Math.round(numericCost * 100) / 100,
-      category,
-      active,
-      image,
-      imageSize: product?.image === image ? product.imageSize : undefined,
-      promotionActive: normalizedPromotionActive,
-      promotionType: normalizedPromotionActive ? promotionType : "none",
-      promotionValue: normalizedPromotionActive ? roundMoney(numericPromotionValue) : 0,
-      availabilityType,
-      availabilityWeekdays:
-        availabilityType === "scheduled" ? availabilityWeekdays : [],
-      availabilityStartTime:
-        availabilityType === "scheduled" && availabilityStartTime
-          ? availabilityStartTime
-          : null,
-      availabilityEndTime:
-        availabilityType === "scheduled" && availabilityEndTime
-          ? availabilityEndTime
-          : null,
-      availabilityCategory:
-        availabilityType === "scheduled" ? availabilityCategory : null,
-    })
+    onOpenChange(false)
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full overflow-hidden p-0 sm:max-w-[760px] xl:max-w-[900px]"
+        className="w-full overflow-hidden p-0 sm:max-w-[760px] xl:max-w-[960px]"
       >
         <div className="flex h-full flex-col bg-slate-50">
           <SheetHeader className="border-b border-slate-200 bg-white px-5 py-4">
@@ -790,7 +923,7 @@ export default function ProductEditorSheet({
                 </SheetTitle>
 
                 <SheetDescription className="text-xs text-slate-500">
-                  Ajuste nome, foto, preço, disponibilidade, categoria e status.
+                  Produto, preço, dias de venda e complementos no mesmo lugar.
                 </SheetDescription>
               </div>
             </div>
@@ -833,7 +966,7 @@ export default function ProductEditorSheet({
                         value={description}
                         onChange={(event) => setDescription(event.target.value)}
                         placeholder="Ex: Pão brioche, hambúrguer bovino, cheddar, bacon e molho especial..."
-                        rows={4}
+                        rows={3}
                         className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                       />
                     </div>
@@ -845,7 +978,13 @@ export default function ProductEditorSheet({
 
                       <select
                         value={category}
-                        onChange={(event) => setCategory(event.target.value)}
+                        onChange={(event) => {
+                          setCategory(event.target.value)
+
+                          if (!availabilityCategory) {
+                            setAvailabilityCategory(event.target.value)
+                          }
+                        }}
                         className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                       >
                         {categories.map((item) => (
@@ -873,7 +1012,6 @@ export default function ProductEditorSheet({
                   </div>
                 </section>
 
-
                 <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -883,10 +1021,10 @@ export default function ProductEditorSheet({
 
                       <div>
                         <h3 className="text-sm font-black text-slate-950">
-                          Dias de venda
+                          Dias e horários de venda
                         </h3>
                         <p className="mt-1 text-xs leading-5 text-slate-500">
-                          Defina se o produto aparece sempre ou apenas em dias específicos.
+                          Defina se o produto aparece sempre ou apenas em dias e horários específicos.
                         </p>
                       </div>
                     </div>
@@ -939,13 +1077,13 @@ export default function ProductEditorSheet({
                     >
                       <p className="text-sm font-black">Dias específicos</p>
                       <p className="mt-1 text-xs leading-5">
-                        Ideal para tropeiro, feijoada, marmita e pratos do dia.
+                        Ideal para tropeiro, feijoada, almoço e pratos do dia.
                       </p>
                     </button>
                   </div>
 
                   {availabilityType === "scheduled" && (
-                    <div className="mt-4 space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                    <div className="mt-4 space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
                       <div>
                         <label className="mb-2 block text-sm font-black text-slate-800">
                           Dias em que aparece
@@ -961,7 +1099,9 @@ export default function ProductEditorSheet({
                               <button
                                 key={weekday.value}
                                 type="button"
-                                onClick={() => toggleAvailabilityWeekday(weekday.value)}
+                                onClick={() =>
+                                  toggleAvailabilityWeekday(weekday.value)
+                                }
                                 className={cn(
                                   "rounded-lg border px-3 py-2 text-sm font-black transition",
                                   selected
@@ -977,7 +1117,7 @@ export default function ProductEditorSheet({
 
                         {availabilityWeekdays.length === 0 ? (
                           <p className="mt-2 text-xs font-semibold text-red-600">
-                            Selecione pelo menos um dia para esse produto aparecer.
+                            Selecione pelo menos um dia.
                           </p>
                         ) : null}
                       </div>
@@ -1000,10 +1140,6 @@ export default function ProductEditorSheet({
                             </option>
                           ))}
                         </select>
-
-                        <p className="mt-1.5 text-xs leading-5 text-slate-500">
-                          Exemplo: o produto pode ficar cadastrado em “Almoço”, mas aparecer em “Pratos do dia” na quarta-feira.
-                        </p>
                       </div>
 
                       <div>
@@ -1045,7 +1181,7 @@ export default function ProductEditorSheet({
                         {Boolean(availabilityStartTime) !==
                         Boolean(availabilityEndTime) ? (
                           <p className="mt-2 text-xs font-semibold text-red-600">
-                            Preencha início e fim, ou deixe os dois vazios para vender o dia todo.
+                            Preencha início e fim, ou deixe os dois vazios.
                           </p>
                         ) : null}
 
@@ -1053,17 +1189,14 @@ export default function ProductEditorSheet({
                         availabilityEndTime &&
                         availabilityStartTime >= availabilityEndTime ? (
                           <p className="mt-2 text-xs font-semibold text-red-600">
-                            O horário final precisa ser maior que o horário inicial.
+                            O horário final precisa ser maior que o inicial.
                           </p>
                         ) : null}
-
-                        <p className="mt-2 text-xs leading-5 text-slate-500">
-                          Deixe vazio para aparecer durante o dia inteiro selecionado.
-                        </p>
                       </div>
                     </div>
                   )}
                 </section>
+
                 <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -1073,211 +1206,379 @@ export default function ProductEditorSheet({
 
                       <div>
                         <h3 className="text-sm font-black text-slate-950">
-                          Complementos e adicionais
+                          Complementos reutilizáveis
                         </h3>
                         <p className="mt-1 text-xs leading-5 text-slate-500">
-                          Cadastre extras, molhos, ponto da carne e escolhas obrigatórias.
+                          Use grupos já cadastrados ou crie um novo grupo enquanto adiciona o produto.
                         </p>
                       </div>
                     </div>
 
-                    {mode === "edit" && product?.id ? (
-                      <button
-                        type="button"
-                        onClick={addModifierGroup}
-                        className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Grupo
-                      </button>
-                    ) : null}
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                      {totalModifierGroups} grupo(s)
+                    </span>
                   </div>
 
-                  {mode !== "edit" || !product?.id ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
-                      Salve o produto primeiro. Depois abra novamente para cadastrar os complementos.
-                    </div>
-                  ) : loadingModifiers ? (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                  {loadingModifiers ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Carregando complementos...
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {modifierGroups.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-blue-200 bg-blue-50/70 p-4 text-sm leading-6 text-blue-800">
-                          Nenhum complemento cadastrado ainda. Clique em <strong>Grupo</strong> para criar adicionais como bacon, cheddar, molhos ou ponto da carne.
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                              Usar grupo existente
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              O mesmo grupo pode ser usado em vários produtos.
+                            </p>
+                          </div>
+
+                          <Link2 className="h-4 w-4 text-slate-400" />
                         </div>
-                      ) : null}
 
-                      {modifierGroups.map((group, groupIndex) => (
-                        <div
-                          key={`${group.id ?? "new"}-${groupIndex}`}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="mb-3 flex items-start justify-between gap-3">
-                            <div className="flex-1">
-                              <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                                Nome do grupo
-                              </label>
-                              <input
-                                type="text"
-                                value={group.name}
-                                onChange={(event) =>
-                                  updateModifierGroup(groupIndex, {
-                                    name: event.target.value,
-                                  })
-                                }
-                                placeholder="Ex: Adicionais, Molhos, Ponto da carne"
-                                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => removeModifierGroup(groupIndex)}
-                              className="mt-6 flex h-10 w-10 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
-                              aria-label="Remover grupo"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                        {availableModifierGroups.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
+                            Nenhum grupo reutilizável cadastrado ainda.
                           </div>
+                        ) : (
+                          <div className="grid gap-2">
+                            {availableModifierGroups.map((group) => {
+                              const selected = selectedModifierGroupIds.includes(
+                                group.id
+                              )
 
-                          <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateModifierGroup(groupIndex, {
-                                  required: !group.required,
-                                  minSelect: !group.required
-                                    ? Math.max(group.minSelect, 1)
-                                    : 0,
-                                })
-                              }
-                              className={cn(
-                                "rounded-lg border px-3 py-2 text-left transition",
-                                group.required
-                                  ? "border-orange-300 bg-orange-50 text-orange-700"
-                                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                              )}
-                            >
-                              <p className="text-xs font-black uppercase">Obrigatório</p>
-                              <p className="mt-0.5 text-xs">
-                                {group.required ? "Sim" : "Não"}
-                              </p>
-                            </button>
-
-                            <div>
-                              <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                                Mínimo
-                              </label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={group.minSelect}
-                                onChange={(event) =>
-                                  updateModifierGroup(groupIndex, {
-                                    minSelect: parseIntegerInput(event.target.value),
-                                  })
-                                }
-                                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                                Máximo
-                              </label>
-                              <input
-                                type="number"
-                                min={1}
-                                value={group.maxSelect}
-                                onChange={(event) =>
-                                  updateModifierGroup(groupIndex, {
-                                    maxSelect: Math.max(
-                                      parseIntegerInput(event.target.value, 1),
-                                      1
-                                    ),
-                                  })
-                                }
-                                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                                Opções
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => addModifierOption(groupIndex)}
-                                className="text-xs font-black text-blue-600 hover:text-blue-700"
-                              >
-                                + Adicionar opção
-                              </button>
-                            </div>
-
-                            {group.options.map((option, optionIndex) => (
-                              <div
-                                key={`${option.id ?? "new"}-${optionIndex}`}
-                                className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_120px_40px]"
-                              >
-                                <input
-                                  type="text"
-                                  value={option.name}
-                                  onChange={(event) =>
-                                    updateModifierOption(groupIndex, optionIndex, {
-                                      name: event.target.value,
-                                    })
-                                  }
-                                  placeholder="Ex: Bacon extra"
-                                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                                />
-
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                    R$
-                                  </span>
-                                  <input
-  type="number"
-  min={0}
-  step="0.01"
-  value={option.price === 0 ? "" : option.price}
-  onChange={(event) =>
-    updateModifierOption(groupIndex, optionIndex, {
-      price: Number(event.target.value || 0),
-    })
-  }
-  placeholder="0,00"
-  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-/>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() => removeModifierOption(groupIndex, optionIndex)}
-                                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
-                                  aria-label="Remover opção"
+                              return (
+                                <div
+                                  key={group.id}
+                                  className={cn(
+                                    "rounded-lg border bg-white p-3 transition",
+                                    selected
+                                      ? "border-blue-300 ring-2 ring-blue-500/10"
+                                      : "border-slate-200"
+                                  )}
                                 >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        toggleExistingModifierGroup(group.id)
+                                      }
+                                      className="min-w-0 flex-1 text-left"
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-black text-slate-950">
+                                          {group.name}
+                                        </span>
+
+                                        {selected ? (
+                                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-black text-blue-700">
+                                            Vinculado
+                                          </span>
+                                        ) : null}
+
+                                        {group.required ? (
+                                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                            Obrigatório
+                                          </span>
+                                        ) : null}
+                                      </div>
+
+                                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                                        {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
+                                      </p>
+                                    </button>
+
+                                    <div className="flex shrink-0 gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          toggleExistingModifierGroup(group.id)
+                                        }
+                                        className={cn(
+                                          "h-9 rounded-lg px-3 text-xs font-black transition",
+                                          selected
+                                            ? "bg-blue-600 text-white hover:bg-blue-700"
+                                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                                        )}
+                                      >
+                                        {selected ? "Remover" : "Usar"}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          duplicateExistingGroupForProduct(group)
+                                        }
+                                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-100"
+                                      >
+                                        <Copy className="h-3.5 w-3.5" />
+                                        Duplicar
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedExistingGroups.length > 0 ? (
+                        <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+                          <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                            Grupos vinculados neste produto
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {selectedExistingGroups.map((group) => (
+                              <span
+                                key={group.id}
+                                className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100"
+                              >
+                                {group.name}
+                              </span>
                             ))}
                           </div>
                         </div>
-                      ))}
+                      ) : null}
 
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => void saveModifierGroups()}
-                          disabled={savingModifiers}
-                          className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {savingModifiers ? "Salvando..." : "Salvar complementos"}
-                        </button>
+                      <div className="rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                              Criar novo grupo
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              O grupo novo será salvo e poderá ser reutilizado depois.
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={addNewModifierGroup}
+                            className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Grupo
+                          </button>
+                        </div>
+
+                        {newModifierGroups.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                            Clique em <strong>Grupo</strong> para criar adicionais, molhos, ponto da carne ou escolha obrigatória.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {newModifierGroups.map((group, groupIndex) => (
+                              <div
+                                key={`new-group-${groupIndex}`}
+                                className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                              >
+                                <div className="mb-3 flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                      Nome do grupo
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={group.name}
+                                      onChange={(event) =>
+                                        updateNewModifierGroup(groupIndex, {
+                                          name: event.target.value,
+                                        })
+                                      }
+                                      placeholder="Ex: Adicionais, Molhos, Ponto da carne"
+                                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                                    />
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeNewModifierGroup(groupIndex)
+                                    }
+                                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
+                                    aria-label="Remover grupo"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateNewModifierGroup(groupIndex, {
+                                        required: !group.required,
+                                        minSelect: !group.required
+                                          ? Math.max(group.minSelect, 1)
+                                          : 0,
+                                      })
+                                    }
+                                    className={cn(
+                                      "rounded-lg border px-3 py-2 text-left transition",
+                                      group.required
+                                        ? "border-orange-300 bg-orange-50 text-orange-700"
+                                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                                    )}
+                                  >
+                                    <p className="text-xs font-black uppercase">
+                                      Obrigatório
+                                    </p>
+                                    <p className="mt-0.5 text-xs">
+                                      {group.required ? "Sim" : "Não"}
+                                    </p>
+                                  </button>
+
+                                  <div>
+                                    <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                      Mínimo
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={group.minSelect}
+                                      onChange={(event) =>
+                                        updateNewModifierGroup(groupIndex, {
+                                          minSelect: parseIntegerInput(
+                                            event.target.value
+                                          ),
+                                        })
+                                      }
+                                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                      Máximo
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={group.maxSelect}
+                                      onChange={(event) =>
+                                        updateNewModifierGroup(groupIndex, {
+                                          maxSelect: Math.max(
+                                            parseIntegerInput(
+                                              event.target.value,
+                                              1
+                                            ),
+                                            1
+                                          ),
+                                        })
+                                      }
+                                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                      Opções
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        addNewModifierOption(groupIndex)
+                                      }
+                                      className="text-xs font-black text-blue-600 hover:text-blue-700"
+                                    >
+                                      + Adicionar opção
+                                    </button>
+                                  </div>
+
+                                  {group.options.map((option, optionIndex) => (
+                                    <div
+                                      key={`new-option-${groupIndex}-${optionIndex}`}
+                                      className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_120px_40px]"
+                                    >
+                                      <input
+                                        type="text"
+                                        value={option.name}
+                                        onChange={(event) =>
+                                          updateNewModifierOption(
+                                            groupIndex,
+                                            optionIndex,
+                                            {
+                                              name: event.target.value,
+                                            }
+                                          )
+                                        }
+                                        placeholder="Ex: Bacon extra"
+                                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                                      />
+
+                                      <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                                          R$
+                                        </span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step="0.01"
+                                          value={
+                                            option.price === 0
+                                              ? ""
+                                              : option.price
+                                          }
+                                          onChange={(event) =>
+                                            updateNewModifierOption(
+                                              groupIndex,
+                                              optionIndex,
+                                              {
+                                                price: Number(
+                                                  event.target.value || 0
+                                                ),
+                                              }
+                                            )
+                                          }
+                                          placeholder="0,00"
+                                          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                                        />
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeNewModifierOption(
+                                            groupIndex,
+                                            optionIndex
+                                          )
+                                        }
+                                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+                                        aria-label="Remover opção"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
+
+                      {mode === "edit" && product?.id && modifiersTouched ? (
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void saveProductModifierGroups(product.id)
+                            }
+                            disabled={savingModifiers}
+                            className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {savingModifiers ? "Salvando..." : "Salvar complementos"}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </section>
@@ -1290,7 +1591,7 @@ export default function ProductEditorSheet({
                       Preço e custo
                     </h3>
                     <p className="mt-1 text-xs text-slate-500">
-                      O lucro e a margem são calculados automaticamente.
+                      Lucro e margem são calculados automaticamente.
                     </p>
                   </div>
 
@@ -1348,7 +1649,7 @@ export default function ProductEditorSheet({
                         Promoção fixa
                       </h3>
                       <p className="mt-1 text-xs text-slate-500">
-                        Desconto direto no produto, em valor fixo ou porcentagem.
+                        Desconto direto no produto.
                       </p>
                     </div>
 
@@ -1458,7 +1759,7 @@ export default function ProductEditorSheet({
 
                         {finalPrice <= 0 && numericPrice > 0 && (
                           <p className="mt-1 text-xs font-semibold text-red-600">
-                            O desconto não pode zerar o preço do produto.
+                            O desconto não pode zerar o preço.
                           </p>
                         )}
                       </div>
@@ -1470,7 +1771,7 @@ export default function ProductEditorSheet({
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-black text-slate-950">
-                        Resultado do produto
+                        Resultado
                       </h3>
                       <p className="mt-1 text-xs text-slate-500">
                         Visão rápida antes de salvar.
@@ -1636,7 +1937,7 @@ export default function ProductEditorSheet({
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 {mode === "create"
-                  ? "Revise os dados antes de publicar o item."
+                  ? "Você já pode criar o produto com complementos vinculados."
                   : "As alterações são aplicadas no catálogo após salvar."}
               </p>
 
@@ -1651,10 +1952,14 @@ export default function ProductEditorSheet({
 
                 <Button
                   onClick={() => void handleSave()}
-                  disabled={!canSave || savingModifiers}
+                  disabled={!canSave || savingModifiers || loadingModifiers}
                   className="h-10 rounded-lg bg-blue-600 px-5 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Save className="h-4 w-4" />
+                  {savingModifiers ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   {savingModifiers
                     ? "Salvando..."
                     : mode === "create"

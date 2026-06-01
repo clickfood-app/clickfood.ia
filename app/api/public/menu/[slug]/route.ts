@@ -29,7 +29,6 @@ function calculateRatingSummary(ratings: Array<{ customer_rating: number | strin
   }
 }
 
-
 function pickFirstNumber(
   source: Record<string, unknown>,
   keys: string[],
@@ -243,7 +242,6 @@ type DeliveryFeeRuleRow = {
 type ModifierGroupRow = {
   id: string
   restaurant_id: string
-  product_id: string
   name: string
   required: boolean | null
   min_select: number | string | null
@@ -255,9 +253,20 @@ type ModifierGroupRow = {
 
 type ModifierOptionRow = {
   id: string
+  restaurant_id: string
   group_id: string
   name: string
   price: number | string | null
+  sort_order: number | string | null
+  is_active: boolean | null
+  created_at?: string | null
+}
+
+type ProductModifierGroupLinkRow = {
+  id: string
+  restaurant_id: string
+  product_id: string
+  group_id: string
   sort_order: number | string | null
   is_active: boolean | null
   created_at?: string | null
@@ -322,6 +331,8 @@ export async function GET(_request: Request, context: RouteContext) {
       availabilityRulesResult,
       deliveryRulesResult,
       ratingsResult,
+      modifierGroupsResult,
+      modifierGroupLinksResult,
     ] = await Promise.all([
       supabaseAdmin
         .from("categories")
@@ -362,6 +373,26 @@ export async function GET(_request: Request, context: RouteContext) {
         .select("customer_rating")
         .eq("restaurant_id", restaurant.id)
         .not("customer_rating", "is", null),
+
+      supabaseAdmin
+        .from("modifier_groups")
+        .select(
+          "id, restaurant_id, name, required, min_select, max_select, sort_order, is_active, created_at"
+        )
+        .eq("restaurant_id", restaurant.id)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+
+      supabaseAdmin
+        .from("product_modifier_group_links")
+        .select(
+          "id, restaurant_id, product_id, group_id, sort_order, is_active, created_at"
+        )
+        .eq("restaurant_id", restaurant.id)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
     ])
 
     if (categoriesResult.error) {
@@ -443,46 +474,58 @@ export async function GET(_request: Request, context: RouteContext) {
       )
     }
 
-    const { data: modifierGroupsData, error: modifierGroupsError } = await supabaseAdmin
-      .from("product_modifier_groups")
-      .select(
-        "id, restaurant_id, product_id, name, required, min_select, max_select, sort_order, is_active, created_at"
-      )
-      .eq("restaurant_id", restaurant.id)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true })
-
-    if (modifierGroupsError) {
+    if (modifierGroupsResult.error) {
       console.error("Erro ao buscar grupos de complementos públicos:", {
         restaurantId: restaurant.id,
-        message: modifierGroupsError.message,
-        details: modifierGroupsError.details,
-        hint: modifierGroupsError.hint,
-        code: modifierGroupsError.code,
+        message: modifierGroupsResult.error.message,
+        details: modifierGroupsResult.error.details,
+        hint: modifierGroupsResult.error.hint,
+        code: modifierGroupsResult.error.code,
       })
 
       return NextResponse.json(
         {
           error:
-            modifierGroupsError.message ||
-            "Erro ao buscar complementos do cardápio.",
+            modifierGroupsResult.error.message ||
+            "Erro ao buscar grupos de complementos do cardápio.",
         },
         { status: 500 }
       )
     }
 
-    const modifierGroups = (modifierGroupsData ?? []) as ModifierGroupRow[]
+    if (modifierGroupLinksResult.error) {
+      console.error("Erro ao buscar vínculos de complementos públicos:", {
+        restaurantId: restaurant.id,
+        message: modifierGroupLinksResult.error.message,
+        details: modifierGroupLinksResult.error.details,
+        hint: modifierGroupLinksResult.error.hint,
+        code: modifierGroupLinksResult.error.code,
+      })
+
+      return NextResponse.json(
+        {
+          error:
+            modifierGroupLinksResult.error.message ||
+            "Erro ao buscar vínculos de complementos do cardápio.",
+        },
+        { status: 500 }
+      )
+    }
+
+    const modifierGroups = (modifierGroupsResult.data ?? []) as ModifierGroupRow[]
+    const modifierGroupLinks =
+      (modifierGroupLinksResult.data ?? []) as ProductModifierGroupLinkRow[]
     const modifierGroupIds = modifierGroups.map((group) => group.id)
     let modifierOptions: ModifierOptionRow[] = []
 
     if (modifierGroupIds.length > 0) {
       const { data: modifierOptionsData, error: modifierOptionsError } =
         await supabaseAdmin
-          .from("product_modifier_options")
-          .select("id, group_id, name, price, sort_order, is_active, created_at")
-          .in("group_id", modifierGroupIds)
+          .from("modifier_group_options")
+          .select("id, restaurant_id, group_id, name, price, sort_order, is_active, created_at")
+          .eq("restaurant_id", restaurant.id)
           .eq("is_active", true)
+          .in("group_id", modifierGroupIds)
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: true })
 
@@ -516,6 +559,20 @@ export async function GET(_request: Request, context: RouteContext) {
       optionsByGroup.set(option.group_id, current)
     }
 
+    const modifierGroupsById = new Map<string, ModifierGroupRow>()
+
+    for (const group of modifierGroups) {
+      modifierGroupsById.set(group.id, group)
+    }
+
+    const modifierGroupLinksByProduct = new Map<string, ProductModifierGroupLinkRow[]>()
+
+    for (const link of modifierGroupLinks) {
+      const current = modifierGroupLinksByProduct.get(link.product_id) ?? []
+      current.push(link)
+      modifierGroupLinksByProduct.set(link.product_id, current)
+    }
+
     const modifierGroupsByProduct = new Map<
       string,
       Array<{
@@ -532,25 +589,51 @@ export async function GET(_request: Request, context: RouteContext) {
       }>
     >()
 
-    for (const group of modifierGroups) {
-      const normalizedGroup = {
-        id: group.id,
-        name: group.name,
-        required: Boolean(group.required),
-        minSelect: toNumber(group.min_select, 0),
-        maxSelect: Math.max(1, toNumber(group.max_select, 1)),
-        options: (optionsByGroup.get(group.id) ?? [])
-          .map((option) => ({
-            id: option.id,
-            name: option.name,
-            price: toNumber(option.price, 0),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      }
+    for (const [productId, links] of modifierGroupLinksByProduct.entries()) {
+      const normalizedGroups = links
+        .sort((a, b) => toNumber(a.sort_order, 0) - toNumber(b.sort_order, 0))
+        .map((link) => {
+          const group = modifierGroupsById.get(link.group_id)
 
-      const current = modifierGroupsByProduct.get(group.product_id) ?? []
-      current.push(normalizedGroup)
-      modifierGroupsByProduct.set(group.product_id, current)
+          if (!group) return null
+
+          return {
+            id: group.id,
+            name: group.name,
+            required: Boolean(group.required),
+            minSelect: toNumber(group.min_select, 0),
+            maxSelect: Math.max(1, toNumber(group.max_select, 1)),
+            options: (optionsByGroup.get(group.id) ?? [])
+              .sort((a, b) => toNumber(a.sort_order, 0) - toNumber(b.sort_order, 0))
+              .map((option) => ({
+                id: option.id,
+                name: option.name,
+                price: toNumber(option.price, 0),
+              })),
+          }
+        })
+                .filter(
+          (
+            group
+          ): group is {
+            id: string
+            name: string
+            required: boolean
+            minSelect: number
+            maxSelect: number
+            options: Array<{
+              id: string
+              name: string
+              price: number
+            }>
+          } => {
+            if (!group) return false
+
+            return group.options.length > 0
+          }
+        )
+
+      modifierGroupsByProduct.set(productId, normalizedGroups)
     }
 
     const categories = categoriesResult.data ?? []
@@ -606,6 +689,7 @@ export async function GET(_request: Request, context: RouteContext) {
       )
 
       const availabilityType = String(product.availability_type ?? "always")
+      const productModifierGroups = modifierGroupsByProduct.get(product.id) ?? []
 
       const normalizedProduct = {
         id: product.id,
@@ -642,8 +726,8 @@ export async function GET(_request: Request, context: RouteContext) {
         image: product.image_url ?? null,
         imageSize: null,
         imageUrl: product.image_url ?? null,
-        modifierGroups: modifierGroupsByProduct.get(product.id) ?? [],
-        modifier_groups: modifierGroupsByProduct.get(product.id) ?? [],
+        modifierGroups: productModifierGroups,
+        modifier_groups: productModifierGroups,
       }
 
       const current = productsByCategory.get(categoryKey) ?? []

@@ -9,8 +9,10 @@ type CreateOrderItemInput = {
   unit_price?: number
   notes?: string
   modifiers?: Array<{
+    groupId?: string
     groupName?: string
     option?: {
+      id?: string
       name?: string
       price?: number
     }
@@ -63,12 +65,22 @@ type PaymentSettingsRow = {
   service_fee_amount: number | string | null
 }
 
+type NormalizedModifier = {
+  groupId: string | null
+  groupName: string
+  optionId: string | null
+  optionName: string
+  optionPrice: number
+}
+
 type ValidatedOrderItem = {
   product_id: string
   product_name: string
   quantity: number
   unit_price: number
   total_price: number
+  notes: string | null
+  modifiers: NormalizedModifier[]
 }
 
 function normalizeText(value: unknown) {
@@ -90,6 +102,29 @@ function normalizeSearchText(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
+}
+
+function normalizeModifiers(
+  modifiers: CreateOrderItemInput["modifiers"]
+): NormalizedModifier[] {
+  if (!Array.isArray(modifiers)) return []
+
+  return modifiers
+    .map((modifier) => {
+      const groupName = normalizeText(modifier.groupName)
+      const optionName = normalizeText(modifier.option?.name)
+
+      if (!groupName || !optionName) return null
+
+      return {
+        groupId: normalizeText(modifier.groupId) || null,
+        groupName,
+        optionId: normalizeText(modifier.option?.id) || null,
+        optionName,
+        optionPrice: roundMoney(Math.max(0, normalizeNumber(modifier.option?.price, 0))),
+      }
+    })
+    .filter((modifier): modifier is NormalizedModifier => Boolean(modifier))
 }
 
 function mapPaymentMethod(value: string) {
@@ -292,6 +327,8 @@ export async function POST(request: Request) {
       const productId = normalizeText(item.product_id)
       const quantity = Math.max(1, Math.floor(normalizeNumber(item.quantity, 1)))
       const product = productMap.get(productId)
+      const itemNotes = normalizeText(item.notes)
+      const itemModifiers = normalizeModifiers(item.modifiers)
 
       if (!product) {
         return NextResponse.json(
@@ -334,6 +371,8 @@ export async function POST(request: Request) {
         quantity,
         unit_price: safeUnitPrice,
         total_price: lineTotal,
+        notes: itemNotes || null,
+        modifiers: itemModifiers,
       })
     }
 
@@ -441,6 +480,8 @@ export async function POST(request: Request) {
       quantity: item.quantity,
       unit_price: item.unit_price,
       total_price: item.total_price,
+      notes: item.notes,
+      modifiers: item.modifiers,
     }))
 
     const { error: createOrderItemsError } = await supabaseAdmin

@@ -659,14 +659,20 @@ function FeaturedOfferCard({
   const { discount, originalPrice } = getProductPromotion(product)
 
   const handleQuickAdd = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation()
-    setIsAdding(true)
-    onQuickAdd(product, categoryId)
+  event.stopPropagation()
 
-    setTimeout(() => {
-      setIsAdding(false)
-    }, 650)
+  if (productHasRequiredModifiers(product)) {
+    onSelect(product, categoryId)
+    return
   }
+
+  setIsAdding(true)
+  onQuickAdd(product, categoryId)
+
+  setTimeout(() => {
+    setIsAdding(false)
+  }, 650)
+}
 
   const handleOpenProduct = () => {
     onSelect(product, categoryId)
@@ -821,19 +827,25 @@ function ProductCard({
   const { badge, discount, originalPrice, isPromotional } = getProductPromotion(product)
 
   const handleQuickAdd = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsAdding(true)
-    setShowRipple(true)
+  e.stopPropagation()
 
-    if (navigator.vibrate) navigator.vibrate(10)
-
-    onQuickAdd()
-
-    setTimeout(() => {
-      setIsAdding(false)
-      setShowRipple(false)
-    }, 700)
+  if (productHasRequiredModifiers(product)) {
+    onSelect()
+    return
   }
+
+  setIsAdding(true)
+  setShowRipple(true)
+
+  if (navigator.vibrate) navigator.vibrate(10)
+
+  onQuickAdd()
+
+  setTimeout(() => {
+    setIsAdding(false)
+    setShowRipple(false)
+  }, 700)
+}
 
   return (
     <div
@@ -948,15 +960,18 @@ function ModifierGroupComponent({
   group,
   selected,
   accentColor,
-  onToggle,
+  onIncrease,
+  onDecrease,
 }: {
   group: ModifierGroup
   selected: ModifierOption[]
   accentColor: string
-  onToggle: (option: ModifierOption) => void
+  onIncrease: (option: ModifierOption) => void
+  onDecrease: (option: ModifierOption) => void
 }) {
   const isRadio = group.maxSelect === 1
-  const reachedMax = !isRadio && selected.length >= group.maxSelect
+  const totalSelected = selected.length
+  const reachedMax = !isRadio && totalSelected >= group.maxSelect
 
   return (
     <div className="space-y-2">
@@ -973,27 +988,80 @@ function ModifierGroupComponent({
 
         {!isRadio && group.maxSelect > 1 && (
           <span className="text-xs text-gray-400">
-            {selected.length}/{group.maxSelect}
+            {totalSelected}/{group.maxSelect}
           </span>
         )}
       </div>
 
       <div className="space-y-1.5">
         {group.options.map((option) => {
-          const isSelected = selected.some((s) => s.id === option.id)
+          const selectedCount = selected.filter((s) => s.id === option.id).length
+          const isSelected = selectedCount > 0
           const isDisabled = !isSelected && reachedMax
 
+          if (isRadio) {
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onIncrease(option)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition-all",
+                  isSelected ? "ring-2" : "bg-gray-50 hover:bg-gray-100"
+                )}
+                style={
+                  isSelected
+                    ? {
+                        backgroundColor: `${accentColor}14`,
+                        borderColor: accentColor,
+                        boxShadow: `0 0 0 2px ${accentColor}`,
+                      }
+                    : undefined
+                }
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
+                      isSelected ? "border-transparent text-white" : "border-gray-300"
+                    )}
+                    style={
+                      isSelected
+                        ? { borderColor: accentColor, backgroundColor: accentColor }
+                        : undefined
+                    }
+                  >
+                    {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                  </div>
+
+                  <span
+                    className={cn(
+                      "text-sm",
+                      isSelected ? "font-semibold text-gray-900" : "text-gray-700"
+                    )}
+                  >
+                    {option.name}
+                  </span>
+                </div>
+
+                {option.price > 0 && (
+                  <span className="text-xs font-bold" style={{ color: accentColor }}>
+                    +{formatPrice(option.price)}
+                  </span>
+                )}
+              </button>
+            )
+          }
+
           return (
-            <button
+            <div
               key={option.id}
-              onClick={() => !isDisabled && onToggle(option)}
-              disabled={isDisabled}
               className={cn(
-                "flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition-all",
+                "flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-all",
                 isSelected
                   ? "ring-2"
                   : isDisabled
-                    ? "bg-gray-50 opacity-50 cursor-not-allowed"
+                    ? "bg-gray-50 opacity-50"
                     : "bg-gray-50 hover:bg-gray-100"
               )}
               style={
@@ -1006,11 +1074,11 @@ function ModifierGroupComponent({
                   : undefined
               }
             >
-              <div className="flex items-center gap-3">
+              <div className="min-w-0 flex items-center gap-3">
                 <div
                   className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
-                    isSelected ? "border-transparent text-white" : "border-gray-300"
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all",
+                    isSelected ? "border-transparent text-white" : "border-gray-300 text-gray-400"
                   )}
                   style={
                     isSelected
@@ -1018,25 +1086,52 @@ function ModifierGroupComponent({
                       : undefined
                   }
                 >
-                  {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                  {isSelected ? `${selectedCount}x` : <Plus className="h-3.5 w-3.5" />}
                 </div>
 
-                <span
-                  className={cn(
-                    "text-sm",
-                    isSelected ? "font-semibold text-gray-900" : "text-gray-700"
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "truncate text-sm",
+                      isSelected ? "font-semibold text-gray-900" : "text-gray-700"
+                    )}
+                  >
+                    {option.name}
+                  </p>
+
+                  {option.price > 0 && (
+                    <p className="mt-0.5 text-xs font-bold" style={{ color: accentColor }}>
+                      +{formatPrice(option.price)} cada
+                    </p>
                   )}
-                >
-                  {option.name}
-                </span>
+                </div>
               </div>
 
-              {option.price > 0 && (
-                <span className="text-xs font-bold" style={{ color: accentColor }}>
-                  +{formatPrice(option.price)}
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onDecrease(option)}
+                  disabled={!isSelected}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+
+                <span className="w-5 text-center text-sm font-black text-gray-900">
+                  {selectedCount}
                 </span>
-              )}
-            </button>
+
+                <button
+                  type="button"
+                  onClick={() => onIncrease(option)}
+                  disabled={reachedMax}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+                  style={reachedMax ? undefined : { backgroundColor: accentColor }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
           )
         })}
       </div>
@@ -1047,6 +1142,29 @@ function ModifierGroupComponent({
 type MenuProductWithModifiers = MenuProduct & {
   modifierGroups?: ModifierGroup[] | null
   modifier_groups?: ModifierGroup[] | null
+}
+function getProductModifierGroups(product: MenuProduct): ModifierGroup[] {
+  const productWithModifiers = product as MenuProductWithModifiers
+
+  const modifierGroupsSource =
+    productWithModifiers.modifierGroups ??
+    productWithModifiers.modifier_groups ??
+    []
+
+  return Array.isArray(modifierGroupsSource)
+    ? modifierGroupsSource.filter(
+        (group): group is ModifierGroup =>
+          Boolean(group) &&
+          Array.isArray(group.options) &&
+          group.options.length > 0
+      )
+    : []
+}
+
+function productHasRequiredModifiers(product: MenuProduct) {
+  return getProductModifierGroups(product).some(
+    (group) => group.required && group.minSelect > 0
+  )
 }
 
 function ProductModal({
@@ -1068,17 +1186,8 @@ function ProductModal({
 
   const productWithModifiers = product as MenuProductWithModifiers
 
-const modifierGroupsSource =
-  productWithModifiers.modifierGroups ??
-  productWithModifiers.modifier_groups ??
-  []
-
-const modifierGroups = Array.isArray(modifierGroupsSource)
-  ? modifierGroupsSource.filter(
-      (group) => Array.isArray(group.options) && group.options.length > 0
-    )
-  : []
-  const productPromotion = getProductPromotion(product)
+const modifierGroups = getProductModifierGroups(product)
+const productPromotion = getProductPromotion(product)
 
   const modifiersTotal = Object.values(selectedModifiers)
     .flat()
@@ -1092,26 +1201,38 @@ const modifierGroups = Array.isArray(modifierGroupsSource)
     (g) => (selectedModifiers[g.id] || []).length >= g.minSelect
   )
 
-  const handleModifierToggle = (group: ModifierGroup, option: ModifierOption) => {
-    setSelectedModifiers((prev) => {
-      const current = prev[group.id] || []
-      const isSelected = current.some((o) => o.id === option.id)
+ const handleModifierIncrease = (group: ModifierGroup, option: ModifierOption) => {
+  setSelectedModifiers((prev) => {
+    const current = prev[group.id] || []
+    const isSelected = current.some((o) => o.id === option.id)
 
-      if (group.maxSelect === 1) {
-        return { ...prev, [group.id]: isSelected ? [] : [option] }
-      }
+    if (group.maxSelect === 1) {
+      return { ...prev, [group.id]: isSelected ? [] : [option] }
+    }
 
-      if (isSelected) {
-        return { ...prev, [group.id]: current.filter((o) => o.id !== option.id) }
-      }
-
-      if (current.length < group.maxSelect) {
-        return { ...prev, [group.id]: [...current, option] }
-      }
-
+    if (current.length >= group.maxSelect) {
       return prev
-    })
-  }
+    }
+
+    return { ...prev, [group.id]: [...current, option] }
+  })
+}
+
+const handleModifierDecrease = (group: ModifierGroup, option: ModifierOption) => {
+  setSelectedModifiers((prev) => {
+    const current = prev[group.id] || []
+    const optionIndex = current.findIndex((o) => o.id === option.id)
+
+    if (optionIndex === -1) {
+      return prev
+    }
+
+    const next = [...current]
+    next.splice(optionIndex, 1)
+
+    return { ...prev, [group.id]: next }
+  })
+}
 
   const handleAddToCart = () => {
     const modifiers: SelectedModifier[] = []
@@ -1193,19 +1314,20 @@ const modifierGroups = Array.isArray(modifierGroupsSource)
               </div>
             </div>
 
-            {modifierGroups.length > 0 && (
-              <div className="space-y-5 border-t border-gray-100 pt-3">
-                {modifierGroups.map((group) => (
-                  <ModifierGroupComponent
-                    key={group.id}
-                    group={group}
-                    accentColor={accentColor}
-                    selected={selectedModifiers[group.id] || []}
-                    onToggle={(opt) => handleModifierToggle(group, opt)}
-                  />
-                ))}
-              </div>
-            )}
+{modifierGroups.length > 0 && (
+  <div className="space-y-5 border-t border-gray-100 pt-3">
+    {modifierGroups.map((group) => (
+      <ModifierGroupComponent
+        key={group.id}
+        group={group}
+        accentColor={accentColor}
+        selected={selectedModifiers[group.id] || []}
+        onIncrease={(opt) => handleModifierIncrease(group, opt)}
+        onDecrease={(opt) => handleModifierDecrease(group, opt)}
+      />
+    ))}
+  </div>
+)}
 
             <div className="border-t border-gray-100 pt-3">
               <label className="text-sm font-bold text-gray-900">Alguma observacao?</label>

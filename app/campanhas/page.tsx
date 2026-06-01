@@ -5,20 +5,21 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
+  BadgePercent,
   BarChart3,
-  CheckCircle2,
   ChevronRight,
   Clock3,
-  ExternalLink,
+  Coins,
   Gift,
   Loader2,
   Megaphone,
   MessageSquare,
-  Pencil,
   Search,
+  Sparkles,
   Star,
+  Target,
   TrendingUp,
-  UserRoundCheck,
+  Trophy,
   UsersRound,
   X,
   Zap,
@@ -92,12 +93,42 @@ type CampaignReview = {
   source: string;
 };
 
-type ReviewFilter = "all" | "positive" | "attention";
+type CampaignRevenueMetrics = {
+  loyaltyRevenue: number;
+  loyaltyOrders: number;
+  cashbackRevenue: number;
+  cashbackOrders: number;
+  cashbackGenerated: number;
+  cashbackUsed: number;
+  upsellRevenue: number;
+  upsellSales: number;
+  smartCampaignRevenue: number;
+  smartCampaignOrders: number;
+};
 
+type CampaignRevenueItem = {
+  title: string;
+  description: string;
+  revenue: number;
+  detail: string;
+  href: string;
+  tone: Tone;
+};
+
+type ReviewFilter = "all" | "positive" | "attention";
 type RawRecord = Record<string, unknown>;
+type Tone = "blue" | "orange" | "green" | "purple" | "slate";
+type StatusTone = "active" | "warning" | "neutral" | "info";
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("pt-BR").format(value || 0);
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value || 0);
 }
 
 function formatPercent(value: number) {
@@ -283,6 +314,323 @@ function normalizeReview(
   };
 }
 
+function getEmptyCampaignRevenueMetrics(): CampaignRevenueMetrics {
+  return {
+    loyaltyRevenue: 0,
+    loyaltyOrders: 0,
+    cashbackRevenue: 0,
+    cashbackOrders: 0,
+    cashbackGenerated: 0,
+    cashbackUsed: 0,
+    upsellRevenue: 0,
+    upsellSales: 0,
+    smartCampaignRevenue: 0,
+    smartCampaignOrders: 0,
+  };
+}
+
+function getOrderTotal(order: RawRecord) {
+  return getNumber(order, [
+    "total",
+    "amount",
+    "total_amount",
+    "grand_total",
+    "subtotal",
+  ]);
+}
+
+function getOrderPhone(order: RawRecord) {
+  return getText(order, [
+    "customer_phone",
+    "customerPhone",
+    "client_phone",
+    "phone",
+  ]).replace(/\D/g, "");
+}
+
+function isPaidOrDeliveredOrder(order: RawRecord) {
+  const paymentStatus = getText(order, ["payment_status"]).toLowerCase();
+  const status = getText(order, ["status"]).toLowerCase();
+
+  return (
+    paymentStatus === "paid" ||
+    status === "delivered" ||
+    status === "completed" ||
+    status === "finished" ||
+    status === "finalizado" ||
+    status === "entregue"
+  );
+}
+
+function hasTextSignal(record: RawRecord, keys: string[], signals: string[]) {
+  const text = getText(record, keys).toLowerCase();
+
+  return signals.some((signal) => text.includes(signal));
+}
+
+function getItemTotal(item: RawRecord) {
+  const directTotal = getNumber(item, [
+    "total",
+    "total_price",
+    "line_total",
+    "subtotal",
+    "amount",
+  ]);
+
+  if (directTotal > 0) {
+    return directTotal;
+  }
+
+  const quantity = getNumber(item, ["quantity", "qty", "amount_quantity"]);
+  const price = getNumber(item, ["unit_price", "price", "item_price"]);
+
+  return quantity > 0 && price > 0 ? quantity * price : 0;
+}
+
+function getItemQuantity(item: RawRecord) {
+  const quantity = getNumber(item, ["quantity", "qty", "amount_quantity"]);
+
+  return quantity > 0 ? quantity : 1;
+}
+
+async function fetchCampaignRevenueMetrics(
+  supabase: ReturnType<typeof createClient>,
+  restaurantId: string,
+) {
+  const metrics = getEmptyCampaignRevenueMetrics();
+
+  const { data: ordersData, error: ordersError } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("restaurant_id", restaurantId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (ordersError || !Array.isArray(ordersData)) {
+    return metrics;
+  }
+
+  const paidOrders = (ordersData as RawRecord[]).filter(isPaidOrDeliveredOrder);
+  const paidOrderIds = paidOrders
+    .map((order) => getText(order, ["id"]))
+    .filter(Boolean);
+
+  try {
+    const { data: loyaltyData } = await supabase
+      .from("customer_loyalties")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .limit(1000);
+
+    const loyaltyPhones = new Set(
+      Array.isArray(loyaltyData)
+        ? (loyaltyData as RawRecord[])
+            .map((loyalty) =>
+              getText(loyalty, [
+                "customer_phone",
+                "customerPhone",
+                "phone",
+                "client_phone",
+              ]).replace(/\D/g, ""),
+            )
+            .filter(Boolean)
+        : [],
+    );
+
+    const loyaltyOrders = paidOrders.filter((order) => {
+      const phone = getOrderPhone(order);
+
+      return (
+        (phone && loyaltyPhones.has(phone)) ||
+        hasTextSignal(
+          order,
+          ["campaign_source", "source", "order_source", "origin"],
+          ["loyalty", "fidelidade", "card fidelidade"],
+        )
+      );
+    });
+
+    metrics.loyaltyOrders = loyaltyOrders.length;
+    metrics.loyaltyRevenue = loyaltyOrders.reduce(
+      (sum, order) => sum + getOrderTotal(order),
+      0,
+    );
+  } catch {
+    metrics.loyaltyRevenue = 0;
+    metrics.loyaltyOrders = 0;
+  }
+
+  const cashbackOrders = paidOrders.filter((order) => {
+    const cashbackValue = getNumber(order, [
+      "cashback_used",
+      "cashback_amount",
+      "cashback_discount",
+      "cashback_value",
+    ]);
+
+    return (
+      cashbackValue > 0 ||
+      hasTextSignal(
+        order,
+        ["campaign_source", "source", "order_source", "origin"],
+        ["cashback"],
+      )
+    );
+  });
+
+  metrics.cashbackOrders = cashbackOrders.length;
+  metrics.cashbackRevenue = cashbackOrders.reduce(
+    (sum, order) => sum + getOrderTotal(order),
+    0,
+  );
+  metrics.cashbackUsed = cashbackOrders.reduce(
+    (sum, order) =>
+      sum +
+      getNumber(order, [
+        "cashback_used",
+        "cashback_amount",
+        "cashback_discount",
+        "cashback_value",
+      ]),
+    0,
+  );
+
+  try {
+    const { data: cashbackTransactionsData } = await supabase
+      .from("cashback_transactions")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .limit(1000);
+
+    if (Array.isArray(cashbackTransactionsData)) {
+      metrics.cashbackGenerated = (cashbackTransactionsData as RawRecord[])
+        .filter((transaction) => {
+          const type = getText(transaction, [
+            "type",
+            "transaction_type",
+            "kind",
+            "operation",
+          ]).toLowerCase();
+
+          return !type || type.includes("earn") || type.includes("credit");
+        })
+        .reduce(
+          (sum, transaction) =>
+            sum + getNumber(transaction, ["amount", "value", "total"]),
+          0,
+        );
+    }
+  } catch {
+    metrics.cashbackGenerated = 0;
+  }
+
+  try {
+    const { data: redemptionsData } = await supabase
+      .from("campaign_redemptions")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .limit(1000);
+
+    if (Array.isArray(redemptionsData)) {
+      const redemptionOrderIds = new Set(
+        (redemptionsData as RawRecord[])
+          .map((redemption) => getText(redemption, ["order_id", "pedido_id"]))
+          .filter(Boolean),
+      );
+
+      const smartOrders = paidOrders.filter((order) => {
+        const orderId = getText(order, ["id"]);
+
+        return (
+          (orderId && redemptionOrderIds.has(orderId)) ||
+          hasTextSignal(
+            order,
+            ["campaign_source", "source", "order_source", "origin"],
+            ["campaign", "campanha", "intelligent", "inteligente"],
+          )
+        );
+      });
+
+      metrics.smartCampaignOrders = smartOrders.length;
+      metrics.smartCampaignRevenue = smartOrders.reduce(
+        (sum, order) => sum + getOrderTotal(order),
+        0,
+      );
+    }
+  } catch {
+    metrics.smartCampaignRevenue = 0;
+    metrics.smartCampaignOrders = 0;
+  }
+
+  if (paidOrderIds.length > 0) {
+    try {
+      const { data: itemsData } = await supabase
+        .from("order_items")
+        .select("*")
+        .in("order_id", paidOrderIds.slice(0, 500))
+        .limit(2000);
+
+      if (Array.isArray(itemsData)) {
+        const upsellItems = (itemsData as RawRecord[]).filter((item) => {
+          const hasUpsellFlag = Boolean(
+            item.is_upsell || item.upsell_rule_id || item.upsell_id,
+          );
+
+          return (
+            hasUpsellFlag ||
+            hasTextSignal(
+              item,
+              ["source", "origin", "item_type", "type", "category"],
+              ["upsell", "adicional", "complemento", "combo"],
+            )
+          );
+        });
+
+        metrics.upsellRevenue = upsellItems.reduce(
+          (sum, item) => sum + getItemTotal(item),
+          0,
+        );
+        metrics.upsellSales = upsellItems.reduce(
+          (sum, item) => sum + getItemQuantity(item),
+          0,
+        );
+      }
+    } catch {
+      metrics.upsellRevenue = 0;
+      metrics.upsellSales = 0;
+    }
+  }
+
+  const upsellOrders = paidOrders.filter((order) => {
+    const upsellValue = getNumber(order, [
+      "upsell_total",
+      "upsell_extra_total",
+      "extra_revenue",
+    ]);
+
+    return (
+      upsellValue > 0 ||
+      hasTextSignal(
+        order,
+        ["campaign_source", "source", "order_source", "origin"],
+        ["upsell"],
+      )
+    );
+  });
+
+  if (metrics.upsellRevenue <= 0 && upsellOrders.length > 0) {
+    metrics.upsellRevenue = upsellOrders.reduce(
+      (sum, order) =>
+        sum +
+        getNumber(order, ["upsell_total", "upsell_extra_total", "extra_revenue"]),
+      0,
+    );
+    metrics.upsellSales = upsellOrders.length;
+  }
+
+  return metrics;
+}
+
 async function fetchRestaurantReviews(
   supabase: ReturnType<typeof createClient>,
   restaurantId: string,
@@ -324,8 +672,12 @@ export default function CampanhasPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [overview, setOverview] = useState<CampaignOverview | null>(null);
+  const [campaignRevenue, setCampaignRevenue] = useState<CampaignRevenueMetrics>(
+    getEmptyCampaignRevenueMetrics(),
+  );
   const [reviews, setReviews] = useState<CampaignReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCampaignRevenueLoading, setIsCampaignRevenueLoading] = useState(false);
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [reviewsErrorMessage, setReviewsErrorMessage] = useState("");
@@ -431,9 +783,46 @@ export default function CampanhasPage() {
     };
   }, [overview?.restaurant?.id, supabase]);
 
-  const recentCampaigns = useMemo(() => {
-    return overview?.recentCampaigns ?? [];
-  }, [overview]);
+  useEffect(() => {
+    const restaurantId = overview?.restaurant?.id;
+
+    if (!restaurantId) {
+      return;
+    }
+
+    const currentRestaurantId: string = restaurantId;
+    let isMounted = true;
+
+    async function loadCampaignRevenue() {
+      try {
+        setIsCampaignRevenueLoading(true);
+
+        const data = await fetchCampaignRevenueMetrics(
+          supabase,
+          currentRestaurantId,
+        );
+
+        if (isMounted) {
+          setCampaignRevenue(data);
+        }
+      } catch {
+        if (isMounted) {
+          setCampaignRevenue(getEmptyCampaignRevenueMetrics());
+        }
+      } finally {
+        if (isMounted) {
+          setIsCampaignRevenueLoading(false);
+        }
+      }
+    }
+
+    void loadCampaignRevenue();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [overview?.restaurant?.id, supabase]);
+
 
   const averageRating = useMemo(() => {
     const reviewsWithRating = reviews.filter((review) => review.rating > 0);
@@ -536,23 +925,123 @@ export default function CampanhasPage() {
     );
   }
 
+  const openOpportunities =
+    overview.insights.customersCloseToComplete +
+    overview.insights.inactiveCustomers +
+    attentionReviews;
+
+  const upsellRevenue = campaignRevenue.upsellRevenue;
+  const upsellSales = campaignRevenue.upsellSales;
+  const cashbackGenerated = campaignRevenue.cashbackGenerated;
+  const cashbackUsed = campaignRevenue.cashbackUsed;
+
+  const campaignModules = [
+    {
+      title: "Card Fidelidade",
+      subtitle: overview.cardFidelidade.hasCampaign
+        ? `Prêmio: ${overview.cardFidelidade.rewardTitle}`
+        : "Meta de pedidos com recompensa",
+      status: overview.cardFidelidade.isActive ? "Ativo" : "Inativo",
+      statusTone: overview.cardFidelidade.isActive ? "active" : "neutral",
+      href: "/campanhas/fidelidade",
+      action: overview.cardFidelidade.hasCampaign ? "Gerenciar" : "Criar",
+      icon: Star,
+      tone: "orange",
+      mainLabel: "Clientes",
+      mainValue: formatNumber(overview.cardFidelidade.participants),
+      sideLabel: "Resgates",
+      sideValue: `${formatNumber(overview.cardFidelidade.redeemedRewards)} usados`,
+      progressLabel: `${formatNumber(overview.cardFidelidade.pendingRewards)} pendentes • ${formatPercent(overview.cardFidelidade.progress)} da meta`,
+      progressValue: overview.cardFidelidade.progress,
+    },
+    {
+      title: "Cashback",
+      subtitle: "Crédito gerado para o cliente voltar",
+      status: cashbackGenerated > 0 ? "Ativo" : "Configurar",
+      statusTone: cashbackGenerated > 0 ? "active" : "warning",
+      href: "/campanhas/cashback",
+      action: "Abrir",
+      icon: Coins,
+      tone: "green",
+      mainLabel: "Crédito gerado",
+      mainValue: formatCurrency(cashbackGenerated),
+      sideLabel: "Crédito usado",
+      sideValue: formatCurrency(cashbackUsed),
+      progressLabel: "Quando ativar, mostra quanto virou recompra",
+      progressValue:
+        cashbackGenerated > 0 ? (cashbackUsed / cashbackGenerated) * 100 : 0,
+    },
+    {
+      title: "Upsell",
+      subtitle: "Adicionais, bebidas e combos vendidos no carrinho",
+      status: "Medir",
+      statusTone: "info",
+      href: "/campanhas/upsell",
+      action: "Abrir",
+      icon: BadgePercent,
+      tone: "blue",
+      mainLabel: "Faturamento extra",
+      mainValue: formatCurrency(upsellRevenue),
+      sideLabel: "Vendas",
+      sideValue: `${formatNumber(upsellSales)} itens`,
+      progressLabel: "Exemplo: adicional de R$ 3 vendido 10x = R$ 30 extra",
+      progressValue: upsellSales > 0 ? 100 : 0,
+    },
+  ] satisfies CampaignModuleItem[];
+
+  const campaignRevenueItems = [
+    {
+      title: "Upsell",
+      description: "Adicionais, bebidas e combos",
+      revenue: campaignRevenue.upsellRevenue,
+      detail: `${formatNumber(campaignRevenue.upsellSales)} itens vendidos`,
+      href: "/campanhas/upsell",
+      tone: "blue",
+    },
+    {
+      title: "Card Fidelidade",
+      description: "Pedidos de clientes participantes",
+      revenue: campaignRevenue.loyaltyRevenue,
+      detail: `${formatNumber(campaignRevenue.loyaltyOrders)} pedidos rastreados`,
+      href: "/campanhas/fidelidade",
+      tone: "orange",
+    },
+    {
+      title: "Cashback",
+      description: "Pedidos com crédito de recompra",
+      revenue: campaignRevenue.cashbackRevenue,
+      detail: `${formatNumber(campaignRevenue.cashbackOrders)} pedidos com cashback`,
+      href: "/campanhas/cashback",
+      tone: "green",
+    },
+    {
+      title: "Campanhas inteligentes",
+      description: "Cupons, reativação e ações sugeridas",
+      revenue: campaignRevenue.smartCampaignRevenue,
+      detail: `${formatNumber(campaignRevenue.smartCampaignOrders)} pedidos rastreados`,
+      href: "/campanhas/inteligentes",
+      tone: "purple",
+    },
+  ] satisfies CampaignRevenueItem[];
+
   return (
     <AdminLayout title="Campanhas">
-      <div className="space-y-4">
+      <div className="space-y-3">
         <section className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
+            <div className="min-w-0">
+              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
                 <TrendingUp className="h-3.5 w-3.5" />
-                Central de campanhas
+                Central de crescimento
               </div>
 
               <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">
-                Visão geral
+                Campanhas e resultados
               </h1>
 
-              <p className="mt-0.5 text-sm font-medium text-slate-500">
-                Campanhas, fidelidade, reputação e oportunidades do restaurante.
+              <p className="mt-0.5 max-w-3xl text-sm font-medium text-slate-500">
+                Controle fidelidade, cashback, upsell e ações inteligentes sem
+                depender de cards grandes ou informação espalhada.
               </p>
             </div>
 
@@ -560,62 +1049,83 @@ export default function CampanhasPage() {
               <button
                 type="button"
                 onClick={() => setShowReviewsDetails(true)}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
               >
                 <MessageSquare className="h-4 w-4 text-blue-600" />
-                Ver comentários
+                Comentários
               </button>
 
               <Link
                 href="/campanhas/fidelidade"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3.5 text-sm font-black text-white shadow-sm shadow-blue-500/20 transition hover:bg-blue-700"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-sm font-black text-white shadow-sm shadow-blue-500/20 transition hover:bg-blue-700"
               >
                 <Megaphone className="h-4 w-4" />
-                Criar campanha
+                Nova campanha
               </Link>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title="Campanhas ativas"
-            value={formatNumber(overview.summary.activeCampaigns)}
-            description="em funcionamento"
-            icon={Megaphone}
-            tone="blue"
+        <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <CompactMetric
+            title="Faturamento analisado"
+            value={formatCurrency(overview.totals.revenue)}
+            description={`${formatNumber(
+              overview.totals.paidOrDeliveredOrders,
+            )} pedidos pagos/entregues`}
+            icon={Coins}
+            tone="green"
           />
 
-          <MetricCard
-            title="Clientes fidelizados"
+          <CompactMetric
+            title="Clientes em fidelidade"
             value={formatNumber(overview.summary.fidelizedCustomers)}
-            description="participando"
+            description={`${formatNumber(
+              overview.cardFidelidade.customersCloseToComplete,
+            )} perto do prêmio`}
             icon={UsersRound}
             tone="orange"
           />
 
-          <MetricCard
-            title="Resgates no mês"
+          <CompactMetric
+            title="Benefícios resgatados"
             value={formatNumber(overview.summary.monthlyRedemptions)}
-            description="prêmios entregues"
+            description={`${formatNumber(
+              overview.cardFidelidade.pendingRewards,
+            )} aguardando resgate`}
             icon={Gift}
             tone="purple"
           />
 
-          <MetricCard
-            title="Avaliação média"
-            value={formatRating(averageRating)}
-            description={`${formatNumber(reviews.length)} avaliações`}
-            icon={Star}
-            tone="green"
+          <CompactMetric
+            title="Ações sugeridas"
+            value={formatNumber(openOpportunities)}
+            description="oportunidades para agir hoje"
+            icon={Target}
+            tone="blue"
           />
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <CampaignFocusCard overview={overview} />
+        <section className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
+          <div className="space-y-3">
+            <CampaignModulesTable modules={campaignModules} />
 
-          <div className="grid gap-4">
-            <ReputationCard
+            <CampaignRevenueBarChart
+              items={campaignRevenueItems}
+              totalRevenue={overview.totals.revenue}
+              isLoading={isCampaignRevenueLoading}
+            />
+          </div>
+
+          <div className="space-y-3">
+            <ActionQueue
+              closeToComplete={overview.insights.customersCloseToComplete}
+              inactiveCustomers={overview.insights.inactiveCustomers}
+              attentionReviews={attentionReviews}
+              onOpenReviews={() => setShowReviewsDetails(true)}
+            />
+
+            <ReputationSummary
               averageRating={averageRating}
               positiveReviews={positiveReviews}
               attentionReviews={attentionReviews}
@@ -625,19 +1135,10 @@ export default function CampanhasPage() {
               errorMessage={reviewsErrorMessage}
               onOpenDetails={() => setShowReviewsDetails(true)}
             />
-
-            <OpportunitiesCard
-              closeToComplete={overview.insights.customersCloseToComplete}
-              inactiveCustomers={overview.insights.inactiveCustomers}
-              reviewsCount={reviews.length}
-            />
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[1.35fr_0.75fr]">
-          <RecentPerformance campaigns={recentCampaigns} />
-          <QuickActions />
-        </section>
+        
       </div>
 
       {showReviewsDetails ? (
@@ -654,7 +1155,30 @@ export default function CampanhasPage() {
   );
 }
 
-function MetricCard({
+function getToneClasses(tone: Tone) {
+  const toneClasses = {
+    blue: "bg-blue-50 text-blue-600 ring-blue-100",
+    orange: "bg-orange-50 text-orange-600 ring-orange-100",
+    green: "bg-emerald-50 text-emerald-600 ring-emerald-100",
+    purple: "bg-violet-50 text-violet-600 ring-violet-100",
+    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+  };
+
+  return toneClasses[tone];
+}
+
+function getStatusToneClasses(tone: StatusTone) {
+  const toneClasses = {
+    active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    warning: "bg-orange-50 text-orange-700 ring-1 ring-orange-200",
+    neutral: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+    info: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+  };
+
+  return toneClasses[tone];
+}
+
+function CompactMetric({
   title,
   value,
   description,
@@ -665,194 +1189,410 @@ function MetricCard({
   value: string;
   description: string;
   icon: LucideIcon;
-  tone: "blue" | "orange" | "green" | "purple";
+  tone: Tone;
 }) {
-  const toneClasses = {
-    blue: "bg-blue-50 text-blue-600 ring-blue-100",
-    orange: "bg-orange-50 text-orange-600 ring-orange-100",
-    green: "bg-emerald-50 text-emerald-600 ring-emerald-100",
-    purple: "bg-violet-50 text-violet-600 ring-violet-100",
-  };
-
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
       <div className="flex items-center gap-3">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${toneClasses[tone]}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${getToneClasses(
+            tone,
+          )}`}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4 w-4" />
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-xs font-black uppercase tracking-wide text-slate-400">
+          <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-400">
             {title}
           </p>
-          <div className="mt-1 flex items-end gap-2">
-            <p className="text-2xl font-black leading-none tracking-tight text-slate-950">
-              {value}
-            </p>
-            <p className="mb-0.5 truncate text-xs font-bold text-slate-400">
-              {description}
-            </p>
-          </div>
+          <p className="mt-0.5 truncate text-lg font-black leading-tight text-slate-950">
+            {value}
+          </p>
+          <p className="truncate text-xs font-semibold text-slate-500">
+            {description}
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function CampaignFocusCard({ overview }: { overview: CampaignOverview }) {
+type CampaignModuleItem = {
+  title: string;
+  subtitle: string;
+  status: string;
+  statusTone: StatusTone;
+  href: string;
+  action: string;
+  icon: LucideIcon;
+  tone: Tone;
+  mainLabel: string;
+  mainValue: string;
+  sideLabel: string;
+  sideValue: string;
+  progressLabel: string;
+  progressValue: number;
+};
+
+function CampaignModulesTable({ modules }: { modules: CampaignModuleItem[] }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
-            <Star className="h-5 w-5 fill-orange-500" />
+    <div className="h-fit overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-black text-slate-950">
+            Métricas por campanha
+          </h2>
+          <p className="text-xs font-bold text-slate-400">
+            Cada bloco mostra uso, dinheiro gerado ou oportunidade real.
+          </p>
+        </div>
+
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-500 ring-1 ring-slate-200">
+          <Zap className="h-3.5 w-3.5" />
+          Ajusta conforme a quantidade
+        </span>
+      </div>
+
+      <div className="grid gap-2 p-3 sm:grid-cols-2">
+        {modules.map((module) => (
+          <CampaignMetricCard key={module.title} module={module} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CampaignMetricCard({ module }: { module: CampaignModuleItem }) {
+  const Icon = module.icon;
+  const progressWidth = Math.min(Math.max(module.progressValue || 0, 0), 100);
+
+  return (
+    <Link
+      href={module.href}
+      className="group rounded-2xl border border-slate-100 bg-slate-50/60 p-3 transition hover:border-blue-200 hover:bg-blue-50/40"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${getToneClasses(
+              module.tone,
+            )}`}
+          >
+            <Icon className="h-4 w-4" />
           </div>
 
-          <div>
-            <h2 className="text-base font-black text-slate-950">
-              Card Fidelidade
-            </h2>
-            <p className="text-xs font-bold text-slate-400">
-              Campanha principal de recompra
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-slate-950">
+              {module.title}
+            </p>
+            <p className="line-clamp-1 text-xs font-semibold text-slate-500">
+              {module.subtitle}
             </p>
           </div>
         </div>
 
         <span
-          className={`rounded-full px-2.5 py-1 text-xs font-black ${
-            overview.cardFidelidade.isActive
-              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-              : "bg-slate-100 text-slate-500 ring-1 ring-slate-200"
-          }`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${getStatusToneClasses(
+            module.statusTone,
+          )}`}
         >
-          {overview.cardFidelidade.isActive ? "Ativo" : "Inativo"}
+          {module.status}
         </span>
       </div>
 
-      <div className="p-4">
-        <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-wide text-orange-300">
-                {overview.cardFidelidade.hasCampaign
-                  ? "Campanha atual"
-                  : "Nenhuma campanha ativa"}
-              </p>
-
-              <h3 className="mt-1 truncate text-xl font-black">
-                {overview.cardFidelidade.hasCampaign
-                  ? overview.cardFidelidade.title
-                  : "Crie seu primeiro card fidelidade"}
-              </h3>
-
-              <p className="mt-1 truncate text-sm font-semibold text-slate-300">
-                {overview.cardFidelidade.hasCampaign
-                  ? `Prêmio: ${overview.cardFidelidade.rewardTitle}`
-                  : "Configure uma meta simples para estimular recompra."}
-              </p>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
-              <Gift className="h-4 w-4 text-orange-300" />
-              <span className="text-sm font-black">
-                Meta: {formatNumber(overview.cardFidelidade.requiredOrders)}{" "}
-                pedidos
-              </span>
-            </div>
-          </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-white bg-white px-2.5 py-2 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+            {module.mainLabel}
+          </p>
+          <p className="mt-0.5 truncate text-base font-black text-slate-950">
+            {module.mainValue}
+          </p>
         </div>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <MiniStat
-            icon={UsersRound}
-            label="Participantes"
-            value={formatNumber(overview.cardFidelidade.participants)}
-          />
+        <div className="rounded-xl border border-white bg-white px-2.5 py-2 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+            {module.sideLabel}
+          </p>
+          <p className="mt-0.5 truncate text-base font-black text-slate-950">
+            {module.sideValue}
+          </p>
+        </div>
+      </div>
 
-          <MiniStat
-            icon={Gift}
-            label="Pendentes"
-            value={formatNumber(overview.cardFidelidade.pendingRewards)}
-          />
-
-          <MiniStat
-            icon={CheckCircle2}
-            label="Resgatados"
-            value={formatNumber(overview.cardFidelidade.redeemedRewards)}
-          />
+      <div className="mt-3">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <p className="line-clamp-1 text-[11px] font-bold text-slate-500">
+            {module.progressLabel}
+          </p>
+          <span className="inline-flex items-center gap-1 text-[11px] font-black text-blue-700">
+            {module.action}
+            <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
+          </span>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-          <div className="mb-2 flex items-center justify-between text-xs font-black text-slate-500">
-            <span>Progresso geral</span>
-            <span>{formatPercent(overview.cardFidelidade.progress)}</span>
-          </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
+          <div
+            className="h-full rounded-full bg-blue-600 transition-all"
+            style={{ width: `${progressWidth}%` }}
+          />
+        </div>
+      </div>
+    </Link>
+  );
+}
 
-          <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-orange-500 to-blue-600 transition-all"
-              style={{
-                width: `${Math.min(
-                  Math.max(overview.cardFidelidade.progress, 0),
-                  100,
-                )}%`,
-              }}
+function CampaignRevenueBarChart({
+  items,
+  totalRevenue,
+  isLoading,
+}: {
+  items: CampaignRevenueItem[];
+  totalRevenue: number;
+  isLoading: boolean;
+}) {
+  const maxRevenue = Math.max(...items.map((item) => item.revenue), 0);
+  const trackedRevenue = items.reduce((sum, item) => sum + item.revenue, 0);
+  const hasRevenue = maxRevenue > 0;
+
+  return (
+    <div className="h-fit overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-black text-slate-950">
+            Faturamento por campanha
+          </h2>
+          <p className="text-xs font-bold text-slate-400">
+            Mostra qual estratégia está ajudando a colocar dinheiro no caixa.
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 px-3 py-1.5 text-right ring-1 ring-slate-200">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+            Rastreado
+          </p>
+          <p className="text-sm font-black text-slate-950">
+            {formatCurrency(trackedRevenue)}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2.5 p-4">
+        {isLoading ? (
+          <div className="flex h-[132px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm font-bold text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            Calculando faturamento das campanhas...
+          </div>
+        ) : (
+          items.map((item) => (
+            <CampaignRevenueBar
+              key={item.title}
+              item={item}
+              maxRevenue={maxRevenue}
             />
-          </div>
-        </div>
+          ))
+        )}
+      </div>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Link
-            href="/campanhas/fidelidade"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
-          >
-            Ver campanha
-            <ExternalLink className="h-4 w-4" />
-          </Link>
+      <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-2.5">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-bold text-slate-500">
+            {hasRevenue
+              ? `${formatCurrency(trackedRevenue)} de ${formatCurrency(
+                  totalRevenue,
+                )} já está ligado a campanhas.`
+              : "Ainda não existe venda rastreada por campanha."}
+          </p>
 
-          <Link
-            href="/campanhas/fidelidade"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-          >
-            <Pencil className="h-4 w-4" />
-            Editar
-          </Link>
+          <p className="text-xs font-semibold text-slate-400">
+            Para ficar 100%, cada pedido precisa salvar a origem da campanha.
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function MiniStat({
-  icon: Icon,
-  label,
-  value,
+function CampaignRevenueBar({
+  item,
+  maxRevenue,
 }: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
+  item: CampaignRevenueItem;
+  maxRevenue: number;
+}) {
+  const width = maxRevenue > 0 ? Math.max((item.revenue / maxRevenue) * 100, 4) : 0;
+
+  return (
+    <Link
+      href={item.href}
+      className="group block rounded-xl border border-slate-100 bg-white px-3 py-2.5 transition hover:border-blue-200 hover:bg-blue-50/30"
+    >
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-slate-950">
+            {item.title}
+          </p>
+          <p className="truncate text-xs font-semibold text-slate-500">
+            {item.description}
+          </p>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-black text-slate-950">
+            {formatCurrency(item.revenue)}
+          </p>
+          <p className="text-[11px] font-bold text-slate-400">{item.detail}</p>
+        </div>
+      </div>
+
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full transition-all ${getRevenueBarClasses(
+            item.tone,
+          )}`}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+    </Link>
+  );
+}
+
+function getRevenueBarClasses(tone: Tone) {
+  const toneClasses = {
+    blue: "bg-blue-600",
+    orange: "bg-orange-500",
+    green: "bg-emerald-500",
+    purple: "bg-violet-500",
+    slate: "bg-slate-500",
+  };
+
+  return toneClasses[tone];
+}
+
+function ActionQueue({
+  closeToComplete,
+  inactiveCustomers,
+  attentionReviews,
+  onOpenReviews,
+}: {
+  closeToComplete: number;
+  inactiveCustomers: number;
+  attentionReviews: number;
+  onOpenReviews: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm">
-          <Icon className="h-4 w-4" />
-        </div>
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <h2 className="text-base font-black text-slate-950">O que fazer agora</h2>
+        <p className="text-xs font-bold text-slate-400">
+          Ações curtas para vender mais ou evitar perda de cliente.
+        </p>
+      </div>
 
-        <div className="min-w-0">
-          <p className="truncate text-[11px] font-bold text-slate-400">
-            {label}
-          </p>
-          <p className="text-sm font-black text-slate-950">{value}</p>
-        </div>
+      <div className="divide-y divide-slate-100">
+        <ActionQueueItem
+          icon={Trophy}
+          title={`${formatNumber(closeToComplete)} clientes perto da recompensa`}
+          description="Boa hora para incentivar mais um pedido."
+          label="Fidelidade"
+          tone="orange"
+          href="/campanhas/fidelidade"
+        />
+
+        <ActionQueueItem
+          icon={Clock3}
+          title={`${formatNumber(inactiveCustomers)} clientes inativos há 15 dias`}
+          description="Recupere clientes que pararam de comprar."
+          label="Retenção"
+          tone="purple"
+          href="/clientes"
+        />
+
+        <ActionQueueItem
+          icon={MessageSquare}
+          title={`${formatNumber(attentionReviews)} avaliações precisam atenção`}
+          description="Responder rápido protege a reputação."
+          label="Reputação"
+          tone="blue"
+          onClick={onOpenReviews}
+        />
+
+        <ActionQueueItem
+          icon={BadgePercent}
+          title="Criar oferta de upsell"
+          description="Sugira bebida, adicional ou sobremesa no carrinho."
+          label="Ticket médio"
+          tone="green"
+          href="/campanhas/upsell"
+        />
       </div>
     </div>
   );
 }
 
-function ReputationCard({
+function ActionQueueItem({
+  icon: Icon,
+  title,
+  description,
+  label,
+  tone,
+  href,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  label: string;
+  tone: Tone;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <div
+        className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${getToneClasses(
+          tone,
+        )}`}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-black text-slate-950">{title}</p>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+            {label}
+          </span>
+        </div>
+        <p className="truncate text-xs font-semibold text-slate-500">
+          {description}
+        </p>
+      </div>
+
+      <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+    </>
+  );
+
+  const className =
+    "group grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50/80";
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={href || "/campanhas"} className={className}>
+      {content}
+    </Link>
+  );
+}
+
+function ReputationSummary({
   averageRating,
   positiveReviews,
   attentionReviews,
@@ -872,32 +1612,27 @@ function ReputationCard({
   onOpenDetails: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-            <MessageSquare className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h2 className="text-base font-black text-slate-950">Reputação</h2>
-            <p className="text-xs font-bold text-slate-400">
-              Avaliações recentes dos pedidos
-            </p>
-          </div>
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+        <div>
+          <h2 className="text-base font-black text-slate-950">Reputação</h2>
+          <p className="text-xs font-bold text-slate-400">
+            Resumo das avaliações recentes.
+          </p>
         </div>
 
         <button
+          id="comentarios"
           type="button"
           onClick={onOpenDetails}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-blue-700 transition hover:bg-blue-50"
+          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-black text-blue-700 transition hover:bg-blue-50"
         >
-          Ver comentários
+          Ver tudo
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
         <ReviewMiniMetric label="Média" value={formatRating(averageRating)} />
         <ReviewMiniMetric
           label="Positivas"
@@ -909,9 +1644,9 @@ function ReputationCard({
         />
       </div>
 
-      <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
+      <div className="p-2">
         {isLoading ? (
-          <div className="flex h-[132px] items-center justify-center gap-2 text-sm font-bold text-slate-500">
+          <div className="flex h-[116px] items-center justify-center gap-2 text-sm font-bold text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
             Carregando avaliações...
           </div>
@@ -920,13 +1655,13 @@ function ReputationCard({
             {errorMessage}
           </div>
         ) : reviews.length > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {latestReviews.map((review) => (
               <ReviewCompactRow key={review.id} review={review} />
             ))}
           </div>
         ) : (
-          <div className="flex h-[132px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-4 text-center">
+          <div className="flex h-[116px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
             <p className="text-sm font-bold text-slate-500">
               Nenhuma avaliação encontrada ainda.
             </p>
@@ -939,7 +1674,7 @@ function ReputationCard({
 
 function ReviewMiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+    <div className="px-3 py-2.5">
       <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
@@ -956,7 +1691,7 @@ function ReviewCompactRow({ review }: { review: CampaignReview }) {
   return (
     <button
       type="button"
-      className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2.5 text-left transition hover:border-blue-200 hover:bg-blue-50/30"
+      className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2 text-left transition hover:border-blue-200 hover:bg-blue-50/30"
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-[11px] font-black text-white">
@@ -991,286 +1726,7 @@ function ReviewCompactRow({ review }: { review: CampaignReview }) {
   );
 }
 
-function OpportunitiesCard({
-  closeToComplete,
-  inactiveCustomers,
-  reviewsCount,
-}: {
-  closeToComplete: number;
-  inactiveCustomers: number;
-  reviewsCount: number;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
-          <Zap className="h-5 w-5" />
-        </div>
 
-        <div>
-          <h2 className="text-base font-black text-slate-950">Oportunidades</h2>
-          <p className="text-xs font-bold text-slate-400">
-            Pontos rápidos para agir hoje
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-2">
-        <InsightCard
-          icon={UsersRound}
-          tone="orange"
-          text={`${formatNumber(closeToComplete)} clientes perto da recompensa`}
-        />
-
-        <InsightCard
-          icon={Clock3}
-          tone="purple"
-          text={`${formatNumber(inactiveCustomers)} clientes inativos há 15 dias`}
-        />
-
-        <InsightCard
-          icon={MessageSquare}
-          tone="blue"
-          text={`${formatNumber(reviewsCount)} avaliações recebidas`}
-        />
-      </div>
-    </div>
-  );
-}
-
-function InsightCard({
-  icon: Icon,
-  text,
-  tone,
-}: {
-  icon: LucideIcon;
-  text: string;
-  tone: "orange" | "blue" | "purple";
-}) {
-  const toneClasses = {
-    orange: "border-orange-100 bg-orange-50 text-orange-600",
-    blue: "border-blue-100 bg-blue-50 text-blue-600",
-    purple: "border-violet-100 bg-violet-50 text-violet-600",
-  };
-
-  return (
-    <button
-      type="button"
-      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition hover:scale-[1.01] ${toneClasses[tone]}`}
-    >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/80">
-          <Icon className="h-4 w-4" />
-        </div>
-
-        <p className="truncate text-sm font-black text-slate-900">{text}</p>
-      </div>
-
-      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
-    </button>
-  );
-}
-
-function RecentPerformance({ campaigns }: { campaigns: RecentCampaign[] }) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-            <BarChart3 className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h2 className="text-base font-black text-slate-950">
-              Desempenho recente
-            </h2>
-            <p className="text-xs font-bold text-slate-400">
-              Últimas campanhas criadas
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {campaigns.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-[11px] font-black uppercase tracking-wide text-slate-400">
-                <th className="px-4 py-2.5">Campanha</th>
-                <th className="px-4 py-2.5">Tipo</th>
-                <th className="px-4 py-2.5">Impacto</th>
-                <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5">Período</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {campaigns.map((campaign) => (
-                <tr
-                  key={`${campaign.type}-${campaign.id}`}
-                  className="border-b border-slate-100 last:border-0"
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
-                        <Star className="h-4 w-4 fill-orange-500" />
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-black text-slate-900">
-                          {campaign.name}
-                        </p>
-                        <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                          {campaign.description}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-black text-orange-700 ring-1 ring-orange-200">
-                      {campaign.type}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-black text-slate-900">
-                      {campaign.impact}
-                    </p>
-                    <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                      {campaign.secondaryImpact}
-                    </p>
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-black ${getStatusClasses(
-                        campaign.status,
-                      )}`}
-                    >
-                      {campaign.status}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-3 text-sm font-bold text-slate-500">
-                    {campaign.period}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="flex min-h-[180px] items-center justify-center px-6 py-8">
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-              <Megaphone className="h-5 w-5" />
-            </div>
-
-            <h3 className="mt-3 text-base font-black text-slate-900">
-              Nenhuma campanha encontrada
-            </h3>
-
-            <p className="mt-1 text-sm font-medium text-slate-500">
-              Quando uma campanha for criada, o desempenho aparecerá aqui.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QuickActions() {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
-          <Zap className="h-5 w-5" />
-        </div>
-
-        <div>
-          <h2 className="text-base font-black text-slate-950">Ações rápidas</h2>
-          <p className="text-xs font-bold text-slate-400">
-            Caminhos principais
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        <QuickAction
-          href="/campanhas/fidelidade"
-          icon={Star}
-          title="Card fidelidade"
-          description="Metas e prêmios"
-          tone="orange"
-        />
-
-        <QuickAction
-          href="/clientes"
-          icon={UserRoundCheck}
-          title="Clientes elegíveis"
-          description="Quem pode participar"
-          tone="green"
-        />
-
-        <QuickAction
-          href="/campanhas"
-          icon={BarChart3}
-          title="Resultados"
-          description="Métricas da área"
-          tone="purple"
-        />
-      </div>
-    </div>
-  );
-}
-
-function QuickAction({
-  href,
-  icon: Icon,
-  title,
-  description,
-  tone,
-}: {
-  href: string;
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  tone: "orange" | "blue" | "green" | "purple";
-}) {
-  const toneClasses = {
-    orange: "border-orange-100 bg-orange-50 text-orange-600",
-    blue: "border-blue-100 bg-blue-50 text-blue-600",
-    green: "border-emerald-100 bg-emerald-50 text-emerald-600",
-    purple: "border-violet-100 bg-violet-50 text-violet-600",
-  };
-
-  return (
-    <Link
-      href={href}
-      className={`group rounded-xl border px-3 py-2.5 transition hover:-translate-y-0.5 hover:shadow-sm ${toneClasses[tone]}`}
-    >
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/80">
-          <Icon className="h-4 w-4" />
-        </div>
-
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black text-slate-950">{title}</p>
-          <p className="truncate text-xs font-bold text-slate-500">
-            {description}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-2 flex items-center gap-1 text-[11px] font-black">
-        Acessar
-        <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
-      </div>
-    </Link>
-  );
-}
 
 function ReviewFilterButton({
   active,

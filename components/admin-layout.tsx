@@ -11,7 +11,6 @@ import {
   ChevronRight,
   LogOut,
   Menu,
-  PlusCircle,
   Settings,
   Star,
   User,
@@ -67,20 +66,46 @@ const CLICKFOOD_LOGO_URL = "/logo.png"
 const breadcrumbMap: Record<string, string> = {
   "/": "Gestão",
   "/gestao": "Gestão",
+
+  // Operação
   "/pedidos": "Pedidos",
-  "/novo-pedido": "Novo Pedido",
   "/mesas": "Mesas",
-  "/entregadores": "Entregadores",
-  "/produtos": "Produtos",
+  "/entregas": "Entregas",
+
+  // Cardápio e Vendas
   "/clientes": "Clientes",
-  "/cardapio": "Cardápio",
   "/cupons": "Cupons",
+  "/checkout": "Checkout",
 
+  // Campanhas
+  "/campanhas": "Campanhas",
+  "/campanhas/upsell": "Upsell",
+  "/campanhas/fidelidade": "Fidelidade",
+  "/campanhas/cashback": "Cashback",
+
+  // Gestão
+  "/funcionarios": "Funcionários",
+  "/fornecedores": "Fornecedores",
+  "/controle-estoque": "Controle de estoque",
+  "/ficha-tecnica": "Ficha técnica",
+  "/perdas-desperdicio": "Perdas e desperdício",
+
+  // Financeiro
   "/financeiro": "Finanças",
-  "/financeiro/perdas": "Perdas",
-  "/financeiro/entrada-saida": "Entrada e saída",
-  "/financeiro/controle-estoque": "Controle de estoque",
+  "/financeiro/caixa": "Caixa do dia",
+  "/financeiro/recebimentos": "Recebimentos",
+  "/financeiro/contas-a-pagar": "Contas a pagar",
+  "/financeiro/despesas": "Despesas",
+  "/financeiro/cmv": "CMV e margem",
 
+  // Crescimento
+  "/crescimento": "Crescimento",
+  "/crescimento/ranking-produtos": "Ranking de produtos",
+  "/crescimento/clientes-sumidos": "Clientes sumidos",
+  "/crescimento/radar-bairros": "Radar de bairros",
+  "/crescimento/alertas": "Alertas inteligentes",
+
+  // Configurações
   "/configuracoes": "Configurações",
 }
 
@@ -800,16 +825,6 @@ export default function AdminLayout({
                   </div>
                 )}
               </div>
-
-              {pathname !== "/novo-pedido" && (
-                <Link
-                  href="/novo-pedido"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 md:px-4"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span className="hidden sm:inline">Novo Pedido</span>
-                </Link>
-              )}
 
               <div className="relative" ref={profileRef}>
                 <button
