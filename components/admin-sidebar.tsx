@@ -370,7 +370,7 @@ export default function AdminSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-slate-200 bg-white text-slate-900 transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-blue-100 bg-white text-slate-900 shadow-xl shadow-blue-950/5 transition-all duration-300",
         isCollapsed ? "w-[72px]" : "w-64",
       )}
     >
@@ -378,7 +378,7 @@ export default function AdminSidebar({
         type="button"
         onClick={onToggleCollapse}
         className={cn(
-          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 md:flex",
+          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 md:flex",
           isCollapsed && "right-[-14px]",
         )}
         aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
@@ -392,7 +392,7 @@ export default function AdminSidebar({
 
       <div
         className={cn(
-          "flex h-16 items-center border-b border-slate-200 px-3",
+          "flex h-16 items-center border-b border-blue-100 bg-white px-3",
           isCollapsed ? "justify-center px-0" : "justify-between",
         )}
       >
@@ -403,7 +403,7 @@ export default function AdminSidebar({
             isCollapsed && "justify-center",
           )}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-sm font-black text-slate-800">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-700 shadow-sm">
             {brand.logoUrl && !logoFailed ? (
               <img
                 src={brand.logoUrl}
@@ -422,7 +422,7 @@ export default function AdminSidebar({
                 {brand.name}
               </p>
 
-              <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-blue-600">
                 Painel administrativo
               </p>
             </div>
@@ -432,14 +432,14 @@ export default function AdminSidebar({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 md:hidden"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-blue-100 bg-white text-blue-700 transition hover:border-blue-200 hover:bg-blue-50 md:hidden"
           aria-label="Fechar menu"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:thin] [scrollbar-color:#93c5fd_transparent]">
         <div className="flex flex-col gap-1">
           {navItems.map((item) => {
             const active = isHrefActive(pathname, item)
@@ -458,8 +458,8 @@ export default function AdminSidebar({
                     className={cn(
                       "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition",
                       active
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+                        ? "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+                        : "text-slate-600 hover:bg-blue-50 hover:text-blue-700",
                       isCollapsed && "justify-center px-0",
                     )}
                     title={isCollapsed ? item.label : undefined}
@@ -469,7 +469,7 @@ export default function AdminSidebar({
                         "flex shrink-0 items-center justify-center transition",
                         active
                           ? "text-blue-700"
-                          : "text-slate-500 group-hover:text-slate-900",
+                          : "text-slate-500 group-hover:text-blue-700",
                         isCollapsed && "h-10 w-10 rounded-xl",
                       )}
                     >
@@ -493,23 +493,36 @@ export default function AdminSidebar({
                   </button>
 
                   {!isCollapsed && isOpen && (
-                    <div className="ml-4 mt-1 border-l border-slate-200 pl-2">
+                    <div className="ml-4 mt-1 border-l border-blue-100 pl-2">
                       <div className="flex flex-col gap-1">
                         {item.children?.map((child) => {
-                          const childActive = isSubHrefActive(pathname, child.href)
+                          const childActive = isSubHrefActive(
+                            pathname,
+                            child.href,
+                          )
 
                           return (
                             <Link
                               key={child.href}
                               href={child.href}
                               className={cn(
-                                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                                "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition",
                                 childActive
-                                  ? "bg-blue-600 text-white"
-                                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-950",
+                                  ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                                  : "text-slate-500 hover:bg-blue-50 hover:text-blue-700",
                               )}
                             >
-                              <span className="shrink-0">{child.icon}</span>
+                              <span
+                                className={cn(
+                                  "shrink-0 transition",
+                                  childActive
+                                    ? "text-white"
+                                    : "text-slate-400 group-hover:text-blue-700",
+                                )}
+                              >
+                                {child.icon}
+                              </span>
+
                               <span className="truncate">{child.label}</span>
                             </Link>
                           )
@@ -528,8 +541,8 @@ export default function AdminSidebar({
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition",
                   active
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700",
                   isCollapsed && "justify-center px-0",
                 )}
                 title={isCollapsed ? item.label : undefined}
@@ -539,7 +552,7 @@ export default function AdminSidebar({
                     "flex shrink-0 items-center justify-center transition",
                     active
                       ? "text-white"
-                      : "text-slate-500 group-hover:text-slate-900",
+                      : "text-slate-500 group-hover:text-blue-700",
                     isCollapsed && "h-10 w-10 rounded-xl",
                   )}
                 >
@@ -556,10 +569,10 @@ export default function AdminSidebar({
       </nav>
 
       {!isCollapsed && (
-        <div className="border-t border-slate-200 p-3">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="border-t border-blue-100 bg-white p-3">
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-blue-100 bg-white">
                 {brand.logoUrl && !logoFailed ? (
                   <img
                     src={brand.logoUrl}
@@ -568,7 +581,7 @@ export default function AdminSidebar({
                     onError={() => setLogoFailed(true)}
                   />
                 ) : (
-                  <span className="text-xs font-black text-slate-700">
+                  <span className="text-xs font-black text-blue-700">
                     {initials}
                   </span>
                 )}
@@ -579,7 +592,7 @@ export default function AdminSidebar({
                   {brand.name}
                 </p>
 
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-xs font-semibold text-blue-700">
                   Operação ativa
                 </p>
               </div>
@@ -589,8 +602,8 @@ export default function AdminSidebar({
       )}
 
       {isCollapsed && (
-        <div className="border-t border-slate-200 p-3">
-          <div className="mx-auto h-1.5 w-8 rounded-full bg-slate-200" />
+        <div className="border-t border-blue-100 p-3">
+          <div className="mx-auto h-1.5 w-8 rounded-full bg-blue-200" />
         </div>
       )}
     </aside>

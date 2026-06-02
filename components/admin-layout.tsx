@@ -77,10 +77,7 @@ const breadcrumbMap: Record<string, string> = {
   "/configuracoes": "Configurações",
 }
 
-export default function AdminLayout({
-  children,
-  title,
-}: AdminLayoutProps) {
+export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
@@ -95,12 +92,11 @@ export default function AdminLayout({
   const [brandLogoFailed, setBrandLogoFailed] = useState(false)
 
   const [restaurantId, setRestaurantId] = useState<string | null>(
-    restaurantFromAuth?.id ?? null
+    restaurantFromAuth?.id ?? null,
   )
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false)
 
   const profileRef = useRef<HTMLDivElement | null>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
   const soundAlertsEnabledRef = useRef(false)
 
   const userName =
@@ -137,16 +133,16 @@ export default function AdminLayout({
   }
 
   const playOrderBellSound = useCallback(async () => {
-  if (typeof window === "undefined") return
+    if (typeof window === "undefined") return
 
-  try {
-    const audio = new Audio("/sounds/order-bell.mp3")
-    audio.volume = 0.8
-    await audio.play()
-  } catch (error) {
-    console.error("Erro ao tocar som de pedido:", error)
-  }
-}, [])
+    try {
+      const audio = new Audio("/sounds/order-bell.mp3")
+      audio.volume = 0.8
+      await audio.play()
+    } catch (error) {
+      console.error("Erro ao tocar som de pedido:", error)
+    }
+  }, [])
 
   const handleEnableAlerts = useCallback(async () => {
     await playOrderBellSound()
@@ -159,7 +155,8 @@ export default function AdminLayout({
     }
 
     toast.success("Som de pedidos ativado", {
-      description: "Agora a ClickFood vai tocar um sino quando chegar pedido novo.",
+      description:
+        "Agora a ClickFood vai tocar um sino quando chegar pedido novo.",
     })
   }, [playOrderBellSound])
 
@@ -203,7 +200,7 @@ export default function AdminLayout({
     if (typeof window === "undefined") return
 
     const savedPreference = window.localStorage.getItem(
-      "clickfood_admin_sound_alerts_enabled"
+      "clickfood_admin_sound_alerts_enabled",
     )
 
     if (savedPreference === "true") {
@@ -240,7 +237,7 @@ export default function AdminLayout({
       if (error) {
         console.error(
           "Erro ao buscar restaurante para alertas de pedidos:",
-          error.message
+          error.message,
         )
         setRestaurantId(null)
         return
@@ -273,7 +270,7 @@ export default function AdminLayout({
           if (soundAlertsEnabledRef.current) {
             void playOrderBellSound()
           }
-        }
+        },
       )
       .subscribe()
 
@@ -312,7 +309,7 @@ export default function AdminLayout({
         {isMobileOpen && (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm"
               onClick={closeMobileSidebar}
             />
 
@@ -330,7 +327,7 @@ export default function AdminLayout({
         className={cn(
           "min-h-screen transition-all duration-300",
           "md:ml-64",
-          isCollapsed && "md:ml-[72px]"
+          isCollapsed && "md:ml-[72px]",
         )}
       >
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
@@ -339,7 +336,7 @@ export default function AdminLayout({
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-700 transition hover:border-blue-200 hover:bg-blue-50 md:hidden"
                 aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
@@ -366,7 +363,7 @@ export default function AdminLayout({
                 <div className="hidden min-w-0 items-center gap-2 lg:flex">
                   <Link
                     href="/gestao"
-                    className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                    className="text-sm font-medium text-slate-500 transition hover:text-blue-700"
                   >
                     Gestão
                   </Link>
@@ -391,7 +388,7 @@ export default function AdminLayout({
                 <button
                   type="button"
                   onClick={handleEnableAlerts}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100"
                 >
                   <Volume2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Ativar alertas</span>
@@ -404,7 +401,7 @@ export default function AdminLayout({
                   onClick={() => {
                     setProfileOpen((prev) => !prev)
                   }}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 transition hover:bg-slate-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 transition hover:border-blue-200 hover:bg-blue-50"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
                     {userInitials}
@@ -424,7 +421,7 @@ export default function AdminLayout({
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                     <div className="border-b border-slate-100 px-3 py-3">
                       <p className="truncate text-sm font-bold text-slate-900">
                         {userName}
@@ -441,7 +438,7 @@ export default function AdminLayout({
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
                     >
                       <User className="h-4 w-4" />
                       Perfil
@@ -453,7 +450,7 @@ export default function AdminLayout({
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
                     >
                       <Settings className="h-4 w-4" />
                       Configurações
@@ -465,7 +462,7 @@ export default function AdminLayout({
                       type="button"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <LogOut className="h-4 w-4" />
                       {isLoggingOut ? "Saindo..." : "Sair"}
