@@ -14,7 +14,6 @@ import {
   CircleAlert,
   CircleDollarSign,
   ClipboardCheck,
-  ClipboardList,
   Coins,
   CreditCard,
   FileBarChart,
@@ -307,7 +306,9 @@ export default function AdminSidebar({
 
   const defaultOpenItems = useMemo(() => {
     return navItems
-      .filter((item) => item.children?.some((child) => isSubHrefActive(pathname, child.href)))
+      .filter((item) =>
+        item.children?.some((child) => isSubHrefActive(pathname, child.href)),
+      )
       .map((item) => item.label)
   }, [pathname])
 
@@ -369,7 +370,7 @@ export default function AdminSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/10 bg-[#020617] text-white shadow-2xl transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-slate-200 bg-white text-slate-900 transition-all duration-300",
         isCollapsed ? "w-[72px]" : "w-64",
       )}
     >
@@ -377,7 +378,7 @@ export default function AdminSidebar({
         type="button"
         onClick={onToggleCollapse}
         className={cn(
-          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-white shadow-xl shadow-black/30 ring-1 ring-black/20 transition hover:scale-105 hover:bg-blue-600 md:flex",
+          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 md:flex",
           isCollapsed && "right-[-14px]",
         )}
         aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
@@ -391,7 +392,7 @@ export default function AdminSidebar({
 
       <div
         className={cn(
-          "flex h-20 items-center border-b border-white/10 px-4",
+          "flex h-16 items-center border-b border-slate-200 px-3",
           isCollapsed ? "justify-center px-0" : "justify-between",
         )}
       >
@@ -402,7 +403,7 @@ export default function AdminSidebar({
             isCollapsed && "justify-center",
           )}
         >
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-orange-500 text-sm font-black text-white shadow-lg shadow-black/30 ring-1 ring-white/10">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-sm font-black text-slate-800">
             {brand.logoUrl && !logoFailed ? (
               <img
                 src={brand.logoUrl}
@@ -417,11 +418,11 @@ export default function AdminSidebar({
 
           {!isCollapsed && (
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-black leading-tight text-white">
+              <p className="truncate text-sm font-black leading-tight text-slate-950">
                 {brand.name}
               </p>
 
-              <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">
                 Painel administrativo
               </p>
             </div>
@@ -431,15 +432,15 @@ export default function AdminSidebar({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white md:hidden"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 md:hidden"
           aria-label="Fechar menu"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex flex-col gap-1.5">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
+        <div className="flex flex-col gap-1">
           {navItems.map((item) => {
             const active = isHrefActive(pathname, item)
             const hasChildren = Boolean(item.children?.length)
@@ -455,19 +456,21 @@ export default function AdminSidebar({
                       toggleItem(item.label)
                     }}
                     className={cn(
-                      "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold transition-all duration-200",
+                      "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition",
                       active
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-950/30"
-                        : "text-slate-300 hover:bg-white/10 hover:text-white",
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
                       isCollapsed && "justify-center px-0",
                     )}
                     title={isCollapsed ? item.label : undefined}
                   >
                     <span
                       className={cn(
-                        "flex shrink-0 items-center justify-center transition-transform duration-200",
-                        active ? "text-white" : "text-slate-300 group-hover:text-white",
-                        isCollapsed && "h-10 w-10 rounded-2xl",
+                        "flex shrink-0 items-center justify-center transition",
+                        active
+                          ? "text-blue-700"
+                          : "text-slate-500 group-hover:text-slate-900",
+                        isCollapsed && "h-10 w-10 rounded-xl",
                       )}
                     >
                       {item.icon}
@@ -475,12 +478,14 @@ export default function AdminSidebar({
 
                     {!isCollapsed && (
                       <>
-                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {item.label}
+                        </span>
 
                         <ChevronDown
                           className={cn(
                             "h-4 w-4 shrink-0 text-slate-400 transition",
-                            isOpen && "rotate-180 text-white",
+                            isOpen && "rotate-180 text-blue-700",
                           )}
                         />
                       </>
@@ -488,7 +493,7 @@ export default function AdminSidebar({
                   </button>
 
                   {!isCollapsed && isOpen && (
-                    <div className="ml-5 mt-1 border-l border-white/10 pl-3">
+                    <div className="ml-4 mt-1 border-l border-slate-200 pl-2">
                       <div className="flex flex-col gap-1">
                         {item.children?.map((child) => {
                           const childActive = isSubHrefActive(pathname, child.href)
@@ -498,10 +503,10 @@ export default function AdminSidebar({
                               key={child.href}
                               href={child.href}
                               className={cn(
-                                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition",
+                                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition",
                                 childActive
-                                  ? "bg-blue-500/20 text-blue-200"
-                                  : "text-slate-400 hover:bg-white/10 hover:text-white",
+                                  ? "bg-blue-600 text-white"
+                                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-950",
                               )}
                             >
                               <span className="shrink-0">{child.icon}</span>
@@ -521,19 +526,21 @@ export default function AdminSidebar({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold transition-all duration-200",
+                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition",
                   active
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-950/30"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white",
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
                   isCollapsed && "justify-center px-0",
                 )}
                 title={isCollapsed ? item.label : undefined}
               >
                 <span
                   className={cn(
-                    "flex shrink-0 items-center justify-center transition-transform duration-200",
-                    active ? "text-white" : "text-slate-300 group-hover:text-white",
-                    isCollapsed && "h-10 w-10 rounded-2xl",
+                    "flex shrink-0 items-center justify-center transition",
+                    active
+                      ? "text-white"
+                      : "text-slate-500 group-hover:text-slate-900",
+                    isCollapsed && "h-10 w-10 rounded-xl",
                   )}
                 >
                   {item.icon}
@@ -549,10 +556,10 @@ export default function AdminSidebar({
       </nav>
 
       {!isCollapsed && (
-        <div className="border-t border-white/10 p-4">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 shadow-inner shadow-white/5">
+        <div className="border-t border-slate-200 p-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
                 {brand.logoUrl && !logoFailed ? (
                   <img
                     src={brand.logoUrl}
@@ -561,13 +568,18 @@ export default function AdminSidebar({
                     onError={() => setLogoFailed(true)}
                   />
                 ) : (
-                  <span className="text-xs font-black text-white">{initials}</span>
+                  <span className="text-xs font-black text-slate-700">
+                    {initials}
+                  </span>
                 )}
               </div>
 
               <div className="min-w-0">
-                <p className="truncate text-sm font-black text-white">{brand.name}</p>
-                <p className="text-xs font-medium text-slate-400">
+                <p className="truncate text-sm font-black text-slate-950">
+                  {brand.name}
+                </p>
+
+                <p className="text-xs font-medium text-slate-500">
                   Operação ativa
                 </p>
               </div>
@@ -577,8 +589,8 @@ export default function AdminSidebar({
       )}
 
       {isCollapsed && (
-        <div className="border-t border-white/10 p-3">
-          <div className="mx-auto h-1.5 w-8 rounded-full bg-white/10" />
+        <div className="border-t border-slate-200 p-3">
+          <div className="mx-auto h-1.5 w-8 rounded-full bg-slate-200" />
         </div>
       )}
     </aside>

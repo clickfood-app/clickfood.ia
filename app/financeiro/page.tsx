@@ -9,10 +9,10 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Banknote,
-  CalendarCheck,
   CreditCard,
   DollarSign,
   Loader2,
+  Percent,
   ReceiptText,
   RefreshCcw,
   ShoppingCart,
@@ -22,7 +22,7 @@ import {
   Wallet,
 } from "lucide-react"
 
-type PeriodKey = "today" | "7d" | "30d" | "month"
+type PeriodKey = "today" | "7d" | "30d" | "90d" | "month"
 
 type OrderRow = {
   id: string
@@ -97,11 +97,31 @@ type PaymentBreakdown = {
   count: number
 }
 
-type RevenuePoint = {
+type CashflowPoint = {
   date: string
   label: string
-  total: number
+  income: number
+  expense: number
+  result: number
 }
+
+type ExpenseBreakdown = {
+  label: string
+  total: number
+  count: number
+}
+
+type RecentMovement = {
+  id: string
+  type: "income" | "expense"
+  title: string
+  description: string | null
+  category: string
+  amount: number
+  occurred_at: string
+}
+
+type GenericFinanceRow = Record<string, unknown>
 
 type DashboardData = {
   grossRevenue: number
@@ -112,6 +132,7 @@ type DashboardData = {
   losses: number
   productCost: number
   estimatedProfit: number
+  estimatedMargin: number
   cmv: number
   pixTotal: number
   cashTotal: number
@@ -121,7 +142,9 @@ type DashboardData = {
   paymentBreakdown: PaymentBreakdown[]
   transactions: FinancialTransaction[]
   productLosses: ProductLoss[]
-  revenueSeries: RevenuePoint[]
+  expenseBreakdown: ExpenseBreakdown[]
+  recentMovements: RecentMovement[]
+  cashflowSeries: CashflowPoint[]
 }
 
 const emptyDashboard: DashboardData = {
@@ -133,6 +156,7 @@ const emptyDashboard: DashboardData = {
   losses: 0,
   productCost: 0,
   estimatedProfit: 0,
+  estimatedMargin: 0,
   cmv: 0,
   pixTotal: 0,
   cashTotal: 0,
@@ -142,13 +166,16 @@ const emptyDashboard: DashboardData = {
   paymentBreakdown: [],
   transactions: [],
   productLosses: [],
-  revenueSeries: [],
+  expenseBreakdown: [],
+  recentMovements: [],
+  cashflowSeries: [],
 }
 
 const periodOptions: { key: PeriodKey; label: string }[] = [
   { key: "today", label: "Hoje" },
   { key: "7d", label: "7 dias" },
   { key: "30d", label: "30 dias" },
+  { key: "90d", label: "90 dias" },
   { key: "month", label: "Mês atual" },
 ]
 
@@ -176,19 +203,6 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`
 }
 
-function getLocalDayRange(date = new Date()) {
-  const start = new Date(date)
-  start.setHours(0, 0, 0, 0)
-
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
-
-  return {
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
-  }
-}
-
 function getPeriodStart(period: PeriodKey) {
   const date = new Date()
 
@@ -205,6 +219,12 @@ function getPeriodStart(period: PeriodKey) {
 
   if (period === "30d") {
     date.setDate(date.getDate() - 29)
+    date.setHours(0, 0, 0, 0)
+    return date.toISOString()
+  }
+
+  if (period === "90d") {
+    date.setDate(date.getDate() - 89)
     date.setHours(0, 0, 0, 0)
     return date.toISOString()
   }
@@ -243,11 +263,12 @@ function isValidOrderForFinance(order: OrderRow) {
 function getPaymentLabel(paymentMethod: string | null) {
   const method = String(paymentMethod || "").toLowerCase()
 
-  if (method === "pix") return "Pix"
+  if (["pix", "pix_manual", "manual_pix", "pix_direto", "pix_direct"].includes(method)) return "Pix"
   if (method === "cash" || method === "dinheiro") return "Dinheiro"
   if (method === "credit_card" || method === "credito") return "Crédito"
   if (method === "debit_card" || method === "debito") return "Débito"
   if (method === "card" || method === "cartao") return "Cartão"
+  if (method === "card_on_delivery") return "Cartão na entrega"
 
   return paymentMethod || "Não informado"
 }
@@ -255,7 +276,7 @@ function getPaymentLabel(paymentMethod: string | null) {
 function getPaymentBucket(paymentMethod: string | null) {
   const method = String(paymentMethod || "").toLowerCase()
 
-  if (method === "pix") return "pix"
+  if (["pix", "pix_manual", "manual_pix", "pix_direto", "pix_direct"].includes(method)) return "pix"
   if (method === "cash" || method === "dinheiro") return "cash"
 
   return "card"
@@ -273,33 +294,6 @@ function isCashClosingTransaction(transaction: FinancialTransaction) {
   )
 }
 
-
-function getSupabaseErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error) {
-    return error.message
-  }
-
-  if (typeof error === "object" && error !== null) {
-    const errorRecord = error as Record<string, unknown>
-
-    const message = typeof errorRecord.message === "string" ? errorRecord.message : ""
-    const details = typeof errorRecord.details === "string" ? errorRecord.details : ""
-    const hint = typeof errorRecord.hint === "string" ? errorRecord.hint : ""
-    const code = typeof errorRecord.code === "string" ? errorRecord.code : ""
-
-    const parts = [message, details, hint, code ? `Código: ${code}` : ""].filter(Boolean)
-
-    if (parts.length > 0) {
-      return parts.join(" | ")
-    }
-  }
-
-  return fallback
-}
-
-function throwSupabaseError(error: unknown, fallback: string): never {
-  throw new Error(getSupabaseErrorMessage(error, fallback))
-}
 
 function normalizeOrderItem(raw: RawOrderItem) {
   const productId =
@@ -361,7 +355,9 @@ function getSeriesDays(period: PeriodKey) {
         ? 7
         : period === "30d"
           ? 30
-          : today.getDate()
+          : period === "90d"
+            ? 90
+            : today.getDate()
 
   const start = new Date(today)
 
@@ -381,33 +377,254 @@ function getSeriesDays(period: PeriodKey) {
   })
 }
 
-function buildRevenueSeries(orders: OrderRow[], period: PeriodKey) {
+function getRecordNumber(record: GenericFinanceRow, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key]
+
+    if (typeof value === "number") return value
+    if (typeof value === "string" && value.trim() !== "") {
+      const cleaned = value.replace(/[^0-9,.-]/g, "").trim()
+      const normalized = cleaned.includes(",")
+        ? cleaned.replace(/\./g, "").replace(",", ".")
+        : cleaned
+      const parsed = Number(normalized)
+
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+
+  return 0
+}
+
+function getRecordString(record: GenericFinanceRow, keys: string[], fallback = "") {
+  for (const key of keys) {
+    const value = record[key]
+
+    if (typeof value === "string" && value.trim() !== "") return value
+    if (typeof value === "number") return String(value)
+  }
+
+  return fallback
+}
+
+function getRecordDate(record: GenericFinanceRow, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key]
+
+    if (typeof value === "string" && value.trim() !== "") return value
+  }
+
+  return new Date().toISOString()
+}
+
+function isDateInsidePeriod(value: string, startIso: string) {
+  const date = new Date(value)
+  const start = new Date(startIso)
+  const now = new Date()
+
+  if (Number.isNaN(date.getTime())) return false
+
+  return date >= start && date <= now
+}
+
+function isCancelledRecord(record: GenericFinanceRow) {
+  const status = getRecordString(record, ["status", "payment_status", "state"]).toLowerCase()
+
+  return ["cancelled", "canceled", "cancelado", "recusado", "void"].includes(status)
+}
+
+function classifyExpense(record: GenericFinanceRow, fallback = "Contas a pagar") {
+  const text = [
+    getRecordString(record, ["category", "type", "expense_type"]),
+    getRecordString(record, ["title", "description", "notes", "supplier_name", "employee_name"]),
+    getRecordString(record, ["origin", "source"]),
+  ]
+    .join(" ")
+    .toLowerCase()
+
+  if (text.includes("folha") || text.includes("funcion") || text.includes("sal") || text.includes("fixo")) {
+    return "Folha / equipe"
+  }
+
+  if (text.includes("fornecedor") || text.includes("compra") || text.includes("supplier")) {
+    return "Fornecedores"
+  }
+
+  if (text.includes("entregador") || text.includes("motoboy") || text.includes("delivery")) {
+    return "Entregadores"
+  }
+
+  return fallback
+}
+
+function addBreakdown(
+  map: Map<string, ExpenseBreakdown>,
+  label: string,
+  total: number,
+  count = 1
+) {
+  if (total <= 0) return
+
+  const current =
+    map.get(label) ??
+    ({
+      label,
+      total: 0,
+      count: 0,
+    } satisfies ExpenseBreakdown)
+
+  current.total += total
+  current.count += count
+
+  map.set(label, current)
+}
+
+function calculateFixedPayroll(staffRows: GenericFinanceRow[], period: PeriodKey) {
+  const monthlyTotal = staffRows
+    .filter((staff) => {
+      const status = getRecordString(staff, ["status", "active_status"]).toLowerCase()
+      const kind = getRecordString(staff, ["employment_type", "contract_type", "type", "role_type"]).toLowerCase()
+      const isInactive = ["inactive", "inativo", "desativado", "demitido"].includes(status)
+      const isFreelancer = kind.includes("freela") || kind.includes("diaria") || kind.includes("daily")
+
+      return !isInactive && !isFreelancer
+    })
+    .reduce(
+      (sum, staff) =>
+        sum +
+        getRecordNumber(staff, [
+          "monthly_salary",
+          "salary",
+          "base_salary",
+          "fixed_salary",
+          "salary_amount",
+          "amount",
+        ]),
+      0
+    )
+
+  if (monthlyTotal <= 0) return 0
+
+  if (period === "today") {
+    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+    return monthlyTotal / daysInMonth
+  }
+
+  if (period === "7d") return (monthlyTotal / 30) * 7
+  if (period === "90d") return monthlyTotal * 3
+
+  return monthlyTotal
+}
+
+function buildCashflowSeries({
+  orders,
+  transactions,
+  productLosses,
+  accountsPayable,
+  deliverySettlements,
+  productCostByDate,
+  fixedPayroll,
+  period,
+}: {
+  orders: OrderRow[]
+  transactions: FinancialTransaction[]
+  productLosses: ProductLoss[]
+  accountsPayable: GenericFinanceRow[]
+  deliverySettlements: GenericFinanceRow[]
+  productCostByDate: Map<string, number>
+  fixedPayroll: number
+  period: PeriodKey
+}) {
   const days = getSeriesDays(period)
-  const revenueByDate = new Map<string, number>()
+  const incomeByDate = new Map<string, number>()
+  const expenseByDate = new Map<string, number>()
 
   for (const day of days) {
-    revenueByDate.set(getLocalDateString(day), 0)
+    const key = getLocalDateString(day)
+    incomeByDate.set(key, 0)
+    expenseByDate.set(key, 0)
+  }
+
+  const addIncome = (dateValue: string, amount: number) => {
+    const key = getLocalDateString(new Date(dateValue))
+    if (!incomeByDate.has(key)) return
+    incomeByDate.set(key, Number(incomeByDate.get(key) || 0) + amount)
+  }
+
+  const addExpense = (dateValue: string, amount: number) => {
+    const key = getLocalDateString(new Date(dateValue))
+    if (!expenseByDate.has(key)) return
+    expenseByDate.set(key, Number(expenseByDate.get(key) || 0) + amount)
   }
 
   for (const order of orders) {
-    const orderDateKey = getLocalDateString(new Date(order.created_at))
+    addIncome(order.created_at, Number(order.total || 0))
+  }
 
-    if (!revenueByDate.has(orderDateKey)) continue
+  for (const transaction of transactions) {
+    if (isCashClosingTransaction(transaction)) continue
 
-    revenueByDate.set(
-      orderDateKey,
-      Number(revenueByDate.get(orderDateKey) || 0) + Number(order.total || 0)
+    if (transaction.type === "income") {
+      addIncome(transaction.occurred_at, Number(transaction.amount || 0))
+    } else {
+      addExpense(transaction.occurred_at, Number(transaction.amount || 0))
+    }
+  }
+
+  for (const loss of productLosses) {
+    addExpense(loss.occurred_at, Number(loss.total_cost || 0))
+  }
+
+  for (const payable of accountsPayable) {
+    addExpense(
+      getRecordDate(payable, ["paid_at", "due_date", "created_at", "updated_at"]),
+      getRecordNumber(payable, ["amount", "total_amount", "total", "value", "paid_amount"])
     )
   }
 
-  return days.map((day) => ({
-    date: getLocalDateString(day),
-    label: new Intl.DateTimeFormat("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-    }).format(day),
-    total: Number(revenueByDate.get(getLocalDateString(day)) || 0),
-  }))
+  for (const settlement of deliverySettlements) {
+    addExpense(
+      getRecordDate(settlement, ["paid_at", "settled_at", "settlement_date", "created_at"]),
+      getRecordNumber(settlement, [
+        "amount",
+        "total_amount",
+        "total",
+        "total_delivery_fee",
+        "delivery_fee_total",
+        "settlement_amount",
+        "value",
+      ])
+    )
+  }
+
+  for (const [date, amount] of productCostByDate.entries()) {
+    addExpense(date, amount)
+  }
+
+  if (fixedPayroll > 0 && days.length > 0) {
+    const dailyPayroll = fixedPayroll / days.length
+
+    for (const day of days) {
+      addExpense(day.toISOString(), dailyPayroll)
+    }
+  }
+
+  return days.map((day) => {
+    const date = getLocalDateString(day)
+    const income = Number(incomeByDate.get(date) || 0)
+    const expense = Number(expenseByDate.get(date) || 0)
+
+    return {
+      date,
+      label: new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      }).format(day),
+      income,
+      expense,
+      result: income - expense,
+    }
+  })
 }
 
 function ProgressBar({
@@ -467,7 +684,7 @@ function MetricCard({
 
   return (
     <div
-      className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+      className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start justify-between gap-4">
@@ -510,7 +727,7 @@ function FinanceCard({
   return (
     <section
       className={cn(
-        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5",
         className
       )}
     >
@@ -537,47 +754,190 @@ function FinanceCard({
   )
 }
 
-function RevenueChart({ data }: { data: RevenuePoint[] }) {
-  const maxValue = Math.max(...data.map((item) => item.total), 1)
+function CashflowChart({ data }: { data: CashflowPoint[] }) {
+  const totalIncome = data.reduce((sum, item) => sum + item.income, 0)
+  const totalExpense = data.reduce((sum, item) => sum + item.expense, 0)
+  const totalResult = data.reduce((sum, item) => sum + item.result, 0)
+
+  const maxValue = Math.max(
+    ...data.flatMap((item) => [item.income, item.expense, Math.abs(item.result)]),
+    1
+  )
+
+  const listData = [...data].reverse()
+
+  function getBarWidth(value: number) {
+    if (value <= 0) return "0%"
+    return `${Math.max((value / maxValue) * 100, 3)}%`
+  }
+
+  if (data.length === 0) {
+    return <EmptyState message="Nenhuma entrada ou saída encontrada no período." />
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex h-[240px] items-end gap-2 rounded-2xl bg-slate-50 px-4 pb-4 pt-6">
-        {data.length === 0 ? (
-          <div className="flex h-full w-full items-center justify-center text-sm font-medium text-slate-400">
-            Sem dados para montar o gráfico.
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+          <p className="text-[9px] font-black uppercase tracking-wide text-emerald-700 sm:text-[10px]">
+            Entradas
+          </p>
+          <p className="mt-0.5 text-sm font-black text-emerald-700 sm:text-base">
+            {formatCurrency(totalIncome)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5">
+          <p className="text-[9px] font-black uppercase tracking-wide text-red-700 sm:text-[10px]">
+            Saídas
+          </p>
+          <p className="mt-0.5 text-sm font-black text-red-700 sm:text-base">
+            {formatCurrency(totalExpense)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2.5">
+          <p className="text-[9px] font-black uppercase tracking-wide text-blue-700 sm:text-[10px]">
+            Resultado
+          </p>
+          <p className="mt-0.5 text-sm font-black text-blue-700 sm:text-base">
+            {formatCurrency(totalResult)}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-3 text-[11px] font-bold text-slate-600">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Entradas
           </div>
-        ) : (
-          data.map((item, index) => {
-            const height = Math.max(8, (item.total / maxValue) * 100)
+
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-red-500" />
+            Saídas
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            Resultado
+          </div>
+        </div>
+
+        <div
+          className="max-h-[330px] space-y-2 overflow-y-auto pr-1 sm:max-h-[390px]
+          [&::-webkit-scrollbar]:w-2
+          [&::-webkit-scrollbar-track]:rounded-full
+          [&::-webkit-scrollbar-track]:bg-slate-100
+          [&::-webkit-scrollbar-thumb]:rounded-full
+          [&::-webkit-scrollbar-thumb]:bg-slate-300
+          [&::-webkit-scrollbar-thumb:hover]:bg-slate-400"
+          style={{
+            scrollbarWidth: "thin",
+            scrollbarColor: "#cbd5e1 #f1f5f9",
+          }}
+        >
+          {listData.map((item) => {
+            const resultValue = Math.abs(item.result)
+            const hasMovement =
+              item.income > 0 || item.expense > 0 || resultValue > 0
 
             return (
               <div
                 key={item.date}
-                className="group flex h-full min-w-0 flex-1 flex-col justify-end gap-2"
+                className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm"
               >
-                <div className="relative flex flex-1 items-end">
-                  <div
-                    className="w-full rounded-t-xl bg-gradient-to-t from-blue-600 to-blue-400 shadow-sm transition-all duration-700 ease-out group-hover:from-blue-700 group-hover:to-blue-500"
-                    style={{
-                      height: `${height}%`,
-                      animationDelay: `${index * 60}ms`,
-                    }}
-                  />
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-950 sm:text-sm">
+                      {item.label}
+                    </p>
+                    <p className="text-[10px] font-medium text-slate-400">
+                      {hasMovement ? "Movimentação do dia" : "Sem movimentação"}
+                    </p>
+                  </div>
 
-                  <div className="pointer-events-none absolute -top-10 left-1/2 hidden -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700 shadow-lg group-hover:block">
-                    {formatCurrency(item.total)}
+                  <div className="shrink-0 text-right">
+                    <p className="text-[9px] font-bold uppercase text-slate-400">
+                      Saldo
+                    </p>
+                    <p
+                      className={cn(
+                        "text-xs font-black sm:text-sm",
+                        item.result >= 0 ? "text-blue-700" : "text-red-600"
+                      )}
+                    >
+                      {formatCurrency(item.result)}
+                    </p>
                   </div>
                 </div>
 
-                <p className="truncate text-center text-[10px] font-semibold text-slate-400">
-                  {item.label}
-                </p>
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-[58px_1fr_78px] items-center gap-2 sm:grid-cols-[76px_1fr_105px]">
+                    <span className="text-[10px] font-black text-emerald-700 sm:text-xs">
+                      Entrada
+                    </span>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-emerald-50">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: getBarWidth(item.income) }}
+                      />
+                    </div>
+
+                    <span className="text-right text-[10px] font-black text-emerald-700 sm:text-xs">
+                      {formatCurrency(item.income)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-[58px_1fr_78px] items-center gap-2 sm:grid-cols-[76px_1fr_105px]">
+                    <span className="text-[10px] font-black text-red-700 sm:text-xs">
+                      Saída
+                    </span>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-red-50">
+                      <div
+                        className="h-full rounded-full bg-red-500"
+                        style={{ width: getBarWidth(item.expense) }}
+                      />
+                    </div>
+
+                    <span className="text-right text-[10px] font-black text-red-700 sm:text-xs">
+                      {formatCurrency(item.expense)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-[58px_1fr_78px] items-center gap-2 sm:grid-cols-[76px_1fr_105px]">
+                    <span className="text-[10px] font-black text-blue-700 sm:text-xs">
+                      Resultado
+                    </span>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-blue-50">
+                      <div
+                        className="h-full rounded-full bg-blue-500"
+                        style={{ width: getBarWidth(resultValue) }}
+                      />
+                    </div>
+
+                    <span
+                      className={cn(
+                        "text-right text-[10px] font-black sm:text-xs",
+                        item.result >= 0 ? "text-blue-700" : "text-red-600"
+                      )}
+                    >
+                      {formatCurrency(item.result)}
+                    </span>
+                  </div>
+                </div>
               </div>
             )
-          })
-        )}
+          })}
+        </div>
       </div>
+
+      <p className="text-[11px] font-medium text-slate-400">
+        Histórico automático com entradas, saídas e resultado do período selecionado.
+      </p>
     </div>
   )
 }
@@ -622,7 +982,6 @@ export default function FinanceiroPage() {
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [data, setData] = useState<DashboardData>(emptyDashboard)
   const [isLoading, setIsLoading] = useState(true)
-  const [isClosingCash, setIsClosingCash] = useState(false)
 
   const resolveRestaurant = useCallback(async () => {
     if (restaurantId) return restaurantId
@@ -685,6 +1044,8 @@ export default function FinanceiroPage() {
       )
 
       const orderIds = validOrders.map((order) => order.id)
+      const chartOrderIds = validChartOrders.map((order) => order.id)
+      const allOrderIdsForCost = Array.from(new Set([...orderIds, ...chartOrderIds]))
 
       const { data: productsData, error: productsError } = await supabase
         .from("products")
@@ -704,18 +1065,25 @@ export default function FinanceiroPage() {
 
       const categoryRows = (categoriesData ?? []) as CategoryRow[]
 
-      let orderItems: RawOrderItem[] = []
+      let allOrderItems: RawOrderItem[] = []
 
-      if (orderIds.length > 0) {
+      if (allOrderIdsForCost.length > 0) {
         const { data: itemsData, error: itemsError } = await supabase
           .from("order_items")
           .select("*")
-          .in("order_id", orderIds)
+          .in("order_id", allOrderIdsForCost)
 
         if (itemsError) throw itemsError
 
-        orderItems = (itemsData ?? []) as RawOrderItem[]
+        allOrderItems = (itemsData ?? []) as RawOrderItem[]
       }
+
+      const orderIdSet = new Set(orderIds)
+      const chartOrderIdSet = new Set(chartOrderIds)
+      const orderItems = allOrderItems.filter((rawItem) => {
+        const item = normalizeOrderItem(rawItem)
+        return orderIdSet.has(item.orderId)
+      })
 
       const { data: transactionsData, error: transactionsError } = await supabase
         .from("financial_transactions")
@@ -728,6 +1096,17 @@ export default function FinanceiroPage() {
 
       if (transactionsError) throw transactionsError
 
+      const { data: chartTransactionsData, error: chartTransactionsError } = await supabase
+        .from("financial_transactions")
+        .select(
+          "id, type, origin, title, description, amount, category, payment_method, occurred_at"
+        )
+        .eq("restaurant_id", resolvedRestaurantId)
+        .gte("occurred_at", chartStartDate)
+        .order("occurred_at", { ascending: false })
+
+      if (chartTransactionsError) throw chartTransactionsError
+
       const { data: lossesData, error: lossesError } = await supabase
         .from("product_losses")
         .select(
@@ -739,13 +1118,73 @@ export default function FinanceiroPage() {
 
       if (lossesError) throw lossesError
 
+      const { data: chartLossesData, error: chartLossesError } = await supabase
+        .from("product_losses")
+        .select(
+          "id, product_id, product_name, quantity, unit_cost, total_cost, reason, notes, occurred_at"
+        )
+        .eq("restaurant_id", resolvedRestaurantId)
+        .gte("occurred_at", chartStartDate)
+        .order("occurred_at", { ascending: false })
+
+      if (chartLossesError) throw chartLossesError
+
+      const { data: accountsPayableData, error: accountsPayableError } = await supabase
+        .from("accounts_payable")
+        .select("*")
+        .eq("restaurant_id", resolvedRestaurantId)
+
+      if (accountsPayableError) throw accountsPayableError
+
+      const { data: deliverySettlementsData, error: deliverySettlementsError } = await supabase
+        .from("delivery_settlements")
+        .select("*")
+        .eq("restaurant_id", resolvedRestaurantId)
+
+      if (deliverySettlementsError) throw deliverySettlementsError
+
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff_members")
+        .select("*")
+        .eq("restaurant_id", resolvedRestaurantId)
+
+      if (staffError) {
+        console.warn("Não foi possível carregar equipe para estimar folha fixa:", staffError)
+      }
+
       const transactions = (transactionsData ?? []) as FinancialTransaction[]
+      const chartTransactions = (chartTransactionsData ?? []) as FinancialTransaction[]
       const productLosses = (lossesData ?? []) as ProductLoss[]
+      const chartProductLosses = (chartLossesData ?? []) as ProductLoss[]
+      const allAccountsPayable = (accountsPayableData ?? []) as GenericFinanceRow[]
+      const allDeliverySettlements = (deliverySettlementsData ?? []) as GenericFinanceRow[]
+      const staffRows = staffError ? [] : ((staffData ?? []) as GenericFinanceRow[])
+
+      const accountsPayable = allAccountsPayable.filter((payable) => {
+        const date = getRecordDate(payable, ["paid_at", "due_date", "created_at", "updated_at"])
+        return !isCancelledRecord(payable) && isDateInsidePeriod(date, startDate)
+      })
+
+      const chartAccountsPayable = allAccountsPayable.filter((payable) => {
+        const date = getRecordDate(payable, ["paid_at", "due_date", "created_at", "updated_at"])
+        return !isCancelledRecord(payable) && isDateInsidePeriod(date, chartStartDate)
+      })
+
+      const deliverySettlements = allDeliverySettlements.filter((settlement) => {
+        const date = getRecordDate(settlement, ["paid_at", "settled_at", "settlement_date", "created_at"])
+        return !isCancelledRecord(settlement) && isDateInsidePeriod(date, startDate)
+      })
+
+      const chartDeliverySettlements = allDeliverySettlements.filter((settlement) => {
+        const date = getRecordDate(settlement, ["paid_at", "settled_at", "settlement_date", "created_at"])
+        return !isCancelledRecord(settlement) && isDateInsidePeriod(date, chartStartDate)
+      })
 
       const productsById = new Map(productRows.map((product) => [product.id, product]))
       const categoriesById = new Map(
         categoryRows.map((category) => [category.id, category.name])
       )
+      const validChartOrdersById = new Map(validChartOrders.map((order) => [order.id, order]))
 
       const grossRevenue = validOrders.reduce(
         (sum, order) => sum + Number(order.total || 0),
@@ -762,9 +1201,42 @@ export default function FinanceiroPage() {
         )
         .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
 
-      const expenses = transactions
-        .filter((transaction) => transaction.type === "expense")
+      const manualExpenses = transactions
+        .filter(
+          (transaction) =>
+            transaction.type === "expense" && !isCashClosingTransaction(transaction)
+        )
         .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
+
+      const accountsPayableExpenses = accountsPayable.reduce(
+        (sum, payable) =>
+          sum + getRecordNumber(payable, ["amount", "total_amount", "total", "value", "paid_amount"]),
+        0
+      )
+
+      const deliveryExpenses = deliverySettlements.reduce(
+        (sum, settlement) =>
+          sum +
+          getRecordNumber(settlement, [
+            "amount",
+            "total_amount",
+            "total",
+            "total_delivery_fee",
+            "delivery_fee_total",
+            "settlement_amount",
+            "value",
+          ]),
+        0
+      )
+
+      const hasPayrollInAccountsPayable = accountsPayable.some(
+        (payable) => classifyExpense(payable) === "Folha / equipe"
+      )
+      const fixedPayroll = hasPayrollInAccountsPayable
+        ? 0
+        : calculateFixedPayroll(staffRows, period)
+
+      const expenses = manualExpenses + accountsPayableExpenses + deliveryExpenses + fixedPayroll
 
       const losses = productLosses.reduce(
         (sum, loss) => sum + Number(loss.total_cost || 0),
@@ -772,6 +1244,25 @@ export default function FinanceiroPage() {
       )
 
       const productFinanceMap = new Map<string, ProductFinance>()
+      const chartProductCostByDate = new Map<string, number>()
+
+      for (const rawItem of allOrderItems) {
+        const item = normalizeOrderItem(rawItem)
+        const product = item.productId ? productsById.get(item.productId) : null
+        const itemCost = Number(product?.cost_price || 0) * item.quantity
+
+        if (chartOrderIdSet.has(item.orderId)) {
+          const order = validChartOrdersById.get(item.orderId)
+
+          if (order) {
+            const dateKey = getLocalDateString(new Date(order.created_at))
+            chartProductCostByDate.set(
+              dateKey,
+              Number(chartProductCostByDate.get(dateKey) || 0) + itemCost
+            )
+          }
+        }
+      }
 
       for (const rawItem of orderItems) {
         const item = normalizeOrderItem(rawItem)
@@ -871,10 +1362,81 @@ export default function FinanceiroPage() {
         paymentMap.set(label, current)
       }
 
-      const estimatedProfit =
-        grossRevenue + manualIncome - expenses - losses - productCost
-
+      const totalIncome = grossRevenue + manualIncome
+      const totalOutflow = expenses + losses + productCost
+      const estimatedProfit = totalIncome - totalOutflow
       const cmv = calculateCmv(grossRevenue, productCost)
+      const estimatedMargin = calculateMargin(totalIncome, estimatedProfit)
+
+      const expenseBreakdownMap = new Map<string, ExpenseBreakdown>()
+
+      for (const payable of accountsPayable) {
+        addBreakdown(
+          expenseBreakdownMap,
+          classifyExpense(payable),
+          getRecordNumber(payable, ["amount", "total_amount", "total", "value", "paid_amount"])
+        )
+      }
+
+      addBreakdown(expenseBreakdownMap, "Folha / equipe", fixedPayroll)
+      addBreakdown(expenseBreakdownMap, "Entregadores", deliveryExpenses, deliverySettlements.length)
+      addBreakdown(expenseBreakdownMap, "Despesas manuais", manualExpenses, transactions.filter((transaction) => transaction.type === "expense").length)
+      addBreakdown(expenseBreakdownMap, "Perdas/desperdício", losses, productLosses.length)
+      addBreakdown(expenseBreakdownMap, "CMV / custo dos produtos", productCost, productFinance.length)
+
+      const recentMovements: RecentMovement[] = [
+        ...transactions
+          .filter((transaction) => !isCashClosingTransaction(transaction))
+          .map((transaction) => ({
+            id: transaction.id,
+            type: transaction.type,
+            title: transaction.title,
+            description: transaction.description,
+            category: transaction.category || "Lançamento manual",
+            amount: Number(transaction.amount || 0),
+            occurred_at: transaction.occurred_at,
+          } satisfies RecentMovement)),
+        ...accountsPayable.map((payable, index) => ({
+          id: String(payable.id || `payable-${index}`),
+          type: "expense" as const,
+          title: getRecordString(payable, ["title", "description", "name"], classifyExpense(payable)),
+          description: getRecordString(payable, ["notes", "supplier_name"], "") || null,
+          category: classifyExpense(payable),
+          amount: getRecordNumber(payable, ["amount", "total_amount", "total", "value", "paid_amount"]),
+          occurred_at: getRecordDate(payable, ["paid_at", "due_date", "created_at", "updated_at"]),
+        } satisfies RecentMovement)),
+        ...deliverySettlements.map((settlement, index) => ({
+          id: String(settlement.id || `delivery-${index}`),
+          type: "expense" as const,
+          title: getRecordString(settlement, ["title", "description", "delivery_person_name"], "Acerto de entregador"),
+          description: null,
+          category: "Entregadores",
+          amount: getRecordNumber(settlement, [
+            "amount",
+            "total_amount",
+            "total",
+            "total_delivery_fee",
+            "delivery_fee_total",
+            "settlement_amount",
+            "value",
+          ]),
+          occurred_at: getRecordDate(settlement, ["paid_at", "settled_at", "settlement_date", "created_at"]),
+        } satisfies RecentMovement)),
+        ...productLosses.map((loss) => ({
+          id: loss.id,
+          type: "expense" as const,
+          title: loss.product_name || "Perda registrada",
+          description: loss.notes,
+          category: `Perda • ${loss.reason || "Sem motivo"}`,
+          amount: Number(loss.total_cost || 0),
+          occurred_at: loss.occurred_at,
+        } satisfies RecentMovement)),
+      ]
+        .filter((movement) => movement.amount > 0)
+        .sort(
+          (a, b) =>
+            new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+        )
 
       setData({
         grossRevenue,
@@ -885,6 +1447,7 @@ export default function FinanceiroPage() {
         losses,
         productCost,
         estimatedProfit,
+        estimatedMargin,
         cmv,
         pixTotal,
         cashTotal,
@@ -896,7 +1459,20 @@ export default function FinanceiroPage() {
         ),
         transactions,
         productLosses,
-        revenueSeries: buildRevenueSeries(validChartOrders, chartPeriod),
+        expenseBreakdown: Array.from(expenseBreakdownMap.values()).sort(
+          (a, b) => b.total - a.total
+        ),
+        recentMovements,
+        cashflowSeries: buildCashflowSeries({
+          orders: validChartOrders,
+          transactions: chartTransactions,
+          productLosses: chartProductLosses,
+          accountsPayable: chartAccountsPayable,
+          deliverySettlements: chartDeliverySettlements,
+          productCostByDate: chartProductCostByDate,
+          fixedPayroll,
+          period: chartPeriod,
+        }),
       })
     } catch (error) {
       console.error("Erro ao carregar financeiro:", error)
@@ -920,180 +1496,34 @@ export default function FinanceiroPage() {
     void loadFinanceiro()
   }, [loadFinanceiro])
 
-  const closeCashToday = async () => {
-    try {
-      if (period !== "today") return
+  const totalIncome = data.grossRevenue + data.manualIncome
+  const totalOutflow = data.expenses + data.losses + data.productCost
+  const cashBalance = data.estimatedProfit
 
-      setIsClosingCash(true)
-
-      const resolvedRestaurantId = await resolveRestaurant()
-      const closingDate = getLocalDateString()
-      const { startIso, endIso } = getLocalDayRange()
-      const closedAt = new Date().toISOString()
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) {
-        throwSupabaseError(userError, "Não foi possível identificar o usuário.")
-      }
-
-      const closingPayload = {
-        restaurant_id: resolvedRestaurantId,
-        closing_date: closingDate,
-        gross_revenue: data.grossRevenue,
-        manual_income: data.manualIncome,
-        expenses: data.expenses,
-        losses: data.losses,
-        product_cost: data.productCost,
-        estimated_profit: data.estimatedProfit,
-        pix_total: data.pixTotal,
-        cash_total: data.cashTotal,
-        card_total: data.cardTotal,
-        orders_count: data.ordersCount,
-        average_ticket: data.averageTicket,
-        closed_by: user?.id ?? null,
-        closed_at: closedAt,
-      }
-
-      const { data: existingClosing, error: existingClosingError } = await supabase
-        .from("cash_closings")
-        .select("id")
-        .eq("restaurant_id", resolvedRestaurantId)
-        .eq("closing_date", closingDate)
-        .limit(1)
-        .maybeSingle()
-
-      if (existingClosingError) {
-        throwSupabaseError(
-          existingClosingError,
-          "Não foi possível verificar o fechamento de caixa existente."
-        )
-      }
-
-      const closingRequest = existingClosing?.id
-        ? supabase
-            .from("cash_closings")
-            .update(closingPayload)
-            .eq("id", existingClosing.id)
-            .eq("restaurant_id", resolvedRestaurantId)
-        : supabase.from("cash_closings").insert(closingPayload)
-
-      const { error: closingError } = await closingRequest
-
-      if (closingError) {
-        throwSupabaseError(closingError, "Não foi possível salvar o fechamento de caixa.")
-      }
-
-      const title = `Fechamento de caixa - ${new Intl.DateTimeFormat("pt-BR").format(
-        new Date()
-      )}`
-
-      const description = [
-        "Lançamento automático gerado ao fechar o caixa.",
-        `Pix: ${formatCurrency(data.pixTotal)}.`,
-        `Dinheiro: ${formatCurrency(data.cashTotal)}.`,
-        `Cartão: ${formatCurrency(data.cardTotal)}.`,
-        `Pedidos: ${data.ordersCount}.`,
-      ].join(" ")
-
-      const { data: existingTransaction, error: existingTransactionError } =
-        await supabase
-          .from("financial_transactions")
-          .select("id")
-          .eq("restaurant_id", resolvedRestaurantId)
-          .eq("type", "income")
-          .eq("origin", "cash_closing")
-          .gte("occurred_at", startIso)
-          .lt("occurred_at", endIso)
-          .limit(1)
-          .maybeSingle()
-
-      if (existingTransactionError) {
-        throwSupabaseError(
-          existingTransactionError,
-          "Não foi possível verificar a entrada automática do fechamento."
-        )
-      }
-
-      const transactionPayload = {
-        restaurant_id: resolvedRestaurantId,
-        type: "income" as const,
-        origin: "cash_closing",
-        title,
-        description,
-        amount: data.grossRevenue,
-        category: "Fechamento diário",
-        payment_method: "Misto",
-        occurred_at: closedAt,
-      }
-
-      const transactionRequest = existingTransaction?.id
-        ? supabase
-            .from("financial_transactions")
-            .update(transactionPayload)
-            .eq("id", existingTransaction.id)
-            .eq("restaurant_id", resolvedRestaurantId)
-        : supabase.from("financial_transactions").insert(transactionPayload)
-
-      const { error: transactionError } = await transactionRequest
-
-      if (transactionError) {
-        throwSupabaseError(
-          transactionError,
-          "Não foi possível lançar o fechamento como entrada automática."
-        )
-      }
-
-      await loadFinanceiro()
-
-      toast({
-        title: "Caixa fechado",
-        description:
-          "O fechamento de hoje foi salvo e lançado como entrada automática.",
-      })
-    } catch (error) {
-      const errorMessage = getSupabaseErrorMessage(
-        error,
-        "Não foi possível fechar o caixa."
-      )
-
-      console.error("Erro ao fechar caixa:", errorMessage, error)
-
-      toast({
-        title: "Erro ao fechar caixa",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setIsClosingCash(false)
-    }
-  }
-
-  const cashBalance = data.grossRevenue + data.manualIncome - data.expenses - data.losses
 
   const pixPercentage =
     data.grossRevenue > 0 ? Math.round((data.pixTotal / data.grossRevenue) * 100) : 0
 
-  const expensePercentage =
-    data.grossRevenue > 0
-      ? Math.round(((data.expenses + data.losses) / data.grossRevenue) * 100)
-      : 0
+  const outflowPercentage =
+    totalIncome > 0 ? Math.round((totalOutflow / totalIncome) * 100) : 0
 
   const bestPaymentMethod = data.paymentBreakdown[0]
 
   const insightItems = [
     data.grossRevenue > 0
-      ? `Pix representa ${pixPercentage}% do faturamento do período.`
+      ? `Pix representa ${pixPercentage}% do faturamento de pedidos no período.`
       : "Ainda não há faturamento registrado nesse período.",
     data.ordersCount > 0
       ? `Ticket médio atual: ${formatCurrency(data.averageTicket)}.`
       : "Quando os pedidos entrarem, o ticket médio aparecerá aqui.",
-    data.expenses + data.losses > 0
-      ? `Saídas e perdas representam ${expensePercentage}% do faturamento.`
-      : "Nenhuma saída ou perda registrada nesse período.",
+    data.cmv > 0
+      ? data.cmv > 40
+        ? `CMV em ${data.cmv.toFixed(1)}%: atenção, o custo dos produtos está alto.`
+        : `CMV em ${data.cmv.toFixed(1)}%: custo dos produtos está controlado.`
+      : "Cadastre custo nos produtos para calcular o CMV com precisão.",
+    totalOutflow > 0
+      ? `Saídas, perdas e CMV representam ${outflowPercentage}% das entradas.`
+      : "Nenhuma saída, perda ou custo registrado nesse período.",
     bestPaymentMethod
       ? `${bestPaymentMethod.label} é a forma de pagamento mais usada no período.`
       : "As formas de pagamento aparecerão conforme os pedidos forem pagos.",
@@ -1105,22 +1535,22 @@ export default function FinanceiroPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-950">
-              Finanças
+              Resumo financeiro
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Controle rápido do dinheiro do restaurante.
+              Entradas, saídas, CMV, lucro estimado e saúde financeira.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             {periodOptions.map((option) => (
               <button
                 key={option.key}
                 type="button"
                 onClick={() => setPeriod(option.key)}
                 className={cn(
-                  "h-10 rounded-xl px-4 text-sm font-bold transition",
+                  "h-10 rounded-xl px-3 text-sm font-bold transition sm:px-4",
                   period === option.key
                     ? "bg-slate-950 text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -1133,7 +1563,7 @@ export default function FinanceiroPage() {
             <button
               type="button"
               onClick={() => void loadFinanceiro()}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 sm:col-span-1"
             >
               <RefreshCcw className="h-4 w-4" />
               Atualizar
@@ -1150,7 +1580,7 @@ export default function FinanceiroPage() {
           </div>
         ) : (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               <MetricCard
                 title="Faturamento"
                 value={formatCurrency(data.grossRevenue)}
@@ -1161,44 +1591,62 @@ export default function FinanceiroPage() {
               />
 
               <MetricCard
-                title="Pedidos pagos"
-                value={String(data.ordersCount)}
-                subtitle="Pedidos considerados no financeiro"
-                tone="slate"
-                delay={70}
-                icon={<ShoppingCart className="h-5 w-5" />}
+                title="Entradas"
+                value={formatCurrency(totalIncome)}
+                subtitle="Pedidos + entradas manuais"
+                tone="green"
+                delay={60}
+                icon={<ArrowUpRight className="h-5 w-5" />}
+              />
+
+              <MetricCard
+                title="Saídas"
+                value={formatCurrency(totalOutflow)}
+                subtitle="Despesas + perdas + CMV"
+                tone="red"
+                delay={120}
+                icon={<ArrowDownLeft className="h-5 w-5" />}
+              />
+
+              <MetricCard
+                title="Resultado"
+                value={formatCurrency(cashBalance)}
+                subtitle={`Margem estimada: ${data.estimatedMargin.toFixed(1)}%`}
+                tone={cashBalance >= 0 ? "green" : "red"}
+                delay={180}
+                icon={<Wallet className="h-5 w-5" />}
               />
 
               <MetricCard
                 title="Ticket médio"
                 value={formatCurrency(data.averageTicket)}
-                subtitle="Média por pedido confirmado"
-                tone="green"
-                delay={140}
-                icon={<TrendingUp className="h-5 w-5" />}
+                subtitle={`${data.ordersCount} pedido(s) no período`}
+                tone="slate"
+                delay={240}
+                icon={<ShoppingCart className="h-5 w-5" />}
               />
 
               <MetricCard
-                title="Saldo estimado"
-                value={formatCurrency(cashBalance)}
-                subtitle="Entradas menos saídas e perdas"
-                tone={cashBalance >= 0 ? "green" : "red"}
-                delay={210}
-                icon={<Wallet className="h-5 w-5" />}
+                title="CMV"
+                value={`${data.cmv.toFixed(1)}%`}
+                subtitle="Custo dos produtos vendidos"
+                tone={data.cmv > 40 ? "red" : data.cmv > 30 ? "amber" : "blue"}
+                delay={300}
+                icon={<Percent className="h-5 w-5" />}
               />
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[1.7fr_1fr]">
+            <section className="grid gap-5 xl:grid-cols-[1.65fr_1fr]">
               <FinanceCard
-                title="Evolução do faturamento"
+                title="Histórico de entradas e saídas"
                 subtitle={
                   period === "today"
-                    ? "Comparativo visual dos últimos 7 dias"
-                    : `Movimento financeiro em ${getPeriodLabel(period).toLowerCase()}`
+                    ? "Comparativo dos últimos 7 dias para não olhar só o dia atual"
+                    : `Entradas, saídas e resultado em ${getPeriodLabel(period).toLowerCase()}`
                 }
                 icon={<TrendingUp className="h-5 w-5" />}
               >
-                <RevenueChart data={data.revenueSeries} />
+                <CashflowChart data={data.cashflowSeries} />
               </FinanceCard>
 
               <FinanceCard
@@ -1245,42 +1693,33 @@ export default function FinanceiroPage() {
 
             <section className="grid gap-5 xl:grid-cols-3">
               <FinanceCard
-                title="Entradas e saídas recentes"
-                subtitle="Últimos lançamentos manuais"
+                title="Despesas automáticas"
+                subtitle="Folha, entregadores, fornecedores, perdas e CMV"
                 icon={<ReceiptText className="h-5 w-5" />}
                 className="xl:col-span-1"
               >
-                <div className="space-y-2">
-                  {data.transactions.length === 0 ? (
-                    <EmptyState message="Nenhum lançamento manual nesse período." />
+                <div className="space-y-4">
+                  {data.expenseBreakdown.length === 0 ? (
+                    <EmptyState message="Nenhuma despesa registrada nesse período." />
                   ) : (
-                    data.transactions.slice(0, 6).map((transaction) => (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-slate-800">
-                            {transaction.title}
-                          </p>
+                    data.expenseBreakdown.map((expense) => (
+                      <div key={expense.label}>
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-slate-800">
+                              {expense.label}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500">
+                              {expense.count} lançamento(s)
+                            </p>
+                          </div>
 
-                          <p className="mt-1 truncate text-xs font-medium text-slate-500">
-                            {transaction.category || "Sem categoria"} •{" "}
-                            {formatDateTime(transaction.occurred_at)}
+                          <p className="text-sm font-black text-red-600">
+                            {formatCurrency(expense.total)}
                           </p>
                         </div>
 
-                        <p
-                          className={cn(
-                            "shrink-0 text-sm font-black",
-                            transaction.type === "income"
-                              ? "text-emerald-600"
-                              : "text-red-600"
-                          )}
-                        >
-                          {transaction.type === "income" ? "+" : "-"}
-                          {formatCurrency(Number(transaction.amount || 0))}
-                        </p>
+                        <ProgressBar value={expense.total} max={totalOutflow} tone="red" />
                       </div>
                     ))
                   )}
@@ -1289,7 +1728,7 @@ export default function FinanceiroPage() {
 
               <FinanceCard
                 title="Resumo do período"
-                subtitle="Visão limpa dos principais números"
+                subtitle="DRE rápida para bater o olho"
                 icon={<Banknote className="h-5 w-5" />}
                 className="xl:col-span-1"
               >
@@ -1304,7 +1743,12 @@ export default function FinanceiroPage() {
                     tone="green"
                   />
                   <ReportLine
-                    label="Saídas/despesas"
+                    label="Total de entradas"
+                    value={formatCurrency(totalIncome)}
+                    tone="green"
+                  />
+                  <ReportLine
+                    label="Despesas operacionais"
                     value={`-${formatCurrency(data.expenses)}`}
                     tone="red"
                   />
@@ -1314,7 +1758,7 @@ export default function FinanceiroPage() {
                     tone="red"
                   />
                   <ReportLine
-                    label="Custo dos produtos"
+                    label="CMV / custo dos produtos"
                     value={`-${formatCurrency(data.productCost)}`}
                     tone="red"
                   />
@@ -1323,6 +1767,11 @@ export default function FinanceiroPage() {
                     label="Resultado estimado"
                     value={formatCurrency(data.estimatedProfit)}
                     tone={data.estimatedProfit >= 0 ? "blue" : "red"}
+                  />
+                  <ReportLine
+                    label="Margem estimada"
+                    value={`${data.estimatedMargin.toFixed(1)}%`}
+                    tone={data.estimatedMargin >= 0 ? "blue" : "red"}
                   />
                 </div>
               </FinanceCard>
@@ -1348,7 +1797,9 @@ export default function FinanceiroPage() {
                               ? "bg-emerald-50 text-emerald-600"
                               : index === 2
                                 ? "bg-amber-50 text-amber-600"
-                                : "bg-slate-100 text-slate-700"
+                                : index === 3
+                                  ? "bg-red-50 text-red-600"
+                                  : "bg-slate-100 text-slate-700"
                         )}
                       >
                         {index === 0 ? (
@@ -1356,6 +1807,8 @@ export default function FinanceiroPage() {
                         ) : index === 1 ? (
                           <Wallet className="h-4 w-4" />
                         ) : index === 2 ? (
+                          <Percent className="h-4 w-4" />
+                        ) : index === 3 ? (
                           <TrendingDown className="h-4 w-4" />
                         ) : (
                           <CreditCard className="h-4 w-4" />
@@ -1371,59 +1824,54 @@ export default function FinanceiroPage() {
               </FinanceCard>
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[1fr_1.4fr]">
+            <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
               <FinanceCard
-                title="Fechamento diário"
-                subtitle="Salve o resumo do caixa de hoje"
-                icon={<CalendarCheck className="h-5 w-5" />}
+                title="Entradas e saídas recentes"
+                subtitle="Movimentos automáticos e manuais do período"
+                icon={<ReceiptText className="h-5 w-5" />}
               >
-                <div className="grid grid-cols-3 gap-3 rounded-xl bg-slate-50 p-4">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500">Pix</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">
-                      {formatCurrency(data.pixTotal)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500">Dinheiro</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">
-                      {formatCurrency(data.cashTotal)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500">Cartão</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">
-                      {formatCurrency(data.cardTotal)}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => void closeCashToday()}
-                  disabled={period !== "today" || isClosingCash}
-                  className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isClosingCash ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="space-y-2">
+                  {data.recentMovements.length === 0 ? (
+                    <EmptyState message="Nenhum movimento financeiro nesse período." />
                   ) : (
-                    <CalendarCheck className="h-4 w-4" />
-                  )}
+                    data.recentMovements.slice(0, 8).map((movement) => (
+                      <div
+                        key={`${movement.type}-${movement.id}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-slate-800">
+                            {movement.title}
+                          </p>
 
-                  {period === "today"
-                    ? "Fechar caixa de hoje"
-                    : "Use o filtro Hoje para fechar"}
-                </button>
+                          <p className="mt-1 truncate text-xs font-medium text-slate-500">
+                            {movement.category} • {formatDateTime(movement.occurred_at)}
+                          </p>
+                        </div>
+
+                        <p
+                          className={cn(
+                            "shrink-0 text-sm font-black",
+                            movement.type === "income"
+                              ? "text-emerald-600"
+                              : "text-red-600"
+                          )}
+                        >
+                          {movement.type === "income" ? "+" : "-"}
+                          {formatCurrency(movement.amount)}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </FinanceCard>
 
               <FinanceCard
-                title="Leitura do caixa"
-                subtitle="Resumo rápido para bater o olho"
+                title="Leitura geral"
+                subtitle="Resumo prático sem fechamento de caixa"
                 icon={<ArrowUpRight className="h-5 w-5" />}
               >
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl bg-emerald-50 p-4">
                     <div className="flex items-center gap-2 text-emerald-700">
                       <ArrowUpRight className="h-4 w-4" />
@@ -1433,7 +1881,7 @@ export default function FinanceiroPage() {
                     </div>
 
                     <p className="mt-3 text-xl font-black text-emerald-700">
-                      {formatCurrency(data.grossRevenue + data.manualIncome)}
+                      {formatCurrency(totalIncome)}
                     </p>
                   </div>
 
@@ -1446,7 +1894,7 @@ export default function FinanceiroPage() {
                     </div>
 
                     <p className="mt-3 text-xl font-black text-red-700">
-                      {formatCurrency(data.expenses + data.losses)}
+                      {formatCurrency(totalOutflow)}
                     </p>
                   </div>
 
@@ -1454,7 +1902,7 @@ export default function FinanceiroPage() {
                     <div className="flex items-center gap-2 text-blue-700">
                       <Wallet className="h-4 w-4" />
                       <p className="text-xs font-black uppercase tracking-wide">
-                        Saldo
+                        Resultado
                       </p>
                     </div>
 
@@ -1462,6 +1910,14 @@ export default function FinanceiroPage() {
                       {formatCurrency(cashBalance)}
                     </p>
                   </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-bold leading-6 text-slate-600">
+                    Esta aba soma automaticamente pedidos pagos, entradas manuais,
+                    contas a pagar, folha/equipe, entregadores, perdas e o custo dos
+                    produtos vendidos. Fechamento de caixa fica fora daqui.
+                  </p>
                 </div>
               </FinanceCard>
             </section>

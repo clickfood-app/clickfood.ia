@@ -71,11 +71,32 @@ type LostCustomer = {
   status: "attention" | "risk" | "lost" | "critical"
   statusLabel: string
   recoveryPriority: "Alta" | "Média" | "Baixa"
+  suggestedOffer: string
+  aiContext: string
 }
 
-type InactiveFilter = "7" | "15" | "30" | "60" | "all"
+type InactiveFilter = "5" | "7" | "15" | "30" | "60" | "all"
 type PaymentFilter = "paid" | "all"
 type SortFilter = "days" | "spent" | "orders" | "ticket"
+
+const LOST_AFTER_DAYS = 5
+
+const ORDER_SELECTS = [
+  "id, created_at, customer_name, customer_phone, customer_address, customer_neighborhood, status, payment_status, subtotal, total, delivery_fee",
+  "id, created_at, customer_name, customer_phone, status, payment_status, subtotal, total, delivery_fee",
+  "id, created_at, customer_name, customer_phone, status, subtotal, total, delivery_fee",
+  "id, created_at, customer_name, customer_phone, total",
+] as const
+
+const ORDER_ITEM_SELECTS = [
+  "id, order_id, product_id, product_name, name, item_name, title, quantity, qty, amount",
+  "id, order_id, product_name, quantity",
+  "id, order_id, name, quantity",
+  "id, order_id, quantity",
+  "id, order_id",
+] as const
+
+const ORDER_ITEM_CHUNK_SIZE = 400
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -184,7 +205,7 @@ function getCustomerStatus(daysInactive: number) {
 
   return {
     status: "attention" as const,
-    label: "Atenção",
+    label: "Sumido recente",
   }
 }
 
@@ -201,7 +222,7 @@ function getRecoveryPriority(customer: {
     return "Alta"
   }
 
-  if (customer.daysInactive >= 15 && customer.totalSpent >= 80) {
+  if (customer.daysInactive >= LOST_AFTER_DAYS && customer.totalSpent >= 80) {
     return "Média"
   }
 
@@ -238,10 +259,90 @@ function getCustomerKey(order: OrderRecord) {
 function buildWhatsAppMessage(customer: LostCustomer, restaurantName?: string | null) {
   const firstName = customer.name.split(" ")[0] || customer.name
   const storeName = restaurantName || "a gente"
+  const offer =
+    customer.suggestedOffer ||
+    "Hoje temos opções bem caprichadas no cardápio. Quer que eu te mande as sugestões?"
 
   return encodeURIComponent(
-    `Oi, ${firstName}! Tudo bem? Aqui é do ${storeName}. Notei que faz um tempinho que você não pede com a gente e queria te chamar pra matar a saudade 😄\n\nHoje temos opções bem caprichadas no cardápio. Quer que eu te mande as sugestões?`,
+    `Oi, ${firstName}! Tudo bem? Aqui é do ${storeName}. Notei que faz ${customer.daysInactive} dias que você não pede com a gente e queria te chamar pra matar a saudade 😄\n\n${offer}`,
   )
+}
+
+function buildSuggestedOffer(customer: {
+  favoriteProduct: string
+  averageTicket: number
+  daysInactive: number
+  ordersCount: number
+}) {
+  const hasFavoriteProduct =
+    customer.favoriteProduct &&
+    customer.favoriteProduct !== "Sem item identificado"
+
+  if (customer.daysInactive >= 30 && hasFavoriteProduct) {
+    return `Oferta de reativação: desconto especial ou brinde no ${customer.favoriteProduct}, com validade curta para trazer o cliente de volta hoje.`
+  }
+
+  if (customer.averageTicket >= 80) {
+    return "Oferta para ticket alto: combo premium com brinde, sobremesa ou entrega grátis acima do ticket médio desse cliente."
+  }
+
+  if (customer.ordersCount >= 3 && hasFavoriteProduct) {
+    return `Oferta de recorrência: repetir o ${customer.favoriteProduct} com um benefício simples, como adicional grátis ou taxa de entrega reduzida.`
+  }
+
+  if (hasFavoriteProduct) {
+    return `Oferta direta: chamar o cliente com foco no ${customer.favoriteProduct}, que é o item com maior chance de conversão.`
+  }
+
+  return "Oferta inicial: enviar uma sugestão curta com 2 opções campeãs do cardápio e um benefício para comprar hoje."
+}
+
+function buildAiContext(customer: LostCustomer) {
+  return [
+    `Cliente: ${customer.name}`,
+    `Telefone: ${formatPhone(customer.phone)}`,
+    `Último pedido: ${formatDate(customer.lastOrderDate)}`,
+    `Dias sem comprar: ${customer.daysInactive}`,
+    `Pedidos anteriores: ${customer.ordersCount}`,
+    `Total gasto: ${formatMoney(customer.totalSpent)}`,
+    `Ticket médio: ${formatMoney(customer.averageTicket)}`,
+    `Produto preferido: ${customer.favoriteProduct}`,
+    `Prioridade: ${customer.recoveryPriority}`,
+    `Sugestão de oferta: ${customer.suggestedOffer}`,
+  ].join("\n")
+}
+
+function getReadableError(error: unknown) {
+  if (!error) return "Erro desconhecido."
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === "object") {
+    const err = error as {
+      message?: string
+      details?: string
+      hint?: string
+      code?: string
+    }
+
+    return [err.message, err.details, err.hint, err.code]
+      .filter(Boolean)
+      .join(" | ")
+  }
+
+  return String(error)
+}
+
+function chunkArray<T>(items: T[], chunkSize: number) {
+  const chunks: T[][] = []
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize))
+  }
+
+  return chunks
 }
 
 export default function ClientesSumidosPage() {
@@ -254,10 +355,64 @@ export default function ClientesSumidosPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [inactiveFilter, setInactiveFilter] = useState<InactiveFilter>("15")
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("paid")
+  const [inactiveFilter, setInactiveFilter] = useState<InactiveFilter>("5")
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all")
   const [sortFilter, setSortFilter] = useState<SortFilter>("days")
   const [searchTerm, setSearchTerm] = useState("")
+
+  async function fetchOrders(restaurantId: string) {
+    let lastError: unknown = null
+
+    for (const selectFields of ORDER_SELECTS) {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(selectFields)
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false })
+        .limit(2000)
+
+      if (!error) {
+        return ((data || []) as unknown) as OrderRecord[]
+      }
+
+      lastError = error
+    }
+
+    throw lastError
+  }
+
+  async function fetchOrderItems(orderIds: string[]) {
+    if (orderIds.length === 0) return []
+
+    let lastError: unknown = null
+    const orderIdChunks = chunkArray(orderIds, ORDER_ITEM_CHUNK_SIZE)
+
+    for (const selectFields of ORDER_ITEM_SELECTS) {
+      const loadedItems: OrderItemRecord[] = []
+      let hasError = false
+
+      for (const orderIdChunk of orderIdChunks) {
+        const { data, error } = await supabase
+          .from("order_items")
+          .select(selectFields)
+          .in("order_id", orderIdChunk)
+
+        if (error) {
+          lastError = error
+          hasError = true
+          break
+        }
+
+        loadedItems.push(...(((data || []) as unknown) as OrderItemRecord[]))
+      }
+
+      if (!hasError) {
+        return loadedItems
+      }
+    }
+
+    throw lastError
+  }
 
   async function loadData(isRefresh = false) {
     try {
@@ -278,6 +433,8 @@ export default function ClientesSumidosPage() {
 
       if (!user) {
         setError("Usuário não autenticado.")
+        setOrders([])
+        setOrderItems([])
         return
       }
 
@@ -292,45 +449,25 @@ export default function ClientesSumidosPage() {
 
       if (!restaurantData) {
         setError("Nenhum restaurante encontrado para este usuário.")
+        setRestaurant(null)
+        setOrders([])
+        setOrderItems([])
         return
       }
 
       setRestaurant(restaurantData)
 
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select(
-          "id, created_at, customer_name, customer_phone, customer_address, customer_neighborhood, status, payment_status, subtotal, total, delivery_fee",
-        )
-        .eq("restaurant_id", restaurantData.id)
-        .order("created_at", { ascending: false })
-        .limit(2000)
-
-      if (ordersError) throw ordersError
-
-      const loadedOrders = (ordersData || []) as OrderRecord[]
-      const orderIds = loadedOrders.map((order) => order.id)
-
-      let loadedOrderItems: OrderItemRecord[] = []
-
-      if (orderIds.length > 0) {
-        const { data: orderItemsData, error: orderItemsError } = await supabase
-          .from("order_items")
-          .select(
-            "id, order_id, product_id, product_name, name, item_name, title, quantity, qty, amount",
-          )
-          .in("order_id", orderIds)
-
-        if (orderItemsError) throw orderItemsError
-
-        loadedOrderItems = (orderItemsData || []) as OrderItemRecord[]
-      }
+      const loadedOrders = await fetchOrders(restaurantData.id)
+      const orderIds = loadedOrders.map((order) => order.id).filter(Boolean)
+      const loadedOrderItems = await fetchOrderItems(orderIds)
 
       setOrders(loadedOrders)
       setOrderItems(loadedOrderItems)
     } catch (err) {
-      console.error("Erro ao carregar clientes sumidos:", err)
-      setError("Não foi possível carregar os clientes sumidos.")
+      const readableError = getReadableError(err)
+
+      console.error("Erro ao carregar clientes sumidos:", readableError, err)
+      setError(`Não foi possível carregar os clientes sumidos. ${readableError}`)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -350,12 +487,19 @@ export default function ClientesSumidosPage() {
       const isCanceled =
         status === "cancelled" ||
         status === "canceled" ||
-        status === "cancelado"
+        status === "cancelado" ||
+        status === "rejected" ||
+        status === "recusado"
 
       if (isCanceled) return false
 
       if (paymentFilter === "paid") {
-        return paymentStatus === "paid"
+        return (
+          !paymentStatus ||
+          paymentStatus === "paid" ||
+          paymentStatus === "confirmed" ||
+          paymentStatus === "approved"
+        )
       }
 
       return true
@@ -472,13 +616,24 @@ export default function ClientesSumidosPage() {
         recoveryPriority: "Baixa" as LostCustomer["recoveryPriority"],
       }
 
-      return {
+      const customerWithPriority = {
         ...baseCustomer,
         recoveryPriority: getRecoveryPriority(baseCustomer),
       }
+
+      const customerWithOffer = {
+        ...customerWithPriority,
+        suggestedOffer: buildSuggestedOffer(customerWithPriority),
+        aiContext: "",
+      }
+
+      return {
+        ...customerWithOffer,
+        aiContext: buildAiContext(customerWithOffer),
+      }
     })
 
-    return customers.sort((a, b) => {
+    return customers.filter((customer) => customer.daysInactive >= LOST_AFTER_DAYS).sort((a, b) => {
       if (sortFilter === "spent") return b.totalSpent - a.totalSpent
       if (sortFilter === "orders") return b.ordersCount - a.ordersCount
       if (sortFilter === "ticket") return b.averageTicket - a.averageTicket
@@ -516,7 +671,7 @@ export default function ClientesSumidosPage() {
     ).length
 
     const risk = lostCustomers.filter(
-      (customer) => customer.daysInactive >= 15,
+      (customer) => customer.daysInactive >= LOST_AFTER_DAYS,
     ).length
 
     const potentialRevenue = filteredCustomers.reduce(
@@ -551,6 +706,7 @@ export default function ClientesSumidosPage() {
   }
 
   const inactiveOptions = [
+    { value: "5", label: "+5 dias" },
     { value: "7", label: "+7 dias" },
     { value: "15", label: "+15 dias" },
     { value: "30", label: "+30 dias" },
@@ -559,8 +715,8 @@ export default function ClientesSumidosPage() {
   ] as const
 
   const paymentOptions = [
-    { value: "paid", label: "Pagos" },
-    { value: "all", label: "Todos" },
+    { value: "all", label: "Todos válidos" },
+    { value: "paid", label: "Pagos/confirmados" },
   ] as const
 
   const sortOptions = [
@@ -587,8 +743,8 @@ export default function ClientesSumidosPage() {
                       Clientes Sumidos
                     </h1>
                     <p className="text-sm text-slate-500">
-                      Encontre clientes que pararam de comprar e recupere vendas
-                      pelo WhatsApp.
+                      Clientes com mais de 5 dias sem comprar, prontos para
+                      recuperação por WhatsApp e futura IA.
                     </p>
                   </div>
                 </div>
@@ -716,7 +872,7 @@ export default function ClientesSumidosPage() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-2xl bg-amber-50 p-4">
                       <p className="text-xs font-bold uppercase tracking-wide text-amber-600/80">
-                        +15 dias
+                        +5 dias
                       </p>
                       <p className="mt-1 text-lg font-black text-amber-700">
                         {summary.risk}
@@ -924,6 +1080,15 @@ export default function ClientesSumidosPage() {
                                 </span>
                               </div>
                             </div>
+
+                            <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
+                              <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                                Sugestão para IA
+                              </p>
+                              <p className="mt-1 text-sm font-semibold leading-relaxed text-blue-950">
+                                {customer.suggestedOffer}
+                              </p>
+                            </div>
                           </div>
 
                           <button
@@ -937,7 +1102,7 @@ export default function ClientesSumidosPage() {
                           </button>
                         </div>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                           <div className="rounded-2xl bg-slate-50 p-3">
                             <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                               Pedidos
@@ -997,9 +1162,9 @@ export default function ClientesSumidosPage() {
                     <p className="font-black">Como usar essa aba</p>
                     <p className="mt-1 font-medium">
                       Priorize clientes com ticket médio alto, mais pedidos e
-                      muitos dias sem comprar. Eles já conhecem o restaurante,
-                      então recuperar esse cliente costuma ser mais barato do
-                      que conquistar um cliente novo.
+                      muitos dias sem comprar. Esta tela já deixa o contexto
+                      organizado para a futura IA montar ofertas personalizadas
+                      com base em histórico, produto preferido e chance de retorno.
                     </p>
                   </div>
                 </div>
