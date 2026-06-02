@@ -1408,7 +1408,17 @@ function UpsellModal({
 
   return (
     <div className="fixed bottom-24 left-3 right-3 z-50 mx-auto max-w-lg animate-in slide-in-from-bottom-3 duration-300">
-      <div className="overflow-hidden rounded-[22px] border border-blue-100 bg-white shadow-[0_22px_55px_-28px_rgba(15,23,42,0.65)]">
+      <div className="overflow-hidden rounded-[24px] border border-blue-100 bg-white shadow-[0_28px_70px_-30px_rgba(15,23,42,0.75)]">
+        <div className="border-b border-blue-50 bg-gradient-to-r from-blue-50 to-orange-50 px-4 py-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+            Oferta rápida
+          </p>
+
+          <h3 className="mt-1 text-sm font-black text-gray-900">
+            Quer adicionar algo que combina?
+          </h3>
+        </div>
+
         <div className="flex items-center gap-3 p-3">
           {firstSuggestion.imageUrl ? (
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
@@ -1428,7 +1438,7 @@ function UpsellModal({
 
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
-              Combina com seu pedido
+              Sugestão para seu pedido
             </p>
 
             <h3 className="mt-0.5 line-clamp-1 text-sm font-black text-gray-900">
@@ -1436,7 +1446,7 @@ function UpsellModal({
             </h3>
 
             <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-gray-500">
-              {firstSuggestion.description || "Adicione este item ao carrinho."}
+              {firstSuggestion.description || "Adicione agora com um toque."}
             </p>
 
             <p className="mt-1 text-sm font-black text-gray-900">
@@ -1488,6 +1498,16 @@ function UpsellModal({
             </div>
           </div>
         )}
+
+        <div className="px-3 pb-3">
+          <button
+            type="button"
+            onClick={onSkip}
+            className="w-full rounded-xl border border-gray-100 bg-gray-50 py-2.5 text-xs font-black text-gray-500 active:scale-[0.98]"
+          >
+            Agora não
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -1601,19 +1621,31 @@ type OrderStep = {
 type PublicUpsellRule = {
   id: string
   title?: string | null
+  name?: string | null
   description?: string | null
+  offeredTitle?: string | null
+  offered_title?: string | null
+  offeredDescription?: string | null
+  offered_description?: string | null
   isActive?: boolean | null
   is_active?: boolean | null
+  triggerType?: string | null
+  trigger_type?: string | null
   triggerProductId?: string | null
   trigger_product_id?: string | null
   triggerCategoryId?: string | null
   trigger_category_id?: string | null
   offerProductId?: string | null
   offer_product_id?: string | null
+  offeredProductId?: string | null
+  offered_product_id?: string | null
   minSubtotal?: number | string | null
   min_subtotal?: number | string | null
+  minimumCartTotal?: number | string | null
+  minimum_cart_total?: number | string | null
   sortOrder?: number | string | null
   sort_order?: number | string | null
+  priority?: number | string | null
 }
 
 type NormalizedOrderModifier = {
@@ -2562,11 +2594,12 @@ function CustomerStartModal({
   mode?: "checkout" | "profile"
   requireDocument?: boolean
   onClose: () => void
-  onSave: (customer: PublicCustomerProfile) => void
+  onSave: (customer: PublicCustomerProfile) => Promise<void> | void
 }) {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [document, setDocument] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -2577,17 +2610,17 @@ function CustomerStartModal({
   }, [open, initialCustomer])
 
   const title =
-    mode === "checkout" ? "Finalize seu pedido" : "Entrar na sua conta"
+    mode === "checkout" ? "Finalize seu pedido" : "Entrar ou criar conta"
 
   const description =
     mode === "checkout"
-      ? `Informe seus dados para acompanhar o pedido e acumular moedas em ${restaurantName}.`
-      : `Entre com o mesmo WhatsApp usado nos pedidos para ver histórico, cashback e fidelidade em ${restaurantName}.`
+      ? `Entre ou cadastre seu WhatsApp para acompanhar o pedido, cashback e fidelidade em ${restaurantName}.`
+      : `Use o mesmo nome e WhatsApp dos pedidos anteriores para acessar histórico, cashback e fidelidade em ${restaurantName}.`
 
   const buttonLabel =
-    mode === "checkout" ? "Continuar pedido" : "Entrar / recuperar conta"
+    mode === "checkout" ? "Continuar pedido" : "Entrar / cadastrar"
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const normalizedName = name.trim()
@@ -2609,12 +2642,24 @@ function CustomerStartModal({
       return
     }
 
-    onSave({
-      name: normalizedName,
-      phone: normalizedPhone,
-      document: normalizedDocument,
-      address: initialCustomer?.address,
-    })
+    try {
+      setIsSubmitting(true)
+
+      await onSave({
+        name: normalizedName,
+        phone: normalizedPhone,
+        document: normalizedDocument,
+        address: initialCustomer?.address,
+      })
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível entrar nessa conta."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!open) return null
@@ -2713,13 +2758,15 @@ function CustomerStartModal({
 
           <button
             type="submit"
-            className="mt-2 w-full rounded-xl py-3.5 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98]"
+            disabled={isSubmitting}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-60"
             style={{
               backgroundColor: accentColor,
               boxShadow: `0 14px 28px -12px ${accentColor}`,
             }}
           >
-            {buttonLabel}
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting ? "Verificando conta..." : buttonLabel}
           </button>
 
           <button
@@ -3424,6 +3471,11 @@ const canUseCashback =
   subtotal >= cashbackRedeemMin
 
 const cashbackDiscount = useCashback && canUseCashback ? maxCashbackDiscount : 0
+const cashbackMissingAmount = Math.max(cashbackRedeemMin - subtotal, 0)
+const cashbackProgressPercent =
+  cashbackRedeemMin > 0
+    ? Math.min(100, Math.round((subtotal / cashbackRedeemMin) * 100))
+    : 100
 
 const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
@@ -3994,7 +4046,7 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
               ) : cashbackStatus?.wallet && cashbackWalletBalance > 0 ? (
                 <div
                   className={cn(
-                    "rounded-2xl border p-4",
+                    "overflow-hidden rounded-[22px] border shadow-[0_18px_50px_-36px_rgba(15,23,42,0.55)]",
                     canUseCashback
                       ? useCashback
                         ? "border-emerald-200 bg-emerald-50"
@@ -4002,58 +4054,98 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
                       : "border-amber-100 bg-amber-50"
                   )}
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm",
-                        canUseCashback ? "bg-emerald-500" : "bg-amber-500"
-                      )}
-                    >
-                      <Sparkles className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div
                         className={cn(
-                          "text-[10px] font-black uppercase tracking-[0.16em]",
-                          canUseCashback ? "text-emerald-700" : "text-amber-700"
+                          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm",
+                          canUseCashback ? "bg-emerald-500" : "bg-amber-500"
                         )}
                       >
-                        Cashback disponível
-                      </p>
+                        <Sparkles className="h-5 w-5" />
+                      </div>
 
-                      <h4 className="mt-1 text-sm font-black text-gray-900">
-                        Você tem {formatPrice(cashbackWalletBalance)} de cashback
-                      </h4>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p
+                              className={cn(
+                                "text-[10px] font-black uppercase tracking-[0.16em]",
+                                canUseCashback ? "text-emerald-700" : "text-amber-700"
+                              )}
+                            >
+                              Cashback disponível
+                            </p>
 
-                      <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-600">
-                        {canUseCashback
-                          ? `Você pode usar ${formatPrice(maxCashbackDiscount)} neste pedido.`
-                          : `Disponível para pedidos acima de ${formatPrice(cashbackRedeemMin)}.`}
-                      </p>
+                            <h4 className="mt-1 text-sm font-black text-gray-900">
+                              Você tem {formatPrice(cashbackWalletBalance)} de saldo
+                            </h4>
+                          </div>
 
-                      {!canUseCashback && cashbackRedeemMin > subtotal && (
-                        <p className="mt-2 text-[11px] font-bold text-amber-700">
-                          Faltam {formatPrice(cashbackRedeemMin - subtotal)} para usar.
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black",
+                              canUseCashback
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            )}
+                          >
+                            {canUseCashback ? "Liberado" : "Bloqueado"}
+                          </span>
+                        </div>
+
+                        <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-600">
+                          Use até {formatPrice(maxCashbackDiscount)} em pedidos acima de {formatPrice(cashbackRedeemMin)} em produtos.
+                          <span className="font-black text-gray-800"> A entrega não entra nessa conta.</span>
                         </p>
-                      )}
 
-                      {canUseCashback && (
+                        <div className="mt-3 rounded-2xl bg-white/75 p-3 ring-1 ring-black/5">
+                          <div className="flex items-center justify-between text-[11px] font-black text-gray-500">
+                            <span>Produtos</span>
+                            <span>{formatPrice(subtotal)} / {formatPrice(cashbackRedeemMin)}</span>
+                          </div>
+
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all duration-500",
+                                canUseCashback ? "bg-emerald-500" : "bg-amber-500"
+                              )}
+                              style={{ width: `${cashbackProgressPercent}%` }}
+                            />
+                          </div>
+
+                          {!canUseCashback && cashbackMissingAmount > 0 ? (
+                            <p className="mt-2 text-[11px] font-black text-amber-700">
+                              Faltam {formatPrice(cashbackMissingAmount)} em produtos para liberar.
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-[11px] font-black text-emerald-700">
+                              Cashback liberado para este pedido.
+                            </p>
+                          )}
+                        </div>
+
                         <button
                           type="button"
-                          onClick={() => setUseCashback((current) => !current)}
+                          onClick={() => canUseCashback && setUseCashback((current) => !current)}
+                          disabled={!canUseCashback}
                           className={cn(
-                            "mt-3 w-full rounded-xl py-2.5 text-xs font-black transition-all active:scale-[0.98]",
+                            "mt-3 w-full rounded-xl py-2.5 text-xs font-black transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
                             useCashback
                               ? "bg-emerald-600 text-white"
-                              : "border border-emerald-200 bg-white text-emerald-700"
+                              : canUseCashback
+                                ? "border border-emerald-200 bg-white text-emerald-700"
+                                : "border border-amber-200 bg-white text-amber-700"
                           )}
                         >
                           {useCashback
                             ? `Cashback aplicado: -${formatPrice(cashbackDiscount)}`
-                            : `Usar ${formatPrice(maxCashbackDiscount)} de cashback`}
+                            : canUseCashback
+                              ? `Usar ${formatPrice(maxCashbackDiscount)} de cashback`
+                              : `Adicione mais ${formatPrice(cashbackMissingAmount)} em produtos`}
                         </button>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -5076,16 +5168,24 @@ export default function CardapioPublicoPage() {
 
           const triggerProductId = rule.triggerProductId ?? rule.trigger_product_id ?? null
           const triggerCategoryId = rule.triggerCategoryId ?? rule.trigger_category_id ?? null
+          const triggerType = String(rule.triggerType ?? rule.trigger_type ?? "product")
           const hasTrigger = Boolean(triggerProductId || triggerCategoryId)
 
-          if (!hasTrigger) return false
+          if (!hasTrigger && triggerType !== "cart_total") return false
 
           const matchesProduct = triggerProductId === item.product.id
           const matchesCategory = triggerCategoryId === categoryId
+          const matchesCartTotal = triggerType === "cart_total"
 
-          if (!matchesProduct && !matchesCategory) return false
+          if (!matchesProduct && !matchesCategory && !matchesCartTotal) return false
 
-          const minSubtotal = Number(rule.minSubtotal ?? rule.min_subtotal ?? 0)
+          const minSubtotal = Number(
+            rule.minSubtotal ??
+              rule.min_subtotal ??
+              rule.minimumCartTotal ??
+              rule.minimum_cart_total ??
+              0
+          )
 
           if (Number.isFinite(minSubtotal) && minSubtotal > 0 && nextSubtotal < minSubtotal) {
             return false
@@ -5093,8 +5193,14 @@ export default function CardapioPublicoPage() {
 
           return true
         })
+        .sort((a, b) => Number(a.priority ?? a.sortOrder ?? a.sort_order ?? 0) - Number(b.priority ?? b.sortOrder ?? b.sort_order ?? 0))
         .map((rule) => {
-          const offerProductId = rule.offerProductId ?? rule.offer_product_id ?? null
+          const offerProductId =
+            rule.offerProductId ??
+            rule.offer_product_id ??
+            rule.offeredProductId ??
+            rule.offered_product_id ??
+            null
 
           if (!offerProductId) return null
           if (usedOfferIds.has(offerProductId)) return null
@@ -5262,7 +5368,7 @@ const openCustomerAccessModal = (
   setCustomerModalOpen(true)
 }
 
-const savePublicCustomer = (customer: PublicCustomerProfile) => {
+const savePublicCustomer = async (customer: PublicCustomerProfile) => {
   if (!restaurant?.id) return
 
   const normalizedCustomer: PublicCustomerProfile = {
@@ -5271,10 +5377,38 @@ const savePublicCustomer = (customer: PublicCustomerProfile) => {
     document: onlyDigits(customer.document),
   }
 
+  const response = await fetch("/api/public/customer/auth", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      restaurantId: restaurant.id,
+      name: normalizedCustomer.name,
+      phone: normalizedCustomer.phone,
+      document: normalizedCustomer.document,
+      address: normalizedCustomer.address?.customerAddress ?? null,
+      neighborhoodKey: normalizedCustomer.address?.selectedNeighborhoodKey ?? null,
+    }),
+  })
+
+  const data = await response.json()
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Não foi possível entrar nessa conta.")
+  }
+
+  const confirmedCustomer: PublicCustomerProfile = {
+    name: data.customer?.name ?? normalizedCustomer.name,
+    phone: onlyDigits(data.customer?.phone ?? normalizedCustomer.phone),
+    document: onlyDigits(data.customer?.document ?? normalizedCustomer.document),
+    address: normalizedCustomer.address,
+  }
+
   const storageKey = `clickfood_customer_${restaurant.id}`
 
-  window.localStorage.setItem(storageKey, JSON.stringify(normalizedCustomer))
-  setPublicCustomer(normalizedCustomer)
+  window.localStorage.setItem(storageKey, JSON.stringify(confirmedCustomer))
+  setPublicCustomer(confirmedCustomer)
   setCustomerModalOpen(false)
 }
 
@@ -5761,6 +5895,17 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           suggestions={upsellProducts}
           accentColor={themeColor}
           onAdd={(product) => {
+            const upsellCategoryId =
+              visibleCategories.find((category) =>
+                category.products.some((menuProduct) => menuProduct.id === product.id)
+              )?.id ?? ""
+
+            if (productHasRequiredModifiers(product) && upsellCategoryId) {
+              setSelectedProduct({ product, categoryId: upsellCategoryId })
+              setUpsellProducts(null)
+              return
+            }
+
             addToCart({
               product,
               quantity: 1,
