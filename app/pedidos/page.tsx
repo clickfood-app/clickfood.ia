@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import {
   AlertTriangle,
   BellRing,
@@ -914,7 +915,7 @@ function OrderCard({
   return (
     <article
       className={[
-        "group overflow-hidden rounded-xl border bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md",
+       "group rounded-xl border bg-white shadow-sm transition duration-200 hover:shadow-md",
         isLate ? "border-red-300 ring-1 ring-red-100" : "border-slate-200/80",
       ].join(" ")}
     >
@@ -1447,8 +1448,9 @@ function OrderCard({
         </div>
       </div>
 
-      {proofModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      {proofModalOpen &&
+  createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div
             className="absolute inset-0"
             onClick={() => setProofModalOpen(false)}
@@ -1540,10 +1542,12 @@ function OrderCard({
                 Confirmar pagamento
               </button>
             </div>
-          </div>
-        </div>
-      )}
-    </article>
+           </div>
+       </div>
+    ,
+    document.body
+  )}
+</article>
   )
 }
 

@@ -206,6 +206,105 @@ function normalizeUpsellRule(row: Record<string, unknown>, index: number) {
   }
 }
 
+
+function getJsonObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>
+  }
+
+  return {}
+}
+
+function isCampaignInsideDateRange(row: Record<string, unknown>) {
+  const startsAt = pickFirstString(row, ["starts_at", "startsAt"], null)
+  const endsAt = pickFirstString(row, ["ends_at", "endsAt"], null)
+  const now = new Date()
+
+  if (startsAt) {
+    const startDate = new Date(startsAt)
+
+    if (!Number.isNaN(startDate.getTime()) && startDate > now) {
+      return false
+    }
+  }
+
+  if (endsAt) {
+    const endDate = new Date(endsAt)
+
+    if (!Number.isNaN(endDate.getTime()) && endDate < now) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function normalizeCashbackCampaign(row: Record<string, unknown> | null) {
+  if (!row) return null
+
+  const status = pickFirstString(row, ["status"], "inactive") ?? "inactive"
+  const campaignType = pickFirstString(row, ["campaign_type", "campaignType"], "") ?? ""
+  const rewardConfig = getJsonObject(row.reward_config ?? row["rewardConfig"])
+  const targetConfig = getJsonObject(row.target_config ?? row["targetConfig"])
+
+  const isActive =
+    status.trim().toLowerCase() === "active" &&
+    campaignType.trim().toLowerCase() === "cashback" &&
+    isCampaignInsideDateRange(row)
+
+  if (!isActive) return null
+
+  const cashbackAmount =
+    pickFirstNumber(rewardConfig, ["cashback_amount", "cashbackAmount", "reward_amount", "rewardAmount"], null) ??
+    pickFirstNumber(rewardConfig, ["redeem_amount", "redeemAmount"], null) ??
+    0
+
+  const redeemAmount =
+    pickFirstNumber(rewardConfig, ["redeem_amount", "redeemAmount"], null) ??
+    cashbackAmount
+
+  const earnMinimumOrderAmount =
+    pickFirstNumber(targetConfig, ["earn_minimum_order_amount", "earnMinimumOrderAmount"], null) ??
+    pickFirstNumber(row, ["minimum_order_amount", "minimumOrderAmount"], 0) ??
+    0
+
+  const redeemMinimumOrderAmount =
+    pickFirstNumber(targetConfig, ["redeem_minimum_order_amount", "redeemMinimumOrderAmount"], null) ??
+    earnMinimumOrderAmount
+
+  const validityDays =
+    pickFirstNumber(rewardConfig, ["validity_days", "validityDays"], null) ?? 30
+
+  return {
+    id: String(row.id),
+    name: pickFirstString(row, ["name", "title"], "Cashback") ?? "Cashback",
+    description: pickFirstString(row, ["description"], null),
+    campaignType: "cashback",
+    campaign_type: "cashback",
+    status,
+    isActive: true,
+    is_active: true,
+    cashbackAmount,
+    cashback_amount: cashbackAmount,
+    redeemAmount,
+    redeem_amount: redeemAmount,
+    earnMinimumOrderAmount,
+    earn_minimum_order_amount: earnMinimumOrderAmount,
+    redeemMinimumOrderAmount,
+    redeem_minimum_order_amount: redeemMinimumOrderAmount,
+    minimumOrderAmount: pickFirstNumber(row, ["minimum_order_amount", "minimumOrderAmount"], earnMinimumOrderAmount) ?? earnMinimumOrderAmount,
+    minimum_order_amount: pickFirstNumber(row, ["minimum_order_amount", "minimumOrderAmount"], earnMinimumOrderAmount) ?? earnMinimumOrderAmount,
+    cashbackType: pickFirstString(rewardConfig, ["cashback_type", "cashbackType"], "fixed") ?? "fixed",
+    cashback_type: pickFirstString(rewardConfig, ["cashback_type", "cashbackType"], "fixed") ?? "fixed",
+    validityDays,
+    validity_days: validityDays,
+    rewardConfig,
+    reward_config: rewardConfig,
+    targetConfig,
+    target_config: targetConfig,
+  }
+}
+
 function normalizeProductPricing(product: Record<string, unknown>) {
   const basePrice = toNumber(product.price, 0)
 
@@ -417,6 +516,13 @@ type UpsellRuleRow = Record<string, unknown> & {
   restaurant_id?: string
 }
 
+type CampaignRow = Record<string, unknown> & {
+  id?: string
+  restaurant_id?: string
+  campaign_type?: string
+  status?: string
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { slug } = await context.params
@@ -466,6 +572,7 @@ export async function GET(_request: Request, context: RouteContext) {
       modifierGroupsResult,
       modifierGroupLinksResult,
       upsellRulesResult,
+      cashbackCampaignsResult,
     ] = await Promise.all([
       supabaseAdmin
         .from("categories")
@@ -531,6 +638,16 @@ export async function GET(_request: Request, context: RouteContext) {
         .from("upsell_rules")
         .select("*")
         .eq("restaurant_id", restaurant.id),
+
+      supabaseAdmin
+        .from("campaigns")
+        .select(
+          "id, restaurant_id, name, description, campaign_type, status, audience_type, target_config, reward_config, minimum_order_amount, budget_limit, used_budget, usage_limit_total, usage_limit_per_customer, starts_at, ends_at, created_at"
+        )
+        .eq("restaurant_id", restaurant.id)
+        .eq("campaign_type", "cashback")
+        .eq("status", "active")
+        .order("created_at", { ascending: false }),
     ])
 
     if (categoriesResult.error) {
@@ -649,6 +766,21 @@ export async function GET(_request: Request, context: RouteContext) {
 
       return NextResponse.json(
         { error: "Erro ao carregar ofertas do cardápio." },
+        { status: 500 }
+      )
+    }
+
+    if (cashbackCampaignsResult.error) {
+      console.error("Erro ao buscar cashback público:", {
+        restaurantId: restaurant.id,
+        message: cashbackCampaignsResult.error.message,
+        details: cashbackCampaignsResult.error.details,
+        hint: cashbackCampaignsResult.error.hint,
+        code: cashbackCampaignsResult.error.code,
+      })
+
+      return NextResponse.json(
+        { error: "Erro ao carregar cashback do cardápio." },
         { status: 500 }
       )
     }
@@ -783,6 +915,11 @@ export async function GET(_request: Request, context: RouteContext) {
       .map((rule, index) => normalizeUpsellRule(rule, index))
       .filter((rule) => rule.isActive && Boolean(rule.offerProductId))
       .sort((a, b) => a.sortOrder - b.sortOrder)
+
+    const cashback =
+      ((cashbackCampaignsResult.data ?? []) as CampaignRow[])
+        .map((campaign) => normalizeCashbackCampaign(campaign))
+        .find(Boolean) ?? null
 
     const availabilityRulesByProduct = new Map<string, ProductAvailabilityRuleRow[]>()
 
@@ -978,8 +1115,10 @@ export async function GET(_request: Request, context: RouteContext) {
       categories: normalizedCategories.sort((a, b) => a.order - b.order),
       campaigns: {
         upsellRules,
+        cashback,
       },
       upsellRules,
+      cashback,
     })
   } catch (error) {
     console.error("GET /api/public/menu/[slug] error:", error)

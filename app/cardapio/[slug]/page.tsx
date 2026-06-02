@@ -1549,11 +1549,15 @@ type CustomerVisibleOrder = {
   customer_review?: string | null
   created_at?: string | null
   items?: Array<{
+    id?: string | null
+    product_id?: string | null
     name?: string | null
     product_name?: string | null
     quantity?: number | null
     price?: number | string | null
     unit_price?: number | string | null
+    notes?: string | null
+    modifiers?: SelectedModifier[] | NormalizedOrderModifier[] | null
   }> | null
 }
 
@@ -1610,6 +1614,35 @@ type PublicUpsellRule = {
   min_subtotal?: number | string | null
   sortOrder?: number | string | null
   sort_order?: number | string | null
+}
+
+type NormalizedOrderModifier = {
+  groupId?: string | null
+  groupName?: string | null
+  optionId?: string | null
+  optionName?: string | null
+  optionPrice?: number | string | null
+  option?: ModifierOption
+}
+
+type PublicCashbackStatus = {
+  hasCampaign: boolean
+  campaign: {
+    id: string
+    name: string | null
+    description: string | null
+    redeemAmount: number
+    redeemMinimumOrderAmount: number
+  } | null
+  wallet: {
+    id: string
+    balance: number
+    totalEarned: number
+    totalRedeemed: number
+    customerName: string | null
+    customerPhone: string | null
+  } | null
+  canRedeem: boolean
 }
 
 type PublicMenuCampaigns = {
@@ -2549,10 +2582,10 @@ function CustomerStartModal({
   const description =
     mode === "checkout"
       ? `Informe seus dados para acompanhar o pedido e acumular moedas em ${restaurantName}.`
-      : `Acesse seu histórico, acompanhe pedidos e veja suas moedas de fidelidade em ${restaurantName}.`
+      : `Entre com o mesmo WhatsApp usado nos pedidos para ver histórico, cashback e fidelidade em ${restaurantName}.`
 
   const buttonLabel =
-    mode === "checkout" ? "Continuar pedido" : "Entrar na conta"
+    mode === "checkout" ? "Continuar pedido" : "Entrar / recuperar conta"
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -2863,22 +2896,26 @@ function CustomerProfileModal({
   open,
   customer,
   loyalty,
+  cashbackStatus,
   orderHistory,
   activeOrder,
   accentColor,
   onClose,
   onLogin,
   onLogout,
+  onRepeatOrder,
 }: {
   open: boolean
   customer: PublicCustomerProfile | null
   loyalty: CustomerLoyaltyProgress | null
+  cashbackStatus: PublicCashbackStatus | null
   orderHistory: CustomerVisibleOrder[]
   activeOrder: CustomerVisibleOrder | null
   accentColor: string
   onClose: () => void
   onLogin: () => void
   onLogout: () => void
+  onRepeatOrder: (order: CustomerVisibleOrder) => void
 }) {
   if (!open) return null
 
@@ -2983,6 +3020,32 @@ function CustomerProfileModal({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4 scrollbar-hide">
+              {cashbackStatus?.wallet && cashbackStatus.wallet.balance > 0 && (
+                <div className="mb-3 rounded-[22px] border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                        Cashback disponível
+                      </p>
+
+                      <h3 className="mt-1 text-lg font-black text-gray-900">
+                        {formatPrice(cashbackStatus.wallet.balance)} para usar
+                      </h3>
+
+                      <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">
+                        {cashbackStatus.campaign?.redeemMinimumOrderAmount
+                          ? `Use em pedidos acima de ${formatPrice(cashbackStatus.campaign.redeemMinimumOrderAmount)}.`
+                          : "Use no próximo pedido elegível."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {loyalty?.loyalty_campaigns?.is_active && (
                 <ProfileLoyaltyCoins loyalty={loyalty} accentColor={accentColor} />
               )}
@@ -3084,6 +3147,16 @@ function CustomerProfileModal({
                               {orderItems.length > 2 ? ` +${orderItems.length - 2} item${orderItems.length - 2 === 1 ? "" : "s"}` : ""}
                             </p>
                           )}
+
+                          {orderItems.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => onRepeatOrder(order)}
+                              className="mt-3 w-full rounded-xl border border-blue-100 bg-white py-2.5 text-xs font-black text-blue-700 shadow-sm active:scale-[0.98]"
+                            >
+                              Repetir pedido
+                            </button>
+                          )}
                         </div>
                       )
                     })}
@@ -3166,6 +3239,27 @@ function CartSheet({
   const [pixProofPreview, setPixProofPreview] = useState("")
   const [paymentApproved, setPaymentApproved] = useState(false)
   const [paymentCheckError, setPaymentCheckError] = useState("")
+  const [cashbackStatus, setCashbackStatus] = useState<{
+  wallet: {
+    id: string
+    balance: number
+    totalEarned: number
+    totalRedeemed: number
+    customerName: string | null
+    customerPhone: string | null
+  } | null
+  campaign: {
+    id: string
+    name: string | null
+    description: string | null
+    redeemAmount: number
+    redeemMinimumOrderAmount: number
+  } | null
+  canRedeem: boolean
+} | null>(null)
+
+const [useCashback, setUseCashback] = useState(false)
+const [isLoadingCashback, setIsLoadingCashback] = useState(false)
 
   const deliveryRules = useMemo(() => getActiveDeliveryRules(restaurant), [restaurant])
 
@@ -3237,6 +3331,66 @@ function CartSheet({
     setSelectedNeighborhoodKey(customer.address.selectedNeighborhoodKey ?? "")
   }, [open, customer?.address])
 
+useEffect(() => {
+  const customerPhone = onlyDigits(customer?.phone)
+
+  if (!open || !restaurant.id || !customerPhone) {
+    setCashbackStatus(null)
+    setUseCashback(false)
+    return
+  }
+
+  let cancelled = false
+
+  async function loadCashbackStatus() {
+    try {
+      setIsLoadingCashback(true)
+
+      const params = new URLSearchParams({
+        restaurantId: restaurant.id,
+        customerPhone,
+        _: String(Date.now()),
+      })
+
+      const response = await fetch(`/api/public/cashback/status?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+      })
+
+      const data = await response.json()
+
+      if (cancelled) return
+
+      if (!response.ok || !data.success) {
+        setCashbackStatus(null)
+        setUseCashback(false)
+        return
+      }
+
+      setCashbackStatus({
+        wallet: data.wallet ?? null,
+        campaign: data.campaign ?? null,
+        canRedeem: Boolean(data.canRedeem),
+      })
+    } catch {
+      if (!cancelled) {
+        setCashbackStatus(null)
+        setUseCashback(false)
+      }
+    } finally {
+      if (!cancelled) {
+        setIsLoadingCashback(false)
+      }
+    }
+  }
+
+  void loadCashbackStatus()
+
+  return () => {
+    cancelled = true
+  }
+}, [open, restaurant.id, customer?.phone])
+
   useEffect(() => {
     if (!isPixPaymentResetSafe(paymentMethod)) {
       setPixPayment(null)
@@ -3255,8 +3409,23 @@ function CartSheet({
         ? selectedNeighborhoodOption?.fee ?? 0
         : restaurant.deliveryFee
       : 0
+  const cashbackWalletBalance = Number(cashbackStatus?.wallet?.balance ?? 0)
+const cashbackRedeemAmount = Number(cashbackStatus?.campaign?.redeemAmount ?? 0)
+const cashbackRedeemMin = Number(cashbackStatus?.campaign?.redeemMinimumOrderAmount ?? 0)
 
-  const total = subtotal + deliveryFee
+const maxCashbackDiscount = Math.min(
+  cashbackWalletBalance,
+  cashbackRedeemAmount > 0 ? cashbackRedeemAmount : cashbackWalletBalance
+)
+
+const canUseCashback =
+  Boolean(cashbackStatus?.canRedeem) &&
+  maxCashbackDiscount > 0 &&
+  subtotal >= cashbackRedeemMin
+
+const cashbackDiscount = useCashback && canUseCashback ? maxCashbackDiscount : 0
+
+const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
   const isPixPayment = normalizedPaymentMethod === "pix"
   const pixKey = (restaurant.pixKey ?? restaurant.pix_key ?? "").trim()
@@ -3359,6 +3528,7 @@ function CartSheet({
     }
   }
   const createPublicOrder = async (paymentMethodLabel: string) => {
+    
     if (!customer) {
       throw new Error("Cliente não identificado.")
     }
@@ -3391,6 +3561,14 @@ function CartSheet({
         status: isManualPix ? "waiting_payment" : undefined,
         deliveryFee,
         serviceFee,
+        cashback:
+          useCashback && canUseCashback && cashbackStatus?.wallet?.id
+            ? {
+                walletId: cashbackStatus.wallet.id,
+                campaignId: cashbackStatus.campaign?.id ?? null,
+                amount: cashbackDiscount,
+              }
+            : null,
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
@@ -3804,6 +3982,83 @@ function CartSheet({
                 </div>
               </div>
 
+              {isLoadingCashback ? (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    <p className="text-sm font-bold text-gray-500">
+                      Verificando cashback...
+                    </p>
+                  </div>
+                </div>
+              ) : cashbackStatus?.wallet && cashbackWalletBalance > 0 ? (
+                <div
+                  className={cn(
+                    "rounded-2xl border p-4",
+                    canUseCashback
+                      ? useCashback
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-emerald-100 bg-white"
+                      : "border-amber-100 bg-amber-50"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm",
+                        canUseCashback ? "bg-emerald-500" : "bg-amber-500"
+                      )}
+                    >
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          "text-[10px] font-black uppercase tracking-[0.16em]",
+                          canUseCashback ? "text-emerald-700" : "text-amber-700"
+                        )}
+                      >
+                        Cashback disponível
+                      </p>
+
+                      <h4 className="mt-1 text-sm font-black text-gray-900">
+                        Você tem {formatPrice(cashbackWalletBalance)} de cashback
+                      </h4>
+
+                      <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-600">
+                        {canUseCashback
+                          ? `Você pode usar ${formatPrice(maxCashbackDiscount)} neste pedido.`
+                          : `Disponível para pedidos acima de ${formatPrice(cashbackRedeemMin)}.`}
+                      </p>
+
+                      {!canUseCashback && cashbackRedeemMin > subtotal && (
+                        <p className="mt-2 text-[11px] font-bold text-amber-700">
+                          Faltam {formatPrice(cashbackRedeemMin - subtotal)} para usar.
+                        </p>
+                      )}
+
+                      {canUseCashback && (
+                        <button
+                          type="button"
+                          onClick={() => setUseCashback((current) => !current)}
+                          className={cn(
+                            "mt-3 w-full rounded-xl py-2.5 text-xs font-black transition-all active:scale-[0.98]",
+                            useCashback
+                              ? "bg-emerald-600 text-white"
+                              : "border border-emerald-200 bg-white text-emerald-700"
+                          )}
+                        >
+                          {useCashback
+                            ? `Cashback aplicado: -${formatPrice(cashbackDiscount)}`
+                            : `Usar ${formatPrice(maxCashbackDiscount)} de cashback`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {orderType === "delivery" && (
                 <div className="space-y-3">
                   {hasNeighborhoodRules && (
@@ -3968,6 +4223,13 @@ function CartSheet({
                   <div className="flex justify-between text-gray-500">
                     <span>Entrega</span>
                     <span>{formatPrice(deliveryFee)}</span>
+                  </div>
+                )}
+
+                {cashbackDiscount > 0 && (
+                  <div className="flex justify-between font-bold text-emerald-600">
+                    <span>Cashback aplicado</span>
+                    <span>-{formatPrice(cashbackDiscount)}</span>
                   </div>
                 )}
 
@@ -4357,6 +4619,7 @@ export default function CardapioPublicoPage() {
   const [customerModalRequiresDocument, setCustomerModalRequiresDocument] = useState(true)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [customerLoyalty, setCustomerLoyalty] = useState<CustomerLoyaltyProgress | null>(null)
+  const [customerCashback, setCustomerCashback] = useState<PublicCashbackStatus | null>(null)
   const [customerOrderHistory, setCustomerOrderHistory] = useState<CustomerVisibleOrder[]>([])
   const [availabilityClock, setAvailabilityClock] = useState(() => new Date())
 
@@ -4488,6 +4751,62 @@ export default function CardapioPublicoPage() {
       setCustomerOrderHistory([])
     }
   }, [mounted, restaurant?.id, publicCustomer?.phone])
+
+  useEffect(() => {
+    if (!mounted || !restaurant?.id || !publicCustomer?.phone) {
+      setCustomerCashback(null)
+      return
+    }
+
+    const restaurantId = restaurant.id
+    const customerPhone = onlyDigits(publicCustomer.phone)
+
+    if (!customerPhone) {
+      setCustomerCashback(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadCustomerProfile() {
+      try {
+        const params = new URLSearchParams({
+          restaurantId,
+          customerPhone,
+          _: String(Date.now()),
+        })
+
+        const response = await fetch(`/api/public/customer/profile?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+        })
+
+        if (!response.ok) return
+
+        const data = await response.json()
+
+        if (cancelled || !data.success) return
+
+        setCustomerCashback(data.cashback ?? null)
+
+        if (Array.isArray(data.orders)) {
+          setCustomerOrderHistory(data.orders)
+        }
+
+        if (data.activeOrder && !tableNumber) {
+          setActiveOrder((current) => current ?? data.activeOrder)
+        }
+      } catch {
+        if (!cancelled) setCustomerCashback(null)
+      }
+    }
+
+    void loadCustomerProfile()
+
+    return () => {
+      cancelled = true
+    }
+  }, [mounted, restaurant?.id, publicCustomer?.phone, activeOrder?.customer_received_at, tableNumber])
 
  useEffect(() => {
   if (!restaurant?.id || !publicCustomer?.phone) {
@@ -4851,7 +5170,55 @@ export default function CardapioPublicoPage() {
       window.scrollTo({ top: y, behavior: "smooth" })
     }
   }, [])
+  const handleRepeatOrder = useCallback(
+  (order: CustomerVisibleOrder) => {
+    const orderItems = Array.isArray(order.items) ? order.items : []
 
+    if (orderItems.length === 0) {
+      alert("Não encontramos os itens desse pedido para repetir.")
+      return
+    }
+
+    const repeatedItems: CartItem[] = orderItems
+      .map((orderItem) => {
+        const productName = String(orderItem.name || orderItem.product_name || "").trim()
+
+        if (!productName) return null
+
+        const product = Array.from(productById.values()).find(
+          (menuProduct) =>
+            menuProduct.name.trim().toLowerCase() === productName.toLowerCase()
+        )
+
+        if (!product) return null
+
+        const quantity = Math.max(1, Number(orderItem.quantity || 1))
+        const unitPrice = Number(orderItem.unit_price ?? orderItem.price ?? product.price)
+
+        const repeatedItem: CartItem = {
+          id: `repeat-${Date.now()}-${Math.random()}`,
+          product,
+          quantity,
+          notes: "",
+          modifiers: [],
+          unitPrice: Number.isFinite(unitPrice) && unitPrice > 0 ? unitPrice : product.price,
+        }
+
+        return repeatedItem
+      })
+      .filter((item): item is CartItem => item !== null)
+
+    if (repeatedItems.length === 0) {
+      alert("Nenhum item desse pedido está disponível no cardápio atual.")
+      return
+    }
+
+    setCart((current) => [...current, ...repeatedItems])
+    setProfileModalOpen(false)
+    setCartOpen(true)
+  },
+  [productById]
+)
   if (!mounted || isLoadingMenu) return <MenuSkeleton />
 
   if (!restaurant) {
@@ -4918,6 +5285,8 @@ const logoutPublicCustomer = () => {
 
   setPublicCustomer(null)
   setCustomerLoyalty(null)
+  setCustomerCashback(null)
+  setCustomerOrderHistory([])
   setProfileModalOpen(false)
 }
 
@@ -4934,6 +5303,8 @@ const savePublicCustomerAddress = (address: PublicCustomerProfile["address"]) =>
   window.localStorage.setItem(storageKey, JSON.stringify(nextCustomer))
   setPublicCustomer(nextCustomer)
 }
+
+
 
 const saveActiveOrder = (order: CustomerVisibleOrder) => {
   if (!restaurant?.id) return
@@ -5408,6 +5779,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         open={profileModalOpen}
         customer={publicCustomer}
         loyalty={customerLoyalty}
+        cashbackStatus={customerCashback}
         orderHistory={customerOrderHistory}
         activeOrder={activeOrder}
         accentColor={themeColor}
@@ -5417,6 +5789,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           openCustomerAccessModal("profile", false)
         }}
         onLogout={logoutPublicCustomer}
+       onRepeatOrder={handleRepeatOrder}
       />
 
       <CustomerStartModal

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-const DEFAULT_ONLINE_SERVICE_FEE = 1.5
+const DEFAULT_ONLINE_SERVICE_FEE = 0
 const MAX_ITEMS_PER_ORDER = 50
 const MAX_QUANTITY_PER_ITEM = 99
 const MAX_CUSTOMER_NAME_LENGTH = 120
@@ -29,14 +29,22 @@ type CreateOrderItemInput = {
 
 type CreateOrderBody = {
   restaurantId: string
+  tableId?: string | null
   customerName: string
   customerPhone: string
   customerAddress?: string
   neighborhood?: string
   orderType: "delivery" | "pickup"
   paymentMethod: string
+  paymentStatus?: string | null
+  status?: string | null
   couponCode?: string | null
   customerNote?: string | null
+  cashback?: {
+    walletId?: string | null
+    campaignId?: string | null
+    amount?: number | string | null
+  } | null
   items: CreateOrderItemInput[]
 }
 
@@ -89,6 +97,36 @@ type ValidatedOrderItem = {
   total_price: number
   notes: string | null
   modifiers: NormalizedModifier[]
+}
+
+type CashbackWalletRow = {
+  id: string
+  restaurant_id: string
+  customer_id: string | null
+  customer_name: string | null
+  customer_phone: string | null
+  balance: number | string | null
+  total_earned: number | string | null
+  total_redeemed: number | string | null
+}
+
+type CashbackCampaignRow = {
+  id: string
+  restaurant_id: string
+  name: string | null
+  status: string | null
+  campaign_type: string | null
+  reward_config: Record<string, unknown> | null
+  target_config: Record<string, unknown> | null
+  minimum_order_amount: number | string | null
+  starts_at: string | null
+  ends_at: string | null
+}
+
+type CashbackRedeemData = {
+  wallet: CashbackWalletRow
+  campaign: CashbackCampaignRow
+  amount: number
 }
 
 function normalizeText(value: unknown, maxLength?: number) {
@@ -145,7 +183,17 @@ function normalizeModifiers(
     .filter((modifier): modifier is NormalizedModifier => Boolean(modifier))
 }
 
-function mapPaymentMethod(value: string) {
+function normalizeOrderStatus(value: unknown, maxLength = 80) {
+  return normalizeText(value, maxLength)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_")
+}
+
+type PublicPaymentMethod = "pix_manual" | "pix" | "cash" | "card_on_delivery" | ""
+
+function mapPaymentMethod(value: string): PublicPaymentMethod {
   const normalized = value
     .trim()
     .toLowerCase()
@@ -154,12 +202,15 @@ function mapPaymentMethod(value: string) {
     .replace(/[\s-]+/g, "_")
 
   if (
-    normalized === "pix" ||
     normalized === "pix_manual" ||
     normalized === "pix_direto" ||
     normalized === "pix_direct" ||
     normalized === "pix_sem_taxa"
   ) {
+    return "pix_manual"
+  }
+
+  if (normalized === "pix") {
     return "pix"
   }
 
@@ -235,6 +286,28 @@ async function getServiceFeeAmount(restaurantId: string) {
   return Math.max(0, roundMoney(serviceFee))
 }
 
+function isCampaignInsidePeriod(campaign: CashbackCampaignRow) {
+  const now = new Date()
+
+  if (campaign.starts_at) {
+    const startsAt = new Date(campaign.starts_at)
+
+    if (!Number.isNaN(startsAt.getTime()) && startsAt > now) {
+      return false
+    }
+  }
+
+  if (campaign.ends_at) {
+    const endsAt = new Date(campaign.ends_at)
+
+    if (!Number.isNaN(endsAt.getTime()) && endsAt < now) {
+      return false
+    }
+  }
+
+  return true
+}
+
 function jsonError(message: string, status = 400) {
   return NextResponse.json(
     {
@@ -256,6 +329,7 @@ export async function POST(request: Request) {
     }
 
     const restaurantId = normalizeText(body.restaurantId, 80)
+    const tableId = normalizeText(body.tableId, 80) || null
     const customerName = normalizeText(
       body.customerName,
       MAX_CUSTOMER_NAME_LENGTH
@@ -275,7 +349,14 @@ export async function POST(request: Request) {
     const orderType = body.orderType === "pickup" ? "pickup" : "delivery"
     const paymentMethodLabel = normalizeText(body.paymentMethod, 80)
     const paymentMethod = mapPaymentMethod(paymentMethodLabel)
+    const requestedStatus = normalizeOrderStatus(body.status)
+    const requestedPaymentStatus = normalizeOrderStatus(body.paymentStatus)
     const customerNote = normalizeText(body.customerNote, MAX_NOTE_LENGTH)
+    const requestedCashbackWalletId = normalizeText(body.cashback?.walletId, 80)
+    const requestedCashbackCampaignId = normalizeText(body.cashback?.campaignId, 80)
+    const requestedCashbackAmount = roundMoney(
+      Math.max(0, normalizeNumber(body.cashback?.amount, 0))
+    )
     const items = Array.isArray(body.items) ? body.items : []
 
     if (!restaurantId) {
@@ -480,34 +561,171 @@ export async function POST(request: Request) {
       deliveryFee = Math.max(0, roundMoney(deliveryFee))
     }
 
-    const safeServiceFee = subtotal > 0 ? serviceFee : 0
-    const discount = 0
+    const safeServiceFee = 0
+
+    let discount = 0
+    let cashbackRedeemData: CashbackRedeemData | null = null
+
+    if (requestedCashbackAmount > 0) {
+      if (!requestedCashbackWalletId) {
+        return jsonError("Carteira de cashback inválida.", 400)
+      }
+
+      const { data: walletData, error: walletError } = await supabaseAdmin
+        .from("cashback_wallets")
+        .select(
+          "id, restaurant_id, customer_id, customer_name, customer_phone, balance, total_earned, total_redeemed"
+        )
+        .eq("id", requestedCashbackWalletId)
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle()
+
+      if (walletError) {
+        console.error("Erro ao buscar carteira de cashback:", {
+          restaurantId,
+          customerPhone,
+          message: walletError.message,
+          code: walletError.code,
+        })
+
+        return jsonError("Erro ao validar cashback.", 500)
+      }
+
+      const wallet = walletData as CashbackWalletRow | null
+
+      if (!wallet) {
+        return jsonError("Carteira de cashback não encontrada.", 400)
+      }
+
+      if (normalizePhone(wallet.customer_phone) !== customerPhone) {
+        return jsonError("Cashback não pertence a este cliente.", 400)
+      }
+
+      const walletBalance = roundMoney(Math.max(0, normalizeNumber(wallet.balance, 0)))
+
+      if (walletBalance <= 0) {
+        return jsonError("Cliente não possui saldo de cashback.", 400)
+      }
+
+      const campaignQuery = supabaseAdmin
+        .from("campaigns")
+        .select(
+          "id, restaurant_id, name, status, campaign_type, reward_config, target_config, minimum_order_amount, starts_at, ends_at"
+        )
+        .eq("restaurant_id", restaurantId)
+        .eq("campaign_type", "cashback")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(5)
+
+      const campaignQueryWithId = requestedCashbackCampaignId
+        ? campaignQuery.eq("id", requestedCashbackCampaignId)
+        : campaignQuery
+
+      const { data: campaignsData, error: campaignError } = await campaignQueryWithId
+
+      if (campaignError) {
+        console.error("Erro ao buscar campanha de cashback:", {
+          restaurantId,
+          message: campaignError.message,
+          code: campaignError.code,
+        })
+
+        return jsonError("Erro ao validar campanha de cashback.", 500)
+      }
+
+      const activeCampaign = ((campaignsData || []) as CashbackCampaignRow[]).find(
+        isCampaignInsidePeriod
+      )
+
+      if (!activeCampaign) {
+        return jsonError("Campanha de cashback não está ativa.", 400)
+      }
+
+      const rewardConfig = activeCampaign.reward_config || {}
+      const targetConfig = activeCampaign.target_config || {}
+
+      const redeemAmount = roundMoney(
+        Math.max(
+          0,
+          normalizeNumber(
+            rewardConfig.redeem_amount ?? rewardConfig.cashback_amount,
+            0
+          )
+        )
+      )
+
+      const redeemMinimumOrderAmount = roundMoney(
+        Math.max(0, normalizeNumber(targetConfig.redeem_minimum_order_amount, 0))
+      )
+
+      if (redeemMinimumOrderAmount > 0 && subtotal < redeemMinimumOrderAmount) {
+        return jsonError(
+          `Cashback disponível apenas em pedidos acima de R$ ${redeemMinimumOrderAmount
+            .toFixed(2)
+            .replace(".", ",")}.`,
+          400
+        )
+      }
+
+      const maxAllowedDiscount = roundMoney(
+        Math.min(walletBalance, redeemAmount > 0 ? redeemAmount : walletBalance)
+      )
+
+      discount = roundMoney(Math.min(requestedCashbackAmount, maxAllowedDiscount))
+
+      if (discount <= 0) {
+        return jsonError("Valor de cashback inválido.", 400)
+      }
+
+      cashbackRedeemData = {
+        wallet,
+        campaign: activeCampaign,
+        amount: discount,
+      }
+    }
+
     const total = roundMoney(subtotal + safeServiceFee + deliveryFee - discount)
     const publicOrderNumber = buildPublicOrderNumber()
+
+    const initialStatus =
+      requestedStatus ||
+      (paymentMethod === "pix_manual"
+        ? "waiting_payment"
+        : paymentMethod === "pix"
+          ? "awaiting_payment"
+          : "pending")
+
+    const initialPaymentStatus =
+      requestedPaymentStatus ||
+      (paymentMethod === "pix_manual" ? "waiting_customer_payment" : "pending")
 
     const orderPayload = {
       restaurant_id: restaurantId,
       public_order_number: publicOrderNumber,
       customer_name: customerName,
       customer_phone: customerPhone,
-      status: paymentMethod === "pix" ? "awaiting_payment" : "pending",
+      status: initialStatus,
       subtotal,
       discount,
       delivery_fee: deliveryFee,
+      service_fee: safeServiceFee,
       total,
       payment_method: paymentMethod,
-      payment_status: "pending",
+      payment_status: initialPaymentStatus,
       notes: customerNote || null,
       order_type: orderType,
       delivery_address: orderType === "delivery" ? customerAddress : null,
       delivery_neighborhood: orderType === "delivery" ? neighborhood : null,
+      table_id: tableId,
+      order_source: "public",
     }
 
     const { data: createdOrder, error: createOrderError } = await supabaseAdmin
       .from("orders")
       .insert(orderPayload)
       .select(
-        "id, public_order_number, status, total, payment_method, payment_status, created_at, order_type, delivery_address, delivery_neighborhood, notes"
+        "id, public_order_number, status, subtotal, discount, delivery_fee, service_fee, total, payment_method, payment_status, created_at, order_type, delivery_address, delivery_neighborhood, notes, order_source"
       )
       .single()
 
@@ -540,6 +758,83 @@ export async function POST(request: Request) {
       return jsonError("Erro ao salvar os itens do pedido.", 500)
     }
 
+    if (cashbackRedeemData) {
+      const currentBalance = roundMoney(
+        Math.max(0, normalizeNumber(cashbackRedeemData.wallet.balance, 0))
+      )
+
+      const currentRedeemed = roundMoney(
+        Math.max(0, normalizeNumber(cashbackRedeemData.wallet.total_redeemed, 0))
+      )
+
+      const nextBalance = roundMoney(currentBalance - cashbackRedeemData.amount)
+      const nextTotalRedeemed = roundMoney(currentRedeemed + cashbackRedeemData.amount)
+
+      const { error: updateCashbackWalletError } = await supabaseAdmin
+        .from("cashback_wallets")
+        .update({
+          balance: nextBalance,
+          total_redeemed: nextTotalRedeemed,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", cashbackRedeemData.wallet.id)
+        .eq("restaurant_id", restaurantId)
+
+      if (updateCashbackWalletError) {
+        console.error("Erro ao baixar saldo de cashback:", {
+          restaurantId,
+          orderId: createdOrder.id,
+          walletId: cashbackRedeemData.wallet.id,
+          message: updateCashbackWalletError.message,
+          code: updateCashbackWalletError.code,
+        })
+
+        await supabaseAdmin.from("order_items").delete().eq("order_id", createdOrder.id)
+        await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
+
+        return jsonError("Não foi possível aplicar o cashback.", 500)
+      }
+
+      const { error: cashbackTransactionError } = await supabaseAdmin
+        .from("cashback_transactions")
+        .insert({
+          restaurant_id: restaurantId,
+          wallet_id: cashbackRedeemData.wallet.id,
+          customer_id: cashbackRedeemData.wallet.customer_id ?? null,
+          order_id: createdOrder.id,
+          campaign_id: cashbackRedeemData.campaign.id,
+          type: "redeemed",
+          amount: cashbackRedeemData.amount,
+          description: `Cashback usado no pedido #${publicOrderNumber}.`,
+          expires_at: null,
+        })
+
+      if (cashbackTransactionError) {
+        console.error("Erro ao registrar uso de cashback:", {
+          restaurantId,
+          orderId: createdOrder.id,
+          walletId: cashbackRedeemData.wallet.id,
+          message: cashbackTransactionError.message,
+          code: cashbackTransactionError.code,
+        })
+
+        await supabaseAdmin
+          .from("cashback_wallets")
+          .update({
+            balance: currentBalance,
+            total_redeemed: currentRedeemed,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", cashbackRedeemData.wallet.id)
+          .eq("restaurant_id", restaurantId)
+
+        await supabaseAdmin.from("order_items").delete().eq("order_id", createdOrder.id)
+        await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
+
+        return jsonError("Não foi possível registrar o uso do cashback.", 500)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       order: createdOrder,
@@ -551,6 +846,13 @@ export async function POST(request: Request) {
         total,
         neighborhood,
         orderType,
+        cashback: cashbackRedeemData
+          ? {
+              walletId: cashbackRedeemData.wallet.id,
+              campaignId: cashbackRedeemData.campaign.id,
+              amount: cashbackRedeemData.amount,
+            }
+          : null,
       },
     })
   } catch (error) {

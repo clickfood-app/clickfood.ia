@@ -287,10 +287,15 @@ export default function CashbackPage() {
 
       if (campaign) {
         const settings = (campaign.settings || campaign.rules || {}) as Record<string, any>
-        const mergedCampaign = {
-          ...settings,
-          ...campaign,
-        }
+const targetConfig = (campaign.target_config || campaign.targetConfig || {}) as Record<string, any>
+const rewardConfig = (campaign.reward_config || campaign.rewardConfig || {}) as Record<string, any>
+
+const mergedCampaign = {
+  ...settings,
+  ...targetConfig,
+  ...rewardConfig,
+  ...campaign,
+}
 
         setCampaignId(campaign.id || null)
         setCampaignForm({
@@ -310,6 +315,7 @@ export default function CashbackPage() {
             firstDefined(
               mergedCampaign,
               [
+                "earn_minimum_order_amount",
                 "earn_minimum_order",
                 "min_order_to_earn",
                 "minimum_order_to_earn",
@@ -339,6 +345,7 @@ export default function CashbackPage() {
             firstDefined(
               mergedCampaign,
               [
+                "redeem_minimum_order_amount",
                 "redeem_minimum_order",
                 "minimum_order_to_redeem",
                 "min_order_to_redeem",
@@ -402,96 +409,44 @@ export default function CashbackPage() {
   }
 
   function buildCampaignPayloads(nextEnabled: boolean) {
-    const status = nextEnabled ? "active" : "paused"
-    const campaignName = campaignForm.campaignName.trim() || "Cashback automático"
-    const budgetLimit = campaignForm.budgetLimit ? campaignNumbers.budgetLimit : null
-    const rules = {
-      campaign_name: campaignName,
-      earn_minimum_order: campaignNumbers.earnMinimumOrder,
-      cashback_amount: campaignNumbers.cashbackAmount,
-      redeem_minimum_order: campaignNumbers.redeemMinimumOrder,
-      validity_days: campaignNumbers.validityDays,
-      budget_limit: budgetLimit,
-      usage_mode: "all_or_nothing",
-      one_reward_per_customer: true,
-      reward_only_once_per_campaign: true,
-      customer_can_choose_partial_amount: false,
-      block_reward_when_redeeming_cashback: true,
-    }
+  const status = nextEnabled ? "active" : "paused"
+  const campaignName = campaignForm.campaignName.trim() || "Cashback automático"
+  const budgetLimit = campaignForm.budgetLimit ? campaignNumbers.budgetLimit : null
+  const now = new Date().toISOString()
 
-    const common = {
+  return [
+    cleanPayload({
       restaurant_id: restaurantId,
+      name: campaignName,
+      description: `Cliente ganha ${formatCurrency(
+        campaignNumbers.cashbackAmount
+      )} de cashback em pedidos acima de ${formatCurrency(
+        campaignNumbers.earnMinimumOrder
+      )} e pode usar em pedidos acima de ${formatCurrency(
+        campaignNumbers.redeemMinimumOrder
+      )}.`,
       campaign_type: "cashback",
       status,
-    }
-
-    const now = new Date().toISOString()
-
-    return [
-      cleanPayload({
-        ...common,
-        name: campaignName,
-        settings: rules,
-        updated_at: now,
-      }),
-      cleanPayload({
-        ...common,
-        title: campaignName,
-        settings: rules,
-        updated_at: now,
-      }),
-      cleanPayload({
-        ...common,
-        name: campaignName,
-        minimum_order: campaignNumbers.earnMinimumOrder,
+      audience_type: "all_customers",
+      target_config: {
+        earn_minimum_order_amount: campaignNumbers.earnMinimumOrder,
+        redeem_minimum_order_amount: campaignNumbers.redeemMinimumOrder,
+      },
+      reward_config: {
         cashback_amount: campaignNumbers.cashbackAmount,
-        redeem_minimum_order: campaignNumbers.redeemMinimumOrder,
+        cashback_type: "fixed",
+        redeem_amount: campaignNumbers.cashbackAmount,
         validity_days: campaignNumbers.validityDays,
-        budget_limit: budgetLimit,
-        updated_at: now,
-      }),
-      cleanPayload({
-        ...common,
-        title: campaignName,
-        minimum_order: campaignNumbers.earnMinimumOrder,
-        cashback_amount: campaignNumbers.cashbackAmount,
-        redeem_minimum_order: campaignNumbers.redeemMinimumOrder,
-        validity_days: campaignNumbers.validityDays,
-        budget_limit: budgetLimit,
-        updated_at: now,
-      }),
-      cleanPayload({
-        ...common,
-        name: campaignName,
-        minimum_order_value: campaignNumbers.earnMinimumOrder,
-        reward_value: campaignNumbers.cashbackAmount,
-        minimum_order_to_redeem: campaignNumbers.redeemMinimumOrder,
-        validity_days: campaignNumbers.validityDays,
-        budget_limit: budgetLimit,
-        updated_at: now,
-      }),
-      cleanPayload({
-        ...common,
-        title: campaignName,
-        minimum_order_value: campaignNumbers.earnMinimumOrder,
-        reward_value: campaignNumbers.cashbackAmount,
-        minimum_order_to_redeem: campaignNumbers.redeemMinimumOrder,
-        validity_days: campaignNumbers.validityDays,
-        budget_limit: budgetLimit,
-        updated_at: now,
-      }),
-      cleanPayload({
-        ...common,
-        name: campaignName,
-        settings: rules,
-      }),
-      cleanPayload({
-        ...common,
-        title: campaignName,
-        settings: rules,
-      }),
-    ]
-  }
+      },
+      minimum_order_amount: campaignNumbers.earnMinimumOrder,
+      budget_limit: budgetLimit,
+      used_budget: 0,
+      usage_limit_total: 999999,
+      usage_limit_per_customer: 999999,
+      updated_at: now,
+    }),
+  ]
+}
 
   async function persistCampaign(nextEnabled: boolean) {
     if (!restaurantId) {
