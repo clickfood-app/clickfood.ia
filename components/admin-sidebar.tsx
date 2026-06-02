@@ -36,6 +36,7 @@ import {
   Users,
   Wallet,
   X,
+  Target,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -135,6 +136,12 @@ const navItems: NavItem[] = [
         icon: <CircleAlert className="h-4 w-4" />,
         href: "/perdas-desperdicio",
       },
+
+      {
+  label: "Metas",
+  icon: <Target className="h-4 w-4" />,
+  href: "/metas",
+},
     ],
   },
   {

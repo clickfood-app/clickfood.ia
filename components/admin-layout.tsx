@@ -57,6 +57,7 @@ const breadcrumbMap: Record<string, string> = {
   "/controle-estoque": "Controle de estoque",
   "/ficha-tecnica": "Ficha técnica",
   "/perdas-desperdicio": "Perdas e desperdício",
+  "/metas": "Metas",
 
   // Financeiro
   "/financeiro": "Finanças",
