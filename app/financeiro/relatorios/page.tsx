@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import {
+  Activity,
   AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
   BarChart3,
   CalendarDays,
   CreditCard,
@@ -11,8 +14,12 @@ import {
   FileText,
   Loader2,
   Package,
+  PieChart,
   RefreshCcw,
   ShoppingBag,
+  Target,
+  TrendingDown,
+  TrendingUp,
   Truck,
   Users,
   Wallet,
@@ -97,6 +104,14 @@ type RankingItem = {
   helper?: string
 }
 
+type CostAreaItem = {
+  label: string
+  paid: number
+  pending: number
+  total: number
+  count: number
+}
+
 function todayDate() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -167,6 +182,16 @@ function formatDate(value: string | null | undefined) {
     month: "2-digit",
     year: "numeric",
   }).format(new Date(`${value.slice(0, 10)}T00:00:00`))
+}
+
+function formatWeekday(value: string | null | undefined) {
+  if (!value) return "Sem dia"
+
+  const formatted = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+  }).format(new Date(`${value.slice(0, 10)}T00:00:00`))
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
 function normalizePaymentMethod(method: string | null) {
@@ -293,33 +318,29 @@ function percentage(value: number, total: number) {
   return (value / total) * 100
 }
 
-function MetricBox({
-  title,
-  value,
-  helper,
-  tone = "neutral",
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-center text-sm text-slate-500">
+      {text}
+    </div>
+  )
+}
+
+function ScrollableBox({
+  children,
+  className,
 }: {
-  title: string
-  value: string
-  helper?: string
-  tone?: "neutral" | "success" | "warning" | "danger" | "purple"
+  children: ReactNode
+  className?: string
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
-      <strong
-        className={cn(
-          "mt-1 block text-xl font-semibold",
-          tone === "success" && "text-emerald-600",
-          tone === "warning" && "text-orange-600",
-          tone === "danger" && "text-red-600",
-          tone === "purple" && "text-violet-700",
-          tone === "neutral" && "text-slate-950",
-        )}
-      >
-        {value}
-      </strong>
-      {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
+    <div
+      className={cn(
+        "overflow-y-auto pr-1 [scrollbar-color:theme(colors.slate.300)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400",
+        className,
+      )}
+    >
+      {children}
     </div>
   )
 }
@@ -329,32 +350,139 @@ function SectionCard({
   subtitle,
   icon,
   children,
+  className,
 }: {
   title: string
   subtitle?: string
   icon: ReactNode
   children: ReactNode
+  className?: string
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2">
-          <div className="mt-0.5 text-violet-700">{icon}</div>
-          <div>
-            <h2 className="font-semibold text-slate-950">{title}</h2>
-            {subtitle ? <p className="text-sm text-slate-500">{subtitle}</p> : null}
+    <section
+      className={cn(
+        "rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-3xl sm:p-4",
+        className,
+      )}
+    >
+      <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
+        <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700 sm:h-10 sm:w-10 sm:rounded-2xl">
+            {icon}
+          </div>
+
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-950 sm:text-base">{title}</h2>
+            {subtitle ? (
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 sm:text-sm">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
+
       {children}
     </section>
   )
 }
 
-function EmptyState({ text }: { text: string }) {
+function KpiCard({
+  title,
+  value,
+  helper,
+  icon,
+  tone = "slate",
+}: {
+  title: string
+  value: string
+  helper?: string
+  icon: ReactNode
+  tone?: "slate" | "emerald" | "violet" | "orange" | "red" | "blue"
+}) {
+  const toneStyles = {
+    slate: "border-slate-200 bg-gradient-to-br from-white to-slate-50 text-slate-950",
+    emerald: "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/70 text-emerald-900",
+    violet: "border-violet-200 bg-gradient-to-br from-violet-50 via-white to-violet-50/70 text-violet-900",
+    orange: "border-orange-200 bg-gradient-to-br from-orange-50 via-white to-orange-50/70 text-orange-900",
+    red: "border-red-200 bg-gradient-to-br from-red-50 via-white to-red-50/70 text-red-900",
+    blue: "border-blue-200 bg-gradient-to-br from-blue-50 via-white to-blue-50/70 text-blue-900",
+  }
+
+  const iconStyles = {
+    slate: "bg-slate-100 text-slate-700",
+    emerald: "bg-emerald-100 text-emerald-700",
+    violet: "bg-violet-100 text-violet-700",
+    orange: "bg-orange-100 text-orange-700",
+    red: "bg-red-100 text-red-700",
+    blue: "bg-blue-100 text-blue-700",
+  }
+
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-      {text}
+    <div className={cn("rounded-2xl border p-3 shadow-sm sm:rounded-3xl sm:p-4", toneStyles[tone])}>
+      <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[11px]">
+            {title}
+          </p>
+
+          <strong className="mt-1.5 block truncate text-xl font-bold tracking-tight sm:mt-2 sm:text-2xl">
+            {value}
+          </strong>
+        </div>
+
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl",
+            iconStyles[tone],
+          )}
+        >
+          {icon}
+        </div>
+      </div>
+
+      {helper ? (
+        <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-xs leading-relaxed text-slate-600 sm:rounded-2xl">
+          {helper}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function InsightCard({
+  title,
+  value,
+  helper,
+  tone = "slate",
+}: {
+  title: string
+  value: string
+  helper?: string
+  tone?: "slate" | "emerald" | "violet" | "orange"
+}) {
+  const styles = {
+    slate: "border-slate-200 bg-slate-50",
+    emerald: "border-emerald-200 bg-emerald-50",
+    violet: "border-violet-200 bg-violet-50",
+    orange: "border-orange-200 bg-orange-50",
+  }
+
+  return (
+    <div className={cn("rounded-2xl border p-3", styles[tone])}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px]">
+        {title}
+      </p>
+
+      <strong className="mt-1 block text-sm font-semibold leading-snug text-slate-950 sm:text-base">
+        {value}
+      </strong>
+
+      {helper ? (
+        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+          {helper}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -377,17 +505,17 @@ function RankingRows({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 sm:space-y-4">
       {items.map((item) => (
-        <div key={item.label}>
-          <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+        <div key={item.label} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
             <div className="min-w-0">
-              <p className="truncate font-medium text-slate-800">{item.label}</p>
+              <p className="truncate font-semibold text-slate-900">{item.label}</p>
               {item.helper ? <p className="text-xs text-slate-500">{item.helper}</p> : null}
             </div>
             <strong className="shrink-0 text-slate-950">{valueFormatter(item.value)}</strong>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2.5 overflow-hidden rounded-full bg-slate-200/70">
             <div
               className={cn("h-full rounded-full", barTone)}
               style={{ width: `${Math.min((item.value / max) * 100, 100)}%` }}
@@ -413,29 +541,221 @@ function CompactTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            {headers.map((header) => (
-              <th key={header} className="px-3 py-2.5 font-semibold">
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
-          {rows.map((row, rowIndex) => (
-            <tr key={rowIndex} className="hover:bg-slate-50">
+    <>
+      <div className="space-y-3 sm:hidden">
+        {rows.map((row, rowIndex) => (
+          <div
+            key={rowIndex}
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+          >
+            <div className="space-y-2">
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="px-3 py-2.5 align-middle text-slate-700">
-                  {cell}
-                </td>
+                <div
+                  key={cellIndex}
+                  className="flex items-start justify-between gap-3 border-b border-slate-200/70 pb-2 last:border-b-0 last:pb-0"
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {headers[cellIndex]}
+                  </span>
+
+                  <div className="text-right text-sm text-slate-800">
+                    {cell}
+                  </div>
+                </div>
               ))}
-            </tr>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 sm:block">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-500">
+              <tr>
+                {headers.map((header) => (
+                  <th key={header} className="px-4 py-3 font-semibold">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="hover:bg-slate-50/70">
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} className="px-4 py-3 align-middle text-slate-700">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function RevenueBars({
+  items,
+  emptyText,
+}: {
+  items: RankingItem[]
+  emptyText: string
+}) {
+  const max = maxValue(items)
+
+  if (items.length === 0) {
+    return <EmptyState text={emptyText} />
+  }
+
+  return (
+    <>
+      <div className="space-y-3 sm:hidden">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-2xl border border-slate-100 bg-slate-50 p-3"
+          >
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                {item.helper ? <p className="text-xs text-slate-500">{item.helper}</p> : null}
+              </div>
+
+              <strong className="text-sm font-bold text-slate-950">
+                {formatCurrency(item.value)}
+              </strong>
+            </div>
+
+            <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-emerald-500"
+                style={{ width: `${Math.min((item.value / max) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:block">
+        <div className="flex h-[260px] items-end gap-2 overflow-x-auto pb-2">
+          {items.map((item) => {
+            const barHeight = Math.max((item.value / max) * 100, 12)
+
+            return (
+              <div key={item.label} className="flex min-w-[68px] flex-1 flex-col items-center justify-end gap-2">
+                <div className="text-center text-[11px] font-semibold text-slate-700">
+                  {formatCurrency(item.value)}
+                </div>
+
+                <div className="flex h-[180px] w-full items-end justify-center">
+                  <div
+                    className="w-full rounded-t-2xl bg-gradient-to-t from-emerald-500 via-emerald-400 to-emerald-300 shadow-sm shadow-emerald-200"
+                    style={{ height: `${barHeight}%` }}
+                  />
+                </div>
+
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-slate-900">{item.label}</p>
+                  {item.helper ? <p className="text-[11px] text-slate-500">{item.helper}</p> : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function CostDistribution({
+  items,
+  total,
+}: {
+  items: CostAreaItem[]
+  total: number
+}) {
+  if (items.length === 0) {
+    return <EmptyState text="Nenhum custo encontrado no período." />
+  }
+
+  const ordered = [...items].sort((a, b) => b.total - a.total)
+  const biggest = Math.max(...ordered.map((item) => item.total), 1)
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 sm:p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px] sm:tracking-[0.16em]">
+              Total dos custos principais
+            </p>
+            <strong className="text-lg font-bold text-slate-950 sm:text-xl">{formatCurrency(total)}</strong>
+          </div>
+          <div className="rounded-2xl bg-white px-3 py-2 text-right shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px] sm:tracking-[0.16em]">
+              Áreas
+            </p>
+            <strong className="text-base font-bold text-slate-950">{ordered.length}</strong>
+          </div>
+        </div>
+
+        <ScrollableBox className="max-h-[520px] space-y-3 sm:max-h-[560px] sm:space-y-4">
+          {ordered.map((item) => (
+            <div key={item.label} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900">{item.label}</p>
+                  <p className="text-xs text-slate-500">
+                    {item.count} registro{item.count === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <strong className="shrink-0 text-sm text-slate-950 sm:text-base">
+                  {formatCurrency(item.total)}
+                </strong>
+              </div>
+
+              <div className="mb-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
+                  style={{ width: `${Math.min((item.total / biggest) * 100, 100)}%` }}
+                />
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-xl bg-emerald-50 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700 sm:text-[11px]">
+                    Pago
+                  </p>
+                  <strong className="text-sm font-semibold text-emerald-700">
+                    {formatCurrency(item.paid)}
+                  </strong>
+                </div>
+                <div className="rounded-xl bg-orange-50 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-700 sm:text-[11px]">
+                    Pendente
+                  </p>
+                  <strong className="text-sm font-semibold text-orange-700">
+                    {formatCurrency(item.pending)}
+                  </strong>
+                </div>
+                <div className="rounded-xl bg-slate-100 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 sm:text-[11px]">
+                    Peso
+                  </p>
+                  <strong className="text-sm font-semibold text-slate-900">
+                    {formatPercent(percentage(item.total, total))}
+                  </strong>
+                </div>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </ScrollableBox>
+      </div>
     </div>
   )
 }
@@ -572,10 +892,13 @@ export default function RelatoriosFinanceirosPage() {
     return totals.revenue - fixedPayroll - freelancerCost - supplierCost - deliveryCost - otherCosts
   }, [deliveryCost, fixedPayroll, freelancerCost, otherCosts, supplierCost, totals.revenue])
 
+  const totalMainCosts = useMemo(() => {
+    return fixedPayroll + freelancerCost + supplierCost + deliveryCost + otherCosts
+  }, [deliveryCost, fixedPayroll, freelancerCost, otherCosts, supplierCost])
+
   const costShare = useMemo(() => {
-    const totalCosts = fixedPayroll + freelancerCost + supplierCost + deliveryCost + otherCosts
-    return percentage(totalCosts, totals.revenue)
-  }, [deliveryCost, fixedPayroll, freelancerCost, otherCosts, supplierCost, totals.revenue])
+    return percentage(totalMainCosts, totals.revenue)
+  }, [totalMainCosts, totals.revenue])
 
   const revenueByDay = useMemo(() => {
     const grouped = paidOrders.reduce<Record<string, { total: number; orders: number }>>((acc, order) => {
@@ -587,8 +910,12 @@ export default function RelatoriosFinanceirosPage() {
     }, {})
 
     return Object.entries(grouped)
-      .map(([date, data]) => ({ label: formatDate(date), value: data.total, helper: `${data.orders} pedidos pagos` }))
-      .sort((a, b) => a.label.localeCompare(b.label))
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([date, data]) => ({
+        label: formatDate(date),
+        value: data.total,
+        helper: `${data.orders} pedido${data.orders === 1 ? "" : "s"} pago${data.orders === 1 ? "" : "s"}`,
+      }))
   }, [paidOrders])
 
   const topProducts = useMemo(() => {
@@ -608,7 +935,7 @@ export default function RelatoriosFinanceirosPage() {
       .map(([product, data]) => ({
         label: product,
         value: data.total,
-        helper: `${data.quantity} vendidos`,
+        helper: `${data.quantity} vendido${data.quantity === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8)
@@ -627,7 +954,7 @@ export default function RelatoriosFinanceirosPage() {
       .map(([channel, data]) => ({
         label: channel,
         value: data.total,
-        helper: `${data.orders} pedidos`,
+        helper: `${data.orders} pedido${data.orders === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
   }, [paidOrders])
@@ -645,7 +972,7 @@ export default function RelatoriosFinanceirosPage() {
       .map(([method, data]) => ({
         label: method,
         value: data.total,
-        helper: `${data.orders} pedidos`,
+        helper: `${data.orders} pedido${data.orders === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
   }, [paidOrders])
@@ -674,7 +1001,7 @@ export default function RelatoriosFinanceirosPage() {
       .map(([supplier, data]) => ({
         label: supplier,
         value: data.total,
-        helper: `${data.count} registros`,
+        helper: `${data.count} registro${data.count === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8)
@@ -693,26 +1020,163 @@ export default function RelatoriosFinanceirosPage() {
       .map(([driver, data]) => ({
         label: driver,
         value: data.total,
-        helper: `${data.count} acertos`,
+        helper: `${data.count} acerto${data.count === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8)
   }, [deliverySettlements])
 
-  const closingsSummary = useMemo(() => {
-    const revenue = closings.reduce((acc, closing) => acc + closing.gross_revenue, 0)
-    const expensesTotal = closings.reduce((acc, closing) => acc + closing.expenses, 0)
-    const result = closings.reduce((acc, closing) => acc + closing.estimated_profit, 0)
-    const ordersCount = closings.reduce((acc, closing) => acc + toNumber(closing.orders_count), 0)
+  const displayCostAreas = useMemo<CostAreaItem[]>(() => {
+    const getBaseGroup = (label: string) =>
+      costsByGroup.find((item) => item.label === label) || {
+        label,
+        paid: 0,
+        pending: 0,
+        total: 0,
+        count: 0,
+      }
 
-    return {
-      revenue,
-      expensesTotal,
-      result,
-      ordersCount,
-      count: closings.length,
+    const folha = getBaseGroup("Folha fixa")
+    const freelancer = getBaseGroup("Freelancers / Diárias")
+    const outras = getBaseGroup("Outras despesas")
+
+    const supplierBase = getBaseGroup("Fornecedores")
+    const supplierPaidFromPurchases = supplierPurchases
+      .filter((purchase) => isPaidStatus(purchase.payment_status || purchase.status))
+      .reduce((acc, purchase) => acc + purchase.amount, 0)
+
+    const supplierPendingFromPurchases = supplierPurchases
+      .filter((purchase) => !isPaidStatus(purchase.payment_status || purchase.status))
+      .reduce((acc, purchase) => acc + purchase.amount, 0)
+
+    const supplierArea: CostAreaItem =
+      supplierPurchases.length > 0
+        ? {
+            label: "Fornecedores",
+            paid: supplierPaidFromPurchases,
+            pending: supplierPendingFromPurchases,
+            total: supplierPaidFromPurchases + supplierPendingFromPurchases,
+            count: supplierPurchases.length,
+          }
+        : supplierBase
+
+    const deliveryBase = getBaseGroup("Entregadores")
+    const deliveryPaidFromSettlements = deliverySettlements
+      .filter((settlement) => isPaidStatus(settlement.status))
+      .reduce((acc, settlement) => acc + settlement.amount, 0)
+
+    const deliveryPendingFromSettlements = deliverySettlements
+      .filter((settlement) => !isPaidStatus(settlement.status))
+      .reduce((acc, settlement) => acc + settlement.amount, 0)
+
+    const deliveryArea: CostAreaItem =
+      deliverySettlements.length > 0
+        ? {
+            label: "Entregadores",
+            paid: deliveryPaidFromSettlements,
+            pending: deliveryPendingFromSettlements,
+            total: deliveryPaidFromSettlements + deliveryPendingFromSettlements,
+            count: deliverySettlements.length,
+          }
+        : {
+            label: "Entregadores",
+            paid: deliveryBase.paid > 0 ? deliveryBase.paid : totals.deliveryFees,
+            pending:
+              deliveryBase.pending > 0
+                ? deliveryBase.pending
+                : Math.max(totals.deliveryFeesAllOrders - totals.deliveryFees, 0),
+            total:
+              (deliveryBase.paid > 0 ? deliveryBase.paid : totals.deliveryFees) +
+              (deliveryBase.pending > 0
+                ? deliveryBase.pending
+                : Math.max(totals.deliveryFeesAllOrders - totals.deliveryFees, 0)),
+            count: deliveryBase.count,
+          }
+
+    return [
+      {
+        label: "Folha fixa",
+        paid: folha.paid,
+        pending: folha.pending,
+        total: folha.total,
+        count: folha.count,
+      },
+      {
+        label: "Freelancers / Diárias",
+        paid: freelancer.paid,
+        pending: freelancer.pending,
+        total: freelancer.total,
+        count: freelancer.count,
+      },
+      deliveryArea,
+      supplierArea,
+      {
+        label: "Outras despesas",
+        paid: outras.paid,
+        pending: outras.pending,
+        total: outras.total,
+        count: outras.count,
+      },
+    ]
+  }, [costsByGroup, deliverySettlements, supplierPurchases, totals.deliveryFees, totals.deliveryFeesAllOrders])
+
+  const biggestCost = useMemo(() => {
+    const ordered = [...displayCostAreas].sort((a, b) => b.total - a.total)
+    return ordered[0] || null
+  }, [displayCostAreas])
+
+  const supplierAreaSummary = useMemo(() => {
+    return displayCostAreas.find((item) => item.label === "Fornecedores") || {
+      label: "Fornecedores",
+      paid: 0,
+      pending: 0,
+      total: 0,
+      count: 0,
     }
-  }, [closings])
+  }, [displayCostAreas])
+
+  const deliveryAreaSummary = useMemo(() => {
+    return displayCostAreas.find((item) => item.label === "Entregadores") || {
+      label: "Entregadores",
+      paid: 0,
+      pending: 0,
+      total: 0,
+      count: 0,
+    }
+  }, [displayCostAreas])
+
+  const averageDeliveryCost = useMemo(() => {
+    if (totals.paidOrdersCount <= 0) return 0
+    return totals.deliveryFees / totals.paidOrdersCount
+  }, [totals.deliveryFees, totals.paidOrdersCount])
+
+  const deliveryShare = useMemo(() => {
+    return percentage(deliveryAreaSummary.total, totals.revenue)
+  }, [deliveryAreaSummary.total, totals.revenue])
+
+  const bestProduct = useMemo(() => topProducts[0] || null, [topProducts])
+  const bestChannel = useMemo(() => salesChannels[0] || null, [salesChannels])
+  const bestPaymentMethod = useMemo(() => paymentMethods[0] || null, [paymentMethods])
+
+  const priorityText = useMemo(() => {
+    if (totals.pendingRevenue > totals.revenue * 0.35 && totals.pendingRevenue > 0) {
+      return `Confirmar ${formatCurrency(totals.pendingRevenue)} em recebimentos pendentes`
+    }
+
+    if (operationalResult < 0) {
+      return "Reduzir custos fixos ou aumentar ticket médio"
+    }
+
+    if (biggestCost && biggestCost.total > totals.revenue * 0.4 && totals.revenue > 0) {
+      return `Revisar ${biggestCost.label.toLowerCase()} antes de escalar`
+    }
+
+    if (totals.revenue <= 0) {
+      return "Gerar vendas pagas para montar um histórico confiável"
+    }
+
+    return "Manter acompanhamento semanal de vendas e custos"
+  }, [biggestCost, operationalResult, totals.pendingRevenue, totals.revenue])
 
   const alerts = useMemo(() => {
     const messages: { title: string; description: string; tone: "danger" | "warning" | "success" | "neutral" }[] = []
@@ -720,7 +1184,7 @@ export default function RelatoriosFinanceirosPage() {
     if (totals.revenue <= 0) {
       messages.push({
         title: "Sem receita recebida no período",
-        description: "O relatório ainda não tem vendas pagas para analisar. Confira se os pedidos foram marcados como pagos.",
+        description: "Ainda não existem vendas pagas suficientes para uma leitura financeira consistente.",
         tone: "warning",
       })
     }
@@ -728,7 +1192,7 @@ export default function RelatoriosFinanceirosPage() {
     if (operationalResult < 0) {
       messages.push({
         title: "Resultado operacional negativo",
-        description: `As saídas principais passaram da receita em ${formatCurrency(Math.abs(operationalResult))}. O primeiro ponto é revisar folha, fornecedores e despesas fixas.`,
+        description: `As saídas principais passaram da receita em ${formatCurrency(Math.abs(operationalResult))}.`,
         tone: "danger",
       })
     }
@@ -736,7 +1200,7 @@ export default function RelatoriosFinanceirosPage() {
     if (totals.pendingRevenue > totals.revenue * 0.35 && totals.pendingRevenue > 0) {
       messages.push({
         title: "Muito dinheiro pendente",
-        description: `Existem ${formatCurrency(totals.pendingRevenue)} a receber. Isso pode distorcer o caixa do mês.`,
+        description: `Existem ${formatCurrency(totals.pendingRevenue)} a receber. Isso pode distorcer sua leitura de caixa.`,
         tone: "warning",
       })
     }
@@ -744,7 +1208,7 @@ export default function RelatoriosFinanceirosPage() {
     if (costShare > 70) {
       messages.push({
         title: "Custos altos para a receita atual",
-        description: `Os custos principais equivalem a ${formatPercent(costShare)} da receita recebida. O ideal é investigar fornecedores, folha e taxas.`,
+        description: `Os custos principais equivalem a ${formatPercent(costShare)} da receita recebida.`,
         tone: "warning",
       })
     }
@@ -752,7 +1216,7 @@ export default function RelatoriosFinanceirosPage() {
     if (topProducts.length === 0 && totals.revenue > 0) {
       messages.push({
         title: "Produtos não encontrados no relatório",
-        description: "Existe receita, mas não foi possível montar o ranking de itens. Pode ser falta de vínculo com order_items.",
+        description: "Existe receita, mas o ranking de itens não foi montado. Pode ser falta de vínculo com order_items.",
         tone: "neutral",
       })
     }
@@ -760,7 +1224,7 @@ export default function RelatoriosFinanceirosPage() {
     if (messages.length === 0) {
       messages.push({
         title: "Período saudável",
-        description: "Não encontrei nenhum alerta forte nesse intervalo. Continue acompanhando ticket médio, produtos mais vendidos e custos fixos.",
+        description: "A operação está positiva. Continue monitorando ticket, canal principal e custos semanais.",
         tone: "success",
       })
     }
@@ -939,7 +1403,9 @@ export default function RelatoriosFinanceirosPage() {
             (orderItemsResponse.data || []).map((item: RawRow) => {
               const quantity = toNumber(getFirstValue(item, ["quantity", "qty", "amount"])) || 1
               const unitPrice = toNumber(getFirstValue(item, ["unit_price", "price", "product_price"]))
-              const total = toNumber(getFirstValue(item, ["total_price", "total", "subtotal", "amount_total"])) || unitPrice * quantity
+              const total =
+                toNumber(getFirstValue(item, ["total_price", "total", "subtotal", "amount_total"])) ||
+                unitPrice * quantity
 
               return {
                 id: String(item.id),
@@ -1006,35 +1472,20 @@ export default function RelatoriosFinanceirosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate])
 
-  const costRows = costsByGroup.map((item) => [
-    <span key={`${item.label}-name`} className="font-medium text-slate-900">
-      {item.label}
-    </span>,
-    <span key={`${item.label}-paid`} className="font-semibold text-red-600">
-      {formatCurrency(item.paid)}
-    </span>,
-    <span key={`${item.label}-pending`} className="font-semibold text-orange-600">
-      {formatCurrency(item.pending)}
-    </span>,
-    <span key={`${item.label}-total`} className="font-semibold text-slate-950">
-      {formatCurrency(item.total)}
-    </span>,
-  ])
-
   const closingRows = closings.slice(0, 8).map((closing) => [
-    <span key={`${closing.id}-date`} className="font-medium text-slate-900">
+    <div key={`${closing.id}-day`} className="space-y-0.5">
+      <span className="font-semibold text-slate-900">{formatWeekday(closing.closing_date)}</span>
+      <span className="block text-xs text-slate-500">Caixa fechado</span>
+    </div>,
+    <span key={`${closing.id}-date`} className="font-medium text-slate-700">
       {formatDate(closing.closing_date)}
-    </span>,
-    <span key={`${closing.id}-orders`}>{closing.orders_count}</span>,
-    <span key={`${closing.id}-revenue`} className="font-semibold text-emerald-600">
-      {formatCurrency(closing.gross_revenue)}
-    </span>,
-    <span key={`${closing.id}-expense`} className="font-semibold text-red-600">
-      {formatCurrency(closing.expenses)}
     </span>,
     <span
       key={`${closing.id}-result`}
-      className={cn("font-semibold", closing.estimated_profit >= 0 ? "text-violet-700" : "text-red-600")}
+      className={cn(
+        "font-bold",
+        closing.estimated_profit >= 0 ? "text-violet-700" : "text-red-600",
+      )}
     >
       {formatCurrency(closing.estimated_profit)}
     </span>,
@@ -1042,33 +1493,57 @@ export default function RelatoriosFinanceirosPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
-              <FileText className="h-5 w-5" />
+      <div className="space-y-4 px-0 pb-6 sm:space-y-4">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 shadow-sm shadow-slate-200/40 sm:rounded-[28px]">
+          <div className="flex flex-col gap-4 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200 sm:h-14 sm:w-14">
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+              </div>
+
+              <div className="min-w-0 space-y-2">
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                    Relatório 360
+                  </h1>
+                  <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
+                    Um painel executivo para entender resultado, custos, canais e prioridades do período.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                    Recebido: {formatCurrency(totals.revenue)}
+                  </div>
+                  <div className="shrink-0 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">
+                    Resultado: {formatCurrency(operationalResult)}
+                  </div>
+                  <div className="shrink-0 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+                    Pendente: {formatCurrency(totals.pendingRevenue)}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <h1 className="text-xl font-semibold text-slate-950">Relatório 360</h1>
-              <p className="text-sm text-slate-500">
-                Ganhos, custos, folha, entregadores, fornecedores, produtos e canais de venda.
-              </p>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={loadData}
+              disabled={loading}
+              className="h-10 w-full rounded-2xl border-slate-200 bg-white/80 px-4 sm:h-11 sm:w-auto"
+            >
+              <RefreshCcw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+              Atualizar
+            </Button>
           </div>
-
-          <Button type="button" variant="outline" onClick={loadData} disabled={loading} className="gap-2">
-            <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-            Atualizar
-          </Button>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 lg:grid-cols-[1fr_150px_150px_auto] lg:items-end">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-[28px] sm:p-4">
+          <div className="grid gap-3 xl:grid-cols-[1fr_180px_180px_auto] xl:items-end">
             <div>
-              <h2 className="font-semibold text-slate-950">Período analisado</h2>
-              <p className="text-sm text-slate-500">
-                O relatório recalcula tudo com base nas datas selecionadas.
+              <h2 className="text-sm font-semibold text-slate-950 sm:text-base">Período analisado</h2>
+              <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">
+                O relatório recalcula automaticamente toda a leitura financeira com base nas datas selecionadas.
               </p>
             </div>
 
@@ -1082,11 +1557,12 @@ export default function RelatoriosFinanceirosPage() {
               <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                className="rounded-xl"
                 onClick={() => {
                   setStartDate(todayDate())
                   setEndDate(todayDate())
@@ -1098,6 +1574,7 @@ export default function RelatoriosFinanceirosPage() {
                 type="button"
                 variant="outline"
                 size="sm"
+                className="rounded-xl"
                 onClick={() => {
                   setStartDate(monthStart())
                   setEndDate(todayDate())
@@ -1109,6 +1586,7 @@ export default function RelatoriosFinanceirosPage() {
                 type="button"
                 variant="outline"
                 size="sm"
+                className="rounded-xl"
                 onClick={() => {
                   setStartDate(lastThirtyDaysStart())
                   setEndDate(todayDate())
@@ -1121,98 +1599,122 @@ export default function RelatoriosFinanceirosPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500">
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500 sm:rounded-[28px]">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Carregando relatório 360...
           </div>
         ) : (
           <>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <MetricBox
+            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <KpiCard
                 title="Ganhos recebidos"
                 value={formatCurrency(totals.revenue)}
-                helper={`${totals.paidOrdersCount} pedidos pagos`}
-                tone="success"
+                helper={`${totals.paidOrdersCount} pedidos pagos no período`}
+                icon={<TrendingUp className="h-5 w-5" />}
+                tone="emerald"
               />
-              <MetricBox
+              <KpiCard
                 title="Resultado operacional"
                 value={formatCurrency(operationalResult)}
-                helper="Receita menos folha, fornecedores, entregadores e outras despesas"
-                tone={operationalResult >= 0 ? "purple" : "danger"}
+                helper="Receita menos folha, fornecedores, entregadores e demais saídas"
+                icon={operationalResult >= 0 ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
+                tone={operationalResult >= 0 ? "violet" : "red"}
               />
-              <MetricBox
+              <KpiCard
                 title="A receber"
                 value={formatCurrency(totals.pendingRevenue)}
-                helper={`${totals.pendingOrdersCount} pedidos pendentes`}
-                tone="warning"
+                helper={`${totals.pendingOrdersCount} pedidos ainda pendentes`}
+                icon={<Wallet className="h-5 w-5" />}
+                tone="orange"
               />
-              <MetricBox
+              <KpiCard
                 title="Ticket médio"
                 value={formatCurrency(totals.averageTicket)}
                 helper="Média dos pedidos pagos"
+                icon={<Target className="h-5 w-5" />}
+                tone="blue"
               />
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <MetricBox title="Folha fixa" value={formatCurrency(fixedPayroll)} helper="Funcionários fixos" tone="danger" />
-              <MetricBox title="Freelancers" value={formatCurrency(freelancerCost)} helper="Diárias e avulsos" tone="danger" />
-              <MetricBox title="Fornecedores" value={formatCurrency(supplierCost)} helper="Compras e insumos" tone="danger" />
-              <MetricBox title="Entregadores" value={formatCurrency(deliveryCost)} helper="Taxas/acertos do período" tone="warning" />
-              <MetricBox title="Custos / Receita" value={formatPercent(costShare)} helper="Peso dos custos principais" tone={costShare > 70 ? "danger" : "neutral"} />
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <div className="grid gap-3 sm:gap-4 xl:grid-cols-[1.15fr_0.85fr]">
               <SectionCard
-                title="Leitura rápida do período"
-                subtitle="Resumo simples para o dono entender o mês sem olhar pedido por pedido."
-                icon={<BarChart3 className="h-4 w-4" />}
+                title="Painel executivo"
+                subtitle="Uma leitura direta do que entrou, o que saiu e o que pede atenção agora."
+                icon={<Activity className="h-5 w-5" />}
               >
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl bg-emerald-50 p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Entrou</p>
-                    <strong className="mt-1 block text-xl text-emerald-700">{formatCurrency(totals.revenue)}</strong>
-                    <p className="mt-1 text-xs text-emerald-700">{totals.paidOrdersCount} pedidos pagos</p>
-                  </div>
-
-                  <div className="rounded-xl bg-red-50 p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-red-700">Saiu / Custos</p>
-                    <strong className="mt-1 block text-xl text-red-700">
-                      {formatCurrency(fixedPayroll + freelancerCost + supplierCost + deliveryCost + otherCosts)}
-                    </strong>
-                    <p className="mt-1 text-xs text-red-700">Folha, fornecedores, entregadores e outros</p>
-                  </div>
-
-                  <div className="rounded-xl bg-violet-50 p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Sobrou estimado</p>
-                    <strong
-                      className={cn(
-                        "mt-1 block text-xl",
-                        operationalResult >= 0 ? "text-violet-700" : "text-red-700",
-                      )}
-                    >
-                      {formatCurrency(operationalResult)}
-                    </strong>
-                    <p className="mt-1 text-xs text-violet-700">Resultado operacional do período</p>
-                  </div>
+                <div className="grid gap-2 sm:gap-3 md:grid-cols-3">
+                  <InsightCard
+                    title="Entrou"
+                    value={formatCurrency(totals.revenue)}
+                    helper={`${totals.paidOrdersCount} pedidos pagos`}
+                    tone="emerald"
+                  />
+                  <InsightCard
+                    title="Saiu / Custos"
+                    value={formatCurrency(totalMainCosts)}
+                    helper="Folha, fornecedores, entregadores e outros"
+                    tone="orange"
+                  />
+                  <InsightCard
+                    title="Sobrou estimado"
+                    value={formatCurrency(operationalResult)}
+                    helper="Resultado operacional do período"
+                    tone="violet"
+                  />
                 </div>
 
-                <div className="mt-4 space-y-2">
+                <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3 md:grid-cols-2">
+                  <InsightCard
+                    title="Maior custo"
+                    value={
+                      biggestCost && biggestCost.total > 0
+                        ? `${biggestCost.label} · ${formatCurrency(biggestCost.total)}`
+                        : "Sem custo relevante"
+                    }
+                    helper="Área que mais pesou no período"
+                  />
+                  <InsightCard
+                    title="Melhor produto"
+                    value={
+                      bestProduct
+                        ? `${bestProduct.label} · ${formatCurrency(bestProduct.value)}`
+                        : "Sem item suficiente"
+                    }
+                    helper="Maior faturamento entre os itens vendidos"
+                  />
+                  <InsightCard
+                    title="Canal principal"
+                    value={
+                      bestChannel
+                        ? `${bestChannel.label} · ${formatCurrency(bestChannel.value)}`
+                        : "Sem canal suficiente"
+                    }
+                    helper="De onde veio mais dinheiro pago"
+                  />
+                  <InsightCard
+                    title="Prioridade agora"
+                    value={priorityText}
+                    helper="Próxima ação sugerida pelo relatório"
+                  />
+                </div>
+
+                <div className="mt-3 space-y-2 sm:mt-4">
                   {alerts.map((alert) => (
                     <div
                       key={alert.title}
                       className={cn(
-                        "rounded-xl border p-3",
-                        alert.tone === "danger" && "border-red-100 bg-red-50 text-red-900",
-                        alert.tone === "warning" && "border-orange-100 bg-orange-50 text-orange-900",
-                        alert.tone === "success" && "border-emerald-100 bg-emerald-50 text-emerald-900",
+                        "rounded-2xl border p-3",
+                        alert.tone === "danger" && "border-red-200 bg-red-50 text-red-900",
+                        alert.tone === "warning" && "border-orange-200 bg-orange-50 text-orange-900",
+                        alert.tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-900",
                         alert.tone === "neutral" && "border-slate-200 bg-slate-50 text-slate-800",
                       )}
                     >
                       <div className="flex gap-2">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                         <div>
-                          <p className="font-semibold">{alert.title}</p>
-                          <p className="mt-0.5 text-sm opacity-90">{alert.description}</p>
+                          <p className="text-sm font-semibold sm:text-base">{alert.title}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed opacity-90 sm:text-sm">{alert.description}</p>
                         </div>
                       </div>
                     </div>
@@ -1222,69 +1724,45 @@ export default function RelatoriosFinanceirosPage() {
 
               <SectionCard
                 title="Ganhos por dia"
-                subtitle="Mostra em quais dias o caixa realmente entrou."
-                icon={<CalendarDays className="h-4 w-4" />}
+                subtitle="Visual para entender em quais dias o caixa realmente entrou."
+                icon={<BarChart3 className="h-5 w-5" />}
               >
-                <RankingRows
+                <RevenueBars
                   items={revenueByDay.slice(-10)}
                   emptyText="Nenhuma venda paga no período."
-                  barTone="bg-emerald-500"
                 />
               </SectionCard>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-3 sm:gap-4 xl:grid-cols-[1.05fr_0.95fr] xl:items-start">
               <SectionCard
-                title="Custos do mês por área"
-                subtitle="Aqui o dono entende para onde o dinheiro está indo."
-                icon={<Wallet className="h-4 w-4" />}
+                title="Mapa de custos por área"
+                subtitle="Visual mais claro para identificar onde o dinheiro está saindo."
+                icon={<PieChart className="h-5 w-5" />}
               >
-                <CompactTable
-                  headers={["Área", "Pago", "Pendente", "Total"]}
-                  rows={costRows}
-                  emptyText="Nenhum custo encontrado no período."
-                />
+                <CostDistribution items={displayCostAreas} total={totalMainCosts} />
               </SectionCard>
 
               <SectionCard
                 title="Fechamentos de caixa"
-                subtitle="Conferência rápida dos dias fechados no período."
-                icon={<DollarSign className="h-4 w-4" />}
+                subtitle="Mostra somente o dia, a data e o saldo final de cada caixa fechado."
+                icon={<DollarSign className="h-5 w-5" />}
               >
-                <div className="mb-3 grid gap-2 md:grid-cols-4">
-                  <div className="rounded-xl bg-slate-50 p-2">
-                    <p className="text-xs text-slate-500">Fechamentos</p>
-                    <strong className="text-slate-950">{closingsSummary.count}</strong>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-2">
-                    <p className="text-xs text-slate-500">Pedidos</p>
-                    <strong className="text-slate-950">{closingsSummary.ordersCount}</strong>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-2">
-                    <p className="text-xs text-slate-500">Receita</p>
-                    <strong className="text-emerald-600">{formatCurrency(closingsSummary.revenue)}</strong>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-2">
-                    <p className="text-xs text-slate-500">Saldo</p>
-                    <strong className={closingsSummary.result >= 0 ? "text-violet-700" : "text-red-600"}>
-                      {formatCurrency(closingsSummary.result)}
-                    </strong>
-                  </div>
-                </div>
-
-                <CompactTable
-                  headers={["Data", "Pedidos", "Receita", "Despesas", "Saldo"]}
-                  rows={closingRows}
-                  emptyText="Nenhum fechamento de caixa encontrado."
-                />
+                <ScrollableBox className="max-h-[300px] sm:max-h-[340px]">
+                  <CompactTable
+                    headers={["Dia", "Data", "Saldo fechado"]}
+                    rows={closingRows}
+                    emptyText="Nenhum fechamento de caixa encontrado."
+                  />
+                </ScrollableBox>
               </SectionCard>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 xl:grid-cols-3">
               <SectionCard
                 title="Itens que mais vendem"
                 subtitle="Ranking por faturamento dos produtos vendidos."
-                icon={<Package className="h-4 w-4" />}
+                icon={<Package className="h-5 w-5" />}
               >
                 <RankingRows
                   items={topProducts}
@@ -1296,7 +1774,7 @@ export default function RelatoriosFinanceirosPage() {
               <SectionCard
                 title="Canais de venda"
                 subtitle="De onde os pedidos pagos estão vindo."
-                icon={<ShoppingBag className="h-4 w-4" />}
+                icon={<ShoppingBag className="h-5 w-5" />}
               >
                 <RankingRows
                   items={salesChannels}
@@ -1308,7 +1786,7 @@ export default function RelatoriosFinanceirosPage() {
               <SectionCard
                 title="Formas de pagamento"
                 subtitle="Ajuda a conferir Pix, cartão, dinheiro e outros."
-                icon={<CreditCard className="h-4 w-4" />}
+                icon={<CreditCard className="h-5 w-5" />}
               >
                 <RankingRows
                   items={paymentMethods}
@@ -1318,81 +1796,168 @@ export default function RelatoriosFinanceirosPage() {
               </SectionCard>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-3 sm:gap-4 xl:grid-cols-2 xl:items-start">
               <SectionCard
-                title="Fornecedores"
-                subtitle="Mostra onde o restaurante mais gastou em compras e insumos."
-                icon={<Package className="h-4 w-4" />}
+                title="Compras e insumos"
+                subtitle="Mostra o peso real de fornecedores e ajuda a controlar compras do período."
+                icon={<Package className="h-5 w-5" />}
               >
-                <RankingRows
-                  items={suppliersRanking}
-                  emptyText="Nenhum gasto com fornecedor encontrado no período."
-                  barTone="bg-red-500"
-                />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <InsightCard
+                    title="Total em compras"
+                    value={formatCurrency(supplierAreaSummary.total)}
+                    helper={`${supplierAreaSummary.count} registro${supplierAreaSummary.count === 1 ? "" : "s"} no período`}
+                    tone="orange"
+                  />
+                  <InsightCard
+                    title="Fornecedor que mais pesou"
+                    value={suppliersRanking[0]?.label || "Sem fornecedor"}
+                    helper={suppliersRanking[0] ? formatCurrency(suppliersRanking[0].value) : "Nenhum gasto encontrado"}
+                  />
+                  <InsightCard
+                    title="Pago"
+                    value={formatCurrency(supplierAreaSummary.paid)}
+                    helper="Compras já quitadas"
+                    tone="emerald"
+                  />
+                  <InsightCard
+                    title="Pendente"
+                    value={formatCurrency(supplierAreaSummary.pending)}
+                    helper="Compras ainda abertas"
+                    tone="orange"
+                  />
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Ranking de fornecedores</p>
+                      <p className="text-xs text-slate-500">Lista com rolagem para não estourar a tela.</p>
+                    </div>
+                  </div>
+
+                  <ScrollableBox className="max-h-[260px] sm:max-h-[300px]">
+                    <RankingRows
+                      items={suppliersRanking}
+                      emptyText="Nenhum gasto com fornecedor encontrado no período."
+                      barTone="bg-red-500"
+                    />
+                  </ScrollableBox>
+                </div>
               </SectionCard>
 
               <SectionCard
-                title="Entregadores"
-                subtitle="Acompanha taxas/acertos de entrega do período."
-                icon={<Truck className="h-4 w-4" />}
+                title="Logística e entregas"
+                subtitle="Ajuda a entender quanto a entrega pesa na operação e no caixa."
+                icon={<Truck className="h-5 w-5" />}
               >
-                {deliveryRanking.length > 0 ? (
-                  <RankingRows
-                    items={deliveryRanking}
-                    emptyText="Nenhum acerto de entregador encontrado."
-                    barTone="bg-orange-500"
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <InsightCard
+                    title="Taxas nos pagos"
+                    value={formatCurrency(totals.deliveryFees)}
+                    helper="Somente pedidos pagos"
+                    tone="orange"
                   />
-                ) : (
-                  <div className="space-y-3">
-                    <div className="rounded-xl bg-orange-50 p-3">
-                      <p className="text-sm font-medium text-orange-900">Taxas de entrega nos pedidos pagos</p>
-                      <strong className="mt-1 block text-2xl text-orange-700">{formatCurrency(totals.deliveryFees)}</strong>
-                      <p className="mt-1 text-xs text-orange-800">
-                        Esse valor vem dos pedidos. Quando houver acerto por entregador, o ranking aparece aqui.
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-sm font-medium text-slate-900">Taxas em todos os pedidos do período</p>
-                      <strong className="mt-1 block text-xl text-slate-950">{formatCurrency(totals.deliveryFeesAllOrders)}</strong>
+                  <InsightCard
+                    title="Taxas totais"
+                    value={formatCurrency(totals.deliveryFeesAllOrders)}
+                    helper="Inclui pagos e pendentes"
+                  />
+                  <InsightCard
+                    title="Média por pedido"
+                    value={formatCurrency(averageDeliveryCost)}
+                    helper="Entrega média por pedido pago"
+                  />
+                  <InsightCard
+                    title="Peso na receita"
+                    value={formatPercent(deliveryShare)}
+                    helper="Quanto a logística pesa no recebido"
+                    tone={deliveryShare > 20 ? "orange" : "emerald"}
+                  />
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Acertos por entregador</p>
+                      <p className="text-xs text-slate-500">Quando houver acerto individual, o ranking aparece aqui.</p>
                     </div>
                   </div>
-                )}
+
+                  <ScrollableBox className="max-h-[260px] sm:max-h-[300px]">
+                    {deliveryRanking.length > 0 ? (
+                      <RankingRows
+                        items={deliveryRanking}
+                        emptyText="Nenhum acerto de entregador encontrado."
+                        barTone="bg-orange-500"
+                      />
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-orange-200 bg-orange-50 p-4">
+                        <p className="text-sm font-semibold text-orange-900">Sem acerto individual ainda</p>
+                        <p className="mt-1 text-xs leading-relaxed text-orange-800">
+                          Por enquanto o relatório usa as taxas dos pedidos. Quando você fechar acertos por entregador,
+                          esse bloco vira um ranking por pessoa.
+                        </p>
+                      </div>
+                    )}
+                  </ScrollableBox>
+                </div>
               </SectionCard>
             </div>
 
             <SectionCard
               title="Resumo final para decisão"
-              subtitle="O objetivo dessa aba é mostrar se a operação está funcionando, não listar histórico de pedido."
-              icon={<Users className="h-4 w-4" />}
+              subtitle="Aqui o dono entende rapidamente o cenário e a ação mais importante."
+              icon={<Users className="h-5 w-5" />}
             >
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-medium text-slate-900">O que entrou</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Receita recebida de {formatCurrency(totals.revenue)} com ticket médio de {formatCurrency(totals.averageTicket)}.
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">O que entrou</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    Receita recebida de {formatCurrency(totals.revenue)} com ticket médio de{" "}
+                    {formatCurrency(totals.averageTicket)}.
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-medium text-slate-900">O que mais pesa</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Maior custo: {costsByGroup.sort((a, b) => b.total - a.total)[0]?.label || "sem custo"}.
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-700">
+                    <TrendingDown className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">O que mais pesa</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    {biggestCost && biggestCost.total > 0
+                      ? `${biggestCost.label} é o maior custo do período, somando ${formatCurrency(biggestCost.total)}.`
+                      : "Nenhum custo relevante identificado no período."}
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-medium text-slate-900">Melhor venda</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Principal item/canal: {topProducts[0]?.label || salesChannels[0]?.label || "sem dados suficientes"}.
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                    <Target className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">Melhor venda</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    {bestProduct
+                      ? `${bestProduct.label} foi o item com maior faturamento.`
+                      : bestChannel
+                      ? `${bestChannel.label} foi o principal canal do período.`
+                      : "Ainda não há dados suficientes para destacar uma melhor venda."}
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-medium text-slate-900">Ponto de atenção</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {operationalResult < 0
-                      ? "Reduzir custos ou aumentar ticket médio antes de escalar campanhas."
-                      : "Manter acompanhamento de produtos, canais e custos fixos semanalmente."}
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">Ponto de atenção</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    {priorityText}.{" "}
+                    {bestPaymentMethod
+                      ? `Hoje a principal forma de pagamento foi ${bestPaymentMethod.label.toLowerCase()}.`
+                      : ""}
                   </p>
                 </div>
               </div>
