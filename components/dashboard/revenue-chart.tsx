@@ -15,26 +15,48 @@ import { formatBRL, getHourlyData, getWeeklyData, getMonthlyData } from "@/lib/d
 
 type Tab = "hoje" | "7d" | "30d"
 
+type ChartPoint = {
+  hour?: string
+  date?: string
+  faturamento: number
+}
+
+type ChartKey = "hour" | "date"
+
 const tabs: { key: Tab; label: string }[] = [
   { key: "hoje", label: "Hoje" },
   { key: "7d", label: "7 dias" },
   { key: "30d", label: "30 dias" },
 ]
 
-function getData(tab: Tab) {
+function getData(tab: Tab): { data: ChartPoint[]; xKey: ChartKey } {
   switch (tab) {
-    case "hoje": return { data: getHourlyData(), xKey: "hour" }
-    case "7d": return { data: getWeeklyData(), xKey: "date" }
-    case "30d": return { data: getMonthlyData(), xKey: "date" }
+    case "hoje":
+      return { data: getHourlyData() as ChartPoint[], xKey: "hour" }
+    case "7d":
+      return { data: getWeeklyData() as ChartPoint[], xKey: "date" }
+    case "30d":
+      return { data: getMonthlyData() as ChartPoint[], xKey: "date" }
   }
 }
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean
+  payload?: { value: number }[]
+  label?: string
+}) {
   if (!active || !payload?.length) return null
+
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-lg">
       <p className="text-xs font-semibold text-card-foreground">{label}</p>
-      <p className="text-sm font-bold text-[hsl(var(--primary))]">{formatBRL(payload[0].value)}</p>
+      <p className="text-sm font-bold text-[hsl(var(--primary))]">
+        {formatBRL(payload[0].value)}
+      </p>
     </div>
   )
 }
@@ -45,11 +67,12 @@ export default function RevenueChart() {
 
   return (
     <div className="rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-card-foreground">Faturamento</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Receita ao longo do tempo</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Receita ao longo do tempo</p>
         </div>
+
         <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-0.5">
           {tabs.map((tab) => (
             <button
@@ -77,20 +100,25 @@ export default function RevenueChart() {
                 <stop offset="95%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0} />
               </linearGradient>
             </defs>
+
             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" />
+
             <XAxis
               dataKey={xKey}
               tickLine={false}
               axisLine={false}
               tick={{ fontSize: 11, fill: "hsl(220, 9%, 46%)" }}
             />
+
             <YAxis
               tickLine={false}
               axisLine={false}
               tick={{ fontSize: 11, fill: "hsl(220, 9%, 46%)" }}
               tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
             />
+
             <Tooltip content={<CustomTooltip />} />
+
             <Area
               type="monotone"
               dataKey="faturamento"
@@ -98,7 +126,12 @@ export default function RevenueChart() {
               strokeWidth={2.5}
               fill="url(#fillRevenue)"
               dot={false}
-              activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(217, 91%, 60%)", fill: "#fff" }}
+              activeDot={{
+                r: 5,
+                strokeWidth: 2,
+                stroke: "hsl(217, 91%, 60%)",
+                fill: "#fff",
+              }}
             />
           </AreaChart>
         </ResponsiveContainer>
