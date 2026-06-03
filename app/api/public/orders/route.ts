@@ -143,6 +143,22 @@ type CreatedOrderRow = {
   order_source: string | null
 }
 
+type PublicOrderFastResponse = {
+  success: boolean
+  error?: string
+  order?: CreatedOrderRow
+  summary?: {
+    subtotal: number
+    serviceFee: number
+    deliveryFee: number
+    discount: number
+    total: number
+    neighborhood: string
+    orderType: string
+    cashback: null
+  }
+}
+
 function normalizeText(value: unknown, maxLength?: number) {
   const text = typeof value === "string" ? value.trim() : ""
 
@@ -197,7 +213,12 @@ function normalizeModifiers(
     .filter((modifier): modifier is NormalizedModifier => Boolean(modifier))
 }
 
-type PublicPaymentMethod = "pix_manual" | "pix" | "cash" | "card_on_delivery" | ""
+type PublicPaymentMethod =
+  | "pix_manual"
+  | "pix"
+  | "cash"
+  | "card_on_delivery"
+  | ""
 
 function mapPaymentMethod(value: string): PublicPaymentMethod {
   const normalized = value
@@ -349,6 +370,567 @@ async function createOrderWithRetry(orderPayload: Record<string, unknown>) {
   }
 }
 
+async function createOrderFast({
+  restaurantId,
+  customerName,
+  customerPhone,
+  orderType,
+  paymentMethod,
+  customerAddress,
+  neighborhood,
+  customerNote,
+  items,
+}: {
+  restaurantId: string
+  customerName: string
+  customerPhone: string
+  orderType: "delivery" | "pickup"
+  paymentMethod: Exclude<PublicPaymentMethod, "">
+  customerAddress: string
+  neighborhood: string
+  customerNote: string
+  items: CreateOrderItemInput[]
+}) {
+  const rpcItems = items.map((item) => ({
+    product_id: normalizeText(item.product_id, 80),
+    quantity: Math.min(
+      MAX_QUANTITY_PER_ITEM,
+      Math.max(1, Math.floor(normalizeNumber(item.quantity, 1)))
+    ),
+    unit_price:
+      item.unit_price === undefined || item.unit_price === null
+        ? null
+        : Math.max(0, normalizeNumber(item.unit_price, 0)),
+    notes: normalizeText(item.notes, MAX_ITEM_NOTE_LENGTH) || null,
+    modifiers: Array.isArray(item.modifiers) ? item.modifiers : [],
+  }))
+
+  const { data, error } = await supabaseAdmin.rpc("create_public_order_fast", {
+    p_restaurant_id: restaurantId,
+    p_customer_name: customerName,
+    p_customer_phone: customerPhone,
+    p_order_type: orderType,
+    p_payment_method: paymentMethod,
+    p_customer_address: customerAddress || null,
+    p_neighborhood: neighborhood || null,
+    p_customer_note: customerNote || null,
+    p_items: rpcItems,
+  })
+
+  if (error) {
+    console.error("Erro ao criar pedido via RPC rápida:", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    })
+
+    return {
+      response: null,
+      error,
+    }
+  }
+
+  return {
+    response: data as PublicOrderFastResponse | null,
+    error: null,
+  }
+}
+
+async function createOrderLegacy({
+  restaurantId,
+  tableId,
+  customerName,
+  customerPhone,
+  customerAddress,
+  neighborhood,
+  orderType,
+  paymentMethod,
+  customerNote,
+  requestedCashbackWalletId,
+  requestedCashbackCampaignId,
+  requestedCashbackAmount,
+  items,
+}: {
+  restaurantId: string
+  tableId: string | null
+  customerName: string
+  customerPhone: string
+  customerAddress: string
+  neighborhood: string
+  orderType: "delivery" | "pickup"
+  paymentMethod: Exclude<PublicPaymentMethod, "">
+  customerNote: string
+  requestedCashbackWalletId: string
+  requestedCashbackCampaignId: string
+  requestedCashbackAmount: number
+  items: CreateOrderItemInput[]
+}) {
+  const productIds = Array.from(
+    new Set(
+      items
+        .map((item) => normalizeText(item.product_id, 80))
+        .filter(Boolean)
+    )
+  )
+
+  if (productIds.length === 0) {
+    return jsonError("Nenhum produto válido foi enviado no pedido.", 400)
+  }
+
+  const [
+    { data: restaurant, error: restaurantError },
+    { data: products, error: productsError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("restaurants")
+      .select(
+        "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order"
+      )
+      .eq("id", restaurantId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("products")
+      .select("id, restaurant_id, name, price, is_available")
+      .eq("restaurant_id", restaurantId)
+      .in("id", productIds),
+  ])
+
+  if (restaurantError) {
+    console.error("Erro ao buscar restaurante:", restaurantError)
+
+    return jsonError("Erro ao buscar restaurante.", 500)
+  }
+
+  if (productsError) {
+    console.error("Erro ao buscar produtos:", productsError)
+
+    return jsonError("Erro ao buscar produtos.", 500)
+  }
+
+  const typedRestaurant = restaurant as RestaurantRow | null
+
+  if (!typedRestaurant || typedRestaurant.is_active === false) {
+    return jsonError("Restaurante não encontrado ou inativo.", 404)
+  }
+
+  if (orderType === "delivery" && typedRestaurant.delivery_enabled === false) {
+    return jsonError(
+      "Este restaurante não está aceitando pedidos para entrega.",
+      400
+    )
+  }
+
+  if (orderType === "pickup" && typedRestaurant.pickup_enabled === false) {
+    return jsonError(
+      "Este restaurante não está aceitando pedidos para retirada.",
+      400
+    )
+  }
+
+  const productMap = new Map(
+    ((products || []) as ProductRow[]).map((product) => [product.id, product])
+  )
+
+  let subtotal = 0
+  const validatedOrderItems: ValidatedOrderItem[] = []
+
+  for (const item of items) {
+    const productId = normalizeText(item.product_id, 80)
+    const quantity = Math.min(
+      MAX_QUANTITY_PER_ITEM,
+      Math.max(1, Math.floor(normalizeNumber(item.quantity, 1)))
+    )
+    const product = productMap.get(productId)
+    const itemNotes = normalizeText(item.notes, MAX_ITEM_NOTE_LENGTH)
+    const itemModifiers = normalizeModifiers(item.modifiers)
+
+    if (!product) {
+      return jsonError("Um dos produtos do pedido não foi encontrado.", 400)
+    }
+
+    if (product.restaurant_id !== restaurantId) {
+      return jsonError("Produto não pertence a este restaurante.", 400)
+    }
+
+    if (product.is_available === false) {
+      return jsonError(`O produto "${product.name}" está indisponível.`, 400)
+    }
+
+    const basePrice = Math.max(0, normalizeNumber(product.price, 0))
+    const clientUnitPrice = Math.max(
+      0,
+      normalizeNumber(item.unit_price, basePrice)
+    )
+
+    const safeUnitPrice = roundMoney(Math.max(basePrice, clientUnitPrice))
+    const lineTotal = roundMoney(safeUnitPrice * quantity)
+
+    subtotal = roundMoney(subtotal + lineTotal)
+
+    validatedOrderItems.push({
+      product_id: product.id,
+      product_name: product.name,
+      quantity,
+      unit_price: safeUnitPrice,
+      total_price: lineTotal,
+      notes: itemNotes || null,
+      modifiers: itemModifiers,
+    })
+  }
+
+  const minimumOrder = normalizeNumber(typedRestaurant.minimum_order, 0)
+
+  if (minimumOrder > 0 && subtotal < minimumOrder) {
+    return jsonError(
+      `Pedido mínimo de R$ ${minimumOrder.toFixed(2).replace(".", ",")}.`,
+      400
+    )
+  }
+
+  let deliveryFee = 0
+
+  if (orderType === "delivery") {
+    const { data: deliveryRulesData, error: deliveryRulesError } =
+      await supabaseAdmin
+        .from("delivery_fee_rules")
+        .select(
+          "id, restaurant_id, label, fee, neighborhoods, is_active, sort_order"
+        )
+        .eq("restaurant_id", restaurantId)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+
+    if (deliveryRulesError) {
+      console.error(
+        "Erro ao buscar regras de taxa de entrega:",
+        deliveryRulesError
+      )
+
+      return jsonError("Erro ao buscar regras de taxa de entrega.", 500)
+    }
+
+    const deliveryRules = (deliveryRulesData || []) as DeliveryFeeRuleRow[]
+    const matchedRule = findDeliveryRuleByNeighborhood(
+      deliveryRules,
+      neighborhood
+    )
+
+    if (deliveryRules.length > 0 && !matchedRule) {
+      return jsonError("Bairro não atendido por este restaurante.", 400)
+    }
+
+    deliveryFee = matchedRule
+      ? normalizeNumber(matchedRule.fee, 0)
+      : normalizeNumber(typedRestaurant.delivery_fee, 0)
+
+    deliveryFee = Math.max(0, roundMoney(deliveryFee))
+  }
+
+  const safeServiceFee = 0
+  let discount = 0
+  let cashbackRedeemData: CashbackRedeemData | null = null
+
+  if (requestedCashbackAmount > 0) {
+    if (!requestedCashbackWalletId) {
+      return jsonError("Carteira de cashback inválida.", 400)
+    }
+
+    const { data: walletData, error: walletError } = await supabaseAdmin
+      .from("cashback_wallets")
+      .select(
+        "id, restaurant_id, customer_id, customer_name, customer_phone, balance, total_earned, total_redeemed"
+      )
+      .eq("id", requestedCashbackWalletId)
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle()
+
+    if (walletError) {
+      console.error("Erro ao buscar carteira de cashback:", {
+        restaurantId,
+        customerPhone,
+        message: walletError.message,
+        code: walletError.code,
+      })
+
+      return jsonError("Erro ao validar cashback.", 500)
+    }
+
+    const wallet = walletData as CashbackWalletRow | null
+
+    if (!wallet) {
+      return jsonError("Carteira de cashback não encontrada.", 400)
+    }
+
+    if (normalizePhone(wallet.customer_phone) !== customerPhone) {
+      return jsonError("Cashback não pertence a este cliente.", 400)
+    }
+
+    const walletBalance = roundMoney(
+      Math.max(0, normalizeNumber(wallet.balance, 0))
+    )
+
+    if (walletBalance <= 0) {
+      return jsonError("Cliente não possui saldo de cashback.", 400)
+    }
+
+    const campaignQuery = supabaseAdmin
+      .from("campaigns")
+      .select(
+        "id, restaurant_id, name, status, campaign_type, reward_config, target_config, minimum_order_amount, starts_at, ends_at"
+      )
+      .eq("restaurant_id", restaurantId)
+      .eq("campaign_type", "cashback")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    const campaignQueryWithId = requestedCashbackCampaignId
+      ? campaignQuery.eq("id", requestedCashbackCampaignId)
+      : campaignQuery
+
+    const { data: campaignsData, error: campaignError } =
+      await campaignQueryWithId
+
+    if (campaignError) {
+      console.error("Erro ao buscar campanha de cashback:", {
+        restaurantId,
+        message: campaignError.message,
+        code: campaignError.code,
+      })
+
+      return jsonError("Erro ao validar campanha de cashback.", 500)
+    }
+
+    const activeCampaign = (
+      (campaignsData || []) as CashbackCampaignRow[]
+    ).find(isCampaignInsidePeriod)
+
+    if (!activeCampaign) {
+      return jsonError("Campanha de cashback não está ativa.", 400)
+    }
+
+    const rewardConfig = activeCampaign.reward_config || {}
+    const targetConfig = activeCampaign.target_config || {}
+
+    const redeemAmount = roundMoney(
+      Math.max(
+        0,
+        normalizeNumber(
+          rewardConfig.redeem_amount ?? rewardConfig.cashback_amount,
+          0
+        )
+      )
+    )
+
+    const redeemMinimumOrderAmount = roundMoney(
+      Math.max(0, normalizeNumber(targetConfig.redeem_minimum_order_amount, 0))
+    )
+
+    if (redeemMinimumOrderAmount > 0 && subtotal < redeemMinimumOrderAmount) {
+      return jsonError(
+        `Cashback disponível apenas em pedidos acima de R$ ${redeemMinimumOrderAmount
+          .toFixed(2)
+          .replace(".", ",")}.`,
+        400
+      )
+    }
+
+    const maxAllowedDiscount = roundMoney(
+      Math.min(walletBalance, redeemAmount > 0 ? redeemAmount : walletBalance)
+    )
+
+    discount = roundMoney(Math.min(requestedCashbackAmount, maxAllowedDiscount))
+
+    if (discount <= 0) {
+      return jsonError("Valor de cashback inválido.", 400)
+    }
+
+    cashbackRedeemData = {
+      wallet,
+      campaign: activeCampaign,
+      amount: discount,
+    }
+  }
+
+  const total = roundMoney(subtotal + safeServiceFee + deliveryFee - discount)
+
+  const initialStatus =
+    paymentMethod === "pix_manual"
+      ? "waiting_payment"
+      : paymentMethod === "pix"
+        ? "awaiting_payment"
+        : "pending"
+
+  const initialPaymentStatus =
+    paymentMethod === "pix_manual" ? "waiting_customer_payment" : "pending"
+
+  const orderPayload = {
+    restaurant_id: restaurantId,
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    status: initialStatus,
+    subtotal,
+    discount,
+    delivery_fee: deliveryFee,
+    service_fee: safeServiceFee,
+    total,
+    payment_method: paymentMethod,
+    payment_status: initialPaymentStatus,
+    notes: customerNote || null,
+    order_type: orderType,
+    delivery_address: orderType === "delivery" ? customerAddress : null,
+    delivery_neighborhood: orderType === "delivery" ? neighborhood : null,
+    table_id: tableId,
+    order_source: "public",
+  }
+
+  const { order: createdOrder, error: createOrderError } =
+    await createOrderWithRetry(orderPayload)
+
+  if (createOrderError || !createdOrder) {
+    console.error("Erro ao criar pedido:", createOrderError)
+
+    return jsonError("Erro ao criar pedido.", 500)
+  }
+
+  const orderItemsPayload = validatedOrderItems.map((item) => ({
+    order_id: createdOrder.id,
+    product_id: item.product_id,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    total_price: item.total_price,
+    notes: item.notes,
+    modifiers: item.modifiers,
+  }))
+
+  const { error: createOrderItemsError } = await supabaseAdmin
+    .from("order_items")
+    .insert(orderItemsPayload)
+
+  if (createOrderItemsError) {
+    console.error("Erro ao salvar itens do pedido:", createOrderItemsError)
+
+    await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
+
+    return jsonError("Erro ao salvar os itens do pedido.", 500)
+  }
+
+  if (cashbackRedeemData) {
+    const currentBalance = roundMoney(
+      Math.max(0, normalizeNumber(cashbackRedeemData.wallet.balance, 0))
+    )
+
+    const currentRedeemed = roundMoney(
+      Math.max(0, normalizeNumber(cashbackRedeemData.wallet.total_redeemed, 0))
+    )
+
+    const nextBalance = roundMoney(currentBalance - cashbackRedeemData.amount)
+    const nextTotalRedeemed = roundMoney(
+      currentRedeemed + cashbackRedeemData.amount
+    )
+
+    const { error: updateCashbackWalletError } = await supabaseAdmin
+      .from("cashback_wallets")
+      .update({
+        balance: nextBalance,
+        total_redeemed: nextTotalRedeemed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", cashbackRedeemData.wallet.id)
+      .eq("restaurant_id", restaurantId)
+
+    if (updateCashbackWalletError) {
+      console.error("Erro ao baixar saldo de cashback:", {
+        restaurantId,
+        orderId: createdOrder.id,
+        walletId: cashbackRedeemData.wallet.id,
+        message: updateCashbackWalletError.message,
+        code: updateCashbackWalletError.code,
+      })
+
+      await supabaseAdmin
+        .from("order_items")
+        .delete()
+        .eq("order_id", createdOrder.id)
+      await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
+
+      return jsonError("Não foi possível aplicar o cashback.", 500)
+    }
+
+    const { error: cashbackTransactionError } = await supabaseAdmin
+      .from("cashback_transactions")
+      .insert({
+        restaurant_id: restaurantId,
+        wallet_id: cashbackRedeemData.wallet.id,
+        customer_id: cashbackRedeemData.wallet.customer_id ?? null,
+        order_id: createdOrder.id,
+        campaign_id: cashbackRedeemData.campaign.id,
+        type: "redeemed",
+        amount: cashbackRedeemData.amount,
+        description: `Cashback usado no pedido #${createdOrder.public_order_number}.`,
+        expires_at: null,
+      })
+
+    if (cashbackTransactionError) {
+      console.error("Erro ao registrar uso de cashback:", {
+        restaurantId,
+        orderId: createdOrder.id,
+        walletId: cashbackRedeemData.wallet.id,
+        message: cashbackTransactionError.message,
+        code: cashbackTransactionError.code,
+      })
+
+      await supabaseAdmin
+        .from("cashback_wallets")
+        .update({
+          balance: currentBalance,
+          total_redeemed: currentRedeemed,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", cashbackRedeemData.wallet.id)
+        .eq("restaurant_id", restaurantId)
+
+      await supabaseAdmin
+        .from("order_items")
+        .delete()
+        .eq("order_id", createdOrder.id)
+      await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
+
+      return jsonError("Não foi possível registrar o uso do cashback.", 500)
+    }
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      order: createdOrder,
+      summary: {
+        subtotal,
+        serviceFee: safeServiceFee,
+        deliveryFee,
+        discount,
+        total,
+        neighborhood,
+        orderType,
+        cashback: cashbackRedeemData
+          ? {
+              walletId: cashbackRedeemData.wallet.id,
+              campaignId: cashbackRedeemData.campaign.id,
+              amount: cashbackRedeemData.amount,
+            }
+          : null,
+      },
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
+  )
+}
+
 export async function POST(request: Request) {
   try {
     let body: CreateOrderBody
@@ -382,7 +964,10 @@ export async function POST(request: Request) {
     const paymentMethod = mapPaymentMethod(paymentMethodLabel)
     const customerNote = normalizeText(body.customerNote, MAX_NOTE_LENGTH)
     const requestedCashbackWalletId = normalizeText(body.cashback?.walletId, 80)
-    const requestedCashbackCampaignId = normalizeText(body.cashback?.campaignId, 80)
+    const requestedCashbackCampaignId = normalizeText(
+      body.cashback?.campaignId,
+      80
+    )
     const requestedCashbackAmount = roundMoney(
       Math.max(0, normalizeNumber(body.cashback?.amount, 0))
     )
@@ -427,452 +1012,60 @@ export async function POST(request: Request) {
       )
     }
 
-    const productIds = Array.from(
-      new Set(items.map((item) => normalizeText(item.product_id, 80)).filter(Boolean))
-    )
+    const hasCashback =
+      requestedCashbackAmount > 0 ||
+      Boolean(requestedCashbackWalletId) ||
+      Boolean(requestedCashbackCampaignId)
 
-    if (productIds.length === 0) {
-      return jsonError("Nenhum produto válido foi enviado no pedido.", 400)
-    }
+    const canUseFastPath = !hasCashback && !tableId
 
-    const [
-      { data: restaurant, error: restaurantError },
-      { data: products, error: productsError },
-    ] = await Promise.all([
-      supabaseAdmin
-        .from("restaurants")
-        .select(
-          "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order"
-        )
-        .eq("id", restaurantId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("products")
-        .select("id, restaurant_id, name, price, is_available")
-        .eq("restaurant_id", restaurantId)
-        .in("id", productIds),
-    ])
-
-    if (restaurantError) {
-      console.error("Erro ao buscar restaurante:", restaurantError)
-
-      return jsonError("Erro ao buscar restaurante.", 500)
-    }
-
-    if (productsError) {
-      console.error("Erro ao buscar produtos:", productsError)
-
-      return jsonError("Erro ao buscar produtos.", 500)
-    }
-
-    const typedRestaurant = restaurant as RestaurantRow | null
-
-    if (!typedRestaurant || typedRestaurant.is_active === false) {
-      return jsonError("Restaurante não encontrado ou inativo.", 404)
-    }
-
-    if (orderType === "delivery" && typedRestaurant.delivery_enabled === false) {
-      return jsonError(
-        "Este restaurante não está aceitando pedidos para entrega.",
-        400
-      )
-    }
-
-    if (orderType === "pickup" && typedRestaurant.pickup_enabled === false) {
-      return jsonError(
-        "Este restaurante não está aceitando pedidos para retirada.",
-        400
-      )
-    }
-
-    const productMap = new Map(
-      ((products || []) as ProductRow[]).map((product) => [
-        product.id,
-        product,
-      ])
-    )
-
-    let subtotal = 0
-    const validatedOrderItems: ValidatedOrderItem[] = []
-
-    for (const item of items) {
-      const productId = normalizeText(item.product_id, 80)
-      const quantity = Math.min(
-        MAX_QUANTITY_PER_ITEM,
-        Math.max(1, Math.floor(normalizeNumber(item.quantity, 1)))
-      )
-      const product = productMap.get(productId)
-      const itemNotes = normalizeText(item.notes, MAX_ITEM_NOTE_LENGTH)
-      const itemModifiers = normalizeModifiers(item.modifiers)
-
-      if (!product) {
-        return jsonError("Um dos produtos do pedido não foi encontrado.", 400)
-      }
-
-      if (product.restaurant_id !== restaurantId) {
-        return jsonError("Produto não pertence a este restaurante.", 400)
-      }
-
-      if (product.is_available === false) {
-        return jsonError(`O produto "${product.name}" está indisponível.`, 400)
-      }
-
-      const basePrice = Math.max(0, normalizeNumber(product.price, 0))
-      const clientUnitPrice = Math.max(
-        0,
-        normalizeNumber(item.unit_price, basePrice)
-      )
-
-      const safeUnitPrice = roundMoney(Math.max(basePrice, clientUnitPrice))
-      const lineTotal = roundMoney(safeUnitPrice * quantity)
-
-      subtotal = roundMoney(subtotal + lineTotal)
-
-      validatedOrderItems.push({
-        product_id: product.id,
-        product_name: product.name,
-        quantity,
-        unit_price: safeUnitPrice,
-        total_price: lineTotal,
-        notes: itemNotes || null,
-        modifiers: itemModifiers,
+    if (canUseFastPath) {
+      const { response, error } = await createOrderFast({
+        restaurantId,
+        customerName,
+        customerPhone,
+        customerAddress,
+        neighborhood,
+        orderType,
+        paymentMethod,
+        customerNote,
+        items,
       })
-    }
 
-    const minimumOrder = normalizeNumber(typedRestaurant.minimum_order, 0)
-
-    if (minimumOrder > 0 && subtotal < minimumOrder) {
-      return jsonError(
-        `Pedido mínimo de R$ ${minimumOrder.toFixed(2).replace(".", ",")}.`,
-        400
-      )
-    }
-
-    let deliveryFee = 0
-
-    if (orderType === "delivery") {
-      const { data: deliveryRulesData, error: deliveryRulesError } =
-        await supabaseAdmin
-          .from("delivery_fee_rules")
-          .select("id, restaurant_id, label, fee, neighborhoods, is_active, sort_order")
-          .eq("restaurant_id", restaurantId)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true })
-
-      if (deliveryRulesError) {
-        console.error("Erro ao buscar regras de taxa de entrega:", deliveryRulesError)
-
-        return jsonError("Erro ao buscar regras de taxa de entrega.", 500)
+      if (error) {
+        return jsonError("Erro ao criar pedido.", 500)
       }
 
-      const deliveryRules = (deliveryRulesData || []) as DeliveryFeeRuleRow[]
-      const matchedRule = findDeliveryRuleByNeighborhood(
-        deliveryRules,
-        neighborhood
-      )
-
-      if (deliveryRules.length > 0 && !matchedRule) {
-        return jsonError("Bairro não atendido por este restaurante.", 400)
+      if (!response) {
+        return jsonError("Erro ao criar pedido.", 500)
       }
 
-      deliveryFee = matchedRule
-        ? normalizeNumber(matchedRule.fee, 0)
-        : normalizeNumber(typedRestaurant.delivery_fee, 0)
-
-      deliveryFee = Math.max(0, roundMoney(deliveryFee))
-    }
-
-    const safeServiceFee = 0
-    let discount = 0
-    let cashbackRedeemData: CashbackRedeemData | null = null
-
-    if (requestedCashbackAmount > 0) {
-      if (!requestedCashbackWalletId) {
-        return jsonError("Carteira de cashback inválida.", 400)
+      if (!response.success) {
+        return jsonError(response.error || "Não foi possível criar o pedido.", 400)
       }
 
-      const { data: walletData, error: walletError } = await supabaseAdmin
-        .from("cashback_wallets")
-        .select(
-          "id, restaurant_id, customer_id, customer_name, customer_phone, balance, total_earned, total_redeemed"
-        )
-        .eq("id", requestedCashbackWalletId)
-        .eq("restaurant_id", restaurantId)
-        .maybeSingle()
-
-      if (walletError) {
-        console.error("Erro ao buscar carteira de cashback:", {
-          restaurantId,
-          customerPhone,
-          message: walletError.message,
-          code: walletError.code,
-        })
-
-        return jsonError("Erro ao validar cashback.", 500)
-      }
-
-      const wallet = walletData as CashbackWalletRow | null
-
-      if (!wallet) {
-        return jsonError("Carteira de cashback não encontrada.", 400)
-      }
-
-      if (normalizePhone(wallet.customer_phone) !== customerPhone) {
-        return jsonError("Cashback não pertence a este cliente.", 400)
-      }
-
-      const walletBalance = roundMoney(Math.max(0, normalizeNumber(wallet.balance, 0)))
-
-      if (walletBalance <= 0) {
-        return jsonError("Cliente não possui saldo de cashback.", 400)
-      }
-
-      const campaignQuery = supabaseAdmin
-        .from("campaigns")
-        .select(
-          "id, restaurant_id, name, status, campaign_type, reward_config, target_config, minimum_order_amount, starts_at, ends_at"
-        )
-        .eq("restaurant_id", restaurantId)
-        .eq("campaign_type", "cashback")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(5)
-
-      const campaignQueryWithId = requestedCashbackCampaignId
-        ? campaignQuery.eq("id", requestedCashbackCampaignId)
-        : campaignQuery
-
-      const { data: campaignsData, error: campaignError } = await campaignQueryWithId
-
-      if (campaignError) {
-        console.error("Erro ao buscar campanha de cashback:", {
-          restaurantId,
-          message: campaignError.message,
-          code: campaignError.code,
-        })
-
-        return jsonError("Erro ao validar campanha de cashback.", 500)
-      }
-
-      const activeCampaign = ((campaignsData || []) as CashbackCampaignRow[]).find(
-        isCampaignInsidePeriod
-      )
-
-      if (!activeCampaign) {
-        return jsonError("Campanha de cashback não está ativa.", 400)
-      }
-
-      const rewardConfig = activeCampaign.reward_config || {}
-      const targetConfig = activeCampaign.target_config || {}
-
-      const redeemAmount = roundMoney(
-        Math.max(
-          0,
-          normalizeNumber(
-            rewardConfig.redeem_amount ?? rewardConfig.cashback_amount,
-            0
-          )
-        )
-      )
-
-      const redeemMinimumOrderAmount = roundMoney(
-        Math.max(0, normalizeNumber(targetConfig.redeem_minimum_order_amount, 0))
-      )
-
-      if (redeemMinimumOrderAmount > 0 && subtotal < redeemMinimumOrderAmount) {
-        return jsonError(
-          `Cashback disponível apenas em pedidos acima de R$ ${redeemMinimumOrderAmount
-            .toFixed(2)
-            .replace(".", ",")}.`,
-          400
-        )
-      }
-
-      const maxAllowedDiscount = roundMoney(
-        Math.min(walletBalance, redeemAmount > 0 ? redeemAmount : walletBalance)
-      )
-
-      discount = roundMoney(Math.min(requestedCashbackAmount, maxAllowedDiscount))
-
-      if (discount <= 0) {
-        return jsonError("Valor de cashback inválido.", 400)
-      }
-
-      cashbackRedeemData = {
-        wallet,
-        campaign: activeCampaign,
-        amount: discount,
-      }
-    }
-
-    const total = roundMoney(subtotal + safeServiceFee + deliveryFee - discount)
-
-    const initialStatus =
-      paymentMethod === "pix_manual"
-        ? "waiting_payment"
-        : paymentMethod === "pix"
-          ? "awaiting_payment"
-          : "pending"
-
-    const initialPaymentStatus =
-      paymentMethod === "pix_manual" ? "waiting_customer_payment" : "pending"
-
-    const orderPayload = {
-      restaurant_id: restaurantId,
-      customer_name: customerName,
-      customer_phone: customerPhone,
-      status: initialStatus,
-      subtotal,
-      discount,
-      delivery_fee: deliveryFee,
-      service_fee: safeServiceFee,
-      total,
-      payment_method: paymentMethod,
-      payment_status: initialPaymentStatus,
-      notes: customerNote || null,
-      order_type: orderType,
-      delivery_address: orderType === "delivery" ? customerAddress : null,
-      delivery_neighborhood: orderType === "delivery" ? neighborhood : null,
-      table_id: tableId,
-      order_source: "public",
-    }
-
-    const { order: createdOrder, error: createOrderError } =
-      await createOrderWithRetry(orderPayload)
-
-    if (createOrderError || !createdOrder) {
-      console.error("Erro ao criar pedido:", createOrderError)
-
-      return jsonError("Erro ao criar pedido.", 500)
-    }
-
-    const orderItemsPayload = validatedOrderItems.map((item) => ({
-      order_id: createdOrder.id,
-      product_id: item.product_id,
-      product_name: item.product_name,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      total_price: item.total_price,
-      notes: item.notes,
-      modifiers: item.modifiers,
-    }))
-
-    const { error: createOrderItemsError } = await supabaseAdmin
-      .from("order_items")
-      .insert(orderItemsPayload)
-
-    if (createOrderItemsError) {
-      console.error("Erro ao salvar itens do pedido:", createOrderItemsError)
-
-      await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
-
-      return jsonError("Erro ao salvar os itens do pedido.", 500)
-    }
-
-    if (cashbackRedeemData) {
-      const currentBalance = roundMoney(
-        Math.max(0, normalizeNumber(cashbackRedeemData.wallet.balance, 0))
-      )
-
-      const currentRedeemed = roundMoney(
-        Math.max(0, normalizeNumber(cashbackRedeemData.wallet.total_redeemed, 0))
-      )
-
-      const nextBalance = roundMoney(currentBalance - cashbackRedeemData.amount)
-      const nextTotalRedeemed = roundMoney(currentRedeemed + cashbackRedeemData.amount)
-
-      const { error: updateCashbackWalletError } = await supabaseAdmin
-        .from("cashback_wallets")
-        .update({
-          balance: nextBalance,
-          total_redeemed: nextTotalRedeemed,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", cashbackRedeemData.wallet.id)
-        .eq("restaurant_id", restaurantId)
-
-      if (updateCashbackWalletError) {
-        console.error("Erro ao baixar saldo de cashback:", {
-          restaurantId,
-          orderId: createdOrder.id,
-          walletId: cashbackRedeemData.wallet.id,
-          message: updateCashbackWalletError.message,
-          code: updateCashbackWalletError.code,
-        })
-
-        await supabaseAdmin.from("order_items").delete().eq("order_id", createdOrder.id)
-        await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
-
-        return jsonError("Não foi possível aplicar o cashback.", 500)
-      }
-
-      const { error: cashbackTransactionError } = await supabaseAdmin
-        .from("cashback_transactions")
-        .insert({
-          restaurant_id: restaurantId,
-          wallet_id: cashbackRedeemData.wallet.id,
-          customer_id: cashbackRedeemData.wallet.customer_id ?? null,
-          order_id: createdOrder.id,
-          campaign_id: cashbackRedeemData.campaign.id,
-          type: "redeemed",
-          amount: cashbackRedeemData.amount,
-          description: `Cashback usado no pedido #${createdOrder.public_order_number}.`,
-          expires_at: null,
-        })
-
-      if (cashbackTransactionError) {
-        console.error("Erro ao registrar uso de cashback:", {
-          restaurantId,
-          orderId: createdOrder.id,
-          walletId: cashbackRedeemData.wallet.id,
-          message: cashbackTransactionError.message,
-          code: cashbackTransactionError.code,
-        })
-
-        await supabaseAdmin
-          .from("cashback_wallets")
-          .update({
-            balance: currentBalance,
-            total_redeemed: currentRedeemed,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", cashbackRedeemData.wallet.id)
-          .eq("restaurant_id", restaurantId)
-
-        await supabaseAdmin.from("order_items").delete().eq("order_id", createdOrder.id)
-        await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
-
-        return jsonError("Não foi possível registrar o uso do cashback.", 500)
-      }
-    }
-
-    return NextResponse.json(
-      {
-        success: true,
-        order: createdOrder,
-        summary: {
-          subtotal,
-          serviceFee: safeServiceFee,
-          deliveryFee,
-          discount,
-          total,
-          neighborhood,
-          orderType,
-          cashback: cashbackRedeemData
-            ? {
-                walletId: cashbackRedeemData.wallet.id,
-                campaignId: cashbackRedeemData.campaign.id,
-                amount: cashbackRedeemData.amount,
-              }
-            : null,
-        },
-      },
-      {
+      return NextResponse.json(response, {
         headers: {
           "Cache-Control": "no-store",
         },
-      }
-    )
+      })
+    }
+
+    return await createOrderLegacy({
+      restaurantId,
+      tableId,
+      customerName,
+      customerPhone,
+      customerAddress,
+      neighborhood,
+      orderType,
+      paymentMethod,
+      customerNote,
+      requestedCashbackWalletId,
+      requestedCashbackCampaignId,
+      requestedCashbackAmount,
+      items,
+    })
   } catch (error) {
     console.error("POST /api/public/orders error:", error)
 
