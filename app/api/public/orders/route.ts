@@ -1,7 +1,7 @@
+import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-const DEFAULT_ONLINE_SERVICE_FEE = 0
 const MAX_ITEMS_PER_ORDER = 50
 const MAX_QUANTITY_PER_ITEM = 99
 const MAX_CUSTOMER_NAME_LENGTH = 120
@@ -10,6 +10,7 @@ const MAX_ADDRESS_LENGTH = 250
 const MAX_NEIGHBORHOOD_LENGTH = 120
 const MAX_NOTE_LENGTH = 500
 const MAX_ITEM_NOTE_LENGTH = 250
+const MAX_ORDER_NUMBER_RETRIES = 5
 
 type CreateOrderItemInput = {
   product_id: string
@@ -36,8 +37,6 @@ type CreateOrderBody = {
   neighborhood?: string
   orderType: "delivery" | "pickup"
   paymentMethod: string
-  paymentStatus?: string | null
-  status?: string | null
   couponCode?: string | null
   customerNote?: string | null
   cashback?: {
@@ -75,10 +74,6 @@ type DeliveryFeeRuleRow = {
   neighborhoods: string[] | null
   is_active: boolean | null
   sort_order: number | null
-}
-
-type PaymentSettingsRow = {
-  service_fee_amount: number | string | null
 }
 
 type NormalizedModifier = {
@@ -127,6 +122,25 @@ type CashbackRedeemData = {
   wallet: CashbackWalletRow
   campaign: CashbackCampaignRow
   amount: number
+}
+
+type CreatedOrderRow = {
+  id: string
+  public_order_number: string
+  status: string
+  subtotal: number
+  discount: number
+  delivery_fee: number
+  service_fee: number
+  total: number
+  payment_method: string
+  payment_status: string
+  created_at: string
+  order_type: string
+  delivery_address: string | null
+  delivery_neighborhood: string | null
+  notes: string | null
+  order_source: string | null
 }
 
 function normalizeText(value: unknown, maxLength?: number) {
@@ -183,14 +197,6 @@ function normalizeModifiers(
     .filter((modifier): modifier is NormalizedModifier => Boolean(modifier))
 }
 
-function normalizeOrderStatus(value: unknown, maxLength = 80) {
-  return normalizeText(value, maxLength)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\s-]+/g, "_")
-}
-
 type PublicPaymentMethod = "pix_manual" | "pix" | "cash" | "card_on_delivery" | ""
 
 function mapPaymentMethod(value: string): PublicPaymentMethod {
@@ -238,10 +244,10 @@ function mapPaymentMethod(value: string): PublicPaymentMethod {
 }
 
 function buildPublicOrderNumber() {
-  const now = Date.now().toString()
-  const random = Math.floor(10 + Math.random() * 90).toString()
+  const now = Date.now().toString().slice(-7)
+  const random = randomInt(100, 999).toString()
 
-  return `${now.slice(-6)}${random}`
+  return `${now}${random}`
 }
 
 function findDeliveryRuleByNeighborhood(
@@ -258,32 +264,6 @@ function findDeliveryRuleByNeighborhood(
       (item) => normalizeSearchText(item) === selectedNeighborhood
     )
   })
-}
-
-async function getServiceFeeAmount(restaurantId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("restaurant_payment_settings")
-    .select("service_fee_amount")
-    .eq("restaurant_id", restaurantId)
-    .maybeSingle()
-
-  if (error) {
-    console.warn("Erro ao buscar taxa de serviço. Usando valor padrão:", {
-      restaurantId,
-      message: error.message,
-      code: error.code,
-    })
-
-    return DEFAULT_ONLINE_SERVICE_FEE
-  }
-
-  const paymentSettings = data as PaymentSettingsRow | null
-  const serviceFee = normalizeNumber(
-    paymentSettings?.service_fee_amount,
-    DEFAULT_ONLINE_SERVICE_FEE
-  )
-
-  return Math.max(0, roundMoney(serviceFee))
 }
 
 function isCampaignInsidePeriod(campaign: CashbackCampaignRow) {
@@ -314,8 +294,59 @@ function jsonError(message: string, status = 400) {
       success: false,
       error: message,
     },
-    { status }
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
   )
+}
+
+async function createOrderWithRetry(orderPayload: Record<string, unknown>) {
+  let lastError: unknown = null
+
+  for (let attempt = 1; attempt <= MAX_ORDER_NUMBER_RETRIES; attempt++) {
+    const publicOrderNumber = buildPublicOrderNumber()
+
+    const { data, error } = await supabaseAdmin
+      .from("orders")
+      .insert({
+        ...orderPayload,
+        public_order_number: publicOrderNumber,
+      })
+      .select(
+        "id, public_order_number, status, subtotal, discount, delivery_fee, service_fee, total, payment_method, payment_status, created_at, order_type, delivery_address, delivery_neighborhood, notes, order_source"
+      )
+      .single()
+
+    if (!error && data) {
+      return {
+        order: data as CreatedOrderRow,
+        error: null,
+      }
+    }
+
+    lastError = error
+
+    const isDuplicatePublicNumber =
+      error?.code === "23505" &&
+      String(error?.message || "").includes(
+        "orders_restaurant_public_order_number_unique"
+      )
+
+    if (!isDuplicatePublicNumber) {
+      return {
+        order: null,
+        error,
+      }
+    }
+  }
+
+  return {
+    order: null,
+    error: lastError,
+  }
 }
 
 export async function POST(request: Request) {
@@ -349,8 +380,6 @@ export async function POST(request: Request) {
     const orderType = body.orderType === "pickup" ? "pickup" : "delivery"
     const paymentMethodLabel = normalizeText(body.paymentMethod, 80)
     const paymentMethod = mapPaymentMethod(paymentMethodLabel)
-    const requestedStatus = normalizeOrderStatus(body.status)
-    const requestedPaymentStatus = normalizeOrderStatus(body.paymentStatus)
     const customerNote = normalizeText(body.customerNote, MAX_NOTE_LENGTH)
     const requestedCashbackWalletId = normalizeText(body.cashback?.walletId, 80)
     const requestedCashbackCampaignId = normalizeText(body.cashback?.campaignId, 80)
@@ -398,18 +427,42 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: restaurant, error: restaurantError } = await supabaseAdmin
-      .from("restaurants")
-      .select(
-        "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order"
-      )
-      .eq("id", restaurantId)
-      .maybeSingle()
+    const productIds = Array.from(
+      new Set(items.map((item) => normalizeText(item.product_id, 80)).filter(Boolean))
+    )
+
+    if (productIds.length === 0) {
+      return jsonError("Nenhum produto válido foi enviado no pedido.", 400)
+    }
+
+    const [
+      { data: restaurant, error: restaurantError },
+      { data: products, error: productsError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("restaurants")
+        .select(
+          "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order"
+        )
+        .eq("id", restaurantId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("products")
+        .select("id, restaurant_id, name, price, is_available")
+        .eq("restaurant_id", restaurantId)
+        .in("id", productIds),
+    ])
 
     if (restaurantError) {
       console.error("Erro ao buscar restaurante:", restaurantError)
 
       return jsonError("Erro ao buscar restaurante.", 500)
+    }
+
+    if (productsError) {
+      console.error("Erro ao buscar produtos:", productsError)
+
+      return jsonError("Erro ao buscar produtos.", 500)
     }
 
     const typedRestaurant = restaurant as RestaurantRow | null
@@ -430,26 +483,6 @@ export async function POST(request: Request) {
         "Este restaurante não está aceitando pedidos para retirada.",
         400
       )
-    }
-
-    const productIds = Array.from(
-      new Set(items.map((item) => normalizeText(item.product_id, 80)).filter(Boolean))
-    )
-
-    if (productIds.length === 0) {
-      return jsonError("Nenhum produto válido foi enviado no pedido.", 400)
-    }
-
-    const { data: products, error: productsError } = await supabaseAdmin
-      .from("products")
-      .select("id, restaurant_id, name, price, is_available")
-      .eq("restaurant_id", restaurantId)
-      .in("id", productIds)
-
-    if (productsError) {
-      console.error("Erro ao buscar produtos:", productsError)
-
-      return jsonError("Erro ao buscar produtos.", 500)
     }
 
     const productMap = new Map(
@@ -490,12 +523,6 @@ export async function POST(request: Request) {
         normalizeNumber(item.unit_price, basePrice)
       )
 
-      /*
-        Segurança:
-        - o preço oficial vem do banco;
-        - se o cliente tentar mandar preço menor, o backend ignora;
-        - se vier maior por adicional/modificador, mantém o maior valor.
-      */
       const safeUnitPrice = roundMoney(Math.max(basePrice, clientUnitPrice))
       const lineTotal = roundMoney(safeUnitPrice * quantity)
 
@@ -521,30 +548,24 @@ export async function POST(request: Request) {
       )
     }
 
-    const [{ data: deliveryRulesData, error: deliveryRulesError }, serviceFee] =
-      await Promise.all([
-        supabaseAdmin
-          .from("delivery_fee_rules")
-          .select(
-            "id, restaurant_id, label, fee, neighborhoods, is_active, sort_order"
-          )
-          .eq("restaurant_id", restaurantId)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        getServiceFeeAmount(restaurantId),
-      ])
-
-    if (deliveryRulesError) {
-      console.error("Erro ao buscar regras de taxa de entrega:", deliveryRulesError)
-
-      return jsonError("Erro ao buscar regras de taxa de entrega.", 500)
-    }
-
-    const deliveryRules = (deliveryRulesData || []) as DeliveryFeeRuleRow[]
-
     let deliveryFee = 0
 
     if (orderType === "delivery") {
+      const { data: deliveryRulesData, error: deliveryRulesError } =
+        await supabaseAdmin
+          .from("delivery_fee_rules")
+          .select("id, restaurant_id, label, fee, neighborhoods, is_active, sort_order")
+          .eq("restaurant_id", restaurantId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+
+      if (deliveryRulesError) {
+        console.error("Erro ao buscar regras de taxa de entrega:", deliveryRulesError)
+
+        return jsonError("Erro ao buscar regras de taxa de entrega.", 500)
+      }
+
+      const deliveryRules = (deliveryRulesData || []) as DeliveryFeeRuleRow[]
       const matchedRule = findDeliveryRuleByNeighborhood(
         deliveryRules,
         neighborhood
@@ -562,7 +583,6 @@ export async function POST(request: Request) {
     }
 
     const safeServiceFee = 0
-
     let discount = 0
     let cashbackRedeemData: CashbackRedeemData | null = null
 
@@ -686,23 +706,19 @@ export async function POST(request: Request) {
     }
 
     const total = roundMoney(subtotal + safeServiceFee + deliveryFee - discount)
-    const publicOrderNumber = buildPublicOrderNumber()
 
     const initialStatus =
-      requestedStatus ||
-      (paymentMethod === "pix_manual"
+      paymentMethod === "pix_manual"
         ? "waiting_payment"
         : paymentMethod === "pix"
           ? "awaiting_payment"
-          : "pending")
+          : "pending"
 
     const initialPaymentStatus =
-      requestedPaymentStatus ||
-      (paymentMethod === "pix_manual" ? "waiting_customer_payment" : "pending")
+      paymentMethod === "pix_manual" ? "waiting_customer_payment" : "pending"
 
     const orderPayload = {
       restaurant_id: restaurantId,
-      public_order_number: publicOrderNumber,
       customer_name: customerName,
       customer_phone: customerPhone,
       status: initialStatus,
@@ -721,13 +737,8 @@ export async function POST(request: Request) {
       order_source: "public",
     }
 
-    const { data: createdOrder, error: createOrderError } = await supabaseAdmin
-      .from("orders")
-      .insert(orderPayload)
-      .select(
-        "id, public_order_number, status, subtotal, discount, delivery_fee, service_fee, total, payment_method, payment_status, created_at, order_type, delivery_address, delivery_neighborhood, notes, order_source"
-      )
-      .single()
+    const { order: createdOrder, error: createOrderError } =
+      await createOrderWithRetry(orderPayload)
 
     if (createOrderError || !createdOrder) {
       console.error("Erro ao criar pedido:", createOrderError)
@@ -805,7 +816,7 @@ export async function POST(request: Request) {
           campaign_id: cashbackRedeemData.campaign.id,
           type: "redeemed",
           amount: cashbackRedeemData.amount,
-          description: `Cashback usado no pedido #${publicOrderNumber}.`,
+          description: `Cashback usado no pedido #${createdOrder.public_order_number}.`,
           expires_at: null,
         })
 
@@ -835,26 +846,33 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      order: createdOrder,
-      summary: {
-        subtotal,
-        serviceFee: safeServiceFee,
-        deliveryFee,
-        discount,
-        total,
-        neighborhood,
-        orderType,
-        cashback: cashbackRedeemData
-          ? {
-              walletId: cashbackRedeemData.wallet.id,
-              campaignId: cashbackRedeemData.campaign.id,
-              amount: cashbackRedeemData.amount,
-            }
-          : null,
+    return NextResponse.json(
+      {
+        success: true,
+        order: createdOrder,
+        summary: {
+          subtotal,
+          serviceFee: safeServiceFee,
+          deliveryFee,
+          discount,
+          total,
+          neighborhood,
+          orderType,
+          cashback: cashbackRedeemData
+            ? {
+                walletId: cashbackRedeemData.wallet.id,
+                campaignId: cashbackRedeemData.campaign.id,
+                amount: cashbackRedeemData.amount,
+              }
+            : null,
+        },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    )
   } catch (error) {
     console.error("POST /api/public/orders error:", error)
 
