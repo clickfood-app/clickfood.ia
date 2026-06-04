@@ -1,7 +1,9 @@
 "use client"
 
 import { lazy, Suspense, useState } from "react"
+import { RobotWhatsappToggleCard } from "@/components/robot-whatsapp-toggle-card"
 import {
+  Bot,
   Building2,
   Clock,
   CreditCard,
@@ -24,6 +26,7 @@ const tabs = [
   { value: "operation", label: "Funcionamento", icon: <Clock className="h-4 w-4" /> },
   { value: "payments", label: "Pagamentos", icon: <CreditCard className="h-4 w-4" /> },
   { value: "delivery", label: "Entrega", icon: <Truck className="h-4 w-4" /> },
+  { value: "robot", label: "Robô WhatsApp", icon: <Bot className="h-4 w-4" /> },
 ] as const
 
 function TabSkeleton() {
@@ -50,6 +53,7 @@ function TabSkeleton() {
           </div>
         </div>
       </div>
+
       <div className="rounded-xl border border-border bg-card p-6">
         <Skeleton className="mb-5 h-5 w-40" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -72,8 +76,11 @@ export default function ConfiguracoesPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(var(--primary))]/10">
               <Settings className="h-5 w-5 text-[hsl(var(--primary))]" />
             </div>
+
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">Configuracoes</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                Configuracoes
+              </h1>
               <p className="text-sm text-muted-foreground">
                 Gerencie todas as configuracoes do seu restaurante
               </p>
@@ -120,6 +127,10 @@ export default function ConfiguracoesPage() {
             <Suspense fallback={<TabSkeleton />}>
               <DeliveryTab />
             </Suspense>
+          </TabsContent>
+
+          <TabsContent value="robot">
+            <RobotWhatsappToggleCard />
           </TabsContent>
         </Tabs>
       </div>
