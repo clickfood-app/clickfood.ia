@@ -2,7 +2,23 @@
 
 export type OrderType = "local" | "pickup" | "delivery"
 
-export type PaymentMethod = "cash" | "pix" | "credit" | "debit" | "pending"
+export type PaymentMethod =
+  | "cash"
+  | "dinheiro"
+  | "pix"
+  | "credit"
+  | "credito"
+  | "debit"
+  | "debito"
+  | "pending"
+
+export interface OrderItemModifier {
+  groupId: string | null
+  groupName: string
+  optionId: string | null
+  optionName: string
+  optionPrice: number
+}
 
 export interface OrderItem {
   id: string
@@ -11,11 +27,15 @@ export interface OrderItem {
   price: number
   quantity: number
   observation?: string
+  modifiers?: OrderItemModifier[]
 }
+
+export type OrderItemDraft = Omit<OrderItem, "id">
 
 export interface Table {
   id: string
   number: number
+  name?: string
   capacity: number
   status: "available" | "occupied" | "reserved"
 }
@@ -63,9 +83,12 @@ export const initialTables: Table[] = [
 
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
   cash: "Dinheiro",
+  dinheiro: "Dinheiro",
   pix: "PIX",
-  credit: "Cartao Credito",
-  debit: "Cartao Debito",
+  credit: "Cartão Crédito",
+  credito: "Cartão Crédito",
+  debit: "Cartão Débito",
+  debito: "Cartão Débito",
   pending: "Pagamento Pendente",
 }
 

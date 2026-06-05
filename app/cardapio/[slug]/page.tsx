@@ -1725,6 +1725,22 @@ function formatPhonePreview(value: string) {
   return value
 }
 
+function parseCurrencyInput(value: string) {
+  const sanitizedValue = value
+    .replace(/\s/g, "")
+    .replace(/[^\d.,]/g, "")
+
+  if (!sanitizedValue) return null
+
+  const normalizedValue = sanitizedValue.includes(",")
+    ? sanitizedValue.replace(/\./g, "").replace(",", ".")
+    : sanitizedValue
+
+  const parsedValue = Number(normalizedValue)
+
+  return Number.isFinite(parsedValue) ? parsedValue : null
+}
+
 function sanitizePixText(value: string | null | undefined, maxLength: number, fallback: string) {
   const normalized = (value || fallback)
     .normalize("NFD")
@@ -3278,6 +3294,8 @@ function CartSheet({
   const [customerAddress, setCustomerAddress] = useState("")
   const [selectedNeighborhoodKey, setSelectedNeighborhoodKey] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
+  const [needsChange, setNeedsChange] = useState(false)
+  const [changeFor, setChangeFor] = useState("")
   const [pixCardOpen, setPixCardOpen] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [pixPayment, setPixPayment] = useState<PixPaymentData | null>(null)
@@ -3367,6 +3385,8 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
       setPaymentApproved(false)
       setPaymentCheckError("")
       setPixCardOpen(false)
+      setNeedsChange(false)
+      setChangeFor("")
       setIsProcessing(false)
     }
   }, [open])
@@ -3446,6 +3466,11 @@ useEffect(() => {
       setPaymentCheckError("")
       setPixCardOpen(false)
     }
+
+    if (paymentMethod.trim().toLowerCase() !== "dinheiro") {
+      setNeedsChange(false)
+      setChangeFor("")
+    }
   }, [paymentMethod])
 
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
@@ -3480,6 +3505,8 @@ const cashbackProgressPercent =
 const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
   const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
   const isPixPayment = normalizedPaymentMethod === "pix"
+  const isCashPayment = normalizedPaymentMethod === "dinheiro"
+  const changeForAmount = parseCurrencyInput(changeFor)
   const pixKey = (restaurant.pixKey ?? restaurant.pix_key ?? "").trim()
   const pixReceiverName = (
     restaurant.pixReceiverName ??
@@ -3560,6 +3587,18 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
       return false
     }
 
+    if (isCashPayment && needsChange) {
+      if (!changeForAmount || changeForAmount <= 0) {
+        alert("Informe para quanto precisa de troco.")
+        return false
+      }
+
+      if (changeForAmount < total) {
+        alert("O valor para troco precisa ser maior ou igual ao total do pedido.")
+        return false
+      }
+    }
+
     return true
   }
 
@@ -3609,6 +3648,11 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
             : undefined,
         orderType,
         paymentMethod: paymentMethodLabel,
+        needsChange: paymentMethodLabel.trim().toLowerCase() === "dinheiro" ? needsChange : false,
+        changeFor:
+          paymentMethodLabel.trim().toLowerCase() === "dinheiro" && needsChange
+            ? changeForAmount
+            : null,
         paymentStatus: isManualPix ? "waiting_customer_payment" : undefined,
         status: isManualPix ? "waiting_payment" : undefined,
         deliveryFee,
@@ -4218,8 +4262,15 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
                       onClick={() => {
                         setPaymentMethod(method.label)
 
+                        if (method.id !== "dinheiro") {
+                          setNeedsChange(false)
+                          setChangeFor("")
+                        }
+
                         if (method.id === "pix") {
                           setPixCardOpen(true)
+                        } else {
+                          setPixCardOpen(false)
                         }
                       }}
                       className={cn(
@@ -4258,6 +4309,80 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
                   ))}
                 </div>
               </div>
+
+              {isCashPayment && (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                      <Banknote className="h-5 w-5" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-gray-900">
+                        Precisa de troco?
+                      </p>
+
+                      <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+                        Total do pedido: {formatPrice(total)}
+                      </p>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNeedsChange(false)
+                            setChangeFor("")
+                          }}
+                          className={cn(
+                            "rounded-xl px-3 py-2.5 text-xs font-black transition-all active:scale-[0.98]",
+                            !needsChange
+                              ? "bg-emerald-600 text-white shadow-sm"
+                              : "border border-emerald-200 bg-white text-emerald-700"
+                          )}
+                        >
+                          Não preciso
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setNeedsChange(true)}
+                          className={cn(
+                            "rounded-xl px-3 py-2.5 text-xs font-black transition-all active:scale-[0.98]",
+                            needsChange
+                              ? "bg-emerald-600 text-white shadow-sm"
+                              : "border border-emerald-200 bg-white text-emerald-700"
+                          )}
+                        >
+                          Sim, preciso
+                        </button>
+                      </div>
+
+                      {needsChange && (
+                        <div className="mt-3">
+                          <label className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                            Troco para quanto?
+                          </label>
+
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={changeFor}
+                            onChange={(event) => setChangeFor(event.target.value)}
+                            placeholder="Ex: 100,00"
+                            className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          />
+
+                          {changeForAmount !== null && changeForAmount >= total && (
+                            <p className="mt-2 text-xs font-bold text-emerald-700">
+                              Troco estimado: {formatPrice(changeForAmount - total)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {isPixPayment && (
                 <button

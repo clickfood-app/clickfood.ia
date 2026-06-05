@@ -42,6 +42,8 @@ type OrderRow = {
   delivery_fee?: number | string | null
   payment_method: string | null
   payment_status: string | null
+  needs_change?: boolean | null
+  change_for?: number | string | null
   notes: string | null
   created_at: string
   delivery_person_id: string | null
@@ -572,6 +574,34 @@ function getPaymentLabel(paymentMethod: string | null) {
   return paymentMethod
 }
 
+function isCashPaymentMethod(paymentMethod: string | null | undefined) {
+  const normalized = normalizeStatus(paymentMethod)
+
+  return (
+    normalized === "cash" ||
+    normalized === "dinheiro" ||
+    normalized === "cash_on_delivery" ||
+    normalized === "dinheiro_na_entrega"
+  )
+}
+
+function getOrderChangeFor(order: OrderRow) {
+  const changeFor = Number(order.change_for || 0)
+
+  if (!Number.isFinite(changeFor) || changeFor <= 0) return 0
+
+  return changeFor
+}
+
+function getOrderChangeAmount(order: OrderRow) {
+  const changeFor = getOrderChangeFor(order)
+  const total = Number(order.total || 0)
+
+  if (changeFor <= 0 || !Number.isFinite(total)) return 0
+
+  return Math.max(changeFor - total, 0)
+}
+
 function getPaymentStatusLabel(paymentStatus: string | null) {
   const normalized = String(paymentStatus || "").toLowerCase()
 
@@ -831,6 +861,8 @@ function buildThermalOrderPayload(
     total: toPrintNumber(order.total),
     paymentMethod: order.payment_method,
     paymentStatus: order.payment_status,
+    needsChange: Boolean(order.needs_change),
+    changeFor: getOrderChangeFor(order) || null,
   }
 }
 
@@ -1030,6 +1062,27 @@ function OrderCard({
             {getPaymentLabel(order.payment_method)}
           </p>
         </div>
+
+        {isCashPaymentMethod(order.payment_method) && (
+          <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2">
+            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+              Troco
+            </p>
+
+            {order.needs_change && getOrderChangeFor(order) > 0 ? (
+              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-900">
+                Cliente precisa de troco para{" "}
+                <span className="font-black">{formatBRL(getOrderChangeFor(order))}</span>
+                {" "}• Troco estimado:{" "}
+                <span className="font-black">{formatBRL(getOrderChangeAmount(order))}</span>
+              </p>
+            ) : (
+              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-900">
+                Cliente informou que não precisa de troco.
+              </p>
+            )}
+          </div>
+        )}
 
         {isPixReview && (
           <div className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-2">

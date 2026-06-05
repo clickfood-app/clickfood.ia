@@ -1,74 +1,75 @@
 "use client"
 
-import { Store, ShoppingBag, Truck } from "lucide-react"
+import { Store, Truck, Utensils } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { OrderType } from "@/lib/order-types"
 
 interface OrderTypeSelectorProps {
   value: OrderType
-  onChange: (type: OrderType) => void
+  onChange: (value: OrderType) => void
 }
 
-const orderTypes = [
+const options: Array<{
+  value: OrderType
+  label: string
+  description: string
+  icon: typeof Utensils
+}> = [
   {
-    type: "local" as OrderType,
-    label: "Consumo no Local",
-    description: "Cliente consome no restaurante",
-    icon: Store,
-    color: "text-blue-600 bg-blue-100",
+    value: "local",
+    label: "Mesa",
+    description: "Consumo no local",
+    icon: Utensils,
   },
   {
-    type: "pickup" as OrderType,
+    value: "pickup",
     label: "Retirada",
-    description: "Cliente retira no balcao",
-    icon: ShoppingBag,
-    color: "text-amber-600 bg-amber-100",
+    description: "Cliente retira no balcão",
+    icon: Store,
   },
   {
-    type: "delivery" as OrderType,
+    value: "delivery",
     label: "Entrega",
-    description: "Enviar para endereco",
+    description: "Enviar para endereço",
     icon: Truck,
-    color: "text-green-600 bg-green-100",
   },
 ]
 
-export default function OrderTypeSelector({ value, onChange }: OrderTypeSelectorProps) {
+export function OrderTypeSelector({ value, onChange }: OrderTypeSelectorProps) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {orderTypes.map((item) => {
-        const Icon = item.icon
-        const isSelected = value === item.type
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      {options.map((option) => {
+        const Icon = option.icon
+        const selected = value === option.value
 
         return (
           <button
-            key={item.type}
-            onClick={() => onChange(item.type)}
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
             className={cn(
-              "group relative flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all duration-200",
-              isSelected
-                ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 shadow-sm"
-                : "border-border bg-card hover:border-[hsl(var(--primary))]/40 hover:bg-muted/50"
+              "rounded-xl border px-4 py-3 text-left transition-all",
+              selected
+                ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
+                : "border-border bg-background text-muted-foreground hover:bg-muted"
             )}
           >
-            {isSelected && (
-              <div className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[hsl(var(--primary))]" />
-            )}
-            <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", item.color)}>
-              <Icon className="h-6 w-6" />
-            </div>
-            <div className="text-center">
-              <p className={cn(
-                "font-semibold text-sm",
-                isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-              )}>
-                {item.label}
+            <div className="flex items-center gap-2">
+              <Icon className="h-4 w-4" />
+
+              <p className="text-sm font-bold">
+                {option.label}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
             </div>
+
+            <p className="mt-1 text-xs">
+              {option.description}
+            </p>
           </button>
         )
       })}
     </div>
   )
 }
+
+export default OrderTypeSelector

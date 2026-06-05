@@ -37,6 +37,8 @@ type CreateOrderBody = {
   neighborhood?: string
   orderType: "delivery" | "pickup"
   paymentMethod: string
+  needsChange?: boolean | string | null
+  changeFor?: number | string | null
   couponCode?: string | null
   customerNote?: string | null
   cashback?: {
@@ -135,6 +137,8 @@ type CreatedOrderRow = {
   total: number
   payment_method: string
   payment_status: string
+  needs_change?: boolean | null
+  change_for?: number | string | null
   created_at: string
   order_type: string
   delivery_address: string | null
@@ -170,6 +174,18 @@ function normalizeText(value: unknown, maxLength?: number) {
 function normalizeNumber(value: unknown, fallback = 0): number {
   const num = Number(value)
   return Number.isFinite(num) ? num : fallback
+}
+
+function normalizeBoolean(value: unknown) {
+  if (typeof value === "boolean") return value
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase()
+
+    return ["true", "1", "sim", "yes", "s"].includes(normalized)
+  }
+
+  return false
 }
 
 function roundMoney(value: number) {
@@ -337,7 +353,7 @@ async function createOrderWithRetry(orderPayload: Record<string, unknown>) {
         public_order_number: publicOrderNumber,
       })
       .select(
-        "id, public_order_number, status, subtotal, discount, delivery_fee, service_fee, total, payment_method, payment_status, created_at, order_type, delivery_address, delivery_neighborhood, notes, order_source"
+        "id, public_order_number, status, subtotal, discount, delivery_fee, service_fee, total, payment_method, payment_status, needs_change, change_for, created_at, order_type, delivery_address, delivery_neighborhood, notes, order_source"
       )
       .single()
 
@@ -447,6 +463,8 @@ async function createOrderLegacy({
   orderType,
   paymentMethod,
   customerNote,
+  needsChange,
+  changeFor,
   requestedCashbackWalletId,
   requestedCashbackCampaignId,
   requestedCashbackAmount,
@@ -461,6 +479,8 @@ async function createOrderLegacy({
   orderType: "delivery" | "pickup"
   paymentMethod: Exclude<PublicPaymentMethod, "">
   customerNote: string
+  needsChange: boolean
+  changeFor: number | null
   requestedCashbackWalletId: string
   requestedCashbackCampaignId: string
   requestedCashbackAmount: number
@@ -755,6 +775,13 @@ async function createOrderLegacy({
 
   const total = roundMoney(subtotal + safeServiceFee + deliveryFee - discount)
 
+  if (needsChange && (!changeFor || changeFor < total)) {
+    return jsonError(
+      "O valor informado para troco precisa ser maior ou igual ao total do pedido.",
+      400
+    )
+  }
+
   const initialStatus =
     paymentMethod === "pix_manual"
       ? "waiting_payment"
@@ -777,6 +804,8 @@ async function createOrderLegacy({
     total,
     payment_method: paymentMethod,
     payment_status: initialPaymentStatus,
+    needs_change: needsChange,
+    change_for: needsChange ? changeFor : null,
     notes: customerNote || null,
     order_type: orderType,
     delivery_address: orderType === "delivery" ? customerAddress : null,
@@ -914,6 +943,8 @@ async function createOrderLegacy({
         total,
         neighborhood,
         orderType,
+        needsChange,
+        changeFor: needsChange ? changeFor : null,
         cashback: cashbackRedeemData
           ? {
               walletId: cashbackRedeemData.wallet.id,
@@ -962,6 +993,11 @@ export async function POST(request: Request) {
     const orderType = body.orderType === "pickup" ? "pickup" : "delivery"
     const paymentMethodLabel = normalizeText(body.paymentMethod, 80)
     const paymentMethod = mapPaymentMethod(paymentMethodLabel)
+    const wantsChange = normalizeBoolean(body.needsChange)
+    const needsChange = paymentMethod === "cash" ? wantsChange : false
+    const changeFor = needsChange
+      ? roundMoney(Math.max(0, normalizeNumber(body.changeFor, 0)))
+      : null
     const customerNote = normalizeText(body.customerNote, MAX_NOTE_LENGTH)
     const requestedCashbackWalletId = normalizeText(body.cashback?.walletId, 80)
     const requestedCashbackCampaignId = normalizeText(
@@ -993,6 +1029,10 @@ export async function POST(request: Request) {
       return jsonError("Forma de pagamento inválida.", 400)
     }
 
+    if (needsChange && (!changeFor || changeFor <= 0)) {
+      return jsonError("Informe o valor para troco.", 400)
+    }
+
     if (orderType === "delivery" && !customerAddress) {
       return jsonError("Endereço é obrigatório para entrega.", 400)
     }
@@ -1017,7 +1057,7 @@ export async function POST(request: Request) {
       Boolean(requestedCashbackWalletId) ||
       Boolean(requestedCashbackCampaignId)
 
-    const canUseFastPath = !hasCashback && !tableId
+    const canUseFastPath = !hasCashback && !tableId && !needsChange
 
     if (canUseFastPath) {
       const { response, error } = await createOrderFast({
@@ -1061,6 +1101,8 @@ export async function POST(request: Request) {
       orderType,
       paymentMethod,
       customerNote,
+      needsChange,
+      changeFor,
       requestedCashbackWalletId,
       requestedCashbackCampaignId,
       requestedCashbackAmount,

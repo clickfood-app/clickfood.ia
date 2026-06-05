@@ -47,6 +47,8 @@ export type ThermalPrintOrder = {
   total?: number | null
   paymentMethod?: string | null
   paymentStatus?: string | null
+  needsChange?: boolean | null
+  changeFor?: number | null
 }
 
 type PrintThermalOrderParams = {
@@ -137,6 +139,64 @@ function getPaymentMethodLabel(method?: string | null) {
   if (normalizedMethod === "mesa") return "Mesa"
 
   return method || "Não informado"
+}
+
+function isCashPaymentMethod(method?: string | null) {
+  const normalizedMethod = String(method ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+
+  return (
+    normalizedMethod === "cash" ||
+    normalizedMethod === "dinheiro" ||
+    normalizedMethod === "cash_on_delivery" ||
+    normalizedMethod === "dinheiro_na_entrega"
+  )
+}
+
+function getChangeFor(order: ThermalPrintOrder) {
+  const changeFor = Number(order.changeFor || 0)
+
+  if (!Number.isFinite(changeFor) || changeFor <= 0) return 0
+
+  return changeFor
+}
+
+function getChangeAmount(order: ThermalPrintOrder) {
+  const changeFor = getChangeFor(order)
+  const total = Number(order.total || 0)
+
+  if (changeFor <= 0 || !Number.isFinite(total)) return 0
+
+  return Math.max(changeFor - total, 0)
+}
+
+function buildChangeRowsHtml(order: ThermalPrintOrder) {
+  if (!isCashPaymentMethod(order.paymentMethod)) return ""
+
+  if (!order.needsChange || getChangeFor(order) <= 0) {
+    return `
+      <div class="row">
+        <span>Troco:</span>
+        <strong>Não precisa</strong>
+      </div>
+    `
+  }
+
+  return `
+    <div class="row">
+      <span>Troco para:</span>
+      <strong>${escapeHtml(formatPrice(getChangeFor(order)))}</strong>
+    </div>
+
+    <div class="row">
+      <span>Troco estimado:</span>
+      <strong>${escapeHtml(formatPrice(getChangeAmount(order)))}</strong>
+    </div>
+  `
 }
 
 function getPaymentStatusLabel(status?: string | null) {
@@ -460,6 +520,23 @@ function buildKitchenTicketContent(
 
       ${buildCustomerSection(order, "kitchen")}
 
+      ${
+        isCashPaymentMethod(order.paymentMethod)
+          ? `
+            <div class="separator"></div>
+
+            <section>
+              <div class="section-title kitchen-section-title">PAGAMENTO</div>
+              <div class="row kitchen-row">
+                <span>FORMA</span>
+                <strong>${escapeHtml(getPaymentMethodLabel(order.paymentMethod))}</strong>
+              </div>
+              ${buildChangeRowsHtml(order)}
+            </section>
+          `
+          : ""
+      }
+
       <div class="separator"></div>
 
       <section>
@@ -574,6 +651,8 @@ function buildReceiptTicketContent(
           <span>Forma:</span>
           <span>${escapeHtml(getPaymentMethodLabel(order.paymentMethod))}</span>
         </div>
+
+        ${buildChangeRowsHtml(order)}
 
         <div class="row">
           <span>Status:</span>

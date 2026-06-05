@@ -188,19 +188,21 @@ function SummaryBox({
   icon: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 sm:px-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">
             {title}
           </p>
-          <p className="mt-1 text-xl font-black text-slate-950">{value}</p>
-          <p className="mt-0.5 text-xs font-semibold text-slate-500">
+          <p className="mt-1 truncate text-lg font-black text-slate-950 sm:text-xl">
+            {value}
+          </p>
+          <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold text-slate-500 sm:text-xs">
             {description}
           </p>
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 sm:h-9 sm:w-9">
           {icon}
         </div>
       </div>
@@ -561,10 +563,10 @@ export default function FichaTecnicaPage() {
 
   return (
     <AdminLayout title="Ficha Técnica">
-      <div className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="space-y-4 pb-24 sm:pb-0">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-xl font-black tracking-tight text-slate-950">
+            <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
               Ficha Técnica
             </h1>
             <p className="mt-1 text-sm text-slate-500">
@@ -575,7 +577,7 @@ export default function FichaTecnicaPage() {
           <button
             type="button"
             onClick={() => void loadPageData()}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:w-auto"
           >
             <RefreshCcw className="h-4 w-4" />
             Atualizar
@@ -616,9 +618,9 @@ export default function FichaTecnicaPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
-            <section className="rounded-xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 p-4">
+          <div className="grid gap-4 xl:grid-cols-[340px_1fr]">
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-200 p-3 sm:p-4">
                 <h2 className="text-base font-black text-slate-950">
                   Produtos
                 </h2>
@@ -638,7 +640,7 @@ export default function FichaTecnicaPage() {
                 </div>
               </div>
 
-              <div className="max-h-[690px] overflow-y-auto p-3">
+              <div className="max-h-[320px] overflow-y-auto p-3 xl:max-h-[690px]">
                 {filteredProducts.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-8 text-center text-sm font-semibold text-slate-500">
                     Nenhum produto encontrado.
@@ -674,7 +676,7 @@ export default function FichaTecnicaPage() {
                           type="button"
                           onClick={() => handleSelectProduct(product.id)}
                           className={cn(
-                            "w-full rounded-lg border p-3 text-left transition",
+                            "w-full rounded-lg border p-3 text-left transition active:scale-[0.99]",
                             isSelected
                               ? "border-blue-300 bg-blue-50"
                               : "border-slate-200 bg-white hover:bg-slate-50"
@@ -709,7 +711,7 @@ export default function FichaTecnicaPage() {
             </section>
 
             <div className="space-y-4">
-              <section className="grid gap-3 md:grid-cols-4">
+              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryBox
                   title="Produto"
                   value={selectedProduct ? getProductName(selectedProduct) : "Selecione"}
@@ -756,7 +758,7 @@ export default function FichaTecnicaPage() {
 
               <section
                 id="recipe-form"
-                className="rounded-xl border border-slate-200 bg-white p-4"
+                className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4"
               >
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -773,7 +775,7 @@ export default function FichaTecnicaPage() {
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                      className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:w-auto"
                     >
                       <X className="h-4 w-4" />
                       Cancelar edição
@@ -782,8 +784,8 @@ export default function FichaTecnicaPage() {
                 </div>
 
                 <form onSubmit={handleSaveRecipeItem} className="space-y-3">
-                  <div className="grid gap-3 lg:grid-cols-[1.4fr_0.6fr_0.5fr_0.5fr_0.7fr]">
-                    <div>
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1.4fr_0.6fr_0.5fr_0.5fr_0.7fr]">
+                    <div className="col-span-2 lg:col-span-1">
                       <label className="text-xs font-black uppercase tracking-wide text-slate-500">
                         Insumo do estoque
                       </label>
@@ -792,7 +794,7 @@ export default function FichaTecnicaPage() {
                         value={form.stock_item_id}
                         onChange={(event) => handleSelectStockItem(event.target.value)}
                         disabled={stockItems.length === 0}
-                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100"
                       >
                         <option value="">Selecione</option>
 
@@ -818,7 +820,7 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="Ex: 0,2"
-                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                       />
                     </div>
 
@@ -836,7 +838,7 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="kg"
-                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                       />
                     </div>
 
@@ -854,7 +856,7 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="0"
-                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                       />
                     </div>
 
@@ -872,7 +874,7 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="Opcional"
-                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                       />
                     </div>
                   </div>
@@ -892,14 +894,14 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="Ex: porção padrão, perda no preparo, molho separado..."
-                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={saving || !selectedProductId || stockItems.length === 0}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
                     >
                       {saving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -930,8 +932,8 @@ export default function FichaTecnicaPage() {
                 </form>
               </section>
 
-              <section className="rounded-xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-200 p-4">
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 p-3 sm:p-4">
                   <h2 className="text-base font-black text-slate-950">
                     Composição do produto
                   </h2>
@@ -942,7 +944,7 @@ export default function FichaTecnicaPage() {
                 </div>
 
                 {currentRecipeItems.length === 0 ? (
-                  <div className="flex min-h-[260px] flex-col items-center justify-center p-6 text-center">
+                  <div className="flex min-h-[220px] flex-col items-center justify-center p-6 text-center sm:min-h-[260px]">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                       <ClipboardList className="h-6 w-6" />
                     </div>
@@ -956,108 +958,209 @@ export default function FichaTecnicaPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[900px] text-left text-sm">
-                      <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
-                        <tr>
-                          <th className="px-4 py-3">Insumo</th>
-                          <th className="px-4 py-3">Quantidade usada</th>
-                          <th className="px-4 py-3">Custo unitário</th>
-                          <th className="px-4 py-3">Perda</th>
-                          <th className="px-4 py-3">Custo total</th>
-                          <th className="px-4 py-3 text-right">Ações</th>
-                        </tr>
-                      </thead>
+                  <>
+                    <div className="space-y-3 p-3 md:hidden">
+                      {currentRecipeItems.map((recipe) => {
+                        const stockItem = stockById.get(recipe.stock_item_id)
+                        const unitCost = getRecipeUnitCost(recipe, stockItem)
+                        const lineCost = calculateRecipeLineCost(recipe, stockItem)
+                        const hasManualCost =
+                          recipe.cost_override !== null &&
+                          recipe.cost_override !== undefined
 
-                      <tbody className="divide-y divide-slate-200">
-                        {currentRecipeItems.map((recipe) => {
-                          const stockItem = stockById.get(recipe.stock_item_id)
-                          const unitCost = getRecipeUnitCost(recipe, stockItem)
-                          const lineCost = calculateRecipeLineCost(recipe, stockItem)
-                          const hasManualCost =
-                            recipe.cost_override !== null &&
-                            recipe.cost_override !== undefined
-
-                          return (
-                            <tr key={recipe.id} className="hover:bg-slate-50">
-                              <td className="px-4 py-3">
-                                <p className="font-black text-slate-950">
+                        return (
+                          <div
+                            key={recipe.id}
+                            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-black text-slate-950">
                                   {getStockName(stockItem)}
                                 </p>
 
-                                {recipe.notes && (
-                                  <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                                    {recipe.notes}
-                                  </p>
-                                )}
+                                <p className="mt-1 text-xs font-bold text-slate-500">
+                                  {formatQuantity(Number(recipe.quantity || 0))}{" "}
+                                  {recipe.unit || getStockUnit(stockItem)}
+                                </p>
+                              </div>
 
-                                {!stockItem && (
-                                  <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-red-700">
-                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                    Item não encontrado no estoque
-                                  </p>
-                                )}
-                              </td>
+                              <div className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">
+                                {Number(recipe.waste_percentage || 0).toFixed(1)}% perda
+                              </div>
+                            </div>
 
-                              <td className="px-4 py-3 font-bold text-slate-700">
-                                {formatQuantity(Number(recipe.quantity || 0))}{" "}
-                                {recipe.unit || getStockUnit(stockItem)}
-                              </td>
+                            {recipe.notes && (
+                              <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                {recipe.notes}
+                              </p>
+                            )}
 
-                              <td className="px-4 py-3">
-                                <p className="font-bold text-slate-700">
+                            {!stockItem && (
+                              <p className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-red-700">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                Item não encontrado no estoque
+                              </p>
+                            )}
+
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="rounded-lg bg-slate-50 px-2.5 py-2">
+                                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                  Custo unitário
+                                </p>
+                                <p className="mt-0.5 text-sm font-black text-slate-800">
                                   {formatCurrency(unitCost)}
                                 </p>
 
                                 {hasManualCost && (
-                                  <p className="mt-0.5 text-xs font-semibold text-blue-700">
+                                  <p className="mt-0.5 text-[11px] font-semibold text-blue-700">
                                     custo manual
                                   </p>
                                 )}
-                              </td>
+                              </div>
 
-                              <td className="px-4 py-3 font-bold text-slate-700">
-                                {Number(recipe.waste_percentage || 0).toFixed(1)}%
-                              </td>
-
-                              <td className="px-4 py-3">
-                                <p className="font-black text-slate-950">
+                              <div className="rounded-lg bg-slate-50 px-2.5 py-2">
+                                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                  Custo total
+                                </p>
+                                <p className="mt-0.5 text-sm font-black text-slate-950">
                                   {formatCurrency(lineCost)}
                                 </p>
-                              </td>
+                              </div>
+                            </div>
 
-                              <td className="px-4 py-3">
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditRecipeItem(recipe)}
-                                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
-                                  >
-                                    <Edit3 className="h-4 w-4" />
-                                    Editar
-                                  </button>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditRecipeItem(recipe)}
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                                Editar
+                              </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleDeleteRecipeItem(recipe)}
-                                    disabled={deletingId === recipe.id}
-                                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {deletingId === recipe.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                    Remover
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                              <button
+                                type="button"
+                                onClick={() => void handleDeleteRecipeItem(recipe)}
+                                disabled={deletingId === recipe.id}
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {deletingId === recipe.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                                Remover
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div className="hidden overflow-x-auto md:block">
+                      <table className="w-full min-w-[900px] text-left text-sm">
+                        <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-4 py-3">Insumo</th>
+                            <th className="px-4 py-3">Quantidade usada</th>
+                            <th className="px-4 py-3">Custo unitário</th>
+                            <th className="px-4 py-3">Perda</th>
+                            <th className="px-4 py-3">Custo total</th>
+                            <th className="px-4 py-3 text-right">Ações</th>
+                          </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-slate-200">
+                          {currentRecipeItems.map((recipe) => {
+                            const stockItem = stockById.get(recipe.stock_item_id)
+                            const unitCost = getRecipeUnitCost(recipe, stockItem)
+                            const lineCost = calculateRecipeLineCost(recipe, stockItem)
+                            const hasManualCost =
+                              recipe.cost_override !== null &&
+                              recipe.cost_override !== undefined
+
+                            return (
+                              <tr key={recipe.id} className="hover:bg-slate-50">
+                                <td className="px-4 py-3">
+                                  <p className="font-black text-slate-950">
+                                    {getStockName(stockItem)}
+                                  </p>
+
+                                  {recipe.notes && (
+                                    <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                                      {recipe.notes}
+                                    </p>
+                                  )}
+
+                                  {!stockItem && (
+                                    <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-red-700">
+                                      <AlertTriangle className="h-3.5 w-3.5" />
+                                      Item não encontrado no estoque
+                                    </p>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3 font-bold text-slate-700">
+                                  {formatQuantity(Number(recipe.quantity || 0))}{" "}
+                                  {recipe.unit || getStockUnit(stockItem)}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  <p className="font-bold text-slate-700">
+                                    {formatCurrency(unitCost)}
+                                  </p>
+
+                                  {hasManualCost && (
+                                    <p className="mt-0.5 text-xs font-semibold text-blue-700">
+                                      custo manual
+                                    </p>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3 font-bold text-slate-700">
+                                  {Number(recipe.waste_percentage || 0).toFixed(1)}%
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  <p className="font-black text-slate-950">
+                                    {formatCurrency(lineCost)}
+                                  </p>
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditRecipeItem(recipe)}
+                                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                                    >
+                                      <Edit3 className="h-4 w-4" />
+                                      Editar
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleDeleteRecipeItem(recipe)}
+                                      disabled={deletingId === recipe.id}
+                                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {deletingId === recipe.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
+                                      Remover
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </section>
             </div>

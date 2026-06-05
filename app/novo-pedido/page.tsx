@@ -1,25 +1,26 @@
-"use client"
+"use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import AdminLayout from "@/components/admin-layout"
-import OrderTypeSelector from "@/components/manual-order/order-type-selector"
-import TableSelector from "@/components/manual-order/table-selector"
-import ProductSearch from "@/components/manual-order/product-search"
-import OrderSummary from "@/components/manual-order/order-summary"
-import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
-import { initialCategories, type Product } from "@/lib/products-data"
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import AdminLayout from "@/components/admin-layout";
+import OrderTypeSelector from "@/components/manual-order/order-type-selector";
+import TableSelector from "@/components/manual-order/table-selector";
+import ProductSearch from "@/components/manual-order/product-search";
+import OrderSummary from "@/components/manual-order/order-summary";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { initialCategories, type Product } from "@/lib/products-data";
 import {
   type OrderType,
   type PaymentMethod,
   type OrderItem,
+  type OrderItemDraft,
   type Table,
   type CustomerData,
   type DeliveryAddress,
   initialTables,
-} from "@/lib/order-types"
+} from "@/lib/order-types";
 import {
   ShoppingCart,
   User,
@@ -31,68 +32,92 @@ import {
   Clock,
   X,
   Users,
-} from "lucide-react"
+} from "lucide-react";
 
 type RestaurantTableRow = {
-  id: string
-  restaurant_id: string
-  number: string
-  name: string | null
-  capacity: number | null
-  is_active: boolean | null
-}
+  id: string;
+  restaurant_id: string;
+  number: string;
+  name: string | null;
+  capacity: number | null;
+  is_active: boolean | null;
+};
+
+type ManualModifierOption = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+type ManualModifierGroup = {
+  id: string;
+  name: string;
+  required: boolean;
+  minSelect: number;
+  maxSelect: number;
+  options: ManualModifierOption[];
+};
+
+type ProductWithModifiers = Product & {
+  modifierGroups?: ManualModifierGroup[];
+  modifier_groups?: ManualModifierGroup[];
+};
+
+type RawModifierGroupRow = Record<string, unknown>;
+type RawModifierOptionRow = Record<string, unknown>;
+type RawModifierLinkRow = Record<string, unknown>;
 
 function getSupabaseErrorMessage(error: unknown, fallback: string) {
-  if (!error) return fallback
-  if (typeof error === "string") return error
-  if (error instanceof Error) return error.message
+  if (!error) return fallback;
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
 
   if (typeof error === "object") {
     const err = error as {
-      message?: string
-      details?: string
-      hint?: string
-      code?: string
-    }
+      message?: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+    };
 
     const parts = [
       err.message ? `message: ${err.message}` : "",
       err.details ? `details: ${err.details}` : "",
       err.hint ? `hint: ${err.hint}` : "",
       err.code ? `code: ${err.code}` : "",
-    ].filter(Boolean)
+    ].filter(Boolean);
 
-    if (parts.length > 0) return parts.join(" | ")
+    if (parts.length > 0) return parts.join(" | ");
 
     try {
-      return JSON.stringify(error)
+      return JSON.stringify(error);
     } catch {
-      return fallback
+      return fallback;
     }
   }
 
-  return fallback
+  return fallback;
 }
 
 function isUuid(value: string | null | undefined) {
-  if (!value) return false
+  if (!value) return false;
 
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  )
+    value,
+  );
 }
 
 function normalizeDefaultTables() {
   return (initialTables || []).map((table, index) => {
     const rawTable = table as unknown as {
-      id?: string
-      number?: string | number
-      name?: string
-      capacity?: number
-      status?: string
-    }
+      id?: string;
+      number?: string | number;
+      name?: string;
+      capacity?: number;
+      status?: string;
+    };
 
-    const number = Number(rawTable.number || index + 1)
+    const number = Number(rawTable.number || index + 1);
 
     return {
       ...table,
@@ -101,12 +126,12 @@ function normalizeDefaultTables() {
       name: rawTable.name || `Mesa ${number}`,
       capacity: Number(rawTable.capacity || 4),
       status: "available",
-    } as Table
-  })
+    } as Table;
+  });
 }
 
 function mapRestaurantTableToTable(table: RestaurantTableRow): Table {
-  const number = Number(table.number)
+  const number = Number(table.number);
 
   return {
     id: table.id,
@@ -114,70 +139,254 @@ function mapRestaurantTableToTable(table: RestaurantTableRow): Table {
     name: table.name || `Mesa ${number}`,
     capacity: Number(table.capacity || 4),
     status: "available",
-  } as Table
+  } as Table;
+}
+
+function getStringField(
+  row: Record<string, unknown>,
+  keys: string[],
+  fallback = "",
+) {
+  for (const key of keys) {
+    const value = row[key];
+
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value))
+      return String(value);
+  }
+
+  return fallback;
+}
+
+function getNumberField(
+  row: Record<string, unknown>,
+  keys: string[],
+  fallback = 0,
+) {
+  for (const key of keys) {
+    const value = Number(row[key]);
+
+    if (Number.isFinite(value)) return value;
+  }
+
+  return fallback;
+}
+
+function getBooleanField(
+  row: Record<string, unknown>,
+  keys: string[],
+  fallback = false,
+) {
+  for (const key of keys) {
+    const value = row[key];
+
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+
+      if (["true", "1", "sim", "yes"].includes(normalized)) return true;
+      if (["false", "0", "nao", "não", "no"].includes(normalized)) return false;
+    }
+
+    if (typeof value === "number") return value === 1;
+  }
+
+  return fallback;
+}
+
+function isActiveRow(row: Record<string, unknown>) {
+  return (
+    row.is_active !== false && row.active !== false && row.isActive !== false
+  );
+}
+
+function normalizeModifierOption(
+  row: RawModifierOptionRow,
+): ManualModifierOption | null {
+  if (!isActiveRow(row)) return null;
+
+  const id = getStringField(row, ["id", "option_id", "optionId"]);
+  const name = getStringField(row, [
+    "name",
+    "title",
+    "label",
+    "option_name",
+    "optionName",
+  ]);
+
+  if (!id || !name) return null;
+
+  return {
+    id,
+    name,
+    price: getNumberField(
+      row,
+      [
+        "price",
+        "additional_price",
+        "additionalPrice",
+        "extra_price",
+        "extraPrice",
+        "value",
+      ],
+      0,
+    ),
+  };
+}
+
+function normalizeModifierGroup(
+  groupRow: RawModifierGroupRow,
+  options: ManualModifierOption[],
+): ManualModifierGroup | null {
+  if (!isActiveRow(groupRow)) return null;
+
+  const id = getStringField(groupRow, [
+    "id",
+    "group_id",
+    "groupId",
+    "modifier_group_id",
+    "modifierGroupId",
+  ]);
+  const name = getStringField(groupRow, [
+    "name",
+    "title",
+    "label",
+    "group_name",
+    "groupName",
+  ]);
+
+  if (!id || !name || options.length === 0) return null;
+
+  const required = getBooleanField(
+    groupRow,
+    ["required", "is_required", "isRequired"],
+    false,
+  );
+  const minSelect = getNumberField(
+    groupRow,
+    ["min_select", "minSelect", "min", "minimum"],
+    required ? 1 : 0,
+  );
+  const maxSelectRaw = getNumberField(
+    groupRow,
+    ["max_select", "maxSelect", "max", "maximum"],
+    1,
+  );
+
+  return {
+    id,
+    name,
+    required,
+    minSelect: Math.max(0, minSelect),
+    maxSelect: Math.max(1, maxSelectRaw),
+    options,
+  };
+}
+
+function getOptionGroupId(option: RawModifierOptionRow) {
+  return getStringField(option, [
+    "group_id",
+    "groupId",
+    "modifier_group_id",
+    "modifierGroupId",
+  ]);
+}
+
+function getLinkProductId(link: RawModifierLinkRow) {
+  return getStringField(link, ["product_id", "productId"]);
+}
+
+function getLinkGroupId(link: RawModifierLinkRow) {
+  return getStringField(link, [
+    "modifier_group_id",
+    "modifierGroupId",
+    "group_id",
+    "groupId",
+  ]);
+}
+
+function getGroupProductId(group: RawModifierGroupRow) {
+  return getStringField(group, ["product_id", "productId"]);
 }
 
 function mergeTables(defaultTables: Table[], databaseTables: Table[]) {
-  const map = new Map<string, Table>()
+  const map = new Map<string, Table>();
 
   defaultTables.forEach((table) => {
     const number = String(
-      (table as unknown as { number?: string | number }).number || table.id
-    )
+      (table as unknown as { number?: string | number }).number || table.id,
+    );
 
-    map.set(number, table)
-  })
+    map.set(number, table);
+  });
 
   databaseTables.forEach((table) => {
     const number = String(
-      (table as unknown as { number?: string | number }).number || table.id
-    )
+      (table as unknown as { number?: string | number }).number || table.id,
+    );
 
-    map.set(number, table)
-  })
+    map.set(number, table);
+  });
 
   return Array.from(map.values()).sort((a, b) => {
     const aNumber = Number(
-      (a as unknown as { number?: string | number }).number || 0
-    )
+      (a as unknown as { number?: string | number }).number || 0,
+    );
     const bNumber = Number(
-      (b as unknown as { number?: string | number }).number || 0
-    )
+      (b as unknown as { number?: string | number }).number || 0,
+    );
 
     if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
-      return aNumber - bNumber
+      return aNumber - bNumber;
     }
 
-    return String(a.number).localeCompare(String(b.number))
-  })
+    return String(a.number).localeCompare(String(b.number));
+  });
+}
+
+function getOrderItemKey(item: OrderItemDraft) {
+  const modifiersKey = (item.modifiers || [])
+    .map(
+      (modifier) =>
+        `${modifier.groupId || modifier.groupName}:${modifier.optionId || modifier.optionName}:${modifier.optionPrice}`,
+    )
+    .join("|");
+
+  return [
+    item.productId,
+    item.name,
+    Number(item.price || 0).toFixed(2),
+    modifiersKey,
+    item.observation || "",
+  ].join("::");
 }
 
 export default function NovoPedidoPage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const supabase = useMemo(() => createClient(), [])
+  const router = useRouter();
+  const { toast } = useToast();
+  const supabase = useMemo(() => createClient(), []);
 
-  const [orderType, setOrderType] = useState<OrderType>("local")
-  const [selectedTable, setSelectedTable] = useState<string>("")
-  const [tables, setTables] = useState<Table[]>(normalizeDefaultTables())
-  const [guestCount, setGuestCount] = useState(1)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pending")
-  const [items, setItems] = useState<OrderItem[]>([])
-  const [discount, setDiscount] = useState(0)
-  const [deliveryFee] = useState(8.0)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [orderType, setOrderType] = useState<OrderType>("local");
+  const [selectedTable, setSelectedTable] = useState<string>("");
+  const [tables, setTables] = useState<Table[]>(normalizeDefaultTables());
+  const [guestCount, setGuestCount] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pending");
+  const [items, setItems] = useState<OrderItem[]>([]);
+  const [discount, setDiscount] = useState(0);
+  const [deliveryFee] = useState(8.0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
-  const [restaurantId, setRestaurantId] = useState<string>("")
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [restaurantId, setRestaurantId] = useState<string>("");
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState(initialCategories)
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState(initialCategories);
 
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
     phone: "",
     observation: "",
-  })
+  });
 
   const [address, setAddress] = useState<DeliveryAddress>({
     street: "",
@@ -186,127 +395,359 @@ export default function NovoPedidoPage() {
     neighborhood: "",
     city: "",
     zipCode: "",
-  })
+  });
 
   useEffect(() => {
     const fetchRestaurantProductsAndTables = async () => {
       const {
         data: { user },
         error: userError,
-      } = await supabase.auth.getUser()
+      } = await supabase.auth.getUser();
 
       if (userError || !user) {
         toast({
           title: "Sessão não encontrada",
           description: "Faça login novamente para carregar os produtos.",
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
       const { data: restaurant, error: restaurantError } = await supabase
         .from("restaurants")
         .select("id")
         .eq("owner_id", user.id)
-        .single()
+        .single();
 
       if (restaurantError || !restaurant?.id) {
         toast({
           title: "Restaurante não encontrado",
-          description: "Não foi possível encontrar o restaurante da conta logada.",
+          description:
+            "Não foi possível encontrar o restaurante da conta logada.",
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
-      setRestaurantId(restaurant.id)
+      setRestaurantId(restaurant.id);
 
       const [
         { data: productsData, error: productsError },
         { data: tablesData, error: tablesError },
       ] = await Promise.all([
-        supabase.from("products").select("*").eq("restaurant_id", restaurant.id),
+        supabase
+          .from("products")
+          .select("*")
+          .eq("restaurant_id", restaurant.id),
         supabase
           .from("restaurant_tables")
           .select("id, restaurant_id, number, name, capacity, is_active")
           .eq("restaurant_id", restaurant.id)
           .eq("is_active", true),
-      ])
+      ]);
 
       if (productsError) {
-        console.error("Erro ao buscar produtos:", productsError)
+        console.error("Erro ao buscar produtos:", productsError);
 
         toast({
           title: "Erro ao carregar produtos",
           description: "Não foi possível buscar os produtos do cardápio.",
           variant: "destructive",
-        })
+        });
       }
 
       if (tablesError) {
-        console.error("Erro ao buscar mesas:", tablesError)
+        console.error("Erro ao buscar mesas:", tablesError);
 
         toast({
           title: "Erro ao carregar mesas",
           description: "Não foi possível buscar as mesas salvas.",
           variant: "destructive",
-        })
+        });
       }
 
-      const availableProducts = (productsData || [])
-        .filter((product) => {
-          return (
-            product.is_active !== false &&
-            product.is_available !== false &&
-            product.available !== false &&
-            product.status !== "inactive" &&
-            product.status !== "archived"
-          )
-        })
+      const productRows = (
+        (productsData || []) as Record<string, unknown>[]
+      ).filter((product) => {
+        return (
+          product.is_active !== false &&
+          product.is_available !== false &&
+          product.available !== false &&
+          product.status !== "inactive" &&
+          product.status !== "archived"
+        );
+      });
+
+      const productIds = productRows
+        .map((product) => String(product.id))
+        .filter(Boolean);
+      const modifierGroupsByProductId = new Map<
+        string,
+        ManualModifierGroup[]
+      >();
+
+      if (productIds.length > 0) {
+        const { data: linkRows, error: linkError } = await supabase
+          .from("product_modifier_group_links")
+          .select("*")
+          .in("product_id", productIds);
+
+        if (linkError) {
+          console.warn(
+            "Complementos vinculados não carregados:",
+            linkError.message,
+          );
+        } else {
+          const links = ((linkRows || []) as RawModifierLinkRow[]).filter(
+            isActiveRow,
+          );
+          const groupIds = Array.from(
+            new Set(links.map(getLinkGroupId).filter(Boolean)),
+          );
+
+          if (groupIds.length > 0) {
+            const [
+              { data: groupRows, error: groupError },
+              { data: optionRows, error: optionError },
+            ] = await Promise.all([
+              supabase.from("modifier_groups").select("*").in("id", groupIds),
+              supabase.from("modifier_group_options").select("*"),
+            ]);
+
+            if (groupError) {
+              console.warn(
+                "Grupos de complementos não carregados:",
+                groupError.message,
+              );
+            }
+
+            if (optionError) {
+              console.warn(
+                "Opções de complementos não carregadas:",
+                optionError.message,
+              );
+            }
+
+            const optionRowsList = (
+              (optionRows || []) as RawModifierOptionRow[]
+            ).filter(isActiveRow);
+            const optionsByGroupId = new Map<string, ManualModifierOption[]>();
+
+            optionRowsList.forEach((optionRow) => {
+              const groupId = getOptionGroupId(optionRow);
+
+              if (!groupIds.includes(groupId)) return;
+
+              const option = normalizeModifierOption(optionRow);
+
+              if (!option) return;
+
+              const currentOptions = optionsByGroupId.get(groupId) || [];
+              currentOptions.push(option);
+              optionsByGroupId.set(groupId, currentOptions);
+            });
+
+            const groupsById = new Map<string, ManualModifierGroup>();
+
+            ((groupRows || []) as RawModifierGroupRow[]).forEach((groupRow) => {
+              const groupId = getStringField(groupRow, [
+                "id",
+                "group_id",
+                "groupId",
+                "modifier_group_id",
+                "modifierGroupId",
+              ]);
+              const group = normalizeModifierGroup(
+                groupRow,
+                optionsByGroupId.get(groupId) || [],
+              );
+
+              if (group) groupsById.set(group.id, group);
+            });
+
+            links
+              .sort(
+                (a, b) =>
+                  getNumberField(a, ["sort_order", "sortOrder"], 0) -
+                  getNumberField(b, ["sort_order", "sortOrder"], 0),
+              )
+              .forEach((link) => {
+                const productId = getLinkProductId(link);
+                const groupId = getLinkGroupId(link);
+                const group = groupsById.get(groupId);
+
+                if (!productId || !group) return;
+
+                const currentGroups =
+                  modifierGroupsByProductId.get(productId) || [];
+
+                if (
+                  !currentGroups.some(
+                    (currentGroup) => currentGroup.id === group.id,
+                  )
+                ) {
+                  currentGroups.push(group);
+                  modifierGroupsByProductId.set(productId, currentGroups);
+                }
+              });
+          }
+        }
+
+        const { data: legacyGroupRows, error: legacyGroupError } =
+          await supabase
+            .from("product_modifier_groups")
+            .select("*")
+            .in("product_id", productIds);
+
+        if (
+          !legacyGroupError &&
+          Array.isArray(legacyGroupRows) &&
+          legacyGroupRows.length > 0
+        ) {
+          const legacyGroups = (
+            legacyGroupRows as RawModifierGroupRow[]
+          ).filter(isActiveRow);
+          const legacyGroupIds = legacyGroups
+            .map((group) =>
+              getStringField(group, [
+                "id",
+                "group_id",
+                "groupId",
+                "modifier_group_id",
+                "modifierGroupId",
+              ]),
+            )
+            .filter(Boolean);
+
+          const { data: legacyOptionRows, error: legacyOptionError } =
+            await supabase.from("product_modifier_options").select("*");
+
+          if (legacyOptionError) {
+            console.warn(
+              "Opções antigas de complementos não carregadas:",
+              legacyOptionError.message,
+            );
+          }
+
+          const legacyOptions = (
+            (legacyOptionRows || []) as RawModifierOptionRow[]
+          ).filter(isActiveRow);
+          const optionsByGroupId = new Map<string, ManualModifierOption[]>();
+
+          legacyOptions.forEach((optionRow) => {
+            const groupId = getOptionGroupId(optionRow);
+
+            if (!legacyGroupIds.includes(groupId)) return;
+
+            const option = normalizeModifierOption(optionRow);
+
+            if (!option) return;
+
+            const currentOptions = optionsByGroupId.get(groupId) || [];
+            currentOptions.push(option);
+            optionsByGroupId.set(groupId, currentOptions);
+          });
+
+          legacyGroups
+            .sort(
+              (a, b) =>
+                getNumberField(a, ["sort_order", "sortOrder"], 0) -
+                getNumberField(b, ["sort_order", "sortOrder"], 0),
+            )
+            .forEach((groupRow) => {
+              const productId = getGroupProductId(groupRow);
+              const groupId = getStringField(groupRow, [
+                "id",
+                "group_id",
+                "groupId",
+                "modifier_group_id",
+                "modifierGroupId",
+              ]);
+              const group = normalizeModifierGroup(
+                groupRow,
+                optionsByGroupId.get(groupId) || [],
+              );
+
+              if (!productId || !group) return;
+
+              const currentGroups =
+                modifierGroupsByProductId.get(productId) || [];
+
+              if (
+                !currentGroups.some(
+                  (currentGroup) => currentGroup.id === group.id,
+                )
+              ) {
+                currentGroups.push(group);
+                modifierGroupsByProductId.set(productId, currentGroups);
+              }
+            });
+        } else if (legacyGroupError) {
+          console.warn(
+            "Complementos antigos não carregados:",
+            legacyGroupError.message,
+          );
+        }
+      }
+
+      const availableProducts = productRows
         .map((product) => {
           const category =
-            product.category ||
-            product.category_name ||
-            product.category_title ||
-            "Sem categoria"
+            getStringField(
+              product,
+              ["category", "category_name", "category_title"],
+              "Sem categoria",
+            ) || "Sem categoria";
+
+          const productId = String(product.id);
+          const modifierGroups = modifierGroupsByProductId.get(productId) || [];
 
           return {
-            id: String(product.id),
-            name: product.name || "Produto sem nome",
-            description: product.description || "",
-            price: Number(product.price || 0),
-            cost: Number(product.cost || 0),
+            id: productId,
+            name: getStringField(product, ["name"], "Produto sem nome"),
+            description: getStringField(product, ["description"], ""),
+            price: getNumberField(product, ["price"], 0),
+            cost: getNumberField(product, ["cost"], 0),
             category,
-            image: product.image_url || product.image || "/placeholder.svg",
+            image: getStringField(
+              product,
+              ["image_url", "image"],
+              "/placeholder.svg",
+            ),
             active: true,
             available: true,
-            salesCount: Number(product.sales_count || product.salesCount || 0),
-            order: Number(product.sort_order || product.order || 0),
-          } as Product
+            salesCount: getNumberField(
+              product,
+              ["sales_count", "salesCount"],
+              0,
+            ),
+            order: getNumberField(product, ["sort_order", "order"], 0),
+            modifierGroups,
+            modifier_groups: modifierGroups,
+          } as ProductWithModifiers;
         })
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
       const productCategories = Array.from(
         new Set(
           availableProducts
             .map((product) => product.category || "Sem categoria")
-            .filter(Boolean)
-        )
-      )
+            .filter(Boolean),
+        ),
+      );
 
-      const categoryTemplate =
-        initialCategories[0] || {
-          id: "all",
-          name: "Todos",
-          active: true,
-          order: 0,
-        }
+      const categoryTemplate = initialCategories[0] || {
+        id: "all",
+        name: "Todos",
+        active: true,
+        order: 0,
+      };
 
       const databaseTables = ((tablesData || []) as RestaurantTableRow[]).map(
-        mapRestaurantTableToTable
-      )
+        mapRestaurantTableToTable,
+      );
 
-      setProducts(availableProducts)
+      setProducts(availableProducts);
       setCategories([
         {
           ...categoryTemplate,
@@ -322,12 +763,12 @@ export default function NovoPedidoPage() {
           active: true,
           order: index + 1,
         })),
-      ])
-      setTables(mergeTables(normalizeDefaultTables(), databaseTables))
-    }
+      ]);
+      setTables(mergeTables(normalizeDefaultTables(), databaseTables));
+    };
 
-    fetchRestaurantProductsAndTables()
-  }, [supabase, toast])
+    fetchRestaurantProductsAndTables();
+  }, [supabase, toast]);
 
   const paymentOptions = [
     {
@@ -355,59 +796,82 @@ export default function NovoPedidoPage() {
       name: "Pendente",
       icon: <Clock className="mb-2 h-8 w-8" />,
     },
-  ]
+  ];
 
-  const handleAddProduct = useCallback((product: Product) => {
+  const handleAddProduct = useCallback((itemDraft: OrderItemDraft) => {
     setItems((prev) => {
-      const existing = prev.find((item) => item.productId === product.id)
+      const draft: OrderItemDraft = {
+        ...itemDraft,
+        quantity: Math.max(1, Number(itemDraft.quantity || 1)),
+        modifiers: itemDraft.modifiers || [],
+        observation: itemDraft.observation || "",
+      };
+
+      const draftKey = getOrderItemKey(draft);
+
+      const existing = prev.find(
+        (item) =>
+          getOrderItemKey({
+            productId: item.productId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            observation: item.observation || "",
+            modifiers: item.modifiers || [],
+          }) === draftKey,
+      );
 
       if (existing) {
         return prev.map((item) =>
-          item.productId === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
+          item.id === existing.id
+            ? { ...item, quantity: item.quantity + Number(draft.quantity || 1) }
+            : item,
+        );
       }
 
       return [
         ...prev,
         {
-          id: `item-${Date.now()}-${product.id}`,
-          productId: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1,
-          observation: "",
+          id: `item-${Date.now()}-${draft.productId}-${Math.random().toString(36).slice(2)}`,
+          productId: draft.productId,
+          name: draft.name,
+          price: Number(draft.price || 0),
+          quantity: Number(draft.quantity || 1),
+          observation: draft.observation || "",
+          modifiers: draft.modifiers || [],
         },
-      ]
-    })
-  }, [])
+      ];
+    });
+  }, []);
 
-  const handleUpdateQuantity = useCallback((itemId: string, quantity: number) => {
-    if (quantity <= 0) {
-      setItems((prev) => prev.filter((item) => item.id !== itemId))
-      return
-    }
+  const handleUpdateQuantity = useCallback(
+    (itemId: string, quantity: number) => {
+      if (quantity <= 0) {
+        setItems((prev) => prev.filter((item) => item.id !== itemId));
+        return;
+      }
 
-    setItems((prev) =>
-      prev.map((item) => (item.id === itemId ? { ...item, quantity } : item))
-    )
-  }, [])
+      setItems((prev) =>
+        prev.map((item) => (item.id === itemId ? { ...item, quantity } : item)),
+      );
+    },
+    [],
+  );
 
   const handleUpdateObservation = useCallback(
     (itemId: string, observation: string) => {
       setItems((prev) =>
         prev.map((item) =>
-          item.id === itemId ? { ...item, observation } : item
-        )
-      )
+          item.id === itemId ? { ...item, observation } : item,
+        ),
+      );
     },
-    []
-  )
+    [],
+  );
 
   const handleRemoveItem = useCallback((itemId: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== itemId))
-  }, [])
+    setItems((prev) => prev.filter((item) => item.id !== itemId));
+  }, []);
 
   const handleCreateTable = useCallback(
     async (table: Omit<Table, "id">) => {
@@ -416,25 +880,25 @@ export default function NovoPedidoPage() {
           title: "Restaurante não encontrado",
           description: "Não foi possível salvar a mesa agora.",
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
       const rawTable = table as unknown as {
-        number?: string | number
-        name?: string
-        capacity?: number
-      }
+        number?: string | number;
+        name?: string;
+        capacity?: number;
+      };
 
-      const number = String(rawTable.number || "").trim()
+      const number = String(rawTable.number || "").trim();
 
       if (!number) {
         toast({
           title: "Número da mesa obrigatório",
           description: "Informe o número da mesa para cadastrar.",
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
       const { data, error } = await supabase
@@ -447,94 +911,94 @@ export default function NovoPedidoPage() {
           is_active: true,
         })
         .select("id, restaurant_id, number, name, capacity, is_active")
-        .single()
+        .single();
 
       if (error) {
         toast({
           title: "Erro ao criar mesa",
           description: getSupabaseErrorMessage(
             error,
-            "Não foi possível salvar a nova mesa."
+            "Não foi possível salvar a nova mesa.",
           ),
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
-      const newTable = mapRestaurantTableToTable(data as RestaurantTableRow)
+      const newTable = mapRestaurantTableToTable(data as RestaurantTableRow);
 
-      setTables((prev) => mergeTables(prev, [newTable]))
-      setSelectedTable(newTable.id)
+      setTables((prev) => mergeTables(prev, [newTable]));
+      setSelectedTable(newTable.id);
 
       toast({
         title: "Mesa criada",
         description: `Mesa ${newTable.number} foi salva no sistema.`,
-      })
+      });
     },
-    [restaurantId, supabase, toast]
-  )
+    [restaurantId, supabase, toast],
+  );
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
-    0
-  )
+    0,
+  );
 
-  const finalDeliveryFee = orderType === "delivery" ? deliveryFee : 0
-  const total = Math.max(0, subtotal + finalDeliveryFee - discount)
+  const finalDeliveryFee = orderType === "delivery" ? deliveryFee : 0;
+  const total = Math.max(0, subtotal + finalDeliveryFee - discount);
 
-  const selectedTableData = tables.find((table) => table.id === selectedTable)
+  const selectedTableData = tables.find((table) => table.id === selectedTable);
 
   const selectedTableId =
     orderType === "local" && selectedTableData && isUuid(selectedTableData.id)
       ? selectedTableData.id
-      : null
+      : null;
 
   const selectedTableNumber =
     orderType === "local" && selectedTableData
       ? String(
-          (selectedTableData as unknown as { number?: string | number }).number ||
-            selectedTableData.id
+          (selectedTableData as unknown as { number?: string | number })
+            .number || selectedTableData.id,
         )
-      : null
+      : null;
 
   const canSubmit = () => {
-    if (items.length === 0) return false
-    if (orderType === "local" && !selectedTable) return false
-    if (orderType === "local" && guestCount < 1) return false
+    if (items.length === 0) return false;
+    if (orderType === "local" && !selectedTable) return false;
+    if (orderType === "local" && guestCount < 1) return false;
 
     if (orderType === "delivery") {
       if (!address.street || !address.number || !address.neighborhood) {
-        return false
+        return false;
       }
     }
 
-    return true
-  }
+    return true;
+  };
 
   const handleSubmit = async () => {
-    if (!canSubmit()) return
+    if (!canSubmit()) return;
 
     if (!restaurantId) {
       toast({
         title: "Restaurante não encontrado",
         description: "Não foi possível identificar o restaurante logado.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     try {
-      setIsSubmitting(true)
-      setIsPaymentModalOpen(false)
+      setIsSubmitting(true);
+      setIsPaymentModalOpen(false);
 
-      const publicOrderNumber = Date.now().toString().slice(-6)
+      const publicOrderNumber = Date.now().toString().slice(-6);
 
       const addressText =
         orderType === "delivery"
           ? `${address.street}, ${address.number}${
               address.complement ? ` - ${address.complement}` : ""
             } - ${address.neighborhood}${address.city ? `, ${address.city}` : ""}`
-          : ""
+          : "";
 
       const orderNotes = [
         customer.observation ? `Obs: ${customer.observation}` : "",
@@ -546,7 +1010,7 @@ export default function NovoPedidoPage() {
         orderType === "delivery" ? `Endereço: ${addressText}` : "",
       ]
         .filter(Boolean)
-        .join("\n")
+        .join("\n");
 
       const { data: createdOrder, error: orderError } = await supabase
         .from("orders")
@@ -568,10 +1032,10 @@ export default function NovoPedidoPage() {
           guest_count: orderType === "local" ? guestCount : null,
         })
         .select("id, public_order_number")
-        .single()
+        .single();
 
       if (orderError) {
-        throw orderError
+        throw orderError;
       }
 
       const orderItemsPayload = items.map((item) => ({
@@ -581,41 +1045,43 @@ export default function NovoPedidoPage() {
         quantity: item.quantity,
         unit_price: item.price,
         total_price: item.price * item.quantity,
-      }))
+        notes: item.observation?.trim() || null,
+        modifiers: item.modifiers || [],
+      }));
 
       const { error: itemsError } = await supabase
         .from("order_items")
-        .insert(orderItemsPayload)
+        .insert(orderItemsPayload);
 
       if (itemsError) {
-        await supabase.from("orders").delete().eq("id", createdOrder.id)
-        throw itemsError
+        await supabase.from("orders").delete().eq("id", createdOrder.id);
+        throw itemsError;
       }
 
       toast({
         title: "Pedido criado com sucesso!",
         description: `Pedido #${createdOrder.public_order_number} foi enviado para a tela de pedidos.`,
-      })
+      });
 
-      router.push("/pedidos")
+      router.push("/pedidos");
     } catch (err) {
       const errorMessage = getSupabaseErrorMessage(
         err,
-        "Não foi possível salvar o pedido no sistema."
-      )
+        "Não foi possível salvar o pedido no sistema.",
+      );
 
-      console.error("Erro ao criar pedido manual:", errorMessage)
-      console.error("Erro bruto:", err)
+      console.error("Erro ao criar pedido manual:", errorMessage);
+      console.error("Erro bruto:", err);
 
       toast({
         title: "Erro ao criar pedido",
         description: errorMessage,
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <AdminLayout>
@@ -672,7 +1138,7 @@ export default function NovoPedidoPage() {
                         value={guestCount}
                         onChange={(event) =>
                           setGuestCount(
-                            Math.max(1, Number(event.target.value || 1))
+                            Math.max(1, Number(event.target.value || 1)),
                           )
                         }
                         className="h-10 w-24 rounded-lg border border-input bg-background px-3 text-center text-sm font-bold"
@@ -898,7 +1364,7 @@ export default function NovoPedidoPage() {
                       "flex w-full items-center justify-center gap-2 rounded-lg py-4 text-sm font-bold shadow-md transition-all",
                       canSubmit() && !isSubmitting
                         ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90"
-                        : "cursor-not-allowed bg-muted text-muted-foreground"
+                        : "cursor-not-allowed bg-muted text-muted-foreground",
                     )}
                   >
                     Cobrar Pedido
@@ -1005,5 +1471,5 @@ export default function NovoPedidoPage() {
         </div>
       )}
     </AdminLayout>
-  )
+  );
 }
