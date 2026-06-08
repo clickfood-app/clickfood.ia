@@ -58,6 +58,7 @@ type RestaurantRow = {
   delivery_enabled: boolean | null
   pickup_enabled: boolean | null
   minimum_order: number | string | null
+  auto_accept_orders: boolean | null
 }
 
 type ProductRow = {
@@ -386,6 +387,115 @@ async function createOrderWithRetry(orderPayload: Record<string, unknown>) {
   }
 }
 
+function canAutoAcceptPublicOrder(paymentMethod: PublicPaymentMethod) {
+  return paymentMethod === "cash" || paymentMethod === "card_on_delivery"
+}
+
+async function getRestaurantAutoAcceptOrders(restaurantId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("restaurants")
+    .select("auto_accept_orders")
+    .eq("id", restaurantId)
+    .maybeSingle()
+
+  if (error) {
+    console.error("Erro ao buscar aceite automático do restaurante:", {
+      restaurantId,
+      message: error.message,
+      code: error.code,
+    })
+
+    return false
+  }
+
+  return Boolean(data?.auto_accept_orders)
+}
+
+async function createDesktopPrintJobForOrder(orderId: string, forceReprint = false) {
+  const { data, error } = await supabaseAdmin.rpc(
+    "create_order_print_job_for_order",
+    {
+      p_order_id: orderId,
+      p_force_reprint: forceReprint,
+    }
+  )
+
+  if (error) {
+    throw error
+  }
+
+  const result = data as {
+    success?: boolean
+    error?: string
+    jobId?: string
+    status?: string
+    alreadyExists?: boolean
+  } | null
+
+  if (result?.success === false) {
+    throw new Error(result.error || "Erro ao criar job de impressão.")
+  }
+
+  return result
+}
+
+async function autoAcceptCreatedOrderIfEnabled({
+  restaurantId,
+  orderId,
+  paymentMethod,
+}: {
+  restaurantId: string
+  orderId: string
+  paymentMethod: PublicPaymentMethod
+}) {
+  if (!orderId) return false
+
+  if (!canAutoAcceptPublicOrder(paymentMethod)) {
+    return false
+  }
+
+  const autoAcceptOrders = await getRestaurantAutoAcceptOrders(restaurantId)
+
+  if (!autoAcceptOrders) {
+    return false
+  }
+
+  const nowIso = new Date().toISOString()
+
+  const { error: updateOrderError } = await supabaseAdmin
+    .from("orders")
+    .update({
+      status: "accepted",
+      accepted_at: nowIso,
+      preparation_started_at: nowIso,
+    })
+    .eq("id", orderId)
+    .eq("restaurant_id", restaurantId)
+
+  if (updateOrderError) {
+    console.error("Erro ao aceitar pedido automaticamente:", {
+      restaurantId,
+      orderId,
+      message: updateOrderError.message,
+      code: updateOrderError.code,
+    })
+
+    return false
+  }
+
+  try {
+    await createDesktopPrintJobForOrder(orderId)
+  } catch (printJobError) {
+    console.error("Pedido autoaceito, mas job de impressão não foi criado:", {
+      restaurantId,
+      orderId,
+      error: printJobError,
+    })
+  }
+
+  return true
+}
+
 async function createOrderFast({
   restaurantId,
   customerName,
@@ -505,7 +615,7 @@ async function createOrderLegacy({
     supabaseAdmin
       .from("restaurants")
       .select(
-        "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order"
+        "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders"
       )
       .eq("id", restaurantId)
       .maybeSingle(),
@@ -782,8 +892,15 @@ async function createOrderLegacy({
     )
   }
 
-  const initialStatus =
-    paymentMethod === "pix_manual"
+  const shouldAutoAcceptOrder =
+    Boolean(typedRestaurant.auto_accept_orders) &&
+    canAutoAcceptPublicOrder(paymentMethod)
+
+  const nowIso = new Date().toISOString()
+
+  const initialStatus = shouldAutoAcceptOrder
+    ? "accepted"
+    : paymentMethod === "pix_manual"
       ? "waiting_payment"
       : paymentMethod === "pix"
         ? "awaiting_payment"
@@ -812,6 +929,8 @@ async function createOrderLegacy({
     delivery_neighborhood: orderType === "delivery" ? neighborhood : null,
     table_id: tableId,
     order_source: "public",
+    accepted_at: shouldAutoAcceptOrder ? nowIso : null,
+    preparation_started_at: shouldAutoAcceptOrder ? nowIso : null,
   }
 
   const { order: createdOrder, error: createOrderError } =
@@ -928,6 +1047,18 @@ async function createOrderLegacy({
       await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
 
       return jsonError("Não foi possível registrar o uso do cashback.", 500)
+    }
+  }
+
+  if (shouldAutoAcceptOrder) {
+    try {
+      await createDesktopPrintJobForOrder(createdOrder.id)
+    } catch (printJobError) {
+      console.error("Pedido autoaceito, mas job de impressão não foi criado:", {
+        restaurantId,
+        orderId: createdOrder.id,
+        error: printJobError,
+      })
     }
   }
 
@@ -1082,6 +1213,18 @@ export async function POST(request: Request) {
 
       if (!response.success) {
         return jsonError(response.error || "Não foi possível criar o pedido.", 400)
+      }
+
+      if (response.order?.id) {
+        const autoAccepted = await autoAcceptCreatedOrderIfEnabled({
+          restaurantId,
+          orderId: response.order.id,
+          paymentMethod,
+        })
+
+        if (autoAccepted) {
+          response.order.status = "accepted"
+        }
       }
 
       return NextResponse.json(response, {

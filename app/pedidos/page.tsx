@@ -1728,9 +1728,11 @@ export default function PedidosPage() {
 
   const [search, setSearch] = useState("")
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
-  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
-  const [savingPrepTime, setSavingPrepTime] = useState(false)
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
+const [savingPrepTime, setSavingPrepTime] = useState(false)
+const [savingAutoAcceptOrders, setSavingAutoAcceptOrders] = useState(false)
+const [autoAcceptOrders, setAutoAcceptOrders] = useState(false)
+const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [nowMs, setNowMs] = useState(Date.now())
   const [orderAlertsEnabled, setOrderAlertsEnabled] = useState(false)
   const [kdsEnabled, setKdsEnabled] = useState(true)
@@ -2036,13 +2038,14 @@ export default function PedidosPage() {
 
       const { data, error } = await supabase
         .from("restaurants")
-        .select("name, logo_url, phone, address, average_prep_time_minutes")
+        .select("name, logo_url, phone, address, average_prep_time_minutes, auto_accept_orders")
         .eq("id", restaurant.id)
         .single()
 
       if (error) throw error
 
       setAveragePrepTimeMinutes(Number(data.average_prep_time_minutes || 30))
+      setAutoAcceptOrders(Boolean(data.auto_accept_orders))
 
       setRestaurantPrintData({
         name: data.name?.trim() || "Restaurante",
@@ -2079,6 +2082,54 @@ export default function PedidosPage() {
       setSavingPrepTime(false)
     }
   }
+
+  async function createDesktopPrintJob(orderId: string, forceReprint = false) {
+  const { data, error } = await supabase.rpc("create_order_print_job_for_order", {
+    p_order_id: orderId,
+    p_force_reprint: forceReprint,
+  })
+
+  if (error) throw error
+
+  const result = data as {
+    success?: boolean
+    error?: string
+    jobId?: string
+    status?: string
+    alreadyExists?: boolean
+  } | null
+
+  if (result?.success === false) {
+    throw new Error(result.error || "Erro ao criar job de impressão.")
+  }
+
+  return result
+}
+
+async function updateAutoAcceptOrders(nextValue: boolean) {
+  if (!restaurant?.id) return
+
+  const previousValue = autoAcceptOrders
+
+  try {
+    setSavingAutoAcceptOrders(true)
+    setAutoAcceptOrders(nextValue)
+    setError(null)
+
+    const { error } = await supabase
+      .from("restaurants")
+      .update({ auto_accept_orders: nextValue })
+      .eq("id", restaurant.id)
+
+    if (error) throw error
+  } catch (err) {
+    console.error("Erro ao salvar aceite automático:", err)
+    setAutoAcceptOrders(previousValue)
+    setError(getErrorMessage(err, "Erro ao salvar aceite automático."))
+  } finally {
+    setSavingAutoAcceptOrders(false)
+  }
+}
 
   async function loadInitialData() {
     if (!restaurant?.id) return
@@ -2338,20 +2389,32 @@ export default function PedidosPage() {
       if (error) throw error
 
       if (action === "accept") {
-        try {
-          await deductStockForOrder(order.id)
-        } catch (stockError) {
-          console.error("Pedido aceito, mas estoque não foi baixado:", stockError)
+  try {
+    await deductStockForOrder(order.id)
+  } catch (stockError) {
+    console.error("Pedido aceito, mas estoque não foi baixado:", stockError)
 
-          setError(
-            getErrorMessage(
-              stockError,
-              "Pedido aceito, mas não foi possível baixar o estoque automaticamente."
-            )
-          )
-        }
-      }
+    setError(
+      getErrorMessage(
+        stockError,
+        "Pedido aceito, mas não foi possível baixar o estoque automaticamente."
+      )
+    )
+  }
 
+  try {
+    await createDesktopPrintJob(order.id)
+  } catch (printJobError) {
+    console.error("Pedido aceito, mas impressão desktop não foi gerada:", printJobError)
+
+    setError(
+      getErrorMessage(
+        printJobError,
+        "Pedido aceito, mas não foi possível enviar para a fila de impressão desktop."
+      )
+    )
+  }
+}
       if (payload.status === "delivered") {
         try {
           await registerLoyaltyOrder(order.id)
@@ -2379,46 +2442,85 @@ export default function PedidosPage() {
   }
 
   async function confirmPixPayment(order: OrderRow) {
-    const previousOrders = orders
-    const nowIso = new Date().toISOString()
+  const previousOrders = orders
+  const nowIso = new Date().toISOString()
 
-    try {
-      setBusyOrderId(order.id)
-      setError(null)
+  try {
+    setBusyOrderId(order.id)
+    setError(null)
 
-      const payload: Partial<OrderRow> = {
-        payment_status: "paid",
-        status: "pending",
-        pix_confirmed_at: nowIso,
-        pix_confirmed_by: user?.id ?? null,
+    const shouldAcceptAutomatically = autoAcceptOrders
+
+    let payload: Partial<OrderRow> = {
+      payment_status: "paid",
+      status: "pending",
+      pix_confirmed_at: nowIso,
+      pix_confirmed_by: user?.id ?? null,
+    }
+
+    if (shouldAcceptAutomatically) {
+      payload = {
+        ...payload,
+        status: "accepted",
+        accepted_at: nowIso,
+        preparation_started_at: nowIso,
+      }
+    }
+
+    setOrders((current) =>
+      current.map((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              ...payload,
+            }
+          : item
+      )
+    )
+
+    const { error } = await supabase
+      .from("orders")
+      .update(payload)
+      .eq("id", order.id)
+      .eq("restaurant_id", restaurant?.id)
+
+    if (error) throw error
+
+    if (shouldAcceptAutomatically) {
+      try {
+        await deductStockForOrder(order.id)
+      } catch (stockError) {
+        console.error("Pix confirmado, mas estoque não foi baixado:", stockError)
+
+        setError(
+          getErrorMessage(
+            stockError,
+            "Pix confirmado, mas não foi possível baixar o estoque automaticamente."
+          )
+        )
       }
 
-      setOrders((current) =>
-        current.map((item) =>
-          item.id === order.id
-            ? {
-                ...item,
-                ...payload,
-              }
-            : item
+      try {
+        await createDesktopPrintJob(order.id)
+      } catch (printJobError) {
+        console.error("Pix confirmado, mas impressão desktop não foi gerada:", printJobError)
+
+        setError(
+          getErrorMessage(
+            printJobError,
+            "Pix confirmado, mas não foi possível enviar para a fila de impressão desktop."
+          )
         )
-      )
-
-      const { error } = await supabase
-        .from("orders")
-        .update(payload)
-        .eq("id", order.id)
-        .eq("restaurant_id", restaurant?.id)
-
-      if (error) throw error
-    } catch (err) {
-      console.error("Erro ao confirmar Pix:", err)
-      setOrders(previousOrders)
-      setError(getErrorMessage(err, "Erro ao confirmar pagamento Pix."))
-    } finally {
-      setBusyOrderId(null)
+      }
     }
+  } catch (err) {
+    console.error("Erro ao confirmar Pix:", err)
+    setOrders(previousOrders)
+    setError(getErrorMessage(err, "Erro ao confirmar pagamento Pix."))
+  } finally {
+    setBusyOrderId(null)
   }
+}
 
   function handlePrintOrder(
     order: OrderRow,
@@ -2771,6 +2873,31 @@ export default function PedidosPage() {
                   <ChefHat className="h-4 w-4" />
                   {kdsEnabled ? "KDS ativo" : "KDS desativado"}
                 </button>
+
+                <button
+  type="button"
+  onClick={() => void updateAutoAcceptOrders(!autoAcceptOrders)}
+  disabled={savingAutoAcceptOrders}
+  className={[
+    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60",
+    autoAcceptOrders
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+  ].join(" ")}
+  title={
+    autoAcceptOrders
+      ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
+      : "Pedidos serão impressos somente depois do aceite manual do restaurante."
+  }
+>
+  {savingAutoAcceptOrders ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : (
+    <CheckCircle2 className="h-4 w-4" />
+  )}
+
+  {autoAcceptOrders ? "Aceite automático ligado" : "Aceitar automaticamente"}
+</button>
 
                 <button
                   type="button"

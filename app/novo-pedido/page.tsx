@@ -1058,9 +1058,42 @@ export default function NovoPedidoPage() {
         throw itemsError;
       }
 
+      let printJobWarning: string | null = null;
+
+      try {
+        const { data: printJobResult, error: printJobError } = await supabase.rpc(
+          "create_order_print_job_for_order",
+          {
+            p_order_id: createdOrder.id,
+            p_force_reprint: false,
+          },
+        );
+
+        if (printJobError) {
+          throw printJobError;
+        }
+
+        const result = printJobResult as {
+          success?: boolean;
+          error?: string;
+        } | null;
+
+        if (result?.success === false) {
+          throw new Error(result.error || "Erro ao criar job de impressão.");
+        }
+      } catch (printJobError) {
+        printJobWarning =
+          "Pedido criado, mas não foi possível enviar para a fila de impressão desktop.";
+
+        console.error("Pedido manual criado, mas impressão desktop não foi gerada:", printJobError);
+      }
+
       toast({
         title: "Pedido criado com sucesso!",
-        description: `Pedido #${createdOrder.public_order_number} foi enviado para a tela de pedidos.`,
+        description: printJobWarning
+          ? `Pedido #${createdOrder.public_order_number} foi salvo. ${printJobWarning}`
+          : `Pedido #${createdOrder.public_order_number} foi salvo e enviado para impressão.`,
+        variant: printJobWarning ? "destructive" : "default",
       });
 
       router.push("/pedidos");
