@@ -1,18 +1,28 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import {
   AlertTriangle,
+  Boxes,
   CheckCircle2,
   ClipboardCheck,
   Edit3,
+  Layers3,
   Loader2,
   MinusCircle,
   Package,
+  Plus,
   PlusCircle,
   RefreshCcw,
   Save,
@@ -31,10 +41,17 @@ type BaseUnitType =
   | "caixa"
   | "porcao"
 
+type StockCategory = {
+  id: string
+  restaurant_id: string
+  name: string
+}
+
 type StockItem = {
   id: string
   restaurant_id: string
   name: string
+  category_id: string | null
   base_unit_type: BaseUnitType
   cost_per_base_unit: number | string | null
   current_quantity: number | string
@@ -46,7 +63,9 @@ type StockItem = {
 
 type StockForm = {
   name: string
+  category_id: string
   base_unit_type: BaseUnitType
+  cost_per_base_unit: string
   current_quantity: string
   minimum_quantity: string
 }
@@ -62,22 +81,31 @@ type ActiveAction = {
   notes: string
 }
 
-const unitOptions: { value: BaseUnitType; label: string }[] = [
-  { value: "unidade", label: "Unidade" },
-  { value: "kg", label: "Kg" },
-  { value: "g", label: "Gramas" },
-  { value: "litro", label: "Litro" },
-  { value: "ml", label: "ML" },
-  { value: "pacote", label: "Pacote" },
-  { value: "caixa", label: "Caixa" },
-  { value: "porcao", label: "Porção" },
+const unitOptions: { value: BaseUnitType; label: string; compact: string }[] = [
+  { value: "unidade", label: "Unidade", compact: "un" },
+  { value: "kg", label: "Quilo", compact: "kg" },
+  { value: "g", label: "Gramas", compact: "g" },
+  { value: "litro", label: "Litro", compact: "L" },
+  { value: "ml", label: "Mililitro", compact: "ml" },
+  { value: "pacote", label: "Pacote", compact: "pct" },
+  { value: "caixa", label: "Caixa", compact: "cx" },
+  { value: "porcao", label: "Porção", compact: "porção" },
 ]
 
 const emptyForm: StockForm = {
   name: "",
+  category_id: "",
   base_unit_type: "unidade",
+  cost_per_base_unit: "",
   current_quantity: "",
   minimum_quantity: "",
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0))
 }
 
 function formatNumber(value: number) {
@@ -93,6 +121,10 @@ function parseNumber(value: string) {
 
 function getUnitLabel(unit: BaseUnitType) {
   return unitOptions.find((item) => item.value === unit)?.label || unit
+}
+
+function getUnitCompact(unit: BaseUnitType) {
+  return unitOptions.find((item) => item.value === unit)?.compact || unit
 }
 
 function getStockStatus(item: StockItem): StockStatus {
@@ -119,26 +151,52 @@ function getActionLabel(type: ActiveAction["type"]) {
   return "Conferência"
 }
 
-function StatBox({
+function getMovementType(type: ActiveAction["type"]): StockMovementType {
+  if (type === "entry") return "purchase"
+  if (type === "exit") return "sale"
+
+  return "adjustment"
+}
+
+function getCategoryName(item: StockItem, categories: StockCategory[]) {
+  const category = categories.find((current) => current.id === item.category_id)
+
+  return category?.name || "Sem categoria"
+}
+
+function MiniStat({
   title,
   value,
   icon,
+  tone = "slate",
 }: {
   title: string
   value: string
   icon: ReactNode
+  tone?: "slate" | "green" | "amber" | "red" | "blue"
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-black uppercase tracking-wide text-slate-500">
             {title}
           </p>
-          <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
+          <p className="mt-0.5 truncate text-lg font-black text-slate-950">
+            {value}
+          </p>
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+        <div
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+            tone === "slate" && "bg-slate-100 text-slate-700",
+            tone === "green" && "bg-emerald-50 text-emerald-700",
+            tone === "amber" && "bg-amber-50 text-amber-700",
+            tone === "red" && "bg-red-50 text-red-700",
+            tone === "blue" && "bg-blue-50 text-blue-700"
+          )}
+        >
           {icon}
         </div>
       </div>
@@ -160,12 +218,19 @@ export default function ControleEstoquePage() {
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [items, setItems] = useState<StockItem[]>([])
+  const [categories, setCategories] = useState<StockCategory[]>([])
   const [form, setForm] = useState<StockForm>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [showItemModal, setShowItemModal] = useState(false)
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<StockFilter>("all")
+  const [categoryFilter, setCategoryFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingCategory, setIsSavingCategory] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [activeAction, setActiveAction] = useState<ActiveAction | null>(null)
   const [isMovingStock, setIsMovingStock] = useState(false)
@@ -201,18 +266,27 @@ export default function ControleEstoquePage() {
 
       const resolvedRestaurantId = await resolveRestaurant()
 
-      const { data, error } = await supabase
-        .from("stock_items")
-        .select(
-          "id, restaurant_id, name, base_unit_type, cost_per_base_unit, current_quantity, minimum_quantity, is_active, created_at, updated_at"
-        )
-        .eq("restaurant_id", resolvedRestaurantId)
-        .eq("is_active", true)
-        .order("name", { ascending: true })
+      const [itemsResponse, categoriesResponse] = await Promise.all([
+        supabase
+          .from("stock_items")
+          .select(
+            "id, restaurant_id, name, category_id, base_unit_type, cost_per_base_unit, current_quantity, minimum_quantity, is_active, created_at, updated_at"
+          )
+          .eq("restaurant_id", resolvedRestaurantId)
+          .eq("is_active", true)
+          .order("name", { ascending: true }),
+        supabase
+          .from("stock_categories")
+          .select("id, restaurant_id, name")
+          .eq("restaurant_id", resolvedRestaurantId)
+          .order("name", { ascending: true }),
+      ])
 
-      if (error) throw error
+      if (itemsResponse.error) throw itemsResponse.error
+      if (categoriesResponse.error) throw categoriesResponse.error
 
-      setItems((data ?? []) as StockItem[])
+      setItems((itemsResponse.data ?? []) as StockItem[])
+      setCategories((categoriesResponse.data ?? []) as StockCategory[])
     } catch (error) {
       console.error("Erro ao carregar estoque:", error)
 
@@ -226,6 +300,7 @@ export default function ControleEstoquePage() {
       })
 
       setItems([])
+      setCategories([])
     } finally {
       setIsLoading(false)
     }
@@ -247,17 +322,39 @@ export default function ControleEstoquePage() {
     return items.filter((item) => getStockStatus(item) === "ok")
   }, [items])
 
+  const totalStockValue = useMemo(() => {
+    return items.reduce((total, item) => {
+      const quantity = Number(item.current_quantity || 0)
+      const cost = Number(item.cost_per_base_unit || 0)
+
+      return total + quantity * cost
+    }, 0)
+  }, [items])
+
+  const activeActionItem = useMemo(() => {
+    return activeAction
+      ? items.find((item) => item.id === activeAction.itemId) ?? null
+      : null
+  }, [activeAction, items])
+
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
     return items
       .filter((item) => {
         const status = getStockStatus(item)
+        const categoryName = getCategoryName(item, categories).toLowerCase()
         const matchesFilter = filter === "all" || status === filter
+        const matchesCategory =
+          categoryFilter === "all" ||
+          (categoryFilter === "none" && !item.category_id) ||
+          item.category_id === categoryFilter
         const matchesSearch =
-          !normalizedSearch || item.name.toLowerCase().includes(normalizedSearch)
+          !normalizedSearch ||
+          item.name.toLowerCase().includes(normalizedSearch) ||
+          categoryName.includes(normalizedSearch)
 
-        return matchesFilter && matchesSearch
+        return matchesFilter && matchesCategory && matchesSearch
       })
       .sort((a, b) => {
         const statusOrder: Record<StockStatus, number> = {
@@ -273,25 +370,35 @@ export default function ControleEstoquePage() {
 
         return a.name.localeCompare(b.name)
       })
-  }, [items, search, filter])
+  }, [items, categories, search, filter, categoryFilter])
 
   const resetForm = () => {
     setForm(emptyForm)
     setEditingId(null)
+    setShowItemModal(false)
+  }
+
+  const openNewItemModal = () => {
+    setEditingId(null)
+    setForm(emptyForm)
+    setActiveAction(null)
+    setShowItemModal(true)
   }
 
   const handleEdit = (item: StockItem) => {
     setEditingId(item.id)
+    setSelectedItemId(item.id)
     setActiveAction(null)
+    setShowItemModal(true)
 
     setForm({
       name: item.name,
+      category_id: item.category_id || "",
       base_unit_type: item.base_unit_type,
+      cost_per_base_unit: String(item.cost_per_base_unit ?? ""),
       current_quantity: String(item.current_quantity ?? ""),
       minimum_quantity: String(item.minimum_quantity ?? ""),
     })
-
-    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   const handleSaveItem = async () => {
@@ -300,6 +407,7 @@ export default function ControleEstoquePage() {
       const name = form.name.trim()
       const currentQuantity = parseNumber(form.current_quantity)
       const minimumQuantity = parseNumber(form.minimum_quantity)
+      const costPerBaseUnit = parseNumber(form.cost_per_base_unit)
 
       if (!name) {
         toast({
@@ -328,18 +436,31 @@ export default function ControleEstoquePage() {
         return
       }
 
+      if (Number.isNaN(costPerBaseUnit) || costPerBaseUnit < 0) {
+        toast({
+          title: "Custo inválido",
+          description: "Informe um custo maior ou igual a zero.",
+          variant: "destructive",
+        })
+        return
+      }
+
       setIsSaving(true)
+
+      const payload = {
+        name,
+        category_id: form.category_id || null,
+        base_unit_type: form.base_unit_type,
+        cost_per_base_unit: costPerBaseUnit,
+        current_quantity: currentQuantity,
+        minimum_quantity: minimumQuantity,
+        is_active: true,
+      }
 
       if (editingId) {
         const { error } = await supabase
           .from("stock_items")
-          .update({
-            name,
-            base_unit_type: form.base_unit_type,
-            current_quantity: currentQuantity,
-            minimum_quantity: minimumQuantity,
-            is_active: true,
-          })
+          .update(payload)
           .eq("id", editingId)
           .eq("restaurant_id", resolvedRestaurantId)
 
@@ -347,19 +468,12 @@ export default function ControleEstoquePage() {
 
         toast({
           title: "Item atualizado",
-          description: "A contagem do item foi atualizada.",
+          description: "O cadastro do item foi atualizado.",
         })
       } else {
         const { error } = await supabase.from("stock_items").insert({
           restaurant_id: resolvedRestaurantId,
-          name,
-          category: null,
-          category_id: null,
-          base_unit_type: form.base_unit_type,
-          cost_per_base_unit: 0,
-          current_quantity: currentQuantity,
-          minimum_quantity: minimumQuantity,
-          is_active: true,
+          ...payload,
         })
 
         if (error) throw error
@@ -388,9 +502,73 @@ export default function ControleEstoquePage() {
     }
   }
 
+  const handleCreateCategory = async () => {
+    try {
+      const resolvedRestaurantId = await resolveRestaurant()
+      const name = newCategoryName.trim()
+
+      if (!name) {
+        toast({
+          title: "Informe o nome da categoria",
+          description: "Exemplo: Carnes, Bebidas, Embalagens, Hortifruti.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const alreadyExists = categories.some(
+        (category) => category.name.trim().toLowerCase() === name.toLowerCase()
+      )
+
+      if (alreadyExists) {
+        toast({
+          title: "Categoria já existe",
+          description: "Use outro nome para criar uma nova categoria.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setIsSavingCategory(true)
+
+      const { data, error } = await supabase
+        .from("stock_categories")
+        .insert({
+          restaurant_id: resolvedRestaurantId,
+          name,
+        })
+        .select("id, restaurant_id, name")
+        .single()
+
+      if (error) throw error
+
+      setCategories((current) => [...current, data as StockCategory])
+      setNewCategoryName("")
+
+      toast({
+        title: "Categoria criada",
+        description: `${name} já pode ser usada no cadastro de itens.`,
+      })
+    } catch (error) {
+      console.error("Erro ao criar categoria:", error)
+
+      toast({
+        title: "Erro ao criar categoria",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível criar a categoria.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingCategory(false)
+    }
+  }
+
   const openStockAction = (item: StockItem, type: ActiveAction["type"]) => {
     setEditingId(null)
-    setForm(emptyForm)
+    setShowItemModal(false)
+    setSelectedItemId(item.id)
 
     setActiveAction({
       itemId: item.id,
@@ -405,10 +583,10 @@ export default function ControleEstoquePage() {
       if (!activeAction) return
 
       const resolvedRestaurantId = await resolveRestaurant()
-      const selectedItem = items.find((item) => item.id === activeAction.itemId)
+      const currentItem = items.find((item) => item.id === activeAction.itemId)
       const quantity = parseNumber(activeAction.quantity)
 
-      if (!selectedItem) {
+      if (!currentItem) {
         toast({
           title: "Item não encontrado",
           description: "Atualize a página e tente novamente.",
@@ -444,27 +622,22 @@ export default function ControleEstoquePage() {
         return
       }
 
-      const currentQuantity = Number(selectedItem.current_quantity || 0)
-      const unitCost = Number(selectedItem.cost_per_base_unit || 0)
-
-      let movementType: StockMovementType = "adjustment"
+      const currentQuantity = Number(currentItem.current_quantity || 0)
+      const unitCost = Number(currentItem.cost_per_base_unit || 0)
       let signedQuantity = 0
       let nextQuantity = currentQuantity
 
       if (activeAction.type === "entry") {
-        movementType = "purchase"
         signedQuantity = quantity
         nextQuantity = currentQuantity + quantity
       }
 
       if (activeAction.type === "exit") {
-        movementType = "sale"
         signedQuantity = quantity * -1
         nextQuantity = currentQuantity - quantity
       }
 
       if (activeAction.type === "count") {
-        movementType = "adjustment"
         signedQuantity = quantity - currentQuantity
         nextQuantity = quantity
       }
@@ -494,7 +667,7 @@ export default function ControleEstoquePage() {
         .update({
           current_quantity: nextQuantity,
         })
-        .eq("id", selectedItem.id)
+        .eq("id", currentItem.id)
         .eq("restaurant_id", resolvedRestaurantId)
 
       if (updateError) throw updateError
@@ -514,8 +687,8 @@ export default function ControleEstoquePage() {
         .from("stock_movements")
         .insert({
           restaurant_id: resolvedRestaurantId,
-          stock_item_id: selectedItem.id,
-          movement_type: movementType,
+          stock_item_id: currentItem.id,
+          movement_type: getMovementType(activeAction.type),
           quantity: signedQuantity,
           unit_cost: unitCost,
           total_cost: signedQuantity * unitCost,
@@ -528,9 +701,9 @@ export default function ControleEstoquePage() {
 
       toast({
         title: "Estoque atualizado",
-        description: `${selectedItem.name} agora tem ${formatNumber(
+        description: `${currentItem.name} agora tem ${formatNumber(
           nextQuantity
-        )} ${getUnitLabel(selectedItem.base_unit_type).toLowerCase()}.`,
+        )} ${getUnitCompact(currentItem.base_unit_type)}.`,
       })
 
       setActiveAction(null)
@@ -577,6 +750,7 @@ export default function ControleEstoquePage() {
       })
 
       if (editingId === itemId) resetForm()
+      if (selectedItemId === itemId) setSelectedItemId(null)
       if (activeAction?.itemId === itemId) setActiveAction(null)
 
       await loadStockData()
@@ -598,29 +772,49 @@ export default function ControleEstoquePage() {
 
   return (
     <AdminLayout title="Controle de estoque">
-      <div className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="space-y-3 pb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-black tracking-tight text-slate-950">
-              Controle de estoque
+              Estoque
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Contagem simples: cadastre o item, informe o mínimo e registre entrada, saída ou conferência.
+            <p className="mt-0.5 text-sm font-medium text-slate-500">
+              Controle rápido de itens, categorias, custo, entrada, saída e conferência.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void loadStockData()}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Atualizar
-          </button>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <button
+              type="button"
+              onClick={openNewItemModal}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-black text-white hover:bg-blue-700"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Novo item
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCategoryModal(true)}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              <Layers3 className="h-4 w-4" />
+              Categorias
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void loadStockData()}
+              className="col-span-2 inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 sm:col-span-1"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-slate-200 bg-white">
+          <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-slate-200 bg-white">
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando estoque...
@@ -628,70 +822,512 @@ export default function ControleEstoquePage() {
           </div>
         ) : (
           <>
-            <section className="grid gap-3 md:grid-cols-4">
-              <StatBox
+            <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <MiniStat
+                title="Valor"
+                value={formatCurrency(totalStockValue)}
+                tone="blue"
+                icon={<Boxes className="h-4 w-4" />}
+              />
+              <MiniStat
                 title="Itens"
                 value={String(items.length)}
                 icon={<Package className="h-4 w-4" />}
               />
-              <StatBox
+              <MiniStat
                 title="OK"
                 value={String(okStockItems.length)}
+                tone="green"
                 icon={<CheckCircle2 className="h-4 w-4" />}
               />
-              <StatBox
+              <MiniStat
                 title="Baixo"
                 value={String(lowStockItems.length)}
+                tone="amber"
                 icon={<AlertTriangle className="h-4 w-4" />}
               />
-              <StatBox
-                title="Zerado"
+              <MiniStat
+                title="Zerados"
                 value={String(zeroStockItems.length)}
+                tone="red"
                 icon={<X className="h-4 w-4" />}
               />
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
+            <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 p-3">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                      <Package className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-black text-slate-950">
+                        Lista de estoque
+                      </h2>
+                      <p className="truncate text-xs font-semibold text-slate-500">
+                        {filteredItems.length} item(ns) encontrado(s)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-[1fr_180px_160px] lg:w-[720px]">
+                    <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3">
+                      <Search className="h-4 w-4 text-slate-400" />
+                      <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Buscar item ou categoria..."
+                        className="h-full w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                      />
+                    </div>
+
+                    <select
+                      value={categoryFilter}
+                      onChange={(event) => setCategoryFilter(event.target.value)}
+                      className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-slate-500"
+                    >
+                      <option value="all">Todas categorias</option>
+                      <option value="none">Sem categoria</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={filter}
+                      onChange={(event) => setFilter(event.target.value as StockFilter)}
+                      className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-slate-500"
+                    >
+                      <option value="all">Todos status</option>
+                      <option value="zero">Zerados</option>
+                      <option value="low">Baixo estoque</option>
+                      <option value="ok">OK</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3">
+                {filteredItems.length === 0 ? (
+                  <EmptyState message="Nenhum item encontrado. Clique em Novo item para cadastrar." />
+                ) : (
+                  <>
+                    <div className="hidden overflow-x-auto md:block">
+                      <table className="w-full min-w-[980px] border-separate border-spacing-y-2">
+                        <thead>
+                          <tr className="text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                            <th className="px-3 py-1">Item</th>
+                            <th className="px-3 py-1">Categoria</th>
+                            <th className="px-3 py-1">Saldo</th>
+                            <th className="px-3 py-1">Mínimo</th>
+                            <th className="px-3 py-1">Custo</th>
+                            <th className="px-3 py-1">Valor</th>
+                            <th className="px-3 py-1">Status</th>
+                            <th className="px-3 py-1 text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredItems.map((item) => {
+                            const quantity = Number(item.current_quantity || 0)
+                            const minimum = Number(item.minimum_quantity || 0)
+                            const unitCost = Number(item.cost_per_base_unit || 0)
+                            const status = getStockStatus(item)
+                            const categoryName = getCategoryName(item, categories)
+                            const isSelected = selectedItemId === item.id
+
+                            return (
+                              <Fragment key={item.id}>
+                                <tr
+                                  className={cn(
+                                    "cursor-pointer bg-white text-sm shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50",
+                                    isSelected && "bg-blue-50 ring-blue-200"
+                                  )}
+                                  onClick={() =>
+                                    setSelectedItemId((current) =>
+                                      current === item.id ? null : item.id
+                                    )
+                                  }
+                                >
+                                  <td className="rounded-l-xl px-3 py-3">
+                                    <p className="font-black text-slate-950">{item.name}</p>
+                                    <p className="text-xs font-semibold text-slate-500">
+                                      Unidade: {getUnitLabel(item.base_unit_type)}
+                                    </p>
+                                  </td>
+
+                                  <td className="px-3 py-3 font-bold text-slate-700">
+                                    {categoryName}
+                                  </td>
+
+                                  <td className="px-3 py-3">
+                                    <p className="font-black text-slate-950">
+                                      {formatNumber(quantity)} {getUnitCompact(item.base_unit_type)}
+                                    </p>
+                                  </td>
+
+                                  <td className="px-3 py-3 font-bold text-slate-700">
+                                    {formatNumber(minimum)} {getUnitCompact(item.base_unit_type)}
+                                  </td>
+
+                                  <td className="px-3 py-3 font-bold text-slate-700">
+                                    {formatCurrency(unitCost)} / {getUnitCompact(item.base_unit_type)}
+                                  </td>
+
+                                  <td className="px-3 py-3 font-black text-slate-950">
+                                    {formatCurrency(quantity * unitCost)}
+                                  </td>
+
+                                  <td className="px-3 py-3">
+                                    <span
+                                      className={cn(
+                                        "inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1",
+                                        status === "ok" &&
+                                          "bg-emerald-50 text-emerald-700 ring-emerald-200",
+                                        status === "low" &&
+                                          "bg-amber-50 text-amber-700 ring-amber-200",
+                                        status === "zero" &&
+                                          "bg-red-50 text-red-700 ring-red-200"
+                                      )}
+                                    >
+                                      {getStatusLabel(status)}
+                                    </span>
+                                  </td>
+
+                                  <td className="rounded-r-xl px-3 py-3">
+                                    <div className="flex justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          openStockAction(item, "entry")
+                                        }}
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                                      >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Entrada
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          openStockAction(item, "exit")
+                                        }}
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 text-xs font-black text-red-700 hover:bg-red-100"
+                                      >
+                                        <MinusCircle className="h-3.5 w-3.5" />
+                                        Saída
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          openStockAction(item, "count")
+                                        }}
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 text-xs font-black text-blue-700 hover:bg-blue-100"
+                                      >
+                                        <ClipboardCheck className="h-3.5 w-3.5" />
+                                        Conferir
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          handleEdit(item)
+                                        }}
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                        aria-label="Editar item"
+                                      >
+                                        <Edit3 className="h-3.5 w-3.5" />
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          void handleDelete(item.id)
+                                        }}
+                                        disabled={deletingId === item.id}
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                        aria-label="Remover item"
+                                      >
+                                        {deletingId === item.id ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {isSelected && (
+                                  <tr>
+                                    <td colSpan={8} className="px-1 pb-2">
+                                      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                                        <div className="grid gap-2 md:grid-cols-4">
+                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                              Item
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                              {item.name}
+                                            </p>
+                                          </div>
+                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                              Categoria
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                              {categoryName}
+                                            </p>
+                                          </div>
+                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                              Custo base
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                              {formatCurrency(unitCost)} / {getUnitCompact(item.base_unit_type)}
+                                            </p>
+                                          </div>
+                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                              Valor parado
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                              {formatCurrency(quantity * unitCost)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </Fragment>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="space-y-2 md:hidden">
+                      {filteredItems.map((item) => {
+                        const quantity = Number(item.current_quantity || 0)
+                        const minimum = Number(item.minimum_quantity || 0)
+                        const unitCost = Number(item.cost_per_base_unit || 0)
+                        const status = getStockStatus(item)
+                        const categoryName = getCategoryName(item, categories)
+                        const isSelected = selectedItemId === item.id
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "rounded-xl border border-slate-200 bg-white p-3 shadow-sm",
+                              isSelected && "border-blue-200 bg-blue-50/50"
+                            )}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedItemId((current) =>
+                                  current === item.id ? null : item.id
+                                )
+                              }
+                              className="w-full text-left"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-black text-slate-950">
+                                    {item.name}
+                                  </p>
+                                  <p className="mt-0.5 truncate text-xs font-bold text-slate-500">
+                                    {categoryName} • {getUnitLabel(item.base_unit_type)}
+                                  </p>
+                                </div>
+
+                                <span
+                                  className={cn(
+                                    "shrink-0 rounded-full px-2 py-1 text-[11px] font-black ring-1",
+                                    status === "ok" &&
+                                      "bg-emerald-50 text-emerald-700 ring-emerald-200",
+                                    status === "low" &&
+                                      "bg-amber-50 text-amber-700 ring-amber-200",
+                                    status === "zero" &&
+                                      "bg-red-50 text-red-700 ring-red-200"
+                                  )}
+                                >
+                                  {getStatusLabel(status)}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 grid grid-cols-3 gap-2">
+                                <div className="rounded-lg bg-slate-50 p-2">
+                                  <p className="text-[10px] font-black uppercase text-slate-500">
+                                    Atual
+                                  </p>
+                                  <p className="text-sm font-black text-slate-950">
+                                    {formatNumber(quantity)} {getUnitCompact(item.base_unit_type)}
+                                  </p>
+                                </div>
+                                <div className="rounded-lg bg-slate-50 p-2">
+                                  <p className="text-[10px] font-black uppercase text-slate-500">
+                                    Mínimo
+                                  </p>
+                                  <p className="text-sm font-black text-slate-950">
+                                    {formatNumber(minimum)}
+                                  </p>
+                                </div>
+                                <div className="rounded-lg bg-slate-50 p-2">
+                                  <p className="text-[10px] font-black uppercase text-slate-500">
+                                    Valor
+                                  </p>
+                                  <p className="text-sm font-black text-slate-950">
+                                    {formatCurrency(quantity * unitCost)}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+
+                            {isSelected && (
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openStockAction(item, "entry")}
+                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-700"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  Entrada
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openStockAction(item, "exit")}
+                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 text-xs font-black text-red-700"
+                                >
+                                  <MinusCircle className="h-3.5 w-3.5" />
+                                  Saída
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openStockAction(item, "count")}
+                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 text-xs font-black text-blue-700"
+                                >
+                                  <ClipboardCheck className="h-3.5 w-3.5" />
+                                  Conferir
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEdit(item)}
+                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-xs font-black text-slate-700"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDelete(item.id)}
+                                  disabled={deletingId === item.id}
+                                  className="col-span-2 inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-xs font-black text-slate-700 disabled:opacity-60"
+                                >
+                                  {deletingId === item.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                  Remover
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+          </>
+        )}
+
+        {showItemModal && (
+          <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 p-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:max-w-3xl sm:rounded-2xl">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white p-4">
                 <div>
                   <h2 className="text-base font-black text-slate-950">
-                    {editingId ? "Editar item" : "Cadastrar item"}
+                    {editingId ? "Editar item" : "Novo item"}
                   </h2>
-                  <p className="text-sm text-slate-500">
-                    Só o necessário para controlar quantidade.
+                  <p className="text-xs font-semibold text-slate-500">
+                    Cadastro profissional com categoria, unidade, custo e quantidade mínima.
                   </p>
                 </div>
 
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
-                  >
-                    <X className="h-4 w-4" />
-                    Cancelar
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  aria-label="Fechar cadastro"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_auto] md:items-end">
-                <div>
+              <div className="grid gap-3 p-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
                   <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                    Item
+                    Nome do item
                   </label>
                   <input
                     value={form.name}
                     onChange={(event) =>
                       setForm((current) => ({ ...current, name: event.target.value }))
                     }
-                    placeholder="Ex: Arroz, carne, óleo, embalagem..."
+                    placeholder="Ex: Picanha, arroz, Coca-Cola lata, embalagem G..."
                     className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                    Unidade
+                    Categoria
+                  </label>
+                  <div className="mt-1 grid grid-cols-[1fr_auto] gap-2">
+                    <select
+                      value={form.category_id}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          category_id: event.target.value,
+                        }))
+                      }
+                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    >
+                      <option value="">Sem categoria</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowCategoryModal(true)}
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Unidade de controle
                   </label>
                   <select
                     value={form.base_unit_type}
@@ -713,7 +1349,27 @@ export default function ControleEstoquePage() {
 
                 <div>
                   <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                    Atual
+                    Custo por {getUnitCompact(form.base_unit_type)}
+                  </label>
+                  <input
+                    value={form.cost_per_base_unit}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        cost_per_base_unit: event.target.value,
+                      }))
+                    }
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0,00"
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Quantidade atual
                   </label>
                   <input
                     value={form.current_quantity}
@@ -733,7 +1389,7 @@ export default function ControleEstoquePage() {
 
                 <div>
                   <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                    Mínimo
+                    Estoque mínimo
                   </label>
                   <input
                     value={form.minimum_quantity}
@@ -750,271 +1406,230 @@ export default function ControleEstoquePage() {
                     className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
                   />
                 </div>
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 p-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
 
                 <button
                   type="button"
                   onClick={() => void handleSaveItem()}
                   disabled={isSaving}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Save className="h-4 w-4" />
                   )}
-                  {editingId ? "Salvar" : "Cadastrar"}
+                  {editingId ? "Salvar alterações" : "Cadastrar item"}
                 </button>
               </div>
-            </section>
+            </div>
+          </div>
+        )}
 
-            <section className="rounded-xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <h2 className="text-base font-black text-slate-950">
-                      Lista de estoque
-                    </h2>
-                    <p className="text-sm text-slate-500">
-                      Use os botões da linha para lançar entrada, saída ou conferir a quantidade real.
-                    </p>
+        {showCategoryModal && (
+          <div className="fixed inset-0 z-[60] flex items-end bg-slate-950/40 p-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-2xl">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white p-4">
+                <div>
+                  <h2 className="text-base font-black text-slate-950">
+                    Categorias de estoque
+                  </h2>
+                  <p className="text-xs font-semibold text-slate-500">
+                    Crie grupos como Carnes, Bebidas, Embalagens e Hortifruti.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  aria-label="Fechar categorias"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4 p-4">
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <input
+                    value={newCategoryName}
+                    onChange={(event) => setNewCategoryName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault()
+                        void handleCreateCategory()
+                      }
+                    }}
+                    placeholder="Nome da categoria"
+                    className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateCategory()}
+                    disabled={isSavingCategory}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSavingCategory ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Criar
+                  </button>
+                </div>
+
+                {categories.length === 0 ? (
+                  <EmptyState message="Nenhuma categoria cadastrada ainda." />
+                ) : (
+                  <div className="space-y-2">
+                    {categories.map((category) => {
+                      const categoryItemsCount = items.filter(
+                        (item) => item.category_id === category.id
+                      ).length
+
+                      return (
+                        <div
+                          key={category.id}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2"
+                        >
+                          <div>
+                            <p className="text-sm font-black text-slate-950">
+                              {category.name}
+                            </p>
+                            <p className="text-xs font-semibold text-slate-500">
+                              {categoryItemsCount} item(ns)
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCategoryFilter(category.id)
+                              setShowCategoryModal(false)
+                            }}
+                            className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                          >
+                            Filtrar
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <div className="flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 sm:w-[280px]">
-                      <Search className="h-4 w-4 text-slate-400" />
-                      <input
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Buscar item..."
-                        className="h-full w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
-                      />
-                    </div>
+        {activeAction && activeActionItem && (
+          <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/40 p-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="w-full rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-2xl">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+                <div>
+                  <h2 className="text-base font-black text-slate-950">
+                    {getActionLabel(activeAction.type)} de estoque
+                  </h2>
+                  <p className="text-xs font-semibold text-slate-500">
+                    {activeActionItem.name} • saldo atual:{" "}
+                    {formatNumber(Number(activeActionItem.current_quantity || 0))}{" "}
+                    {getUnitCompact(activeActionItem.base_unit_type)}
+                  </p>
+                </div>
 
-                    <select
-                      value={filter}
-                      onChange={(event) => setFilter(event.target.value as StockFilter)}
-                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-slate-500"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="zero">Zerados</option>
-                      <option value="low">Baixo estoque</option>
-                      <option value="ok">OK</option>
-                    </select>
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveAction(null)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  aria-label="Fechar movimentação"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3 p-4">
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    {activeAction.type === "count"
+                      ? "Quantidade contada"
+                      : `Quantidade em ${getUnitCompact(activeActionItem.base_unit_type)}`}
+                  </label>
+                  <input
+                    value={activeAction.quantity}
+                    onChange={(event) =>
+                      setActiveAction((current) =>
+                        current
+                          ? {
+                              ...current,
+                              quantity: event.target.value,
+                            }
+                          : current
+                      )
+                    }
+                    type="number"
+                    min={activeAction.type === "count" ? "0" : "0.001"}
+                    step="0.001"
+                    placeholder="0"
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Observação opcional
+                  </label>
+                  <input
+                    value={activeAction.notes}
+                    onChange={(event) =>
+                      setActiveAction((current) =>
+                        current
+                          ? {
+                              ...current,
+                              notes: event.target.value,
+                            }
+                          : current
+                      )
+                    }
+                    placeholder="Ex: compra, perda, consumo interno, ajuste..."
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                  />
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                {filteredItems.length === 0 ? (
-                  <div className="p-4">
-                    <EmptyState message="Nenhum item encontrado." />
-                  </div>
-                ) : (
-                  <table className="w-full min-w-[900px] border-collapse text-sm">
-                    <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Item</th>
-                        <th className="px-4 py-3">Qtd atual</th>
-                        <th className="px-4 py-3">Mínimo</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3 text-right">Ações</th>
-                      </tr>
-                    </thead>
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 p-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveAction(null)}
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
 
-                    <tbody className="divide-y divide-slate-200">
-                      {filteredItems.map((item) => {
-                        const quantity = Number(item.current_quantity || 0)
-                        const minimum = Number(item.minimum_quantity || 0)
-                        const status = getStockStatus(item)
-                        const isActionOpen = activeAction?.itemId === item.id
-
-                        return (
-                          <tr
-                            key={item.id}
-                            className={cn(
-                              "align-top",
-                              status === "zero" && "bg-red-50/60",
-                              status === "low" && "bg-amber-50/60"
-                            )}
-                          >
-                            <td className="px-4 py-3">
-                              <p className="font-black text-slate-950">{item.name}</p>
-                              <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                                Unidade: {getUnitLabel(item.base_unit_type)}
-                              </p>
-
-                              {isActionOpen && (
-                                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                                  <div className="grid gap-3 md:grid-cols-[0.8fr_1fr]">
-                                    <div>
-                                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                                        {activeAction.type === "count"
-                                          ? "Quantidade contada"
-                                          : "Quantidade"}
-                                      </label>
-                                      <input
-                                        value={activeAction.quantity}
-                                        onChange={(event) =>
-                                          setActiveAction((current) =>
-                                            current
-                                              ? {
-                                                  ...current,
-                                                  quantity: event.target.value,
-                                                }
-                                              : current
-                                          )
-                                        }
-                                        type="number"
-                                        min={activeAction.type === "count" ? "0" : "0.001"}
-                                        step="0.001"
-                                        placeholder="0"
-                                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                                        Observação opcional
-                                      </label>
-                                      <input
-                                        value={activeAction.notes}
-                                        onChange={(event) =>
-                                          setActiveAction((current) =>
-                                            current
-                                              ? {
-                                                  ...current,
-                                                  notes: event.target.value,
-                                                }
-                                              : current
-                                          )
-                                        }
-                                        placeholder="Ex: contagem do fechamento, perda, reposição..."
-                                        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleStockAction()}
-                                      disabled={isMovingStock}
-                                      className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                      {isMovingStock ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <Save className="h-4 w-4" />
-                                      )}
-                                      Confirmar {getActionLabel(activeAction.type)}
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveAction(null)}
-                                      className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
-                                    >
-                                      <X className="h-4 w-4" />
-                                      Fechar
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <p className="text-lg font-black text-slate-950">
-                                {formatNumber(quantity)}
-                              </p>
-                              <p className="text-xs font-semibold text-slate-500">
-                                {getUnitLabel(item.base_unit_type).toLowerCase()}
-                              </p>
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <p className="font-black text-slate-800">
-                                {formatNumber(minimum)}
-                              </p>
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <span
-                                className={cn(
-                                  "inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1",
-                                  status === "ok" &&
-                                    "bg-emerald-50 text-emerald-700 ring-emerald-200",
-                                  status === "low" &&
-                                    "bg-amber-50 text-amber-700 ring-amber-200",
-                                  status === "zero" &&
-                                    "bg-red-50 text-red-700 ring-red-200"
-                                )}
-                              >
-                                {getStatusLabel(status)}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <div className="flex justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openStockAction(item, "entry")}
-                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-100"
-                                >
-                                  <PlusCircle className="h-4 w-4" />
-                                  Entrada
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => openStockAction(item, "exit")}
-                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100"
-                                >
-                                  <MinusCircle className="h-4 w-4" />
-                                  Saída
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => openStockAction(item, "count")}
-                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 hover:bg-blue-100"
-                                >
-                                  <ClipboardCheck className="h-4 w-4" />
-                                  Conferir
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleEdit(item)}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                                  aria-label="Editar item"
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => void handleDelete(item.id)}
-                                  disabled={deletingId === item.id}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                  aria-label="Remover item"
-                                >
-                                  {deletingId === item.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                )}
+                <button
+                  type="button"
+                  onClick={() => void handleStockAction()}
+                  disabled={isMovingStock}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isMovingStock ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Confirmar
+                </button>
               </div>
-            </section>
-          </>
+            </div>
+          </div>
         )}
       </div>
     </AdminLayout>

@@ -320,7 +320,7 @@ function percentage(value: number, total: number) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-center text-sm text-slate-500">
+    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
       {text}
     </div>
   )
@@ -351,38 +351,35 @@ function SectionCard({
   icon,
   children,
   className,
+  action,
 }: {
   title: string
   subtitle?: string
-  icon: ReactNode
+  icon?: ReactNode
   children: ReactNode
   className?: string
+  action?: ReactNode
 }) {
   return (
-    <section
-      className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-3xl sm:p-4",
-        className,
-      )}
-    >
-      <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
-        <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700 sm:h-10 sm:w-10 sm:rounded-2xl">
-            {icon}
-          </div>
+    <section className={cn("rounded-2xl border border-slate-200 bg-white shadow-sm", className)}>
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          {icon ? (
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+              {icon}
+            </div>
+          ) : null}
 
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-slate-950 sm:text-base">{title}</h2>
-            {subtitle ? (
-              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 sm:text-sm">
-                {subtitle}
-              </p>
-            ) : null}
+            <h2 className="text-sm font-semibold text-slate-950">{title}</h2>
+            {subtitle ? <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{subtitle}</p> : null}
           </div>
         </div>
+
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
 
-      {children}
+      <div className="p-4">{children}</div>
     </section>
   )
 }
@@ -400,13 +397,13 @@ function KpiCard({
   icon: ReactNode
   tone?: "slate" | "emerald" | "violet" | "orange" | "red" | "blue"
 }) {
-  const toneStyles = {
-    slate: "border-slate-200 bg-gradient-to-br from-white to-slate-50 text-slate-950",
-    emerald: "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/70 text-emerald-900",
-    violet: "border-violet-200 bg-gradient-to-br from-violet-50 via-white to-violet-50/70 text-violet-900",
-    orange: "border-orange-200 bg-gradient-to-br from-orange-50 via-white to-orange-50/70 text-orange-900",
-    red: "border-red-200 bg-gradient-to-br from-red-50 via-white to-red-50/70 text-red-900",
-    blue: "border-blue-200 bg-gradient-to-br from-blue-50 via-white to-blue-50/70 text-blue-900",
+  const styles = {
+    slate: "border-slate-200 bg-white text-slate-950",
+    emerald: "border-emerald-200 bg-emerald-50/70 text-emerald-900",
+    violet: "border-violet-200 bg-violet-50/70 text-violet-900",
+    orange: "border-orange-200 bg-orange-50/70 text-orange-900",
+    red: "border-red-200 bg-red-50/70 text-red-900",
+    blue: "border-blue-200 bg-blue-50/70 text-blue-900",
   }
 
   const iconStyles = {
@@ -419,33 +416,22 @@ function KpiCard({
   }
 
   return (
-    <div className={cn("rounded-2xl border p-3 shadow-sm sm:rounded-3xl sm:p-4", toneStyles[tone])}>
-      <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
+    <div className={cn("rounded-2xl border px-3 py-3 shadow-sm", styles[tone])}>
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[11px]">
+          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
             {title}
           </p>
-
-          <strong className="mt-1.5 block truncate text-xl font-bold tracking-tight sm:mt-2 sm:text-2xl">
+          <strong className="mt-1 block truncate text-lg font-bold tracking-tight sm:text-xl">
             {value}
           </strong>
+          {helper ? <p className="mt-1 truncate text-xs text-slate-500">{helper}</p> : null}
         </div>
 
-        <div
-          className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl",
-            iconStyles[tone],
-          )}
-        >
+        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconStyles[tone])}>
           {icon}
         </div>
       </div>
-
-      {helper ? (
-        <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-xs leading-relaxed text-slate-600 sm:rounded-2xl">
-          {helper}
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -462,27 +448,21 @@ function InsightCard({
   tone?: "slate" | "emerald" | "violet" | "orange"
 }) {
   const styles = {
-    slate: "border-slate-200 bg-slate-50",
-    emerald: "border-emerald-200 bg-emerald-50",
-    violet: "border-violet-200 bg-violet-50",
-    orange: "border-orange-200 bg-orange-50",
+    slate: "border-slate-200 bg-white",
+    emerald: "border-emerald-200 bg-emerald-50/70",
+    violet: "border-violet-200 bg-violet-50/70",
+    orange: "border-orange-200 bg-orange-50/70",
   }
 
   return (
-    <div className={cn("rounded-2xl border p-3", styles[tone])}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px]">
+    <div className={cn("rounded-xl border px-3 py-2.5", styles[tone])}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
         {title}
       </p>
-
-      <strong className="mt-1 block text-sm font-semibold leading-snug text-slate-950 sm:text-base">
+      <strong className="mt-1 block text-sm font-semibold leading-snug text-slate-950">
         {value}
       </strong>
-
-      {helper ? (
-        <p className="mt-1 text-xs leading-relaxed text-slate-600">
-          {helper}
-        </p>
-      ) : null}
+      {helper ? <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{helper}</p> : null}
     </div>
   )
 }
@@ -491,7 +471,7 @@ function RankingRows({
   items,
   emptyText,
   valueFormatter = formatCurrency,
-  barTone = "bg-violet-600",
+  barTone = "bg-slate-900",
 }: {
   items: RankingItem[]
   emptyText: string
@@ -505,17 +485,24 @@ function RankingRows({
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {items.map((item) => (
-        <div key={item.label} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-slate-900">{item.label}</p>
-              {item.helper ? <p className="text-xs text-slate-500">{item.helper}</p> : null}
+    <div className="space-y-2">
+      {items.map((item, index) => (
+        <div key={item.label} className="rounded-xl border border-slate-100 bg-white px-3 py-2.5">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{item.label}</p>
+                {item.helper ? <p className="truncate text-xs text-slate-500">{item.helper}</p> : null}
+              </div>
             </div>
-            <strong className="shrink-0 text-slate-950">{valueFormatter(item.value)}</strong>
+
+            <strong className="shrink-0 text-sm font-bold text-slate-950">{valueFormatter(item.value)}</strong>
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-slate-200/70">
+
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div
               className={cn("h-full rounded-full", barTone)}
               style={{ width: `${Math.min((item.value / max) * 100, 100)}%` }}
@@ -542,25 +529,19 @@ function CompactTable({
 
   return (
     <>
-      <div className="space-y-3 sm:hidden">
+      <div className="space-y-2 sm:hidden">
         {rows.map((row, rowIndex) => (
-          <div
-            key={rowIndex}
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
-          >
+          <div key={rowIndex} className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="space-y-2">
               {row.map((cell, cellIndex) => (
                 <div
                   key={cellIndex}
-                  className="flex items-start justify-between gap-3 border-b border-slate-200/70 pb-2 last:border-b-0 last:pb-0"
+                  className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0"
                 >
                   <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     {headers[cellIndex]}
                   </span>
-
-                  <div className="text-right text-sm text-slate-800">
-                    {cell}
-                  </div>
+                  <div className="text-right text-sm text-slate-800">{cell}</div>
                 </div>
               ))}
             </div>
@@ -568,24 +549,23 @@ function CompactTable({
         ))}
       </div>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 sm:block">
+      <div className="hidden overflow-hidden rounded-xl border border-slate-200 sm:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-sm">
-            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-500">
+            <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
               <tr>
                 {headers.map((header) => (
-                  <th key={header} className="px-4 py-3 font-semibold">
+                  <th key={header} className="px-3 py-2.5 font-semibold">
                     {header}
                   </th>
                 ))}
               </tr>
             </thead>
-
             <tbody className="divide-y divide-slate-100 bg-white">
               {rows.map((row, rowIndex) => (
                 <tr key={rowIndex} className="hover:bg-slate-50/70">
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="px-4 py-3 align-middle text-slate-700">
+                    <td key={cellIndex} className="px-3 py-2.5 align-middle text-slate-700">
                       {cell}
                     </td>
                   ))}
@@ -613,62 +593,31 @@ function RevenueBars({
   }
 
   return (
-    <>
-      <div className="space-y-3 sm:hidden">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className="rounded-2xl border border-slate-100 bg-slate-50 p-3"
-          >
-            <div className="mb-2 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                {item.helper ? <p className="text-xs text-slate-500">{item.helper}</p> : null}
-              </div>
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+      <div className="flex h-[210px] items-end gap-2 overflow-x-auto pb-2">
+        {items.map((item) => {
+          const barHeight = Math.max((item.value / max) * 100, 8)
 
-              <strong className="text-sm font-bold text-slate-950">
+          return (
+            <div key={item.label} className="flex min-w-[58px] flex-1 flex-col items-center justify-end gap-2">
+              <div className="text-center text-[10px] font-semibold text-slate-600">
                 {formatCurrency(item.value)}
-              </strong>
-            </div>
-
-            <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
-              <div
-                className="h-full rounded-full bg-emerald-500"
-                style={{ width: `${Math.min((item.value / max) * 100, 100)}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="hidden rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:block">
-        <div className="flex h-[260px] items-end gap-2 overflow-x-auto pb-2">
-          {items.map((item) => {
-            const barHeight = Math.max((item.value / max) * 100, 12)
-
-            return (
-              <div key={item.label} className="flex min-w-[68px] flex-1 flex-col items-center justify-end gap-2">
-                <div className="text-center text-[11px] font-semibold text-slate-700">
-                  {formatCurrency(item.value)}
-                </div>
-
-                <div className="flex h-[180px] w-full items-end justify-center">
-                  <div
-                    className="w-full rounded-t-2xl bg-gradient-to-t from-emerald-500 via-emerald-400 to-emerald-300 shadow-sm shadow-emerald-200"
-                    style={{ height: `${barHeight}%` }}
-                  />
-                </div>
-
-                <div className="text-center">
-                  <p className="text-xs font-semibold text-slate-900">{item.label}</p>
-                  {item.helper ? <p className="text-[11px] text-slate-500">{item.helper}</p> : null}
-                </div>
               </div>
-            )
-          })}
-        </div>
+              <div className="flex h-[145px] w-full items-end justify-center rounded-lg bg-white px-1 pb-0.5">
+                <div
+                  className="w-full rounded-t-lg bg-slate-900"
+                  style={{ height: `${barHeight}%` }}
+                />
+              </div>
+              <div className="text-center">
+                <p className="text-[11px] font-semibold text-slate-900">{item.label}</p>
+                {item.helper ? <p className="text-[10px] text-slate-500">{item.helper}</p> : null}
+              </div>
+            </div>
+          )
+        })}
       </div>
-    </>
+    </div>
   )
 }
 
@@ -687,74 +636,43 @@ function CostDistribution({
   const biggest = Math.max(...ordered.map((item) => item.total), 1)
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 sm:p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px] sm:tracking-[0.16em]">
-              Total dos custos principais
-            </p>
-            <strong className="text-lg font-bold text-slate-950 sm:text-xl">{formatCurrency(total)}</strong>
-          </div>
-          <div className="rounded-2xl bg-white px-3 py-2 text-right shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px] sm:tracking-[0.16em]">
-              Áreas
-            </p>
-            <strong className="text-base font-bold text-slate-950">{ordered.length}</strong>
-          </div>
-        </div>
+    <div className="space-y-2">
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <InsightCard title="Total dos custos" value={formatCurrency(total)} helper="Principais áreas" />
+        <InsightCard title="Áreas" value={String(ordered.length)} helper="Composição do período" />
+      </div>
 
-        <ScrollableBox className="max-h-[520px] space-y-3 sm:max-h-[560px] sm:space-y-4">
-          {ordered.map((item) => (
-            <div key={item.label} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-slate-900">{item.label}</p>
-                  <p className="text-xs text-slate-500">
-                    {item.count} registro{item.count === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <strong className="shrink-0 text-sm text-slate-950 sm:text-base">
-                  {formatCurrency(item.total)}
-                </strong>
+      <div className="space-y-2">
+        {ordered.map((item) => (
+          <div key={item.label} className="rounded-xl border border-slate-100 bg-white px-3 py-2.5">
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{item.label}</p>
+                <p className="text-xs text-slate-500">
+                  {item.count} registro{item.count === 1 ? "" : "s"} · {formatPercent(percentage(item.total, total))}
+                </p>
               </div>
 
-              <div className="mb-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                  style={{ width: `${Math.min((item.total / biggest) * 100, 100)}%` }}
-                />
-              </div>
+              <strong className="shrink-0 text-sm font-bold text-slate-950">{formatCurrency(item.total)}</strong>
+            </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-xl bg-emerald-50 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700 sm:text-[11px]">
-                    Pago
-                  </p>
-                  <strong className="text-sm font-semibold text-emerald-700">
-                    {formatCurrency(item.paid)}
-                  </strong>
-                </div>
-                <div className="rounded-xl bg-orange-50 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-700 sm:text-[11px]">
-                    Pendente
-                  </p>
-                  <strong className="text-sm font-semibold text-orange-700">
-                    {formatCurrency(item.pending)}
-                  </strong>
-                </div>
-                <div className="rounded-xl bg-slate-100 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 sm:text-[11px]">
-                    Peso
-                  </p>
-                  <strong className="text-sm font-semibold text-slate-900">
-                    {formatPercent(percentage(item.total, total))}
-                  </strong>
-                </div>
+            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-slate-900"
+                style={{ width: `${Math.min((item.total / biggest) * 100, 100)}%` }}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg bg-emerald-50 px-2 py-1.5 text-emerald-700">
+                Pago <strong className="ml-1">{formatCurrency(item.paid)}</strong>
+              </div>
+              <div className="rounded-lg bg-orange-50 px-2 py-1.5 text-orange-700">
+                Pendente <strong className="ml-1">{formatCurrency(item.pending)}</strong>
               </div>
             </div>
-          ))}
-        </ScrollableBox>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1493,217 +1411,227 @@ export default function RelatoriosFinanceirosPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4 px-0 pb-6 sm:space-y-4">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 shadow-sm shadow-slate-200/40 sm:rounded-[28px]">
-          <div className="flex flex-col gap-4 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200 sm:h-14 sm:w-14">
-                <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+      <div className="space-y-4 px-0 pb-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                  Relatórios financeiros
+                </h1>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Gerencial
+                </span>
               </div>
-
-              <div className="min-w-0 space-y-2">
-                <div>
-                  <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
-                    Relatório 360
-                  </h1>
-                  <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
-                    Um painel executivo para entender resultado, custos, canais e prioridades do período.
-                  </p>
-                </div>
-
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  <div className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                    Recebido: {formatCurrency(totals.revenue)}
-                  </div>
-                  <div className="shrink-0 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">
-                    Resultado: {formatCurrency(operationalResult)}
-                  </div>
-                  <div className="shrink-0 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
-                    Pendente: {formatCurrency(totals.pendingRevenue)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={loadData}
-              disabled={loading}
-              className="h-10 w-full rounded-2xl border-slate-200 bg-white/80 px-4 sm:h-11 sm:w-auto"
-            >
-              <RefreshCcw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-              Atualizar
-            </Button>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-[28px] sm:p-4">
-          <div className="grid gap-3 xl:grid-cols-[1fr_180px_180px_auto] xl:items-end">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-950 sm:text-base">Período analisado</h2>
-              <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">
-                O relatório recalcula automaticamente toda a leitura financeira com base nas datas selecionadas.
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">
+                Uma leitura limpa do período: receita, custos, resultado, produtos, canais e prioridades da operação.
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Data inicial</Label>
-              <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-            </div>
+            <div className="grid gap-2 sm:grid-cols-[160px_160px_auto] sm:items-end">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-600">Data inicial</Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="h-9 rounded-xl"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <Label>Data final</Label>
-              <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-            </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-600">Data final</Label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  className="h-9 rounded-xl"
+                />
+              </div>
 
-            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={() => {
-                  setStartDate(todayDate())
-                  setEndDate(todayDate())
-                }}
-              >
-                Hoje
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={() => {
-                  setStartDate(monthStart())
-                  setEndDate(todayDate())
-                }}
-              >
-                Mês
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={() => {
-                  setStartDate(lastThirtyDaysStart())
-                  setEndDate(todayDate())
-                }}
-              >
-                30 dias
-              </Button>
+              <div className="grid grid-cols-4 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl px-3"
+                  onClick={() => {
+                    setStartDate(todayDate())
+                    setEndDate(todayDate())
+                  }}
+                >
+                  Hoje
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl px-3"
+                  onClick={() => {
+                    setStartDate(monthStart())
+                    setEndDate(todayDate())
+                  }}
+                >
+                  Mês
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl px-3"
+                  onClick={() => {
+                    setStartDate(lastThirtyDaysStart())
+                    setEndDate(todayDate())
+                  }}
+                >
+                  30d
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={loadData}
+                  disabled={loading}
+                  className="h-9 rounded-xl px-3"
+                >
+                  <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
+                  <span className="sr-only">Atualizar</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500 sm:rounded-[28px]">
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500 shadow-sm">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Carregando relatório 360...
+            Carregando relatório financeiro...
           </div>
         ) : (
           <>
-            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
               <KpiCard
-                title="Ganhos recebidos"
+                title="Receita"
                 value={formatCurrency(totals.revenue)}
-                helper={`${totals.paidOrdersCount} pedidos pagos no período`}
-                icon={<TrendingUp className="h-5 w-5" />}
+                helper={`${totals.paidOrdersCount} pedidos pagos`}
+                icon={<TrendingUp className="h-4 w-4" />}
                 tone="emerald"
               />
               <KpiCard
-                title="Resultado operacional"
+                title="Resultado"
                 value={formatCurrency(operationalResult)}
-                helper="Receita menos folha, fornecedores, entregadores e demais saídas"
-                icon={operationalResult >= 0 ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
+                helper="Operacional estimado"
+                icon={operationalResult >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
                 tone={operationalResult >= 0 ? "violet" : "red"}
               />
               <KpiCard
                 title="A receber"
                 value={formatCurrency(totals.pendingRevenue)}
-                helper={`${totals.pendingOrdersCount} pedidos ainda pendentes`}
-                icon={<Wallet className="h-5 w-5" />}
+                helper={`${totals.pendingOrdersCount} pendentes`}
+                icon={<Wallet className="h-4 w-4" />}
                 tone="orange"
+              />
+              <KpiCard
+                title="Custos"
+                value={formatCurrency(totalMainCosts)}
+                helper={formatPercent(costShare)}
+                icon={<TrendingDown className="h-4 w-4" />}
+                tone="slate"
               />
               <KpiCard
                 title="Ticket médio"
                 value={formatCurrency(totals.averageTicket)}
-                helper="Média dos pedidos pagos"
-                icon={<Target className="h-5 w-5" />}
+                helper="Pedidos pagos"
+                icon={<Target className="h-4 w-4" />}
                 tone="blue"
+              />
+              <KpiCard
+                title="Pedidos"
+                value={String(totals.totalOrdersCount)}
+                helper="Total no período"
+                icon={<ShoppingBag className="h-4 w-4" />}
+                tone="slate"
               />
             </div>
 
-            <div className="grid gap-3 sm:gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
               <SectionCard
-                title="Painel executivo"
-                subtitle="Uma leitura direta do que entrou, o que saiu e o que pede atenção agora."
-                icon={<Activity className="h-5 w-5" />}
+                title="DRE do período"
+                subtitle="Resumo direto de entradas, saídas principais e resultado operacional."
+                icon={<FileText className="h-4 w-4" />}
               >
-                <div className="grid gap-2 sm:gap-3 md:grid-cols-3">
-                  <InsightCard
-                    title="Entrou"
-                    value={formatCurrency(totals.revenue)}
-                    helper={`${totals.paidOrdersCount} pedidos pagos`}
-                    tone="emerald"
-                  />
-                  <InsightCard
-                    title="Saiu / Custos"
-                    value={formatCurrency(totalMainCosts)}
-                    helper="Folha, fornecedores, entregadores e outros"
-                    tone="orange"
-                  />
-                  <InsightCard
-                    title="Sobrou estimado"
-                    value={formatCurrency(operationalResult)}
-                    helper="Resultado operacional do período"
-                    tone="violet"
-                  />
+                <div className="overflow-hidden rounded-xl border border-slate-200">
+                  <div className="divide-y divide-slate-100 bg-white text-sm">
+                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                      <span className="font-medium text-slate-600">Receita recebida</span>
+                      <strong className="text-emerald-700">{formatCurrency(totals.revenue)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                      <span className="text-slate-600">(-) Folha fixa</span>
+                      <strong className="text-slate-950">{formatCurrency(fixedPayroll)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                      <span className="text-slate-600">(-) Freelancers / diárias</span>
+                      <strong className="text-slate-950">{formatCurrency(freelancerCost)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                      <span className="text-slate-600">(-) Fornecedores</span>
+                      <strong className="text-slate-950">{formatCurrency(supplierCost)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                      <span className="text-slate-600">(-) Entregadores</span>
+                      <strong className="text-slate-950">{formatCurrency(deliveryCost)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                      <span className="text-slate-600">(-) Outras despesas</span>
+                      <strong className="text-slate-950">{formatCurrency(otherCosts)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 bg-slate-950 px-3 py-3 text-white">
+                      <span className="font-semibold">Resultado operacional</span>
+                      <strong className={cn("text-base", operationalResult >= 0 ? "text-emerald-300" : "text-red-300")}>
+                        {formatCurrency(operationalResult)}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
+              </SectionCard>
 
-                <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3 md:grid-cols-2">
-                  <InsightCard
-                    title="Maior custo"
-                    value={
-                      biggestCost && biggestCost.total > 0
-                        ? `${biggestCost.label} · ${formatCurrency(biggestCost.total)}`
-                        : "Sem custo relevante"
-                    }
-                    helper="Área que mais pesou no período"
-                  />
-                  <InsightCard
-                    title="Melhor produto"
-                    value={
-                      bestProduct
-                        ? `${bestProduct.label} · ${formatCurrency(bestProduct.value)}`
-                        : "Sem item suficiente"
-                    }
-                    helper="Maior faturamento entre os itens vendidos"
-                  />
-                  <InsightCard
-                    title="Canal principal"
-                    value={
-                      bestChannel
-                        ? `${bestChannel.label} · ${formatCurrency(bestChannel.value)}`
-                        : "Sem canal suficiente"
-                    }
-                    helper="De onde veio mais dinheiro pago"
-                  />
+              <SectionCard
+                title="Leitura gerencial"
+                subtitle="O que merece atenção antes da próxima decisão."
+                icon={<Activity className="h-4 w-4" />}
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
                   <InsightCard
                     title="Prioridade agora"
                     value={priorityText}
-                    helper="Próxima ação sugerida pelo relatório"
+                    helper="Ação sugerida pelo relatório"
+                    tone="violet"
+                  />
+                  <InsightCard
+                    title="Maior custo"
+                    value={biggestCost && biggestCost.total > 0 ? biggestCost.label : "Sem custo relevante"}
+                    helper={biggestCost && biggestCost.total > 0 ? formatCurrency(biggestCost.total) : "Ainda sem leitura"}
+                    tone="orange"
+                  />
+                  <InsightCard
+                    title="Melhor produto"
+                    value={bestProduct ? bestProduct.label : "Sem item suficiente"}
+                    helper={bestProduct ? formatCurrency(bestProduct.value) : "Ranking ainda vazio"}
+                  />
+                  <InsightCard
+                    title="Canal principal"
+                    value={bestChannel ? bestChannel.label : "Sem canal suficiente"}
+                    helper={bestChannel ? formatCurrency(bestChannel.value) : "Sem histórico pago"}
                   />
                 </div>
 
-                <div className="mt-3 space-y-2 sm:mt-4">
+                <div className="mt-3 space-y-2">
                   {alerts.map((alert) => (
                     <div
                       key={alert.title}
                       className={cn(
-                        "rounded-2xl border p-3",
+                        "rounded-xl border px-3 py-2.5",
                         alert.tone === "danger" && "border-red-200 bg-red-50 text-red-900",
                         alert.tone === "warning" && "border-orange-200 bg-orange-50 text-orange-900",
                         alert.tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-900",
@@ -1713,68 +1641,65 @@ export default function RelatoriosFinanceirosPage() {
                       <div className="flex gap-2">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                         <div>
-                          <p className="text-sm font-semibold sm:text-base">{alert.title}</p>
-                          <p className="mt-0.5 text-xs leading-relaxed opacity-90 sm:text-sm">{alert.description}</p>
+                          <p className="text-sm font-semibold">{alert.title}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed opacity-90">{alert.description}</p>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </SectionCard>
-
-              <SectionCard
-                title="Ganhos por dia"
-                subtitle="Visual para entender em quais dias o caixa realmente entrou."
-                icon={<BarChart3 className="h-5 w-5" />}
-              >
-                <RevenueBars
-                  items={revenueByDay.slice(-10)}
-                  emptyText="Nenhuma venda paga no período."
-                />
-              </SectionCard>
             </div>
 
-            <div className="grid gap-3 sm:gap-4 xl:grid-cols-[1.05fr_0.95fr] xl:items-start">
+            <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr] xl:items-start">
               <SectionCard
-                title="Mapa de custos por área"
-                subtitle="Visual mais claro para identificar onde o dinheiro está saindo."
-                icon={<PieChart className="h-5 w-5" />}
+                title="Custos por área"
+                subtitle="Composição enxuta dos principais custos do período."
+                icon={<PieChart className="h-4 w-4" />}
               >
                 <CostDistribution items={displayCostAreas} total={totalMainCosts} />
               </SectionCard>
 
               <SectionCard
-                title="Fechamentos de caixa"
-                subtitle="Mostra somente o dia, a data e o saldo final de cada caixa fechado."
-                icon={<DollarSign className="h-5 w-5" />}
+                title="Ganhos por dia"
+                subtitle="Dias em que houve receita paga no caixa."
+                icon={<BarChart3 className="h-4 w-4" />}
               >
-                <ScrollableBox className="max-h-[300px] sm:max-h-[340px]">
-                  <CompactTable
-                    headers={["Dia", "Data", "Saldo fechado"]}
-                    rows={closingRows}
-                    emptyText="Nenhum fechamento de caixa encontrado."
-                  />
-                </ScrollableBox>
+                <RevenueBars items={revenueByDay.slice(-10)} emptyText="Nenhuma venda paga no período." />
               </SectionCard>
             </div>
 
-            <div className="grid gap-3 sm:gap-4 xl:grid-cols-3">
+            <div className="grid gap-4 xl:grid-cols-3">
               <SectionCard
-                title="Itens que mais vendem"
-                subtitle="Ranking por faturamento dos produtos vendidos."
-                icon={<Package className="h-5 w-5" />}
+                title="Produtos mais vendidos"
+                subtitle="Ranking por faturamento."
+                icon={<Package className="h-4 w-4" />}
+              >
+                <ScrollableBox className="max-h-[360px]">
+                  <RankingRows
+                    items={topProducts}
+                    emptyText="Nenhum item vendido encontrado no período."
+                    barTone="bg-slate-900"
+                  />
+                </ScrollableBox>
+              </SectionCard>
+
+              <SectionCard
+                title="Formas de pagamento"
+                subtitle="Conferência de Pix, cartão, dinheiro e outros."
+                icon={<CreditCard className="h-4 w-4" />}
               >
                 <RankingRows
-                  items={topProducts}
-                  emptyText="Nenhum item vendido encontrado no período."
-                  barTone="bg-blue-600"
+                  items={paymentMethods}
+                  emptyText="Nenhum pagamento recebido no período."
+                  barTone="bg-emerald-600"
                 />
               </SectionCard>
 
               <SectionCard
                 title="Canais de venda"
-                subtitle="De onde os pedidos pagos estão vindo."
-                icon={<ShoppingBag className="h-5 w-5" />}
+                subtitle="Origem dos pedidos pagos."
+                icon={<ShoppingBag className="h-4 w-4" />}
               >
                 <RankingRows
                   items={salesChannels}
@@ -1782,184 +1707,112 @@ export default function RelatoriosFinanceirosPage() {
                   barTone="bg-violet-600"
                 />
               </SectionCard>
-
-              <SectionCard
-                title="Formas de pagamento"
-                subtitle="Ajuda a conferir Pix, cartão, dinheiro e outros."
-                icon={<CreditCard className="h-5 w-5" />}
-              >
-                <RankingRows
-                  items={paymentMethods}
-                  emptyText="Nenhum pagamento recebido no período."
-                  barTone="bg-slate-700"
-                />
-              </SectionCard>
             </div>
 
-            <div className="grid gap-3 sm:gap-4 xl:grid-cols-2 xl:items-start">
+            <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
               <SectionCard
-                title="Compras e insumos"
-                subtitle="Mostra o peso real de fornecedores e ajuda a controlar compras do período."
-                icon={<Package className="h-5 w-5" />}
+                title="Fechamentos de caixa"
+                subtitle="Dia, data e saldo final dos caixas fechados."
+                icon={<DollarSign className="h-4 w-4" />}
               >
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <InsightCard
-                    title="Total em compras"
-                    value={formatCurrency(supplierAreaSummary.total)}
-                    helper={`${supplierAreaSummary.count} registro${supplierAreaSummary.count === 1 ? "" : "s"} no período`}
-                    tone="orange"
+                <ScrollableBox className="max-h-[300px]">
+                  <CompactTable
+                    headers={["Dia", "Data", "Saldo fechado"]}
+                    rows={closingRows}
+                    emptyText="Nenhum fechamento de caixa encontrado."
                   />
+                </ScrollableBox>
+              </SectionCard>
+
+              <SectionCard
+                title="Fornecedores e entregas"
+                subtitle="Leitura compacta dos custos operacionais que mais costumam pesar."
+                icon={<Truck className="h-4 w-4" />}
+              >
+                <div className="grid gap-2 sm:grid-cols-4">
                   <InsightCard
-                    title="Fornecedor que mais pesou"
-                    value={suppliersRanking[0]?.label || "Sem fornecedor"}
-                    helper={suppliersRanking[0] ? formatCurrency(suppliersRanking[0].value) : "Nenhum gasto encontrado"}
+                    title="Fornecedores"
+                    value={formatCurrency(supplierAreaSummary.total)}
+                    helper={`${supplierAreaSummary.count} registro${supplierAreaSummary.count === 1 ? "" : "s"}`}
+                    tone="orange"
                   />
                   <InsightCard
                     title="Pago"
                     value={formatCurrency(supplierAreaSummary.paid)}
-                    helper="Compras já quitadas"
+                    helper="Fornecedores quitados"
                     tone="emerald"
                   />
                   <InsightCard
-                    title="Pendente"
-                    value={formatCurrency(supplierAreaSummary.pending)}
-                    helper="Compras ainda abertas"
-                    tone="orange"
-                  />
-                </div>
-
-                <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-950">Ranking de fornecedores</p>
-                      <p className="text-xs text-slate-500">Lista com rolagem para não estourar a tela.</p>
-                    </div>
-                  </div>
-
-                  <ScrollableBox className="max-h-[260px] sm:max-h-[300px]">
-                    <RankingRows
-                      items={suppliersRanking}
-                      emptyText="Nenhum gasto com fornecedor encontrado no período."
-                      barTone="bg-red-500"
-                    />
-                  </ScrollableBox>
-                </div>
-              </SectionCard>
-
-              <SectionCard
-                title="Logística e entregas"
-                subtitle="Ajuda a entender quanto a entrega pesa na operação e no caixa."
-                icon={<Truck className="h-5 w-5" />}
-              >
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <InsightCard
-                    title="Taxas nos pagos"
-                    value={formatCurrency(totals.deliveryFees)}
-                    helper="Somente pedidos pagos"
-                    tone="orange"
+                    title="Entregas"
+                    value={formatCurrency(deliveryAreaSummary.total)}
+                    helper={formatPercent(deliveryShare)}
                   />
                   <InsightCard
-                    title="Taxas totais"
-                    value={formatCurrency(totals.deliveryFeesAllOrders)}
-                    helper="Inclui pagos e pendentes"
-                  />
-                  <InsightCard
-                    title="Média por pedido"
+                    title="Média entrega"
                     value={formatCurrency(averageDeliveryCost)}
-                    helper="Entrega média por pedido pago"
-                  />
-                  <InsightCard
-                    title="Peso na receita"
-                    value={formatPercent(deliveryShare)}
-                    helper="Quanto a logística pesa no recebido"
-                    tone={deliveryShare > 20 ? "orange" : "emerald"}
+                    helper="Por pedido pago"
                   />
                 </div>
 
-                <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-950">Acertos por entregador</p>
-                      <p className="text-xs text-slate-500">Quando houver acerto individual, o ranking aparece aqui.</p>
-                    </div>
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <p className="mb-2 text-sm font-semibold text-slate-950">Ranking de fornecedores</p>
+                    <ScrollableBox className="max-h-[250px]">
+                      <RankingRows
+                        items={suppliersRanking}
+                        emptyText="Nenhum gasto com fornecedor encontrado no período."
+                        barTone="bg-orange-600"
+                      />
+                    </ScrollableBox>
                   </div>
 
-                  <ScrollableBox className="max-h-[260px] sm:max-h-[300px]">
-                    {deliveryRanking.length > 0 ? (
-                      <RankingRows
-                        items={deliveryRanking}
-                        emptyText="Nenhum acerto de entregador encontrado."
-                        barTone="bg-orange-500"
-                      />
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-orange-200 bg-orange-50 p-4">
-                        <p className="text-sm font-semibold text-orange-900">Sem acerto individual ainda</p>
-                        <p className="mt-1 text-xs leading-relaxed text-orange-800">
-                          Por enquanto o relatório usa as taxas dos pedidos. Quando você fechar acertos por entregador,
-                          esse bloco vira um ranking por pessoa.
-                        </p>
-                      </div>
-                    )}
-                  </ScrollableBox>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <p className="mb-2 text-sm font-semibold text-slate-950">Acertos por entregador</p>
+                    <ScrollableBox className="max-h-[250px]">
+                      {deliveryRanking.length > 0 ? (
+                        <RankingRows
+                          items={deliveryRanking}
+                          emptyText="Nenhum acerto de entregador encontrado."
+                          barTone="bg-slate-900"
+                        />
+                      ) : (
+                        <EmptyState text="Sem acerto individual de entregador no período." />
+                      )}
+                    </ScrollableBox>
+                  </div>
                 </div>
               </SectionCard>
             </div>
 
             <SectionCard
-              title="Resumo final para decisão"
-              subtitle="Aqui o dono entende rapidamente o cenário e a ação mais importante."
-              icon={<Users className="h-5 w-5" />}
+              title="Resumo para decisão"
+              subtitle="Mensagem final em linguagem direta para o dono agir sem precisar interpretar dashboard."
+              icon={<Users className="h-4 w-4" />}
             >
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                    <TrendingUp className="h-5 w-5" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900">O que entrou</p>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                    Receita recebida de {formatCurrency(totals.revenue)} com ticket médio de{" "}
-                    {formatCurrency(totals.averageTicket)}.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-700">
-                    <TrendingDown className="h-5 w-5" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900">O que mais pesa</p>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                    {biggestCost && biggestCost.total > 0
-                      ? `${biggestCost.label} é o maior custo do período, somando ${formatCurrency(biggestCost.total)}.`
-                      : "Nenhum custo relevante identificado no período."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                    <Target className="h-5 w-5" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900">Melhor venda</p>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                    {bestProduct
-                      ? `${bestProduct.label} foi o item com maior faturamento.`
-                      : bestChannel
-                      ? `${bestChannel.label} foi o principal canal do período.`
-                      : "Ainda não há dados suficientes para destacar uma melhor venda."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
-                    <CalendarDays className="h-5 w-5" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900">Ponto de atenção</p>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                    {priorityText}.{" "}
-                    {bestPaymentMethod
-                      ? `Hoje a principal forma de pagamento foi ${bestPaymentMethod.label.toLowerCase()}.`
-                      : ""}
-                  </p>
-                </div>
+                <InsightCard
+                  title="Entrou"
+                  value={formatCurrency(totals.revenue)}
+                  helper={`Ticket médio de ${formatCurrency(totals.averageTicket)}`}
+                  tone="emerald"
+                />
+                <InsightCard
+                  title="Mais pesou"
+                  value={biggestCost && biggestCost.total > 0 ? biggestCost.label : "Sem custo relevante"}
+                  helper={biggestCost && biggestCost.total > 0 ? formatCurrency(biggestCost.total) : "Sem dados suficientes"}
+                  tone="orange"
+                />
+                <InsightCard
+                  title="Melhor venda"
+                  value={bestProduct ? bestProduct.label : bestChannel ? bestChannel.label : "Sem destaque"}
+                  helper={bestProduct ? "Produto com maior faturamento" : bestChannel ? "Principal canal" : "Aguardando vendas pagas"}
+                  tone="violet"
+                />
+                <InsightCard
+                  title="Atenção"
+                  value={priorityText}
+                  helper={bestPaymentMethod ? `Pagamento principal: ${bestPaymentMethod.label}` : "Sem forma principal ainda"}
+                />
               </div>
             </SectionCard>
           </>
@@ -1967,4 +1820,5 @@ export default function RelatoriosFinanceirosPage() {
       </div>
     </AdminLayout>
   )
+
 }

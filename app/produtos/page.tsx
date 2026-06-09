@@ -1,21 +1,29 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  CheckCircle2,
+  type DragEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
+import {
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
+  CheckCircle2,
   DollarSign,
   Edit3,
   Eye,
   EyeOff,
   FolderPlus,
+  GripVertical,
   ImageOff,
   Loader2,
   Package,
   Percent,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react"
@@ -33,8 +41,8 @@ import {
   hasImage,
   hasRegisteredCost,
 } from "@/lib/products-data"
-import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 type AvailabilityFilter = "all" | "active" | "inactive"
 type PromotionType = "none" | "fixed" | "percentage"
@@ -127,18 +135,6 @@ function getPromotionalPrice(product: CatalogProduct) {
   return Math.max(product.price - getPromotionDiscount(product), 0)
 }
 
-function getPromotionLabel(product: CatalogProduct) {
-  if (!product.promotionActive || product.promotionType === "none") {
-    return "Sem promoção"
-  }
-
-  if (product.promotionType === "percentage") {
-    return `${product.promotionValue}% OFF`
-  }
-
-  return `${formatCurrency(product.promotionValue)} OFF`
-}
-
 function getNormalizedAvailabilityType(
   value: string | null | undefined
 ): AvailabilityType {
@@ -187,9 +183,7 @@ function normalizeProduct(
     availabilityStartTime: normalizeAvailabilityTime(
       activeAvailabilityRule?.start_time
     ),
-    availabilityEndTime: normalizeAvailabilityTime(
-      activeAvailabilityRule?.end_time
-    ),
+    availabilityEndTime: normalizeAvailabilityTime(activeAvailabilityRule?.end_time),
     availabilityCategory: activeAvailabilityRule?.display_category_id ?? null,
   }
 }
@@ -206,6 +200,17 @@ function normalizeCategory(category: DbCategory): Category {
 
 function sortByOrder<T extends { order: number }>(items: T[]) {
   return [...items].sort((a, b) => a.order - b.order)
+}
+
+function getProductFinalPrice(product: CatalogProduct) {
+  return product.promotionActive ? getPromotionalPrice(product) : product.price
+}
+
+function getProductStatusLabel(product: CatalogProduct) {
+  if (!product.active) return "Inativo"
+  if (product.availabilityType === "scheduled") return "Programado"
+
+  return "Ativo"
 }
 
 export default function ProdutosPage() {
@@ -235,12 +240,17 @@ export default function ProdutosPage() {
     categoryId: null,
   })
 
+  const [categoryOrderModalOpen, setCategoryOrderModalOpen] = useState(false)
+  const [categoryOrderDraft, setCategoryOrderDraft] = useState<Category[]>([])
+  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([])
+
   const [categoryName, setCategoryName] = useState("")
   const [categoryActive, setCategoryActive] = useState(true)
   const [savingCategory, setSavingCategory] = useState(false)
+  const [savingCategoryOrder, setSavingCategoryOrder] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [savingProductId, setSavingProductId] = useState<string | null>(null)
-  const [expandedProductId, setExpandedProductId] = useState<string | null>(null)
 
   const sortedCategories = useMemo(() => sortByOrder(categories), [categories])
 
@@ -311,20 +321,35 @@ export default function ProdutosPage() {
     })
   }, [availabilityFilter, categoryFilter, products, search])
 
-const productsByCategory = useMemo(() => {
-  const grouped = new Map<string, CatalogProduct[]>()
+  const productsByCategory = useMemo(() => {
+    const grouped = new Map<string, CatalogProduct[]>()
 
-  for (const category of sortedCategories) {
-    grouped.set(
-      category.id,
-      filteredProducts
-        .filter((product) => product.category === category.id)
-        .sort((a, b) => a.order - b.order)
+    for (const category of sortedCategories) {
+      grouped.set(
+        category.id,
+        filteredProducts
+          .filter((product) => product.category === category.id)
+          .sort((a, b) => a.order - b.order)
+      )
+    }
+
+    return grouped
+  }, [filteredProducts, sortedCategories])
+
+  const visibleCategories = useMemo(() => {
+    if (categoryFilter !== "all") {
+      return sortedCategories.filter((category) => category.id === categoryFilter)
+    }
+
+    const hasActiveSearchOrStatusFilter =
+      search.trim().length > 0 || availabilityFilter !== "all"
+
+    if (!hasActiveSearchOrStatusFilter) return sortedCategories
+
+    return sortedCategories.filter(
+      (category) => (productsByCategory.get(category.id)?.length ?? 0) > 0
     )
-  }
-
-  return grouped
-}, [filteredProducts, sortedCategories])
+  }, [availabilityFilter, categoryFilter, productsByCategory, search, sortedCategories])
 
   const getAccessToken = useCallback(async () => {
     const {
@@ -446,6 +471,29 @@ const productsByCategory = useMemo(() => {
     void loadCatalog()
   }, [loadCatalog])
 
+  useEffect(() => {
+    setExpandedCategoryIds((prev) => {
+      const validCategoryIds = new Set(sortedCategories.map((category) => category.id))
+      const keptCategoryIds = prev.filter((categoryId) =>
+        validCategoryIds.has(categoryId)
+      )
+
+      if (keptCategoryIds.length > 0) return keptCategoryIds
+
+      const firstCategoryId = sortedCategories[0]?.id
+
+      return firstCategoryId ? [firstCategoryId] : []
+    })
+  }, [sortedCategories])
+
+  const toggleCategoryExpanded = useCallback((categoryId: string) => {
+    setExpandedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((currentCategoryId) => currentCategoryId !== categoryId)
+        : [...prev, categoryId]
+    )
+  }, [])
+
   const openCreateProductSheet = useCallback(
     (preferredCategoryId?: string) => {
       if (categories.length === 0) {
@@ -487,113 +535,173 @@ const productsByCategory = useMemo(() => {
   }, [])
 
   const saveProduct = useCallback(
-  async (values: ProductEditorValues) => {
-    try {
-      const resolvedRestaurantId = await resolveRestaurantId()
-      const promotionActive =
-        values.promotionActive &&
-        values.promotionType !== "none" &&
-        values.promotionValue > 0
-      const promotionType: PromotionType = promotionActive
-        ? values.promotionType
-        : "none"
-      const promotionValue = promotionActive ? values.promotionValue : 0
-      const availabilityType: AvailabilityType = values.availabilityType
-      const normalizedAvailabilityWeekdays =
-        availabilityType === "scheduled" ? values.availabilityWeekdays : []
-      const normalizedAvailabilityStartTime =
-        availabilityType === "scheduled" ? values.availabilityStartTime : null
-      const normalizedAvailabilityEndTime =
-        availabilityType === "scheduled" ? values.availabilityEndTime : null
-      const normalizedAvailabilityCategory =
-        availabilityType === "scheduled"
-          ? values.availabilityCategory
-          : null
+    async (values: ProductEditorValues) => {
+      try {
+        const resolvedRestaurantId = await resolveRestaurantId()
+        const promotionActive =
+          values.promotionActive &&
+          values.promotionType !== "none" &&
+          values.promotionValue > 0
+        const promotionType: PromotionType = promotionActive
+          ? values.promotionType
+          : "none"
+        const promotionValue = promotionActive ? values.promotionValue : 0
+        const availabilityType: AvailabilityType = values.availabilityType
+        const normalizedAvailabilityWeekdays =
+          availabilityType === "scheduled" ? values.availabilityWeekdays : []
+        const normalizedAvailabilityStartTime =
+          availabilityType === "scheduled" ? values.availabilityStartTime : null
+        const normalizedAvailabilityEndTime =
+          availabilityType === "scheduled" ? values.availabilityEndTime : null
+        const normalizedAvailabilityCategory =
+          availabilityType === "scheduled" ? values.availabilityCategory : null
 
-      async function saveProductAvailabilityRule(productId: string) {
-        const { error: deleteRuleError } = await supabase
-          .from("product_availability_rules")
-          .delete()
-          .eq("restaurant_id", resolvedRestaurantId)
-          .eq("product_id", productId)
+        async function saveProductAvailabilityRule(productId: string) {
+          const { error: deleteRuleError } = await supabase
+            .from("product_availability_rules")
+            .delete()
+            .eq("restaurant_id", resolvedRestaurantId)
+            .eq("product_id", productId)
 
-        if (deleteRuleError) throw deleteRuleError
+          if (deleteRuleError) throw deleteRuleError
 
-        if (availabilityType !== "scheduled") return
+          if (availabilityType !== "scheduled") return
 
-        if (
-          normalizedAvailabilityWeekdays.length === 0 ||
-          !normalizedAvailabilityCategory
-        ) {
-          throw new Error(
-            "Escolha os dias e a categoria da disponibilidade programada."
-          )
+          if (
+            normalizedAvailabilityWeekdays.length === 0 ||
+            !normalizedAvailabilityCategory
+          ) {
+            throw new Error(
+              "Escolha os dias e a categoria da disponibilidade programada."
+            )
+          }
+
+          const { error: insertRuleError } = await supabase
+            .from("product_availability_rules")
+            .insert({
+              restaurant_id: resolvedRestaurantId,
+              product_id: productId,
+              display_category_id: normalizedAvailabilityCategory,
+              weekdays: normalizedAvailabilityWeekdays,
+              start_time: normalizedAvailabilityStartTime,
+              end_time: normalizedAvailabilityEndTime,
+              is_active: true,
+              sort_order: 0,
+            })
+
+          if (insertRuleError) throw insertRuleError
         }
 
-        const { error: insertRuleError } = await supabase
-          .from("product_availability_rules")
-          .insert({
-            restaurant_id: resolvedRestaurantId,
-            product_id: productId,
-            display_category_id: normalizedAvailabilityCategory,
-            weekdays: normalizedAvailabilityWeekdays,
-            start_time: normalizedAvailabilityStartTime,
-            end_time: normalizedAvailabilityEndTime,
-            is_active: true,
-            sort_order: 0,
+        if (productSheet.mode === "edit" && productSheet.productId) {
+          const editingProduct = products.find(
+            (product) => product.id === productSheet.productId
+          )
+
+          if (!editingProduct) return null
+
+          setSavingProductId(editingProduct.id)
+
+          const targetOrder =
+            editingProduct.category === values.category
+              ? editingProduct.order
+              : products.filter(
+                  (product) =>
+                    product.category === values.category &&
+                    product.id !== editingProduct.id
+                ).length
+
+          const { data, error } = await supabase
+            .from("products")
+            .update({
+              name: values.name,
+              description: values.description || null,
+              price: values.price,
+              cost_price: values.cost,
+              category_id: values.category,
+              is_available: values.active,
+              image_url: values.image || null,
+              sort_order: targetOrder,
+              promotion_active: promotionActive,
+              promotion_type: promotionType,
+              promotion_value: promotionValue,
+              availability_type: availabilityType,
+            })
+            .eq("id", productSheet.productId)
+            .eq("restaurant_id", resolvedRestaurantId)
+            .select(PRODUCT_SELECT)
+            .single()
+
+          if (error) throw error
+          if (!data) throw new Error("Produto não encontrado para atualização.")
+
+          await saveProductAvailabilityRule(productSheet.productId)
+
+          const updatedProduct: CatalogProduct = {
+            ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0, {
+              id: "local",
+              product_id: productSheet.productId,
+              display_category_id: normalizedAvailabilityCategory,
+              weekdays: normalizedAvailabilityWeekdays,
+              start_time: normalizedAvailabilityStartTime,
+              end_time: normalizedAvailabilityEndTime,
+              is_active: availabilityType === "scheduled",
+            }),
+            imageSize: values.imageSize,
+          }
+
+          setProducts((prev) =>
+            sortByOrder(
+              prev.map((product) =>
+                product.id === updatedProduct.id ? updatedProduct : product
+              )
+            )
+          )
+
+          toast({
+            title: "Produto atualizado",
+            description: `"${values.name}" foi atualizado com sucesso.`,
           })
 
-        if (insertRuleError) throw insertRuleError
-      }
+          return productSheet.productId
+        }
 
-      if (productSheet.mode === "edit" && productSheet.productId) {
-        const editingProduct = products.find(
-          (product) => product.id === productSheet.productId
-        )
+        const resolvedCategoryId = values.category
 
-        if (!editingProduct) return null
+        setSavingProductId("new")
 
-        setSavingProductId(editingProduct.id)
-
-        const targetOrder =
-          editingProduct.category === values.category
-            ? editingProduct.order
-            : products.filter(
-                (product) =>
-                  product.category === values.category &&
-                  product.id !== editingProduct.id
-              ).length
+        const targetOrder = products.filter(
+          (product) => product.category === resolvedCategoryId
+        ).length
 
         const { data, error } = await supabase
           .from("products")
-          .update({
+          .insert({
+            restaurant_id: resolvedRestaurantId,
+            category_id: resolvedCategoryId,
             name: values.name,
             description: values.description || null,
             price: values.price,
             cost_price: values.cost,
-            category_id: values.category,
-            is_available: values.active,
             image_url: values.image || null,
+            is_available: values.active,
             sort_order: targetOrder,
             promotion_active: promotionActive,
             promotion_type: promotionType,
             promotion_value: promotionValue,
             availability_type: availabilityType,
           })
-          .eq("id", productSheet.productId)
-          .eq("restaurant_id", resolvedRestaurantId)
           .select(PRODUCT_SELECT)
           .single()
 
         if (error) throw error
-        if (!data) throw new Error("Produto não encontrado para atualização.")
+        if (!data) throw new Error("Erro ao criar produto.")
 
-        await saveProductAvailabilityRule(productSheet.productId)
+        await saveProductAvailabilityRule(data.id)
 
-        const updatedProduct: CatalogProduct = {
-          ...normalizeProduct(data as DbProduct, editingProduct.salesCount ?? 0, {
+        const newProduct: CatalogProduct = {
+          ...normalizeProduct(data as DbProduct, 0, {
             id: "local",
-            product_id: productSheet.productId,
+            product_id: data.id,
             display_category_id: normalizedAvailabilityCategory,
             weekdays: normalizedAvailabilityWeekdays,
             start_time: normalizedAvailabilityStartTime,
@@ -603,102 +711,40 @@ const productsByCategory = useMemo(() => {
           imageSize: values.imageSize,
         }
 
-        setProducts((prev) =>
-          sortByOrder(
-            prev.map((product) =>
-              product.id === updatedProduct.id ? updatedProduct : product
-            )
-          )
-        )
+        setProducts((prev) => sortByOrder([...prev, newProduct]))
 
         toast({
-          title: "Produto atualizado",
-          description: `"${values.name}" foi atualizado com sucesso.`,
+          title: "Produto criado",
+          description: `"${values.name}" foi adicionado ao catálogo.`,
         })
 
-        return productSheet.productId
-      }
+        return data.id
+      } catch (error) {
+        console.error("Erro ao salvar produto:", error)
 
-      const resolvedCategoryId = values.category
-
-      setSavingProductId("new")
-
-      const targetOrder = products.filter(
-        (product) => product.category === resolvedCategoryId
-      ).length
-
-      const { data, error } = await supabase
-        .from("products")
-        .insert({
-          restaurant_id: resolvedRestaurantId,
-          category_id: resolvedCategoryId,
-          name: values.name,
-          description: values.description || null,
-          price: values.price,
-          cost_price: values.cost,
-          image_url: values.image || null,
-          is_available: values.active,
-          sort_order: targetOrder,
-          promotion_active: promotionActive,
-          promotion_type: promotionType,
-          promotion_value: promotionValue,
-          availability_type: availabilityType,
+        toast({
+          title: "Erro ao salvar produto",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Não foi possível salvar o produto.",
+          variant: "destructive",
         })
-        .select(PRODUCT_SELECT)
-        .single()
 
-      if (error) throw error
-      if (!data) throw new Error("Erro ao criar produto.")
-
-      await saveProductAvailabilityRule(data.id)
-
-      const newProduct: CatalogProduct = {
-        ...normalizeProduct(data as DbProduct, 0, {
-          id: "local",
-          product_id: data.id,
-          display_category_id: normalizedAvailabilityCategory,
-          weekdays: normalizedAvailabilityWeekdays,
-          start_time: normalizedAvailabilityStartTime,
-          end_time: normalizedAvailabilityEndTime,
-          is_active: availabilityType === "scheduled",
-        }),
-        imageSize: values.imageSize,
+        return null
+      } finally {
+        setSavingProductId(null)
       }
-
-      setProducts((prev) => sortByOrder([...prev, newProduct]))
-
-      toast({
-        title: "Produto criado",
-        description: `"${values.name}" foi adicionado ao catálogo.`,
-      })
-
-      return data.id
-    } catch (error) {
-      console.error("Erro ao salvar produto:", error)
-
-      toast({
-        title: "Erro ao salvar produto",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível salvar o produto.",
-        variant: "destructive",
-      })
-
-      return null
-    } finally {
-      setSavingProductId(null)
-    }
-  },
-  [
-    productSheet.mode,
-    productSheet.productId,
-    products,
-    resolveRestaurantId,
-    supabase,
-    toast,
-  ]
-)
+    },
+    [
+      productSheet.mode,
+      productSheet.productId,
+      products,
+      resolveRestaurantId,
+      supabase,
+      toast,
+    ]
+  )
 
   const toggleProductActive = useCallback(
     async (productId: string) => {
@@ -773,6 +819,20 @@ const productsByCategory = useMemo(() => {
       try {
         const resolvedRestaurantId = await resolveRestaurantId()
         setDeletingId(productId)
+
+        await Promise.allSettled([
+          supabase
+            .from("product_modifier_group_links")
+            .delete()
+            .eq("restaurant_id", resolvedRestaurantId)
+            .eq("product_id", productId),
+          supabase
+            .from("product_availability_rules")
+            .delete()
+            .eq("restaurant_id", resolvedRestaurantId)
+            .eq("product_id", productId),
+          supabase.from("product_recipe_items").delete().eq("product_id", productId),
+        ])
 
         const { error } = await supabase
           .from("products")
@@ -936,18 +996,10 @@ const productsByCategory = useMemo(() => {
         (product) => product.category === categoryId
       )
 
-      if (productsInCategory.length > 0) {
-        toast({
-          title: "Categoria possui produtos",
-          description:
-            "Mova ou exclua os produtos dessa categoria antes de apagar.",
-          variant: "destructive",
-        })
-        return
-      }
-
       const confirmed = window.confirm(
-        `Tem certeza que deseja excluir a categoria "${category.name}"?`
+        productsInCategory.length > 0
+          ? `A categoria "${category.name}" possui ${productsInCategory.length} produto(s).\n\nAo excluir a categoria, esses produtos também serão excluídos do catálogo.\n\nDeseja continuar?`
+          : `Tem certeza que deseja excluir a categoria "${category.name}"?`
       )
 
       if (!confirmed) return
@@ -955,6 +1007,35 @@ const productsByCategory = useMemo(() => {
       try {
         const resolvedRestaurantId = await resolveRestaurantId()
         setDeletingId(categoryId)
+
+        const productIds = productsInCategory.map((product) => product.id)
+
+        if (productIds.length > 0) {
+          await Promise.allSettled([
+            supabase
+              .from("product_modifier_group_links")
+              .delete()
+              .eq("restaurant_id", resolvedRestaurantId)
+              .in("product_id", productIds),
+            supabase
+              .from("product_availability_rules")
+              .delete()
+              .eq("restaurant_id", resolvedRestaurantId)
+              .in("product_id", productIds),
+            supabase
+              .from("product_recipe_items")
+              .delete()
+              .in("product_id", productIds),
+          ])
+
+          const { error: deleteProductsError } = await supabase
+            .from("products")
+            .delete()
+            .eq("restaurant_id", resolvedRestaurantId)
+            .eq("category_id", categoryId)
+
+          if (deleteProductsError) throw deleteProductsError
+        }
 
         const { error } = await supabase
           .from("categories")
@@ -964,11 +1045,24 @@ const productsByCategory = useMemo(() => {
 
         if (error) throw error
 
+        setProducts((prev) =>
+          prev.filter((product) => product.category !== categoryId)
+        )
         setCategories((prev) => prev.filter((item) => item.id !== categoryId))
+        setExpandedCategoryIds((prev) =>
+          prev.filter((currentCategoryId) => currentCategoryId !== categoryId)
+        )
+
+        if (categoryFilter === categoryId) {
+          setCategoryFilter("all")
+        }
 
         toast({
           title: "Categoria excluída",
-          description: `"${category.name}" foi removida.`,
+          description:
+            productsInCategory.length > 0
+              ? `"${category.name}" e seus produtos foram removidos.`
+              : `"${category.name}" foi removida.`,
         })
       } catch (error) {
         console.error("Erro ao excluir categoria:", error)
@@ -985,8 +1079,114 @@ const productsByCategory = useMemo(() => {
         setDeletingId(null)
       }
     },
-    [categories, products, resolveRestaurantId, supabase, toast]
+    [categories, categoryFilter, products, resolveRestaurantId, supabase, toast]
   )
+
+  const openCategoryOrderModal = useCallback(() => {
+    setCategoryOrderDraft(sortedCategories)
+    setDraggedCategoryId(null)
+    setCategoryOrderModalOpen(true)
+  }, [sortedCategories])
+
+  const closeCategoryOrderModal = useCallback(() => {
+    setCategoryOrderModalOpen(false)
+    setCategoryOrderDraft([])
+    setDraggedCategoryId(null)
+  }, [])
+
+  const reorderCategoryDraft = useCallback(
+    (draggedId: string, targetId: string) => {
+      if (draggedId === targetId) return
+
+      setCategoryOrderDraft((prev) => {
+        const draggedIndex = prev.findIndex((category) => category.id === draggedId)
+        const targetIndex = prev.findIndex((category) => category.id === targetId)
+
+        if (draggedIndex === -1 || targetIndex === -1) return prev
+
+        const next = [...prev]
+        const [draggedCategory] = next.splice(draggedIndex, 1)
+
+        if (!draggedCategory) return prev
+
+        next.splice(targetIndex, 0, draggedCategory)
+
+        return next.map((category, index) => ({
+          ...category,
+          order: index,
+        }))
+      })
+    },
+    []
+  )
+
+  const handleCategoryDragStart = useCallback((categoryId: string) => {
+    setDraggedCategoryId(categoryId)
+  }, [])
+
+  const handleCategoryDragOver = useCallback(
+    (event: DragEvent<HTMLDivElement>, targetCategoryId: string) => {
+      event.preventDefault()
+
+      if (!draggedCategoryId) return
+
+      reorderCategoryDraft(draggedCategoryId, targetCategoryId)
+    },
+    [draggedCategoryId, reorderCategoryDraft]
+  )
+
+  const handleCategoryDragEnd = useCallback(() => {
+    setDraggedCategoryId(null)
+  }, [])
+
+  const saveCategoryOrder = useCallback(async () => {
+    try {
+      const resolvedRestaurantId = await resolveRestaurantId()
+      setSavingCategoryOrder(true)
+
+      const normalizedDraft = categoryOrderDraft.map((category, index) => ({
+        ...category,
+        order: index,
+      }))
+
+      const results = await Promise.all(
+        normalizedDraft.map((category) =>
+          supabase
+            .from("categories")
+            .update({ sort_order: category.order })
+            .eq("id", category.id)
+            .eq("restaurant_id", resolvedRestaurantId)
+        )
+      )
+
+      const failedResult = results.find((result) => result.error)
+
+      if (failedResult?.error) throw failedResult.error
+
+      setCategories(normalizedDraft)
+      setCategoryOrderModalOpen(false)
+      setCategoryOrderDraft([])
+      setDraggedCategoryId(null)
+
+      toast({
+        title: "Ordem atualizada",
+        description: "A hierarquia das categorias foi salva no cardápio.",
+      })
+    } catch (error) {
+      console.error("Erro ao salvar ordem das categorias:", error)
+
+      toast({
+        title: "Erro ao salvar ordem",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar a ordem das categorias.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingCategoryOrder(false)
+    }
+  }, [categoryOrderDraft, resolveRestaurantId, supabase, toast])
 
   if (loadingData) {
     return (
@@ -1003,23 +1203,36 @@ const productsByCategory = useMemo(() => {
 
   return (
     <AdminLayout title="Produtos">
-      <div className="space-y-5">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="space-y-4">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div>
-              <h1 className="text-xl font-black tracking-tight text-slate-950">
-                Produtos e Cardápio
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
+                Cardápio
+              </p>
+              <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
+                Produtos e categorias
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Edite produtos, categorias, preço, promoção e status do cardápio.
+              <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                Organize a ordem das categorias, cadastre produtos e mantenha o cardápio limpo para o cliente.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button
+                type="button"
+                onClick={openCategoryOrderModal}
+                disabled={sortedCategories.length === 0}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Organizar categorias
+              </button>
+
               <button
                 type="button"
                 onClick={openCreateCategoryModal}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
               >
                 <FolderPlus className="h-4 w-4" />
                 Nova categoria
@@ -1028,7 +1241,7 @@ const productsByCategory = useMemo(() => {
               <button
                 type="button"
                 onClick={() => openCreateProductSheet()}
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4" />
                 Novo produto
@@ -1036,10 +1249,10 @@ const productsByCategory = useMemo(() => {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
                   Total
                 </p>
                 <Package className="h-4 w-4 text-slate-400" />
@@ -1047,11 +1260,12 @@ const productsByCategory = useMemo(() => {
               <p className="mt-2 text-2xl font-black text-slate-950">
                 {products.length}
               </p>
+              <p className="text-xs font-semibold text-slate-500">produtos</p>
             </div>
 
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
                   Ativos
                 </p>
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -1059,23 +1273,14 @@ const productsByCategory = useMemo(() => {
               <p className="mt-2 text-2xl font-black text-emerald-900">
                 {activeProducts.length}
               </p>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Inativos
-                </p>
-                <EyeOff className="h-4 w-4 text-slate-400" />
-              </div>
-              <p className="mt-2 text-2xl font-black text-slate-950">
-                {inactiveProducts.length}
+              <p className="text-xs font-semibold text-emerald-700">
+                visíveis no cardápio
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
                   Sem foto
                 </p>
                 <ImageOff className="h-4 w-4 text-slate-400" />
@@ -1083,11 +1288,12 @@ const productsByCategory = useMemo(() => {
               <p className="mt-2 text-2xl font-black text-slate-950">
                 {noImageProducts.length}
               </p>
+              <p className="text-xs font-semibold text-slate-500">para revisar</p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
                   Sem custo
                 </p>
                 <DollarSign className="h-4 w-4 text-slate-400" />
@@ -1095,11 +1301,12 @@ const productsByCategory = useMemo(() => {
               <p className="mt-2 text-2xl font-black text-slate-950">
                 {noCostProducts.length}
               </p>
+              <p className="text-xs font-semibold text-slate-500">sem CMV</p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
                   Margem média
                 </p>
                 <Percent className="h-4 w-4 text-slate-400" />
@@ -1107,26 +1314,41 @@ const productsByCategory = useMemo(() => {
               <p className="mt-2 text-2xl font-black text-slate-950">
                 {averageMargin.toFixed(1)}%
               </p>
+              <p className="text-xs font-semibold text-slate-500">
+                {inactiveProducts.length} inativo(s)
+              </p>
             </div>
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_180px]">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_240px_190px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar produto por nome ou descrição..."
-                className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
               />
             </div>
 
             <select
               value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              onChange={(event) => {
+                const nextCategoryFilter = event.target.value
+
+                setCategoryFilter(nextCategoryFilter)
+
+                if (nextCategoryFilter !== "all") {
+                  setExpandedCategoryIds((prev) =>
+                    prev.includes(nextCategoryFilter)
+                      ? prev
+                      : [...prev, nextCategoryFilter]
+                  )
+                }
+              }}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
             >
               <option value="all">Todas categorias</option>
               {sortedCategories.map((category) => (
@@ -1141,7 +1363,7 @@ const productsByCategory = useMemo(() => {
               onChange={(event) =>
                 setAvailabilityFilter(event.target.value as AvailabilityFilter)
               }
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
             >
               <option value="all">Todos status</option>
               <option value="active">Ativos</option>
@@ -1150,112 +1372,349 @@ const productsByCategory = useMemo(() => {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-black text-slate-950">
-                Categorias
+                Categorias do cardápio
               </h2>
-              <p className="text-sm text-slate-500">
-                Edite o nome, ative ou inative categorias do cardápio.
+              <p className="text-sm font-semibold text-slate-500">
+                Clique na categoria para abrir os produtos. A ordem abaixo é a hierarquia do cardápio público.
               </p>
             </div>
 
-            <p className="text-sm font-semibold text-slate-500">
-              {sortedCategories.length} categoria(s)
-            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={openCategoryOrderModal}
+                disabled={sortedCategories.length === 0}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Reordenar
+              </button>
+
+              <button
+                type="button"
+                onClick={openCreateCategoryModal}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+              >
+                <FolderPlus className="h-4 w-4" />
+                Nova categoria
+              </button>
+            </div>
           </div>
 
-          {sortedCategories.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="text-sm font-bold text-slate-700">
-                Nenhuma categoria cadastrada
+          {visibleCategories.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm font-black text-slate-700">
+                Nenhum produto encontrado
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                Crie uma categoria para começar a adicionar produtos.
+                Ajuste a busca ou os filtros para ver os produtos.
               </p>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setCategoryFilter("all")}
-                className={cn(
-                  "inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition",
-                  categoryFilter === "all"
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                )}
-              >
-                Todas
-                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">
-                  {products.length}
-                </span>
-              </button>
-
-              {sortedCategories.map((category) => {
-                const count = products.filter(
+            <div className="divide-y divide-slate-200">
+              {visibleCategories.map((category, index) => {
+                const categoryProducts = productsByCategory.get(category.id) ?? []
+                const totalProductsInCategory = products.filter(
                   (product) => product.category === category.id
                 ).length
+                const isExpanded = expandedCategoryIds.includes(category.id)
+                const isDeletingCategory = deletingId === category.id
 
                 return (
-                  <div
-                    key={category.id}
-                    className={cn(
-                      "inline-flex h-10 items-center overflow-hidden rounded-lg border",
-                      categoryFilter === category.id
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-700"
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setCategoryFilter(category.id)}
-                      className="flex h-full items-center gap-2 px-3 text-sm font-bold"
+                  <div key={category.id} className="bg-white">
+                    <div
+                      className={cn(
+                        "flex flex-col gap-3 px-4 py-3 transition sm:flex-row sm:items-center sm:justify-between",
+                        isExpanded ? "bg-blue-50/40" : "hover:bg-slate-50"
+                      )}
                     >
-                      {category.name}
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-xs",
-                          categoryFilter === category.id
-                            ? "bg-white/20"
-                            : "bg-slate-100 text-slate-500"
-                        )}
+                      <button
+                        type="button"
+                        onClick={() => toggleCategoryExpanded(category.id)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       >
-                        {count}
-                      </span>
-                    </button>
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-slate-600 transition",
+                            isExpanded
+                              ? "border-blue-200 bg-white text-blue-700"
+                              : "border-slate-200 bg-slate-50"
+                          )}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </span>
 
-                    <button
-                      type="button"
-                      onClick={() => openEditCategoryModal(category)}
-                      className={cn(
-                        "flex h-full w-9 items-center justify-center border-l transition",
-                        categoryFilter === category.id
-                          ? "border-white/20 hover:bg-white/10"
-                          : "border-slate-200 hover:bg-slate-50"
-                      )}
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </button>
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-500">
+                          {index + 1}
+                        </span>
 
-                    <button
-                      type="button"
-                      onClick={() => void deleteCategory(category.id)}
-                      disabled={deletingId === category.id}
-                      className={cn(
-                        "flex h-full w-9 items-center justify-center border-l transition disabled:opacity-50",
-                        categoryFilter === category.id
-                          ? "border-white/20 hover:bg-white/10"
-                          : "border-slate-200 hover:bg-red-50 hover:text-red-600"
-                      )}
-                    >
-                      {deletingId === category.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </button>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="truncate text-sm font-black uppercase tracking-wide text-slate-950">
+                              {category.name}
+                            </span>
+
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-600 ring-1 ring-slate-200">
+                              {totalProductsInCategory}
+                            </span>
+
+                            {!category.active && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-700">
+                                Oculta
+                              </span>
+                            )}
+                          </span>
+
+                          <span className="mt-0.5 block text-xs font-semibold text-slate-500">
+                            {isExpanded
+                              ? "Produtos visíveis abaixo"
+                              : "Clique para abrir os produtos dessa categoria"}
+                          </span>
+                        </span>
+                      </button>
+
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => openCreateProductSheet(category.id)}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-100"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Produto
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openEditCategoryModal(category)}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-100"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void deleteCategory(category.id)}
+                          disabled={isDeletingCategory}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                        >
+                          {isDeletingCategory ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50/60">
+                        {categoryProducts.length === 0 ? (
+                          <div className="p-4">
+                            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
+                              <p className="text-sm font-black text-slate-700">
+                                Nenhum produto nessa categoria
+                              </p>
+                              <p className="mt-1 text-sm text-slate-500">
+                                Adicione produtos para montar essa seção do cardápio.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => openCreateProductSheet(category.id)}
+                                className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
+                              >
+                                <Plus className="h-4 w-4" />
+                                Adicionar produto
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-200">
+                            {categoryProducts.map((product) => {
+                              const finalPrice = getProductFinalPrice(product)
+                              const profit = getProfit(finalPrice, product.cost)
+                              const margin = getMargin(finalPrice, product.cost)
+                              const isSaving = savingProductId === product.id
+                              const isDeleting = deletingId === product.id
+
+                              return (
+                                <div
+                                  key={product.id}
+                                  className="grid gap-3 bg-white px-4 py-3 transition hover:bg-slate-50 xl:grid-cols-[minmax(0,1.7fr)_150px_145px_210px] xl:items-center"
+                                >
+                                  <div className="flex min-w-0 gap-3">
+                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                                      {product.image ? (
+                                        <img
+                                          src={product.image}
+                                          alt={product.name}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        <ImageOff className="h-5 w-5 text-slate-400" />
+                                      )}
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="truncate text-sm font-black text-slate-950">
+                                          {product.name}
+                                        </p>
+
+                                        {product.promotionActive && (
+                                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                            Promoção
+                                          </span>
+                                        )}
+
+                                        {!hasImage(product) && (
+                                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">
+                                            Sem foto
+                                          </span>
+                                        )}
+
+                                        {!hasRegisteredCost(product) && (
+                                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-700">
+                                            Sem custo
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <p className="mt-1 line-clamp-1 text-sm text-slate-500">
+                                        {product.description || "Sem descrição cadastrada."}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:block">
+                                    <div>
+                                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                        Preço
+                                      </p>
+
+                                      {product.promotionActive ? (
+                                        <div className="mt-1">
+                                          <p className="text-sm font-black text-emerald-600">
+                                            {formatCurrency(finalPrice)}
+                                          </p>
+                                          <p className="text-xs font-bold text-slate-400 line-through">
+                                            {formatCurrency(product.price)}
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <p className="mt-1 text-sm font-black text-slate-950">
+                                          {formatCurrency(product.price)}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <div className="xl:mt-2">
+                                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                        Custo
+                                      </p>
+                                      <p className="mt-1 text-sm font-black text-slate-950">
+                                        {formatCurrency(product.cost)}
+                                      </p>
+                                    </div>
+
+                                    <div className="xl:hidden">
+                                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                        Margem
+                                      </p>
+                                      <p
+                                        className={cn(
+                                          "mt-1 text-sm font-black",
+                                          margin >= 20 ? "text-emerald-600" : "text-amber-600"
+                                        )}
+                                      >
+                                        {margin.toFixed(1)}%
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="hidden xl:block">
+                                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                      Resultado
+                                    </p>
+                                    <p
+                                      className={cn(
+                                        "mt-1 text-sm font-black",
+                                        profit >= 0 ? "text-emerald-600" : "text-red-600"
+                                      )}
+                                    >
+                                      {formatCurrency(profit)}
+                                    </p>
+                                    <p
+                                      className={cn(
+                                        "text-xs font-bold",
+                                        margin >= 20 ? "text-emerald-600" : "text-amber-600"
+                                      )}
+                                    >
+                                      {margin.toFixed(1)}% margem
+                                    </p>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => void toggleProductActive(product.id)}
+                                      disabled={isSaving}
+                                      className={cn(
+                                        "inline-flex h-9 items-center gap-2 rounded-full px-3 text-xs font-black transition disabled:opacity-50",
+                                        product.active
+                                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                      )}
+                                    >
+                                      {isSaving ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : product.active ? (
+                                        <Eye className="h-3.5 w-3.5" />
+                                      ) : (
+                                        <EyeOff className="h-3.5 w-3.5" />
+                                      )}
+                                      {getProductStatusLabel(product)}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => openEditProductSheet(product.id)}
+                                      className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                                    >
+                                      <Edit3 className="h-4 w-4" />
+                                      Editar
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => void deleteProduct(product.id)}
+                                      disabled={isDeleting}
+                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                                      aria-label={`Excluir ${product.name}`}
+                                    >
+                                      {isDeleting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -1263,368 +1722,9 @@ const productsByCategory = useMemo(() => {
           )}
         </section>
 
-        <section className="space-y-4">
-          {sortedCategories.map((category) => {
-            const categoryProducts = productsByCategory.get(category.id) ?? []
-
-            if (categoryFilter !== "all" && categoryFilter !== category.id) {
-              return null
-            }
-
-            if (categoryProducts.length === 0 && search.trim()) {
-              return null
-            }
-
-            return (
-              <div
-                key={category.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-              >
-                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-black uppercase tracking-wide text-slate-950">
-                        {category.name}
-                      </h3>
-
-                      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-600">
-                        {categoryProducts.length}
-                      </span>
-
-                      {!category.active && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
-                          Inativa
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      Produtos do cardápio. Abra os detalhes para ver financeiro e promoção.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => openCreateProductSheet(category.id)}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Produto nessa categoria
-                  </button>
-                </div>
-
-                {categoryProducts.length === 0 ? (
-                  <div className="p-4">
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                      <p className="text-sm font-bold text-slate-700">
-                        Nenhum produto nessa categoria
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Adicione produtos para montar o cardápio.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    {categoryProducts.map((product) => {
-                      const baseProfit = getProfit(product.price, product.cost)
-                      const baseMargin = getMargin(product.price, product.cost)
-                      const promotionDiscount = getPromotionDiscount(product)
-                      const finalPrice = getPromotionalPrice(product)
-                      const salePrice = product.promotionActive ? finalPrice : product.price
-                      const finalProfit = getProfit(salePrice, product.cost)
-                      const finalMargin = getMargin(salePrice, product.cost)
-                      const isSaving = savingProductId === product.id
-                      const isDeleting = deletingId === product.id
-                      const isExpanded = expandedProductId === product.id
-
-                      return (
-                        <div
-                          key={product.id}
-                          className="border-b border-slate-100 last:border-b-0"
-                        >
-                          <div className="grid gap-4 px-4 py-4 transition hover:bg-slate-50/70 xl:grid-cols-[minmax(0,1.6fr)_150px_140px_260px] xl:items-center">
-                            <div className="flex min-w-0 gap-3">
-                              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-                                {product.image ? (
-                                  <img
-                                    src={product.image}
-                                    alt={product.name}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <ImageOff className="h-5 w-5 text-slate-400" />
-                                )}
-                              </div>
-
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate text-sm font-black text-slate-950">
-                                    {product.name}
-                                  </p>
-
-                                  {product.promotionActive && (
-                                    <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-black text-orange-700">
-                                      Promoção
-                                    </span>
-                                  )}
-
-                                  {!product.active && (
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
-                                      Inativo
-                                    </span>
-                                  )}
-
-                                  {!hasRegisteredCost(product) && (
-                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
-                                      Sem custo
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p className="mt-1 line-clamp-2 text-sm text-slate-500">
-                                  {product.description || "Sem descrição cadastrada."}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div>
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                Preço no cardápio
-                              </p>
-
-                              {product.promotionActive ? (
-                                <div className="mt-1">
-                                  <p className="text-sm font-black text-emerald-600">
-                                    {formatCurrency(finalPrice)}
-                                  </p>
-                                  <p className="text-xs font-semibold text-slate-400 line-through">
-                                    {formatCurrency(product.price)}
-                                  </p>
-                                </div>
-                              ) : (
-                                <p className="mt-1 text-sm font-black text-slate-950">
-                                  {formatCurrency(product.price)}
-                                </p>
-                              )}
-                            </div>
-
-                            <div>
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                Status
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => void toggleProductActive(product.id)}
-                                disabled={isSaving}
-                                className={cn(
-                                  "mt-1 inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-bold transition disabled:opacity-50",
-                                  product.active
-                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                )}
-                              >
-                                {isSaving ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : product.active ? (
-                                  <Eye className="h-3.5 w-3.5" />
-                                ) : (
-                                  <EyeOff className="h-3.5 w-3.5" />
-                                )}
-                                {product.active ? "Ativo" : "Inativo"}
-                              </button>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedProductId((current) =>
-                                    current === product.id ? null : product.id
-                                  )
-                                }
-                                className={cn(
-                                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition",
-                                  isExpanded
-                                    ? "border-blue-200 bg-blue-50 text-blue-700"
-                                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-                                )}
-                              >
-                                {isExpanded ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                                Detalhes
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => openEditProductSheet(product.id)}
-                                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                                Editar
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => void deleteProduct(product.id)}
-                                disabled={isDeleting}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
-                              >
-                                {isDeleting ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4">
-                              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                  <p className="text-sm font-black text-slate-950">
-                                    Resumo financeiro do produto
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    Aqui ficam custo, lucro, margem e promoção sem poluir a lista.
-                                  </p>
-                                </div>
-
-                                <span
-                                  className={cn(
-                                    "inline-flex w-fit rounded-full px-3 py-1 text-xs font-black",
-                                    product.promotionActive
-                                      ? "bg-orange-100 text-orange-700"
-                                      : "bg-slate-100 text-slate-500"
-                                  )}
-                                >
-                                  {getPromotionLabel(product)}
-                                </span>
-                              </div>
-
-                              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Preço base
-                                  </p>
-                                  <p className="mt-1 text-lg font-black text-slate-950">
-                                    {formatCurrency(product.price)}
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Custo
-                                  </p>
-                                  <p className="mt-1 text-lg font-black text-slate-950">
-                                    {formatCurrency(product.cost)}
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Desconto
-                                  </p>
-                                  <p className="mt-1 text-lg font-black text-orange-600">
-                                    {formatCurrency(promotionDiscount)}
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Preço final
-                                  </p>
-                                  <p className="mt-1 text-lg font-black text-emerald-600">
-                                    {formatCurrency(salePrice)}
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Lucro base
-                                  </p>
-                                  <p
-                                    className={cn(
-                                      "mt-1 text-lg font-black",
-                                      baseProfit >= 0 ? "text-emerald-600" : "text-red-600"
-                                    )}
-                                  >
-                                    {formatCurrency(baseProfit)}
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Lucro final
-                                  </p>
-                                  <p
-                                    className={cn(
-                                      "mt-1 text-lg font-black",
-                                      finalProfit >= 0 ? "text-emerald-600" : "text-red-600"
-                                    )}
-                                  >
-                                    {formatCurrency(finalProfit)}
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Margem base
-                                  </p>
-                                  <p
-                                    className={cn(
-                                      "mt-1 text-lg font-black",
-                                      baseMargin >= 20 ? "text-emerald-600" : "text-amber-600"
-                                    )}
-                                  >
-                                    {baseMargin.toFixed(1)}%
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    Margem final
-                                  </p>
-                                  <p
-                                    className={cn(
-                                      "mt-1 text-lg font-black",
-                                      finalMargin >= 20 ? "text-emerald-600" : "text-amber-600"
-                                    )}
-                                  >
-                                    {finalMargin.toFixed(1)}%
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          {filteredProducts.length === 0 && products.length > 0 && (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">
-              <p className="text-sm font-bold text-slate-700">
-                Nenhum produto encontrado
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Ajuste a busca ou os filtros para ver os produtos.
-              </p>
-            </div>
-          )}
-        </section>
-
         {categoryModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                 <div>
                   <h2 className="text-base font-black text-slate-950">
@@ -1633,14 +1733,14 @@ const productsByCategory = useMemo(() => {
                       : "Editar categoria"}
                   </h2>
                   <p className="text-sm text-slate-500">
-                    Organize os produtos do cardápio.
+                    Organize a estrutura do cardápio.
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={closeCategoryModal}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1648,19 +1748,19 @@ const productsByCategory = useMemo(() => {
 
               <div className="space-y-4 px-5 py-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                  <label className="mb-1.5 block text-sm font-black text-slate-700">
                     Nome da categoria
                   </label>
                   <input
                     value={categoryName}
                     onChange={(event) => setCategoryName(event.target.value)}
                     placeholder="Ex: Lanches"
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                  <label className="mb-1.5 block text-sm font-black text-slate-700">
                     Status
                   </label>
 
@@ -1669,7 +1769,7 @@ const productsByCategory = useMemo(() => {
                       type="button"
                       onClick={() => setCategoryActive(true)}
                       className={cn(
-                        "h-10 rounded-lg border text-sm font-bold transition",
+                        "h-10 rounded-xl border text-sm font-black transition",
                         categoryActive
                           ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                           : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
@@ -1682,7 +1782,7 @@ const productsByCategory = useMemo(() => {
                       type="button"
                       onClick={() => setCategoryActive(false)}
                       className={cn(
-                        "h-10 rounded-lg border text-sm font-bold transition",
+                        "h-10 rounded-xl border text-sm font-black transition",
                         !categoryActive
                           ? "border-amber-300 bg-amber-50 text-amber-700"
                           : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
@@ -1698,7 +1798,7 @@ const productsByCategory = useMemo(() => {
                 <button
                   type="button"
                   onClick={closeCategoryModal}
-                  className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                  className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-100"
                 >
                   Cancelar
                 </button>
@@ -1707,12 +1807,110 @@ const productsByCategory = useMemo(() => {
                   type="button"
                   onClick={() => void saveCategory()}
                   disabled={!categoryName.trim() || savingCategory}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {savingCategory && (
+                  {savingCategory && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {categoryOrderModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <div>
+                  <h2 className="text-base font-black text-slate-950">
+                    Organizar categorias
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Arraste as categorias para definir a hierarquia do cardápio público.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeCategoryOrderModal}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="space-y-2">
+                  {categoryOrderDraft.map((category, index) => {
+                    const isDragging = draggedCategoryId === category.id
+
+                    return (
+                      <div
+                        key={category.id}
+                        draggable
+                        onDragStart={() => handleCategoryDragStart(category.id)}
+                        onDragOver={(event) =>
+                          handleCategoryDragOver(event, category.id)
+                        }
+                        onDragEnd={handleCategoryDragEnd}
+                        className={cn(
+                          "flex cursor-grab items-center gap-3 rounded-xl border bg-white p-3 transition active:cursor-grabbing",
+                          isDragging
+                            ? "border-blue-300 bg-blue-50 opacity-70 shadow-md ring-2 ring-blue-500/10"
+                            : "border-slate-200 hover:border-blue-200 hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                          <GripVertical className="h-4 w-4" />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-400">
+                              {index + 1}.
+                            </span>
+                            <p className="truncate text-sm font-black text-slate-900">
+                              {category.name}
+                            </p>
+                          </div>
+                          <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                            {
+                              products.filter(
+                                (product) => product.category === category.id
+                              ).length
+                            }{" "}
+                            produto(s)
+                          </p>
+                        </div>
+
+                        <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500 sm:inline-flex">
+                          Arraste
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <button
+                  type="button"
+                  onClick={closeCategoryOrderModal}
+                  className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void saveCategoryOrder()}
+                  disabled={savingCategoryOrder}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingCategoryOrder && (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   )}
-                  Salvar
+                  Salvar ordem
                 </button>
               </div>
             </div>

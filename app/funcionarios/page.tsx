@@ -1,17 +1,23 @@
 "use client"
 
-import { FormEvent, useEffect, useMemo, useState } from "react"
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react"
 import {
   Banknote,
+  Bus,
+  Calculator,
   CheckCircle2,
+  Landmark,
   Loader2,
   Pencil,
   Plus,
   Power,
   RefreshCcw,
   Search,
+  ShieldCheck,
+  Trash2,
   UserPlus,
   UsersRound,
+  Wallet,
   X,
 } from "lucide-react"
 import AdminLayout from "@/components/admin-layout"
@@ -25,6 +31,28 @@ type WorkerType = "fixed" | "freelancer"
 type StaffStatus = "active" | "inactive"
 type PaymentStatus = "pending" | "paid"
 type PaymentType = "salary" | "daily" | "bonus" | "advance" | "other"
+type PayrollComponent =
+  | "salary"
+  | "fgts"
+  | "charges"
+  | "transport"
+  | "daily"
+  | "bonus"
+  | "advance"
+  | "other"
+
+type StaffPayrollConfig = {
+  fgtsPercent: number
+  companyInssPercent: number
+  ratPercent: number
+  thirdPartyPercent: number
+  transportValuePerDay: number
+  transportDays: number
+  transportDiscountPercent: number
+  mealBenefit: number
+  insalubrityPercent: number
+  insalubrityBase: number
+}
 
 type StaffMember = {
   id: string
@@ -61,8 +89,24 @@ type StaffPayment = {
   accounts_payable_id: string | null
 }
 
+const PAYROLL_CONFIG_PREFIX = "__CLICKFOOD_PAYROLL_CONFIG__:"
+const PAYMENT_COMPONENT_PREFIX = "CF_PAYROLL_COMPONENT:"
+
+const defaultPayrollConfig: StaffPayrollConfig = {
+  fgtsPercent: 8,
+  companyInssPercent: 20,
+  ratPercent: 2,
+  thirdPartyPercent: 5.8,
+  transportValuePerDay: 0,
+  transportDays: 26,
+  transportDiscountPercent: 6,
+  mealBenefit: 0,
+  insalubrityPercent: 0,
+  insalubrityBase: 0,
+}
+
 const workerTypeLabels: Record<string, string> = {
-  fixed: "Fixo",
+  fixed: "CLT",
   freelancer: "Freelancer",
 }
 
@@ -71,8 +115,11 @@ const statusLabels: Record<string, string> = {
   inactive: "Inativo",
 }
 
-const paymentTypeLabels: Record<string, string> = {
+const componentLabels: Record<PayrollComponent, string> = {
   salary: "Salário",
+  fgts: "FGTS",
+  charges: "INSS / Encargos",
+  transport: "Passagem / Benefícios",
   daily: "Diária",
   bonus: "Bônus",
   advance: "Adiantamento",
@@ -111,6 +158,23 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function getMonthEndDate(referenceMonth: string) {
+  const date = new Date(`${referenceMonth}-01T00:00:00`)
+  date.setMonth(date.getMonth() + 1)
+  date.setDate(0)
+
+  return date.toISOString().slice(0, 10)
+}
+
+function getReferenceMonthLabel(referenceMonthDate: string | null) {
+  if (!referenceMonthDate) return "Sem competência"
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(`${referenceMonthDate.slice(0, 10)}T00:00:00`))
+}
+
 function toNumber(value: unknown) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -118,6 +182,210 @@ function toNumber(value: unknown) {
 
 function normalizePhone(value: string) {
   return value.replace(/\D/g, "")
+}
+
+function normalizePayrollConfig(
+  value: Partial<StaffPayrollConfig> | null | undefined,
+) {
+  return {
+    fgtsPercent: toNumber(value?.fgtsPercent ?? defaultPayrollConfig.fgtsPercent),
+    companyInssPercent: toNumber(
+      value?.companyInssPercent ?? defaultPayrollConfig.companyInssPercent,
+    ),
+    ratPercent: toNumber(value?.ratPercent ?? defaultPayrollConfig.ratPercent),
+    thirdPartyPercent: toNumber(
+      value?.thirdPartyPercent ?? defaultPayrollConfig.thirdPartyPercent,
+    ),
+    transportValuePerDay: toNumber(
+      value?.transportValuePerDay ?? defaultPayrollConfig.transportValuePerDay,
+    ),
+    transportDays: toNumber(
+      value?.transportDays ?? defaultPayrollConfig.transportDays,
+    ),
+    transportDiscountPercent: toNumber(
+      value?.transportDiscountPercent ??
+        defaultPayrollConfig.transportDiscountPercent,
+    ),
+    mealBenefit: toNumber(value?.mealBenefit ?? defaultPayrollConfig.mealBenefit),
+    insalubrityPercent: toNumber(
+      value?.insalubrityPercent ?? defaultPayrollConfig.insalubrityPercent,
+    ),
+    insalubrityBase: toNumber(
+      value?.insalubrityBase ?? defaultPayrollConfig.insalubrityBase,
+    ),
+  }
+}
+
+function parseStoredNotes(value: string | null | undefined) {
+  if (!value) {
+    return {
+      publicNotes: "",
+      payrollConfig: defaultPayrollConfig,
+    }
+  }
+
+  const markerIndex = value.indexOf(PAYROLL_CONFIG_PREFIX)
+
+  if (markerIndex === -1) {
+    return {
+      publicNotes: value.trim(),
+      payrollConfig: defaultPayrollConfig,
+    }
+  }
+
+  const publicNotes = value.slice(0, markerIndex).trim()
+  const rawConfig = value.slice(markerIndex + PAYROLL_CONFIG_PREFIX.length).trim()
+
+  try {
+    return {
+      publicNotes,
+      payrollConfig: normalizePayrollConfig(JSON.parse(rawConfig)),
+    }
+  } catch {
+    return {
+      publicNotes,
+      payrollConfig: defaultPayrollConfig,
+    }
+  }
+}
+
+function buildStoredNotes(publicNotes: string, payrollConfig: StaffPayrollConfig) {
+  const cleanNotes = publicNotes.trim()
+  const configText = `${PAYROLL_CONFIG_PREFIX}${JSON.stringify(payrollConfig)}`
+
+  return cleanNotes ? `${cleanNotes}\n\n${configText}` : configText
+}
+
+function buildPaymentNotes(
+  component: PayrollComponent,
+  notesValue?: string | null,
+) {
+  const cleanNotes = notesValue?.trim()
+
+  return cleanNotes
+    ? `${PAYMENT_COMPONENT_PREFIX}${component}\n${cleanNotes}`
+    : `${PAYMENT_COMPONENT_PREFIX}${component}`
+}
+
+function getPaymentComponent(
+  payment: Pick<StaffPayment, "payment_type" | "notes">,
+) {
+  const notes = payment.notes || ""
+  const markerIndex = notes.indexOf(PAYMENT_COMPONENT_PREFIX)
+
+  if (markerIndex >= 0) {
+    const component = notes
+      .slice(markerIndex + PAYMENT_COMPONENT_PREFIX.length)
+      .split("\n")[0]
+      .trim()
+
+    if (component in componentLabels) {
+      return component as PayrollComponent
+    }
+  }
+
+  if (payment.payment_type === "salary") return "salary"
+  if (payment.payment_type === "daily") return "daily"
+  if (payment.payment_type === "bonus") return "bonus"
+  if (payment.payment_type === "advance") return "advance"
+
+  return "other"
+}
+
+function paymentTypeFromComponent(component: PayrollComponent): PaymentType {
+  if (component === "salary") return "salary"
+  if (component === "daily") return "daily"
+  if (component === "bonus") return "bonus"
+  if (component === "advance") return "advance"
+
+  return "other"
+}
+
+function getPaymentCategory(component: PayrollComponent, member?: StaffMember) {
+  if (component === "salary") return "Funcionários / Salários"
+  if (component === "fgts") return "Funcionários / FGTS"
+  if (component === "charges") return "Funcionários / INSS e Encargos"
+  if (component === "transport") return "Funcionários / Passagem e Benefícios"
+  if (component === "daily") return "Funcionários / Freelancers"
+  if (component === "advance") return "Funcionários / Adiantamentos"
+  if (component === "bonus") return "Funcionários / Bônus"
+
+  return member?.worker_type === "freelancer"
+    ? "Funcionários / Freelancers"
+    : "Funcionários / Outros"
+}
+
+function getPaymentDescription(
+  component: PayrollComponent,
+  member: StaffMember,
+  referenceMonthDate: string | null,
+) {
+  const reference = getReferenceMonthLabel(referenceMonthDate)
+  return `${componentLabels[component]} - ${member.name} - ${reference}`
+}
+
+function calculatePayroll(params: {
+  monthlySalary: number
+  payrollConfig: StaffPayrollConfig
+}) {
+  const monthlySalary = toNumber(params.monthlySalary)
+  const config = normalizePayrollConfig(params.payrollConfig)
+
+  const insalubrityAmount =
+    (toNumber(config.insalubrityBase) * toNumber(config.insalubrityPercent)) /
+    100
+  const salaryWithAdditional = monthlySalary + insalubrityAmount
+
+  const fgts = (salaryWithAdditional * toNumber(config.fgtsPercent)) / 100
+  const companyInss =
+    (salaryWithAdditional * toNumber(config.companyInssPercent)) / 100
+  const rat = (salaryWithAdditional * toNumber(config.ratPercent)) / 100
+  const thirdParty =
+    (salaryWithAdditional * toNumber(config.thirdPartyPercent)) / 100
+  const charges = companyInss + rat + thirdParty
+
+  const transportGross =
+    toNumber(config.transportValuePerDay) * toNumber(config.transportDays)
+  const transportEmployeeDiscount =
+    (monthlySalary * toNumber(config.transportDiscountPercent)) / 100
+  const transportCompany = Math.max(transportGross - transportEmployeeDiscount, 0)
+  const benefits = transportCompany + toNumber(config.mealBenefit)
+
+  const thirteenthProvision = salaryWithAdditional / 12
+  const vacationProvision = salaryWithAdditional / 12
+  const vacationThirdProvision = salaryWithAdditional / 36
+  const provisions =
+    thirteenthProvision + vacationProvision + vacationThirdProvision
+
+  const companyCostWithoutProvisions =
+    salaryWithAdditional + fgts + charges + benefits
+  const companyCostWithProvisions = companyCostWithoutProvisions + provisions
+
+  return {
+    monthlySalary,
+    insalubrityAmount,
+    salaryWithAdditional,
+    fgts,
+    companyInss,
+    rat,
+    thirdParty,
+    charges,
+    transportGross,
+    transportEmployeeDiscount,
+    transportCompany,
+    mealBenefit: toNumber(config.mealBenefit),
+    benefits,
+    thirteenthProvision,
+    vacationProvision,
+    vacationThirdProvision,
+    provisions,
+    companyCostWithoutProvisions,
+    companyCostWithProvisions,
+  }
+}
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 export default function FuncionariosPage() {
@@ -131,8 +399,11 @@ export default function FuncionariosPage() {
   const [savingStaff, setSavingStaff] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
   const [generatingPayroll, setGeneratingPayroll] = useState(false)
+  const [markingAllPaid, setMarkingAllPaid] = useState(false)
+  const [deletingStaff, setDeletingStaff] = useState(false)
 
   const [search, setSearch] = useState("")
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
 
   const [showStaffForm, setShowStaffForm] = useState(false)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
@@ -148,8 +419,32 @@ export default function FuncionariosPage() {
   const [pixKey, setPixKey] = useState("")
   const [notes, setNotes] = useState("")
 
+  const [fgtsPercent, setFgtsPercent] = useState(
+    String(defaultPayrollConfig.fgtsPercent),
+  )
+  const [companyInssPercent, setCompanyInssPercent] = useState(
+    String(defaultPayrollConfig.companyInssPercent),
+  )
+  const [ratPercent, setRatPercent] = useState(
+    String(defaultPayrollConfig.ratPercent),
+  )
+  const [thirdPartyPercent, setThirdPartyPercent] = useState(
+    String(defaultPayrollConfig.thirdPartyPercent),
+  )
+  const [transportValuePerDay, setTransportValuePerDay] = useState("")
+  const [transportDays, setTransportDays] = useState(
+    String(defaultPayrollConfig.transportDays),
+  )
+  const [transportDiscountPercent, setTransportDiscountPercent] = useState(
+    String(defaultPayrollConfig.transportDiscountPercent),
+  )
+  const [mealBenefit, setMealBenefit] = useState("")
+  const [insalubrityPercent, setInsalubrityPercent] = useState("0")
+  const [insalubrityBase, setInsalubrityBase] = useState("")
+
   const [paymentStaffId, setPaymentStaffId] = useState("")
-  const [paymentType, setPaymentType] = useState<PaymentType>("salary")
+  const [paymentComponent, setPaymentComponent] =
+    useState<PayrollComponent>("salary")
   const [paymentAmount, setPaymentAmount] = useState("")
   const [paymentReferenceMonth, setPaymentReferenceMonth] = useState(
     currentMonthReference(),
@@ -157,6 +452,39 @@ export default function FuncionariosPage() {
   const [paymentMethod, setPaymentMethod] = useState("pix")
   const [paymentNotes, setPaymentNotes] = useState("")
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending")
+
+  const staffFormPayrollConfig = useMemo(() => {
+    return normalizePayrollConfig({
+      fgtsPercent: toNumber(fgtsPercent),
+      companyInssPercent: toNumber(companyInssPercent),
+      ratPercent: toNumber(ratPercent),
+      thirdPartyPercent: toNumber(thirdPartyPercent),
+      transportValuePerDay: toNumber(transportValuePerDay),
+      transportDays: toNumber(transportDays),
+      transportDiscountPercent: toNumber(transportDiscountPercent),
+      mealBenefit: toNumber(mealBenefit),
+      insalubrityPercent: toNumber(insalubrityPercent),
+      insalubrityBase: toNumber(insalubrityBase),
+    })
+  }, [
+    companyInssPercent,
+    fgtsPercent,
+    insalubrityBase,
+    insalubrityPercent,
+    mealBenefit,
+    ratPercent,
+    thirdPartyPercent,
+    transportDays,
+    transportDiscountPercent,
+    transportValuePerDay,
+  ])
+
+  const staffFormCalculation = useMemo(() => {
+    return calculatePayroll({
+      monthlySalary: toNumber(monthlySalary),
+      payrollConfig: staffFormPayrollConfig,
+    })
+  }, [monthlySalary, staffFormPayrollConfig])
 
   const activeStaffMembers = useMemo(() => {
     return staffMembers.filter((member) => member.status === "active")
@@ -167,6 +495,22 @@ export default function FuncionariosPage() {
       acc[member.id] = member
       return acc
     }, {})
+  }, [staffMembers])
+
+  const staffCostPreviewById = useMemo(() => {
+    return staffMembers.reduce<Record<string, ReturnType<typeof calculatePayroll>>>(
+      (acc, member) => {
+        const { payrollConfig } = parseStoredNotes(member.notes)
+
+        acc[member.id] = calculatePayroll({
+          monthlySalary: toNumber(member.monthly_salary),
+          payrollConfig,
+        })
+
+        return acc
+      },
+      {},
+    )
   }, [staffMembers])
 
   const filteredStaffMembers = useMemo(() => {
@@ -183,13 +527,32 @@ export default function FuncionariosPage() {
     })
   }, [search, staffMembers])
 
-  const pendingPayments = useMemo(() => {
-    return payments.filter((payment) => payment.status === "pending")
+  const currentMonthPayments = useMemo(() => {
+    return payments.filter((payment) => {
+      return payment.reference_month?.slice(0, 7) === currentMonthReference()
+    })
   }, [payments])
 
-  const paidPayments = useMemo(() => {
-    return payments.filter((payment) => payment.status === "paid")
-  }, [payments])
+  const pendingPayments = useMemo(() => {
+    return currentMonthPayments.filter((payment) => payment.status === "pending")
+  }, [currentMonthPayments])
+
+  const selectedStaff = selectedStaffId ? staffById[selectedStaffId] : null
+
+  const selectedStaffPayments = useMemo(() => {
+    if (!selectedStaffId) return []
+
+    return currentMonthPayments.filter(
+      (payment) => payment.staff_id === selectedStaffId,
+    )
+  }, [currentMonthPayments, selectedStaffId])
+
+  const selectedStaffPendingTotal = useMemo(() => {
+    return selectedStaffPayments.reduce((acc, payment) => {
+      if (payment.status === "pending") return acc + toNumber(payment.amount)
+      return acc
+    }, 0)
+  }, [selectedStaffPayments])
 
   const totals = useMemo(() => {
     const monthStart = `${currentMonthReference()}-01`
@@ -198,29 +561,14 @@ export default function FuncionariosPage() {
     nextMonth.setMonth(nextMonth.getMonth() + 1)
     const nextMonthStart = nextMonth.toISOString().slice(0, 10)
 
-    const fixedPayroll = staffMembers.reduce((acc, member) => {
-      if (member.status === "active" && member.worker_type === "fixed") {
-        return acc + toNumber(member.monthly_salary)
-      }
-
-      return acc
-    }, 0)
-
-    const pendingTotal = payments.reduce((acc, payment) => {
-      if (payment.status === "pending") {
-        return acc + toNumber(payment.amount)
-      }
-
-      return acc
-    }, 0)
-
-    const freelancerPending = payments.reduce((acc, payment) => {
-      if (payment.status === "pending" && payment.payment_type === "daily") {
-        return acc + toNumber(payment.amount)
-      }
-
-      return acc
-    }, 0)
+    const pendingByComponent = pendingPayments.reduce(
+      (acc, payment) => {
+        const component = getPaymentComponent(payment)
+        acc[component] = (acc[component] || 0) + toNumber(payment.amount)
+        return acc
+      },
+      {} as Record<PayrollComponent, number>,
+    )
 
     const paidThisMonth = payments.reduce((acc, payment) => {
       const paidAt = payment.paid_at?.slice(0, 10)
@@ -237,15 +585,37 @@ export default function FuncionariosPage() {
       return acc
     }, 0)
 
+    const provisionsEstimated = staffMembers.reduce((acc, member) => {
+      if (member.status === "active" && member.worker_type === "fixed") {
+        return acc + (staffCostPreviewById[member.id]?.provisions || 0)
+      }
+
+      return acc
+    }, 0)
+
+    const pendingTotal = pendingPayments.reduce((acc, payment) => {
+      return acc + toNumber(payment.amount)
+    }, 0)
+
     return {
       activeCount: staffMembers.filter((member) => member.status === "active")
         .length,
-      fixedPayroll,
-      freelancerPending,
+      salaryPending: pendingByComponent.salary || 0,
+      fgtsPending: pendingByComponent.fgts || 0,
+      chargesPending: pendingByComponent.charges || 0,
+      transportPending: pendingByComponent.transport || 0,
+      freelancerPending: pendingByComponent.daily || 0,
+      provisionsEstimated,
       pendingTotal,
       paidThisMonth,
     }
-  }, [payments, staffMembers])
+  }, [payments, pendingPayments, staffCostPreviewById, staffMembers])
+
+  useEffect(() => {
+    if (selectedStaffId && !staffById[selectedStaffId]) {
+      setSelectedStaffId(null)
+    }
+  }, [selectedStaffId, staffById])
 
   async function loadData() {
     try {
@@ -284,7 +654,7 @@ export default function FuncionariosPage() {
           .select("*")
           .eq("restaurant_id", restaurant.id)
           .order("created_at", { ascending: false })
-          .limit(80),
+          .limit(200),
       ])
 
       if (staffResponse.error) throw staffResponse.error
@@ -332,6 +702,18 @@ export default function FuncionariosPage() {
     setPixKeyType("")
     setPixKey("")
     setNotes("")
+    setFgtsPercent(String(defaultPayrollConfig.fgtsPercent))
+    setCompanyInssPercent(String(defaultPayrollConfig.companyInssPercent))
+    setRatPercent(String(defaultPayrollConfig.ratPercent))
+    setThirdPartyPercent(String(defaultPayrollConfig.thirdPartyPercent))
+    setTransportValuePerDay("")
+    setTransportDays(String(defaultPayrollConfig.transportDays))
+    setTransportDiscountPercent(
+      String(defaultPayrollConfig.transportDiscountPercent),
+    )
+    setMealBenefit("")
+    setInsalubrityPercent("0")
+    setInsalubrityBase("")
   }
 
   function closeStaffForm() {
@@ -341,7 +723,7 @@ export default function FuncionariosPage() {
 
   function resetPaymentForm() {
     setPaymentStaffId("")
-    setPaymentType("salary")
+    setPaymentComponent("salary")
     setPaymentAmount("")
     setPaymentReferenceMonth(currentMonthReference())
     setPaymentMethod("pix")
@@ -360,6 +742,9 @@ export default function FuncionariosPage() {
   }
 
   function handleEditStaff(member: StaffMember) {
+    const parsedNotes = parseStoredNotes(member.notes)
+    const config = parsedNotes.payrollConfig
+
     setEditingStaffId(member.id)
     setName(member.name)
     setPhone(member.phone || "")
@@ -377,19 +762,34 @@ export default function FuncionariosPage() {
     )
     setPixKeyType(member.pix_key_type || "")
     setPixKey(member.pix_key || "")
-    setNotes(member.notes || "")
+    setNotes(parsedNotes.publicNotes)
+    setFgtsPercent(String(config.fgtsPercent))
+    setCompanyInssPercent(String(config.companyInssPercent))
+    setRatPercent(String(config.ratPercent))
+    setThirdPartyPercent(String(config.thirdPartyPercent))
+    setTransportValuePerDay(
+      config.transportValuePerDay ? String(config.transportValuePerDay) : "",
+    )
+    setTransportDays(String(config.transportDays))
+    setTransportDiscountPercent(String(config.transportDiscountPercent))
+    setMealBenefit(config.mealBenefit ? String(config.mealBenefit) : "")
+    setInsalubrityPercent(String(config.insalubrityPercent))
+    setInsalubrityBase(
+      config.insalubrityBase ? String(config.insalubrityBase) : "",
+    )
     setShowStaffForm(true)
   }
 
   function fillPaymentFromStaff(member: StaffMember) {
     const isFreelancer = member.worker_type === "freelancer"
+    const calculation = staffCostPreviewById[member.id]
 
     setPaymentStaffId(member.id)
-    setPaymentType(isFreelancer ? "daily" : "salary")
+    setPaymentComponent(isFreelancer ? "daily" : "salary")
     setPaymentAmount(
       isFreelancer
         ? String(member.daily_rate || "")
-        : String(member.monthly_salary || ""),
+        : String(calculation?.salaryWithAdditional || member.monthly_salary || ""),
     )
     setPaymentReferenceMonth(currentMonthReference())
     setPaymentStatus("pending")
@@ -398,60 +798,10 @@ export default function FuncionariosPage() {
     setShowPaymentForm(true)
   }
 
-  function getPaymentCategory(
-    paymentTypeValue: PaymentType | string,
-    member: StaffMember,
-  ) {
-    if (paymentTypeValue === "salary") return "Funcionários / Fixos"
-    if (paymentTypeValue === "daily") return "Funcionários / Freelancers"
-    if (paymentTypeValue === "advance") return "Funcionários / Adiantamentos"
-    if (paymentTypeValue === "bonus") return "Funcionários / Bônus"
-
-    return member.worker_type === "freelancer"
-      ? "Funcionários / Freelancers"
-      : "Funcionários / Outros"
-  }
-
-  function getPaymentCategoryLabel(payment: StaffPayment) {
-    if (payment.payment_type === "salary") return "Funcionários / Fixos"
-    if (payment.payment_type === "daily") return "Funcionários / Freelancers"
-    if (payment.payment_type === "advance") return "Funcionários / Adiantamentos"
-    if (payment.payment_type === "bonus") return "Funcionários / Bônus"
-
-    return "Funcionários / Outros"
-  }
-
-  function getPaymentDescription(
-    paymentTypeValue: PaymentType | string,
-    member: StaffMember,
-    referenceMonthDate: string | null,
-  ) {
-    const label = paymentTypeLabels[paymentTypeValue] || "Pagamento"
-
-    const reference = referenceMonthDate
-      ? new Intl.DateTimeFormat("pt-BR", {
-          month: "2-digit",
-          year: "numeric",
-        }).format(new Date(`${referenceMonthDate}T00:00:00`))
-      : null
-
-    return reference
-      ? `${label} - ${member.name} - ${reference}`
-      : `${label} - ${member.name}`
-  }
-
-  function getMonthEndDate(referenceMonth: string) {
-    const date = new Date(`${referenceMonth}-01T00:00:00`)
-    date.setMonth(date.getMonth() + 1)
-    date.setDate(0)
-
-    return date.toISOString().slice(0, 10)
-  }
-
   async function createLinkedAccountsPayable(params: {
     paymentId: string
     member: StaffMember
-    paymentTypeValue: PaymentType | string
+    component: PayrollComponent
     referenceMonthDate: string | null
     amount: number
     status: PaymentStatus | string
@@ -462,7 +812,7 @@ export default function FuncionariosPage() {
     const {
       paymentId,
       member,
-      paymentTypeValue,
+      component,
       referenceMonthDate,
       amount,
       status,
@@ -475,12 +825,8 @@ export default function FuncionariosPage() {
       .from("accounts_payable")
       .insert({
         restaurant_id: member.restaurant_id,
-        description: getPaymentDescription(
-          paymentTypeValue,
-          member,
-          referenceMonthDate,
-        ),
-        category: getPaymentCategory(paymentTypeValue, member),
+        description: getPaymentDescription(component, member, referenceMonthDate),
+        category: getPaymentCategory(component, member),
         amount,
         due_date: dueDate,
         status,
@@ -504,6 +850,206 @@ export default function FuncionariosPage() {
       .eq("id", paymentId)
 
     if (updatePaymentError) throw updatePaymentError
+  }
+
+  async function updateLinkedAccountsPayable(params: {
+    payment: StaffPayment
+    member: StaffMember
+    component: PayrollComponent
+    referenceMonthDate: string | null
+    amount: number
+    notesValue: string | null
+    dueDate: string
+  }) {
+    const {
+      payment,
+      member,
+      component,
+      referenceMonthDate,
+      amount,
+      notesValue,
+      dueDate,
+    } = params
+
+    if (!payment.accounts_payable_id) {
+      await createLinkedAccountsPayable({
+        paymentId: payment.id,
+        member,
+        component,
+        referenceMonthDate,
+        amount,
+        status: payment.status,
+        paymentMethodValue: payment.payment_method,
+        notesValue,
+        dueDate,
+      })
+      return
+    }
+
+    const { error } = await supabase
+      .from("accounts_payable")
+      .update({
+        description: getPaymentDescription(component, member, referenceMonthDate),
+        category: getPaymentCategory(component, member),
+        amount,
+        due_date: dueDate,
+        notes: notesValue,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payment.accounts_payable_id)
+
+    if (error) throw error
+  }
+
+  async function createStaffPayment(params: {
+    member: StaffMember
+    component: PayrollComponent
+    amount: number
+    referenceMonthDate: string
+    dueDate: string
+    notesValue: string
+  }) {
+    const { member, component, amount, referenceMonthDate, dueDate, notesValue } =
+      params
+    const paymentType = paymentTypeFromComponent(component)
+    const notesWithComponent = buildPaymentNotes(component, notesValue)
+
+    const { data: createdPayment, error: paymentError } = await supabase
+      .from("staff_payments")
+      .insert({
+        restaurant_id: member.restaurant_id,
+        staff_id: member.id,
+        payment_type: paymentType,
+        reference_month: referenceMonthDate,
+        amount: roundMoney(amount),
+        status: "pending",
+        paid_at: null,
+        payment_method: null,
+        payment_reference: null,
+        notes: notesWithComponent,
+      })
+      .select("id")
+      .single()
+
+    if (paymentError) throw paymentError
+
+    await createLinkedAccountsPayable({
+      paymentId: createdPayment.id,
+      member,
+      component,
+      referenceMonthDate,
+      amount: roundMoney(amount),
+      status: "pending",
+      paymentMethodValue: null,
+      notesValue: notesWithComponent,
+      dueDate,
+    })
+  }
+
+  async function syncStaffPayrollForCurrentMonth(member: StaffMember) {
+    if (!restaurantId) return
+    if (member.worker_type !== "fixed" || toNumber(member.monthly_salary) <= 0)
+      return
+
+    const referenceMonth = currentMonthReference()
+    const referenceMonthDate = `${referenceMonth}-01`
+    const dueDate = getMonthEndDate(referenceMonth)
+    const { payrollConfig } = parseStoredNotes(member.notes)
+    const calculation = calculatePayroll({
+      monthlySalary: toNumber(member.monthly_salary),
+      payrollConfig,
+    })
+
+    const componentsToSync: Array<{
+      component: PayrollComponent
+      amount: number
+      notesValue: string
+    }> = [
+      {
+        component: "salary",
+        amount: calculation.salaryWithAdditional,
+        notesValue:
+          calculation.insalubrityAmount > 0
+            ? "Salário da competência com adicional de insalubridade."
+            : "Salário da competência.",
+      },
+      {
+        component: "fgts",
+        amount: calculation.fgts,
+        notesValue: `FGTS estimado: ${payrollConfig.fgtsPercent}% sobre salário + adicionais.`,
+      },
+      {
+        component: "charges",
+        amount: calculation.charges,
+        notesValue: `Encargos estimados: INSS patronal ${payrollConfig.companyInssPercent}%, RAT ${payrollConfig.ratPercent}% e terceiros ${payrollConfig.thirdPartyPercent}%.`,
+      },
+      {
+        component: "transport",
+        amount: calculation.benefits,
+        notesValue: "Passagem e benefícios da competência.",
+      },
+    ]
+
+    const { data: existingPayments, error: existingError } = await supabase
+      .from("staff_payments")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .eq("staff_id", member.id)
+      .eq("reference_month", referenceMonthDate)
+
+    if (existingError) throw existingError
+
+    const existingByComponent = new Map<PayrollComponent, StaffPayment>()
+
+    ;((existingPayments || []) as StaffPayment[]).forEach((payment) => {
+      existingByComponent.set(getPaymentComponent(payment), {
+        ...payment,
+        amount: toNumber(payment.amount),
+      })
+    })
+
+    for (const item of componentsToSync) {
+      const amount = roundMoney(item.amount)
+      if (amount <= 0) continue
+
+      const existingPayment = existingByComponent.get(item.component)
+      const notesWithComponent = buildPaymentNotes(item.component, item.notesValue)
+
+      if (!existingPayment) {
+        await createStaffPayment({
+          member,
+          component: item.component,
+          amount,
+          referenceMonthDate,
+          dueDate,
+          notesValue: item.notesValue,
+        })
+        continue
+      }
+
+      if (existingPayment.status === "paid") continue
+
+      const { error: updatePaymentError } = await supabase
+        .from("staff_payments")
+        .update({
+          amount,
+          notes: notesWithComponent,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingPayment.id)
+
+      if (updatePaymentError) throw updatePaymentError
+
+      await updateLinkedAccountsPayable({
+        payment: existingPayment,
+        member,
+        component: item.component,
+        referenceMonthDate,
+        amount,
+        notesValue: notesWithComponent,
+        dueDate,
+      })
+    }
   }
 
   async function handleSubmitStaff(event: FormEvent<HTMLFormElement>) {
@@ -537,22 +1083,59 @@ export default function FuncionariosPage() {
         daily_rate: workerType === "freelancer" ? toNumber(dailyRate) : null,
         pix_key_type: pixKeyType.trim() || null,
         pix_key: pixKey.trim() || null,
-        notes: notes.trim() || null,
+        notes:
+          workerType === "fixed"
+            ? buildStoredNotes(notes, staffFormPayrollConfig)
+            : notes.trim() || null,
         status: "active",
         updated_at: new Date().toISOString(),
       }
 
       if (editingStaffId) {
-        const { error } = await supabase
+        const { data: updatedStaff, error } = await supabase
           .from("staff_members")
           .update(payload)
           .eq("id", editingStaffId)
+          .select("*")
+          .single()
 
         if (error) throw error
+
+        await syncStaffPayrollForCurrentMonth({
+          ...updatedStaff,
+          monthly_salary:
+            updatedStaff.monthly_salary === null
+              ? null
+              : toNumber(updatedStaff.monthly_salary),
+          daily_rate:
+            updatedStaff.daily_rate === null
+              ? null
+              : toNumber(updatedStaff.daily_rate),
+        })
+
+        setSelectedStaffId(updatedStaff.id)
       } else {
-        const { error } = await supabase.from("staff_members").insert(payload)
+        const { data: createdStaff, error } = await supabase
+          .from("staff_members")
+          .insert(payload)
+          .select("*")
+          .single()
 
         if (error) throw error
+
+        await syncStaffPayrollForCurrentMonth({
+          ...createdStaff,
+          monthly_salary:
+            createdStaff.monthly_salary === null
+              ? null
+              : toNumber(createdStaff.monthly_salary),
+          daily_rate:
+            createdStaff.daily_rate === null
+              ? null
+              : toNumber(createdStaff.daily_rate),
+        })
+
+        setSelectedStaffId(createdStaff.id)
       }
 
       closeStaffForm()
@@ -584,6 +1167,67 @@ export default function FuncionariosPage() {
     }
   }
 
+  async function deleteStaffMember(member: StaffMember) {
+    const confirmed = window.confirm(
+      `Excluir ${member.name}?\n\nIsso também remove os lançamentos de folha vinculados a essa pessoa.`,
+    )
+
+    if (!confirmed) return
+
+    try {
+      setDeletingStaff(true)
+
+      const { data: memberPayments, error: paymentsError } = await supabase
+        .from("staff_payments")
+        .select("id, accounts_payable_id")
+        .eq("restaurant_id", member.restaurant_id)
+        .eq("staff_id", member.id)
+
+      if (paymentsError) throw paymentsError
+
+      const paymentIds = (memberPayments || []).map((payment) => payment.id)
+      const payableIds = (memberPayments || [])
+        .map((payment) => payment.accounts_payable_id)
+        .filter(Boolean) as string[]
+
+      if (payableIds.length > 0) {
+        const { error: payableError } = await supabase
+          .from("accounts_payable")
+          .delete()
+          .in("id", payableIds)
+
+        if (payableError) throw payableError
+      }
+
+      if (paymentIds.length > 0) {
+        const { error: deletePaymentsError } = await supabase
+          .from("staff_payments")
+          .delete()
+          .in("id", paymentIds)
+
+        if (deletePaymentsError) throw deletePaymentsError
+      }
+
+      const { error: deleteStaffError } = await supabase
+        .from("staff_members")
+        .delete()
+        .eq("id", member.id)
+
+      if (deleteStaffError) throw deleteStaffError
+
+      if (selectedStaffId === member.id) {
+        setSelectedStaffId(null)
+      }
+
+      await loadData()
+    } catch (error: any) {
+      console.error(error)
+      alert(error?.message || "Não foi possível excluir o funcionário.")
+    } finally {
+      setDeletingStaff(false)
+    }
+  }
+
   async function handleSubmitPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -607,9 +1251,9 @@ export default function FuncionariosPage() {
     try {
       setSavingPayment(true)
 
-      const selectedStaff = staffById[paymentStaffId]
+      const selectedMember = staffById[paymentStaffId]
 
-      if (!selectedStaff) {
+      if (!selectedMember) {
         throw new Error("Funcionário não encontrado.")
       }
 
@@ -618,7 +1262,12 @@ export default function FuncionariosPage() {
         : null
       const paidAt = paymentStatus === "paid" ? new Date().toISOString() : null
       const cleanNotes = paymentNotes.trim() || null
+      const paymentNotesWithComponent = buildPaymentNotes(
+        paymentComponent,
+        cleanNotes,
+      )
       const cleanPaymentMethod = paymentMethod.trim() || null
+      const paymentType = paymentTypeFromComponent(paymentComponent)
 
       const { data: createdPayment, error } = await supabase
         .from("staff_payments")
@@ -632,7 +1281,7 @@ export default function FuncionariosPage() {
           paid_at: paidAt,
           payment_method: cleanPaymentMethod,
           payment_reference: null,
-          notes: cleanNotes,
+          notes: paymentNotesWithComponent,
         })
         .select("id")
         .single()
@@ -641,16 +1290,17 @@ export default function FuncionariosPage() {
 
       await createLinkedAccountsPayable({
         paymentId: createdPayment.id,
-        member: selectedStaff,
-        paymentTypeValue: paymentType,
+        member: selectedMember,
+        component: paymentComponent,
         referenceMonthDate,
         amount: parsedAmount,
         status: paymentStatus,
         paymentMethodValue: cleanPaymentMethod,
-        notesValue: cleanNotes,
+        notesValue: paymentNotesWithComponent,
         dueDate: todayDate(),
       })
 
+      setSelectedStaffId(paymentStaffId)
       closePaymentForm()
       await loadData()
     } catch (error: any) {
@@ -696,111 +1346,116 @@ export default function FuncionariosPage() {
     }
   }
 
+  async function markAllPendingAsPaid() {
+    if (pendingPayments.length === 0) {
+      alert("Nenhum lançamento pendente nesta competência.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Marcar ${pendingPayments.length} lançamento(s) pendente(s) como pago(s)?`,
+    )
+
+    if (!confirmed) return
+
+    try {
+      setMarkingAllPaid(true)
+
+      const paidAt = new Date().toISOString()
+      const paymentIds = pendingPayments.map((payment) => payment.id)
+      const payableIds = pendingPayments
+        .map((payment) => payment.accounts_payable_id)
+        .filter(Boolean) as string[]
+
+      const { error } = await supabase
+        .from("staff_payments")
+        .update({
+          status: "paid",
+          paid_at: paidAt,
+          updated_at: paidAt,
+        })
+        .in("id", paymentIds)
+
+      if (error) throw error
+
+      if (payableIds.length > 0) {
+        const { error: payableError } = await supabase
+          .from("accounts_payable")
+          .update({
+            status: "paid",
+            paid_at: paidAt,
+            updated_at: paidAt,
+          })
+          .in("id", payableIds)
+
+        if (payableError) throw payableError
+      }
+
+      await loadData()
+      alert("Todos os lançamentos pendentes foram marcados como pagos.")
+    } catch (error: any) {
+      console.error(error)
+      alert(error?.message || "Não foi possível pagar todos os lançamentos.")
+    } finally {
+      setMarkingAllPaid(false)
+    }
+  }
+
   async function generateMonthlyPayroll() {
     if (!restaurantId) {
       alert("Restaurante não encontrado.")
       return
     }
 
-    const referenceMonth = currentMonthReference()
-    const referenceMonthDate = `${referenceMonth}-01`
-    const dueDate = getMonthEndDate(referenceMonth)
-
     const fixedMembers = activeStaffMembers.filter((member) => {
       return member.worker_type === "fixed" && toNumber(member.monthly_salary) > 0
     })
 
     if (fixedMembers.length === 0) {
-      alert("Nenhum funcionário fixo ativo com salário cadastrado.")
+      alert("Nenhum funcionário CLT ativo com salário cadastrado.")
       return
     }
 
     try {
       setGeneratingPayroll(true)
 
-      const { data: existingPayments, error: existingError } = await supabase
-        .from("staff_payments")
-        .select("staff_id")
-        .eq("restaurant_id", restaurantId)
-        .eq("payment_type", "salary")
-        .eq("reference_month", referenceMonthDate)
-
-      if (existingError) throw existingError
-
-      const alreadyGenerated = new Set(
-        (existingPayments || []).map((payment) => payment.staff_id),
-      )
-
-      const membersToGenerate = fixedMembers.filter(
-        (member) => !alreadyGenerated.has(member.id),
-      )
-
-      if (membersToGenerate.length === 0) {
-        alert("A folha fixa deste mês já foi gerada.")
-        return
-      }
-
-      for (const member of membersToGenerate) {
-        const amount = toNumber(member.monthly_salary)
-
-        const { data: createdPayment, error: paymentError } = await supabase
-          .from("staff_payments")
-          .insert({
-            restaurant_id: restaurantId,
-            staff_id: member.id,
-            payment_type: "salary",
-            reference_month: referenceMonthDate,
-            amount,
-            status: "pending",
-            paid_at: null,
-            payment_method: null,
-            payment_reference: null,
-            notes: "Folha fixa gerada automaticamente.",
-          })
-          .select("id")
-          .single()
-
-        if (paymentError) throw paymentError
-
-        await createLinkedAccountsPayable({
-          paymentId: createdPayment.id,
-          member,
-          paymentTypeValue: "salary",
-          referenceMonthDate,
-          amount,
-          status: "pending",
-          paymentMethodValue: null,
-          notesValue: "Folha fixa gerada automaticamente pela aba Funcionários.",
-          dueDate,
-        })
+      for (const member of fixedMembers) {
+        await syncStaffPayrollForCurrentMonth(member)
       }
 
       await loadData()
-      alert("Folha fixa gerada e enviada para Contas a Pagar.")
+      alert("Lançamentos atualizados e enviados para o Financeiro como despesas pendentes.")
     } catch (error: any) {
-      console.error("Erro ao gerar folha fixa:", error)
-      alert(error?.message || "Não foi possível gerar a folha fixa.")
+      console.error("Erro ao gerar lançamentos:", error)
+      alert(error?.message || "Não foi possível gerar os lançamentos.")
     } finally {
       setGeneratingPayroll(false)
     }
   }
 
+  const selectedParsedNotes = selectedStaff
+    ? parseStoredNotes(selectedStaff.notes)
+    : null
+  const selectedCalculation = selectedStaff
+    ? staffCostPreviewById[selectedStaff.id]
+    : null
+
   return (
     <AdminLayout>
-      <div className="max-w-full space-y-5 overflow-hidden">
+      <div className="mx-auto max-w-[1350px] space-y-4 overflow-hidden pb-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                 <UsersRound className="h-5 w-5" />
               </div>
 
-              <div>
-                <h1 className="text-xl font-semibold text-slate-950">
-                  Funcionários
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold leading-tight text-slate-950">
+                  Funcionários e Folha
                 </h1>
                 <p className="text-sm text-slate-500">
-                  Controle equipe, folha, diárias e custos enviados para Contas a Pagar.
+                  Lista de funcionários, custos trabalhistas e pendências da competência.
                 </p>
               </div>
             </div>
@@ -808,6 +1463,7 @@ export default function FuncionariosPage() {
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
+                size="sm"
                 onClick={handleOpenNewStaffForm}
                 className="gap-2"
               >
@@ -817,6 +1473,7 @@ export default function FuncionariosPage() {
 
               <Button
                 type="button"
+                size="sm"
                 onClick={generateMonthlyPayroll}
                 disabled={generatingPayroll || loading}
                 className="gap-2"
@@ -826,11 +1483,29 @@ export default function FuncionariosPage() {
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                Gerar folha fixa
+                Gerar lançamentos
               </Button>
 
               <Button
                 type="button"
+                size="sm"
+                onClick={markAllPendingAsPaid}
+                disabled={
+                  markingAllPaid || loading || pendingPayments.length === 0
+                }
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+              >
+                {markingAllPaid ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Marcar todos como pagos
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
                 variant="outline"
                 onClick={loadData}
                 disabled={loading}
@@ -845,41 +1520,44 @@ export default function FuncionariosPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Ativos</p>
-            <strong className="mt-1 block text-2xl font-semibold text-slate-950">
-              {totals.activeCount}
-            </strong>
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <DashboardCard
+            title="Total pendente"
+            value={formatCurrency(totals.pendingTotal)}
+            subtitle="salários, encargos e benefícios"
+            icon={<Wallet className="h-4 w-4" />}
+            className="border-orange-200 bg-orange-50"
+            valueClassName="text-orange-600"
+          />
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Folha fixa</p>
-            <strong className="mt-1 block text-2xl font-semibold text-slate-950">
-              {formatCurrency(totals.fixedPayroll)}
-            </strong>
-          </div>
+          <DashboardCard
+            title="Salários"
+            value={formatCurrency(totals.salaryPending)}
+            subtitle={`${totals.activeCount} ativo(s)`}
+            icon={<Banknote className="h-4 w-4" />}
+          />
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Freelancers pendentes</p>
-            <strong className="mt-1 block text-2xl font-semibold text-violet-700">
-              {formatCurrency(totals.freelancerPending)}
-            </strong>
-          </div>
+          <DashboardCard
+            title="Encargos"
+            value={formatCurrency(totals.fgtsPending + totals.chargesPending)}
+            subtitle="FGTS, INSS, RAT e terceiros"
+            icon={<ShieldCheck className="h-4 w-4" />}
+          />
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Total pendente</p>
-            <strong className="mt-1 block text-2xl font-semibold text-orange-600">
-              {formatCurrency(totals.pendingTotal)}
-            </strong>
-          </div>
+          <DashboardCard
+            title="Pago no mês"
+            value={formatCurrency(totals.paidThisMonth)}
+            subtitle="lançamentos quitados"
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            className="border-emerald-200 bg-emerald-50"
+            valueClassName="text-emerald-600"
+          />
+        </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Pago no mês</p>
-            <strong className="mt-1 block text-2xl font-semibold text-emerald-600">
-              {formatCurrency(totals.paidThisMonth)}
-            </strong>
-          </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          Ao cadastrar CLT, o sistema gera salário, FGTS, INSS/encargos e passagem como despesas pendentes.
+          Provisões gerenciais de 13º e férias:{" "}
+          <strong>{formatCurrency(totals.provisionsEstimated)}</strong>.
         </div>
 
         {showStaffForm && (
@@ -893,7 +1571,7 @@ export default function FuncionariosPage() {
                   {editingStaffId ? "Editar funcionário" : "Novo funcionário"}
                 </h2>
                 <p className="text-sm text-slate-500">
-                  Cadastre fixo com salário mensal ou freelancer com valor de diária.
+                  Se for CLT, configure salário, encargos, passagem, benefícios e insalubridade.
                 </p>
               </div>
 
@@ -907,102 +1585,327 @@ export default function FuncionariosPage() {
               </Button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label>Nome</Label>
-                <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Ex: João Silva"
-                  required
-                />
-              </div>
+            <div className="grid gap-4 xl:grid-cols-[1.4fr_0.8fr]">
+              <div className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <Label>Nome</Label>
+                    <Input
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Ex: Maria Silva"
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>Telefone</Label>
-                <Input
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="11999999999"
-                />
-              </div>
+                  <div className="space-y-1.5">
+                    <Label>Telefone</Label>
+                    <Input
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="31999999999"
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>Função</Label>
-                <Input
-                  value={role}
-                  onChange={(event) => setRole(event.target.value)}
-                  placeholder="Ex: Cozinha"
-                  required
-                />
-              </div>
+                  <div className="space-y-1.5">
+                    <Label>Função</Label>
+                    <Input
+                      value={role}
+                      onChange={(event) => setRole(event.target.value)}
+                      placeholder="Ex: Cozinha"
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>Tipo</Label>
-                <select
-                  value={workerType}
-                  onChange={(event) =>
-                    setWorkerType(event.target.value as WorkerType)
-                  }
-                  className={selectClassName}
-                >
-                  <option value="fixed">Fixo</option>
-                  <option value="freelancer">Freelancer</option>
-                </select>
-              </div>
-
-              {workerType === "fixed" ? (
-                <div className="space-y-1.5">
-                  <Label>Salário mensal</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={monthlySalary}
-                    onChange={(event) => setMonthlySalary(event.target.value)}
-                    placeholder="Ex: 1800.00"
-                  />
+                  <div className="space-y-1.5">
+                    <Label>Tipo</Label>
+                    <select
+                      value={workerType}
+                      onChange={(event) =>
+                        setWorkerType(event.target.value as WorkerType)
+                      }
+                      className={selectClassName}
+                    >
+                      <option value="fixed">CLT</option>
+                      <option value="freelancer">Freelancer / Diarista</option>
+                    </select>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label>Valor da diária</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={dailyRate}
-                    onChange={(event) => setDailyRate(event.target.value)}
-                    placeholder="Ex: 120.00"
-                  />
+
+                {workerType === "fixed" ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3">
+                      <h3 className="font-semibold text-slate-950">
+                        Dados da folha CLT
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Esses dados alimentam as pendências da competência.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="space-y-1.5">
+                        <Label>Salário base</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={monthlySalary}
+                          onChange={(event) =>
+                            setMonthlySalary(event.target.value)
+                          }
+                          placeholder="Ex: 1800.00"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>FGTS (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={fgtsPercent}
+                          onChange={(event) => setFgtsPercent(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>INSS patronal (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={companyInssPercent}
+                          onChange={(event) =>
+                            setCompanyInssPercent(event.target.value)
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>RAT (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={ratPercent}
+                          onChange={(event) => setRatPercent(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Terceiros (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={thirdPartyPercent}
+                          onChange={(event) =>
+                            setThirdPartyPercent(event.target.value)
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Base insalubridade</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={insalubrityBase}
+                          onChange={(event) =>
+                            setInsalubrityBase(event.target.value)
+                          }
+                          placeholder="Ex: 1518.00"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Insalubridade (%)</Label>
+                        <select
+                          value={insalubrityPercent}
+                          onChange={(event) =>
+                            setInsalubrityPercent(event.target.value)
+                          }
+                          className={selectClassName}
+                        >
+                          <option value="0">Não tem</option>
+                          <option value="10">10% - mínimo</option>
+                          <option value="20">20% - médio</option>
+                          <option value="40">40% - máximo</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Passagem por dia</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={transportValuePerDay}
+                          onChange={(event) =>
+                            setTransportValuePerDay(event.target.value)
+                          }
+                          placeholder="Ex: 12.00"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Dias de passagem</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={transportDays}
+                          onChange={(event) =>
+                            setTransportDays(event.target.value)
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Desconto VT (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={transportDiscountPercent}
+                          onChange={(event) =>
+                            setTransportDiscountPercent(event.target.value)
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>VA / Benefícios mês</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={mealBenefit}
+                          onChange={(event) => setMealBenefit(event.target.value)}
+                          placeholder="Ex: 180.00"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>Valor da diária</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={dailyRate}
+                          onChange={(event) => setDailyRate(event.target.value)}
+                          placeholder="Ex: 120.00"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label>Tipo da chave Pix</Label>
+                    <Input
+                      value={pixKeyType}
+                      onChange={(event) => setPixKeyType(event.target.value)}
+                      placeholder="CPF, telefone, e-mail..."
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Chave Pix</Label>
+                    <Input
+                      value={pixKey}
+                      onChange={(event) => setPixKey(event.target.value)}
+                      placeholder="Chave para pagamento"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Observação</Label>
+                    <Input
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                      placeholder="Ex: Trabalha finais de semana"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {workerType === "fixed" && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-blue-700" />
+                    <h3 className="font-semibold text-slate-950">
+                      Prévia automática
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <CostLine
+                      label="Salário base"
+                      value={staffFormCalculation.monthlySalary}
+                    />
+                    <CostLine
+                      label="Insalubridade"
+                      value={staffFormCalculation.insalubrityAmount}
+                    />
+                    <CostLine
+                      label="Salário pendente"
+                      value={staffFormCalculation.salaryWithAdditional}
+                      strong
+                    />
+                    <CostLine label="FGTS" value={staffFormCalculation.fgts} />
+                    <CostLine
+                      label="INSS patronal"
+                      value={staffFormCalculation.companyInss}
+                    />
+                    <CostLine label="RAT" value={staffFormCalculation.rat} />
+                    <CostLine
+                      label="Terceiros"
+                      value={staffFormCalculation.thirdParty}
+                    />
+                    <CostLine
+                      label="Passagem bruta"
+                      value={staffFormCalculation.transportGross}
+                    />
+                    <CostLine
+                      label="(-) Desconto VT"
+                      value={staffFormCalculation.transportEmployeeDiscount}
+                    />
+                    <CostLine
+                      label="VA / Benefícios"
+                      value={staffFormCalculation.mealBenefit}
+                    />
+                    <CostLine
+                      label="13º provisionado"
+                      value={staffFormCalculation.thirteenthProvision}
+                    />
+                    <CostLine
+                      label="Férias"
+                      value={staffFormCalculation.vacationProvision}
+                    />
+                    <CostLine
+                      label="1/3 férias"
+                      value={staffFormCalculation.vacationThirdProvision}
+                    />
+
+                    <div className="mt-3 rounded-xl bg-white p-3">
+                      <CostLine
+                        label="Custo total estimado"
+                        value={staffFormCalculation.companyCostWithProvisions}
+                        strong
+                        valueClassName="text-blue-700"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
-
-              <div className="space-y-1.5">
-                <Label>Tipo da chave Pix</Label>
-                <Input
-                  value={pixKeyType}
-                  onChange={(event) => setPixKeyType(event.target.value)}
-                  placeholder="CPF, telefone, e-mail..."
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Chave Pix</Label>
-                <Input
-                  value={pixKey}
-                  onChange={(event) => setPixKey(event.target.value)}
-                  placeholder="Chave para pagamento"
-                />
-              </div>
-
-              <div className="space-y-1.5 md:col-span-2 xl:col-span-1">
-                <Label>Observação</Label>
-                <Input
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Ex: Trabalha finais de semana"
-                />
-              </div>
             </div>
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -1016,7 +1919,7 @@ export default function FuncionariosPage() {
                 ) : (
                   <UserPlus className="h-4 w-4" />
                 )}
-                {editingStaffId ? "Salvar alterações" : "Cadastrar"}
+                {editingStaffId ? "Salvar alterações" : "Cadastrar e gerar pendências"}
               </Button>
             </div>
           </form>
@@ -1030,10 +1933,10 @@ export default function FuncionariosPage() {
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-slate-950">
-                  Registrar custo de funcionário
+                  Registrar custo avulso
                 </h2>
                 <p className="text-sm text-slate-500">
-                  Esse lançamento também aparece em Contas a Pagar por categoria.
+                  Lançamento extra para a competência atual.
                 </p>
               </div>
 
@@ -1067,13 +1970,16 @@ export default function FuncionariosPage() {
               <div className="space-y-1.5">
                 <Label>Tipo</Label>
                 <select
-                  value={paymentType}
+                  value={paymentComponent}
                   onChange={(event) =>
-                    setPaymentType(event.target.value as PaymentType)
+                    setPaymentComponent(event.target.value as PayrollComponent)
                   }
                   className={selectClassName}
                 >
                   <option value="salary">Salário</option>
+                  <option value="fgts">FGTS</option>
+                  <option value="charges">INSS / Encargos</option>
+                  <option value="transport">Passagem / Benefícios</option>
                   <option value="daily">Diária</option>
                   <option value="bonus">Bônus</option>
                   <option value="advance">Adiantamento</option>
@@ -1089,7 +1995,6 @@ export default function FuncionariosPage() {
                   step="0.01"
                   value={paymentAmount}
                   onChange={(event) => setPaymentAmount(event.target.value)}
-                  placeholder="Ex: 120.00"
                 />
               </div>
 
@@ -1158,10 +2063,10 @@ export default function FuncionariosPage() {
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="font-semibold text-slate-950">
-                Equipe cadastrada
+                Lista de funcionários
               </h2>
               <p className="text-sm text-slate-500">
-                Ações rápidas por funcionário: lançar salário, diária, editar ou inativar.
+                Clique em uma pessoa para abrir os detalhes da folha.
               </p>
             </div>
 
@@ -1185,227 +2090,544 @@ export default function FuncionariosPage() {
             <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
               <UsersRound className="mx-auto h-8 w-8 text-slate-300" />
               <p className="mt-2 font-medium text-slate-800">
-                Nenhuma pessoa cadastrada
+                Nenhum funcionário cadastrado
               </p>
               <p className="text-sm text-slate-500">
-                Cadastre funcionários fixos ou freelancers para começar.
+                Cadastre funcionários CLT ou freelancers para começar.
               </p>
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredStaffMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-                >
-                  <div className="grid gap-3 lg:grid-cols-[1.6fr_0.8fr_0.9fr_1fr_auto] lg:items-center">
-                    <div>
-                      <p className="font-semibold text-slate-950">
-                        {member.name}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {member.role}
-                        {member.phone ? ` • ${member.phone}` : ""}
-                      </p>
-                    </div>
+              {filteredStaffMembers.map((member) => {
+                const calculation = staffCostPreviewById[member.id]
+                const isClt = member.worker_type === "fixed"
 
-                    <div>
-                      <p className="text-xs text-slate-500">Tipo</p>
-                      <span className="inline-flex rounded-full bg-violet-100 px-2 py-1 text-xs font-medium text-violet-700">
-                        {workerTypeLabels[member.worker_type] ||
-                          member.worker_type}
-                      </span>
-                    </div>
+                const memberPending = currentMonthPayments.reduce(
+                  (acc, payment) => {
+                    if (
+                      payment.staff_id === member.id &&
+                      payment.status === "pending"
+                    ) {
+                      return acc + toNumber(payment.amount)
+                    }
 
-                    <div>
-                      <p className="text-xs text-slate-500">
-                        {member.worker_type === "fixed"
-                          ? "Salário"
-                          : "Diária"}
-                      </p>
-                      <p className="font-semibold text-slate-950">
-                        {member.worker_type === "fixed"
-                          ? formatCurrency(member.monthly_salary)
-                          : formatCurrency(member.daily_rate)}
-                      </p>
-                    </div>
+                    return acc
+                  },
+                  0,
+                )
 
-                    <div>
-                      <p className="text-xs text-slate-500">Status / Pix</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
+                const isSelected = member.id === selectedStaffId
+
+                return (
+                  <div
+                    key={member.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                      setSelectedStaffId((current) =>
+                        current === member.id ? null : member.id,
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        setSelectedStaffId((current) =>
+                          current === member.id ? null : member.id,
+                        )
+                      }
+                    }}
+                    className={cn(
+                      "cursor-pointer rounded-xl border bg-white p-3 transition hover:border-blue-200 hover:bg-blue-50/40",
+                      isSelected
+                        ? "border-blue-300 bg-blue-50 ring-1 ring-blue-200"
+                        : "border-slate-200",
+                    )}
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
                           className={cn(
-                            "inline-flex rounded-full px-2 py-1 text-xs font-medium",
-                            member.status === "active"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-slate-200 text-slate-600",
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+                            isClt
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-violet-100 text-violet-700",
                           )}
                         >
-                          {statusLabels[member.status] || member.status}
-                        </span>
+                          {member.name
+                            .split(" ")
+                            .map((part) => part[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </div>
 
-                        <span className="text-xs text-slate-500">
-                          {member.pix_key ? "Pix cadastrado" : "Sem Pix"}
-                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-950">
+                            {member.name}
+                          </p>
+                          <p className="truncate text-sm text-slate-500">
+                            {member.role}
+                            {member.phone ? ` • ${member.phone}` : ""}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2 text-sm sm:grid-cols-2 md:min-w-[520px] md:grid-cols-4">
+                        <ListInfo
+                          label="Tipo"
+                          value={workerTypeLabels[member.worker_type] || member.worker_type}
+                        />
+                        <ListInfo
+                          label={isClt ? "Salário" : "Diária"}
+                          value={
+                            isClt
+                              ? formatCurrency(member.monthly_salary)
+                              : formatCurrency(member.daily_rate)
+                          }
+                        />
+                        <ListInfo
+                          label="Custo estimado"
+                          value={
+                            isClt
+                              ? formatCurrency(
+                                  calculation?.companyCostWithProvisions || 0,
+                                )
+                              : formatCurrency(member.daily_rate)
+                          }
+                          valueClassName="text-blue-700"
+                        />
+                        <ListInfo
+                          label="Pendente"
+                          value={formatCurrency(memberPending)}
+                          valueClassName="text-orange-600"
+                        />
                       </div>
                     </div>
-
-                    <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => fillPaymentFromStaff(member)}
-                      >
-                        {member.worker_type === "freelancer"
-                          ? "Lançar diária"
-                          : "Lançar salário"}
-                      </Button>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEditStaff(member)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          updateStaffStatus(
-                            member,
-                            member.status === "active" ? "inactive" : "active",
-                          )
-                        }
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-2">
+        {selectedStaff && selectedCalculation && selectedParsedNotes && (
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 className="font-semibold text-slate-950">
-                  Pagamentos pendentes
-                </h2>
-                <p className="text-sm text-slate-500">
-                  Salários, diárias e bônus ainda não pagos.
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    {selectedStaff.name}
+                  </h2>
+
+                  <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
+                    {workerTypeLabels[selectedStaff.worker_type] ||
+                      selectedStaff.worker_type}
+                  </span>
+
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-1 text-xs font-semibold",
+                      selectedStaff.status === "active"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-100 text-slate-600",
+                    )}
+                  >
+                    {statusLabels[selectedStaff.status] || selectedStaff.status}
+                  </span>
+                </div>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  {selectedStaff.role}
+                  {selectedStaff.phone ? ` • ${selectedStaff.phone}` : ""}
                 </p>
               </div>
 
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700">
-                {formatCurrency(totals.pendingTotal)}
-              </span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleEditStaff(selectedStaff)}
+                  className="gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    updateStaffStatus(
+                      selectedStaff,
+                      selectedStaff.status === "active" ? "inactive" : "active",
+                    )
+                  }
+                  className="gap-2"
+                >
+                  <Power className="h-4 w-4" />
+                  {selectedStaff.status === "active" ? "Inativar" : "Ativar"}
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => deleteStaffMember(selectedStaff)}
+                  disabled={deletingStaff}
+                  className="gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                >
+                  {deletingStaff ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Excluir
+                </Button>
+              </div>
             </div>
 
-            {pendingPayments.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                Nenhum pagamento pendente.
+            {selectedStaff.worker_type === "fixed" ? (
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <MiniMetric
+                    label="Salário base"
+                    value={formatCurrency(selectedCalculation.monthlySalary)}
+                  />
+                  <MiniMetric
+                    label="Pendente"
+                    value={formatCurrency(selectedStaffPendingTotal)}
+                    valueClassName="text-orange-600"
+                  />
+                  <MiniMetric
+                    label="Custo empresa"
+                    value={formatCurrency(
+                      selectedCalculation.companyCostWithProvisions,
+                    )}
+                    valueClassName="text-blue-700"
+                  />
+                  <MiniMetric
+                    label="Provisões"
+                    value={formatCurrency(selectedCalculation.provisions)}
+                  />
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="mb-3 font-semibold text-slate-950">
+                      Pagamento e benefícios
+                    </h3>
+
+                    <CostLine
+                      label="Salário base"
+                      value={selectedCalculation.monthlySalary}
+                    />
+                    <CostLine
+                      label="Insalubridade"
+                      value={selectedCalculation.insalubrityAmount}
+                    />
+                    <CostLine
+                      label="Salário pendente"
+                      value={selectedCalculation.salaryWithAdditional}
+                      strong
+                      valueClassName="text-orange-600"
+                    />
+
+                    <div className="my-3 border-t border-slate-100" />
+
+                    <CostLine
+                      label="Passagem bruta"
+                      value={selectedCalculation.transportGross}
+                    />
+                    <CostLine
+                      label="(-) Desconto VT"
+                      value={selectedCalculation.transportEmployeeDiscount}
+                    />
+                    <CostLine
+                      label="VA / Benefícios"
+                      value={selectedCalculation.mealBenefit}
+                    />
+                    <CostLine
+                      label="Custo empresa com VT/benefícios"
+                      value={selectedCalculation.benefits}
+                      strong
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="mb-3 font-semibold text-slate-950">
+                      Encargos e provisões
+                    </h3>
+
+                    <CostLine
+                      label={`FGTS (${selectedParsedNotes.payrollConfig.fgtsPercent}%)`}
+                      value={selectedCalculation.fgts}
+                    />
+                    <CostLine
+                      label={`INSS patronal (${selectedParsedNotes.payrollConfig.companyInssPercent}%)`}
+                      value={selectedCalculation.companyInss}
+                    />
+                    <CostLine
+                      label={`RAT (${selectedParsedNotes.payrollConfig.ratPercent}%)`}
+                      value={selectedCalculation.rat}
+                    />
+                    <CostLine
+                      label={`Terceiros (${selectedParsedNotes.payrollConfig.thirdPartyPercent}%)`}
+                      value={selectedCalculation.thirdParty}
+                    />
+
+                    <div className="my-3 border-t border-slate-100" />
+
+                    <CostLine
+                      label="13º provisionado"
+                      value={selectedCalculation.thirteenthProvision}
+                    />
+                    <CostLine
+                      label="Férias provisionadas"
+                      value={selectedCalculation.vacationProvision}
+                    />
+                    <CostLine
+                      label="1/3 férias"
+                      value={selectedCalculation.vacationThirdProvision}
+                    />
+                    <CostLine
+                      label="Custo total estimado"
+                      value={selectedCalculation.companyCostWithProvisions}
+                      strong
+                      valueClassName="text-blue-700"
+                    />
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="space-y-2">
-                {pendingPayments.slice(0, 10).map((payment) => {
-                  const member = staffById[payment.staff_id]
-
-                  return (
-                    <div
-                      key={payment.id}
-                      className="flex flex-col gap-3 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="font-semibold text-slate-950">
-                          {member?.name || "Funcionário removido"}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {paymentTypeLabels[payment.payment_type] ||
-                            payment.payment_type}{" "}
-                          • {getPaymentCategoryLabel(payment)} •{" "}
-                          {formatDate(payment.reference_month)}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <strong className="text-slate-950">
-                          {formatCurrency(payment.amount)}
-                        </strong>
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => markPaymentAsPaid(payment)}
-                          className="gap-2"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          Marcar pago
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="font-semibold text-slate-950">Pagos recentes</h2>
-                <p className="text-sm text-slate-500">
-                  Histórico rápido dos últimos pagamentos quitados.
+              <div className="rounded-xl border border-slate-200 p-4">
+                <h3 className="font-semibold text-slate-950">
+                  Freelancer / Diarista
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Valor da diária:{" "}
+                  <strong className="text-slate-950">
+                    {formatCurrency(selectedStaff.daily_rate)}
+                  </strong>
                 </p>
-              </div>
 
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-                {formatCurrency(totals.paidThisMonth)}
-              </span>
-            </div>
-
-            {paidPayments.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                Nenhum pagamento pago ainda.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {paidPayments.slice(0, 10).map((payment) => {
-                  const member = staffById[payment.staff_id]
-
-                  return (
-                    <div
-                      key={payment.id}
-                      className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="font-semibold text-slate-950">
-                          {member?.name || "Funcionário removido"}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {paymentTypeLabels[payment.payment_type] ||
-                            payment.payment_type}{" "}
-                          • Pago em {formatDate(payment.paid_at)}
-                        </p>
-                      </div>
-
-                      <strong className="text-emerald-700">
-                        {formatCurrency(payment.amount)}
-                      </strong>
-                    </div>
-                  )
-                })}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => fillPaymentFromStaff(selectedStaff)}
+                >
+                  Lançar diária
+                </Button>
               </div>
             )}
+
+            <div className="mt-4 rounded-xl border border-slate-200 p-4">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-semibold text-slate-950">
+                    Lançamentos da competência
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Pendências vinculadas ao financeiro.
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fillPaymentFromStaff(selectedStaff)}
+                >
+                  Custo avulso
+                </Button>
+              </div>
+
+              {selectedStaffPayments.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
+                  Nenhum lançamento para esta competência.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {selectedStaffPayments.map((payment) => {
+                    const component = getPaymentComponent(payment)
+                    const isPaid = payment.status === "paid"
+
+                    return (
+                      <div
+                        key={payment.id}
+                        className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-950">
+                            {componentLabels[component]}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {getPaymentCategory(component, selectedStaff)} •{" "}
+                            {getReferenceMonthLabel(payment.reference_month)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 sm:justify-end">
+                          <strong
+                            className={cn(
+                              "text-sm",
+                              isPaid ? "text-emerald-700" : "text-orange-600",
+                            )}
+                          >
+                            {formatCurrency(payment.amount)}
+                          </strong>
+
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-1 text-xs font-semibold",
+                              isPaid
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-orange-100 text-orange-700",
+                            )}
+                          >
+                            {isPaid ? "Pago" : "Pendente"}
+                          </span>
+
+                          {!isPaid && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => markPaymentAsPaid(payment)}
+                            >
+                              Pagar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </AdminLayout>
+  )
+}
+
+function DashboardCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  className,
+  valueClassName,
+}: {
+  title: string
+  value: string
+  subtitle: string
+  icon: ReactNode
+  className?: string
+  valueClassName?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-medium text-slate-500">{title}</p>
+          <strong
+            className={cn(
+              "mt-1 block truncate text-xl font-semibold text-slate-950",
+              valueClassName,
+            )}
+          >
+            {value}
+          </strong>
+          <span className="text-xs text-slate-400">{subtitle}</span>
+        </div>
+
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+          {icon}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MiniMetric({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string
+  value: string
+  valueClassName?: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <strong className={cn("mt-1 block text-sm text-slate-950", valueClassName)}>
+        {value}
+      </strong>
+    </div>
+  )
+}
+
+function CostLine({
+  label,
+  value,
+  strong,
+  valueClassName,
+}: {
+  label: string
+  value: number
+  strong?: boolean
+  valueClassName?: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1 text-sm">
+      <span
+        className={cn(
+          "text-slate-600",
+          strong && "font-semibold text-slate-800",
+        )}
+      >
+        {label}
+      </span>
+
+      <strong
+        className={cn(
+          "text-right text-slate-950",
+          strong && "font-semibold",
+          valueClassName,
+        )}
+      >
+        {formatCurrency(value)}
+      </strong>
+    </div>
+  )
+}
+
+function ListInfo({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string
+  value: string
+  valueClassName?: string
+}) {
+  return (
+    <div>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className={cn("font-semibold text-slate-950", valueClassName)}>
+        {value}
+      </p>
+    </div>
   )
 }

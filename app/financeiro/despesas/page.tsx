@@ -107,6 +107,22 @@ const originStyles: Record<ExpenseOrigin, string> = {
   loss: "bg-red-50 text-red-700 ring-red-100",
 }
 
+const originAccentStyles: Record<ExpenseOrigin, string> = {
+  manual: "border-l-blue-500",
+  purchase: "border-l-violet-500",
+  staff: "border-l-emerald-500",
+  delivery: "border-l-orange-500",
+  loss: "border-l-red-500",
+}
+
+const originActiveStyles: Record<ExpenseOrigin, string> = {
+  manual: "border-blue-200 bg-blue-50/70 ring-blue-100",
+  purchase: "border-violet-200 bg-violet-50/70 ring-violet-100",
+  staff: "border-emerald-200 bg-emerald-50/70 ring-emerald-100",
+  delivery: "border-orange-200 bg-orange-50/70 ring-orange-100",
+  loss: "border-red-200 bg-red-50/70 ring-red-100",
+}
+
 const manualCategoryOptions = [
   "Aluguel",
   "Água",
@@ -932,321 +948,419 @@ export default function DespesasPage() {
   return (
     <AdminLayout>
       <div className="space-y-4 pb-8">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
-              <ArrowDownCircle className="h-5 w-5" />
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-white p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-sm">
+                <ArrowDownCircle className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
+                    Despesas 360
+                  </h1>
+                  <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-700">
+                    visão contábil
+                  </span>
+                </div>
+                <p className="text-sm text-slate-500">
+                  Contas a pagar, centros de custo, baixas e conferência financeira em uma tela limpa.
+                </p>
+              </div>
             </div>
 
-            <div className="min-w-0">
-              <h1 className="text-lg font-semibold text-slate-950 sm:text-xl">
-                Despesas 360
-              </h1>
-              <p className="text-sm text-slate-500">
-                Compras, funcionários, entregadores, perdas, consumo próprio e contas
-                manuais.
-              </p>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={loadData}
+                disabled={loading}
+                className="h-9 gap-2 border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+              >
+                <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
+                Atualizar
+              </Button>
+
+              <Button type="button" onClick={openNewExpenseForm} className="h-9 gap-2 shadow-sm">
+                <Plus className="h-4 w-4" />
+                Nova despesa
+              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={loadData}
-              disabled={loading}
-              className="gap-2"
-            >
-              <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-              Atualizar
-            </Button>
+          <div className="grid gap-0 divide-y divide-slate-100 bg-white sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5">
+            <div className="group p-4 transition hover:bg-slate-50/80">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                  Total no período
+                </p>
+                <span className="h-2 w-2 rounded-full bg-slate-300" />
+              </div>
+              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-slate-950">
+                {formatCurrency(totals.total)}
+              </strong>
+              <span className="text-xs text-slate-400">Base para conferência</span>
+            </div>
 
-            <Button type="button" onClick={openNewExpenseForm} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova despesa
-            </Button>
+            <div className="group p-4 transition hover:bg-slate-50/80">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                  Pago
+                </p>
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              </div>
+              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-emerald-600">
+                {formatCurrency(totals.paid)}
+              </strong>
+              <span className="text-xs text-slate-400">{totals.paidCount} baixa(s)</span>
+            </div>
+
+            <div className="group p-4 transition hover:bg-slate-50/80">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                  Em aberto
+                </p>
+                <span className="h-2 w-2 rounded-full bg-orange-500" />
+              </div>
+              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-orange-600">
+                {formatCurrency(totals.pending)}
+              </strong>
+              <span className="text-xs text-slate-400">{totals.pendingCount} pendência(s)</span>
+            </div>
+
+            <div className="group p-4 transition hover:bg-slate-50/80">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                  Vencido
+                </p>
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+              </div>
+              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-red-600">
+                {formatCurrency(totals.overdue)}
+              </strong>
+              <span className="text-xs text-slate-400">{totals.overdueCount} título(s)</span>
+            </div>
+
+            <div className="bg-slate-50/70 p-4 sm:col-span-2 xl:col-span-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Competência
+              </p>
+              <strong className="mt-1.5 block text-sm font-bold text-slate-950">
+                {formatDate(startDate)} - {formatDate(endDate)}
+              </strong>
+              <span className="text-xs text-slate-400">Filtro ativo</span>
+            </div>
           </div>
         </div>
 
         {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="font-semibold text-slate-950">
-                  {editingId ? "Editar despesa manual" : "Nova despesa manual"}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  Use para gastos que não vêm automaticamente de compras, funcionários ou
-                  entregadores.
-                </p>
-              </div>
+          <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40 backdrop-blur-[2px]">
+            <button
+              type="button"
+              aria-label="Fechar formulário"
+              className="hidden flex-1 lg:block"
+              onClick={() => clearForm(true)}
+            />
 
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => clearForm(true)}
-                className="h-9 w-9 shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-4">
-              <div className="space-y-1.5 lg:col-span-2">
-                <Label>Descrição</Label>
-                <Input
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Ex: Aluguel, energia, doação, consumo próprio..."
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Categoria</Label>
-                <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="">Selecione</option>
-                  {manualCategoryOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Valor</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  placeholder="Ex: 250.00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Vencimento</Label>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <select
-                  value={status}
-                  onChange={(event) => setStatus(event.target.value as ExpenseStatus)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="pending">Pendente</option>
-                  <option value="paid">Pago</option>
-                  <option value="cancelled">Cancelado</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Método de pagamento</Label>
-                <Input
-                  value={paymentMethod}
-                  onChange={(event) => setPaymentMethod(event.target.value)}
-                  placeholder="Pix, dinheiro, cartão..."
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Referência</Label>
-                <Input
-                  value={paymentReference}
-                  onChange={(event) => setPaymentReference(event.target.value)}
-                  placeholder="Comprovante, nota..."
-                />
-              </div>
-
-              <div className="space-y-1.5 lg:col-span-4">
-                <Label>Observação</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Detalhes da despesa..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => clearForm(true)}>
-                Cancelar
-              </Button>
-
-              <Button type="submit" disabled={saving} className="gap-2">
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                {editingId ? "Salvar alterações" : "Cadastrar despesa"}
-              </Button>
-            </div>
-          </form>
-        )}
-
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Total no período
-            </p>
-            <strong className="mt-1 block text-xl font-semibold text-slate-950 sm:text-2xl">
-              {formatCurrency(totals.total)}
-            </strong>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Pago
-            </p>
-            <strong className="mt-1 block text-xl font-semibold text-emerald-600 sm:text-2xl">
-              {formatCurrency(totals.paid)}
-            </strong>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Pendente
-            </p>
-            <strong className="mt-1 block text-xl font-semibold text-orange-600 sm:text-2xl">
-              {formatCurrency(totals.pending)}
-            </strong>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Vencido
-            </p>
-            <strong className="mt-1 block text-xl font-semibold text-red-600 sm:text-2xl">
-              {formatCurrency(totals.overdue)}
-            </strong>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Pendências
-            </p>
-            <strong className="mt-1 block text-xl font-semibold text-slate-950 sm:text-2xl">
-              {totals.pendingCount}
-            </strong>
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {sourceCards.map((item) => {
-            const Icon = item.icon
-
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setOriginFilter(originFilter === item.key ? "all" : item.key)}
-                className={cn(
-                  "rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50",
-                  originFilter === item.key
-                    ? "border-orange-300 ring-2 ring-orange-100"
-                    : "border-slate-200",
-                )}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-950">{item.title}</p>
-                    <p className="truncate text-xs text-slate-500">{item.description}</p>
+            <form
+              onSubmit={handleSubmit}
+              className="flex h-full w-full flex-col bg-white shadow-2xl sm:max-w-xl"
+            >
+              <div className="border-b border-slate-200 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700 ring-1 ring-orange-100">
+                      Lançamento manual
+                    </span>
+                    <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                      {editingId ? "Editar despesa" : "Nova despesa"}
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      Use apenas para gastos que não entram automaticamente por outros módulos.
+                    </p>
                   </div>
 
-                  <div
-                    className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1",
-                      originStyles[item.key],
-                    )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => clearForm(true)}
+                    className="h-9 w-9 shrink-0"
                   >
-                    <Icon className="h-4 w-4" />
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto p-4">
+                <div className="space-y-1.5">
+                  <Label>Descrição</Label>
+                  <Input
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="Ex: Aluguel, energia, manutenção..."
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Categoria</Label>
+                    <select
+                      value={category}
+                      onChange={(event) => setCategory(event.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">Selecione</option>
+                      {manualCategoryOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Valor</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      placeholder="Ex: 250.00"
+                      required
+                    />
                   </div>
                 </div>
 
-                <strong className="mt-3 block text-lg font-semibold text-slate-950">
-                  {formatCurrency(item.value)}
-                </strong>
-              </button>
-            )
-          })}
-        </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Vencimento</Label>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(event) => setDueDate(event.target.value)}
+                    />
+                  </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_150px_150px_150px_150px]">
-              <div className="relative md:col-span-2 xl:col-span-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar por despesa, origem ou categoria..."
-                  className="pl-9"
-                />
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <select
+                      value={status}
+                      onChange={(event) => setStatus(event.target.value as ExpenseStatus)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="pending">Pendente</option>
+                      <option value="paid">Pago</option>
+                      <option value="cancelled">Cancelado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Método de pagamento</Label>
+                    <Input
+                      value={paymentMethod}
+                      onChange={(event) => setPaymentMethod(event.target.value)}
+                      placeholder="Pix, dinheiro, cartão..."
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Referência</Label>
+                    <Input
+                      value={paymentReference}
+                      onChange={(event) => setPaymentReference(event.target.value)}
+                      placeholder="Nota, comprovante..."
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Observação</Label>
+                  <Textarea
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    placeholder="Detalhes internos da despesa..."
+                    rows={4}
+                  />
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                  Despesas de compras, funcionários, entregadores e perdas devem vir dos módulos de origem. Aqui fica só o lançamento contábil manual.
+                </div>
               </div>
 
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
+              <div className="grid gap-2 border-t border-slate-200 p-4 sm:grid-cols-2">
+                <Button type="button" variant="outline" onClick={() => clearForm(true)}>
+                  Cancelar
+                </Button>
 
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
+                <Button type="submit" disabled={saving} className="gap-2">
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  {editingId ? "Salvar alterações" : "Cadastrar despesa"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
 
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="all">Todos status</option>
-                <option value="pending">Pendentes</option>
-                <option value="paid">Pagas</option>
-                <option value="cancelled">Canceladas</option>
-              </select>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_28px_rgba(15,23,42,0.05)]">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-slate-500">
+                  Centros de custo
+                </h2>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                  {sourceCards.length} grupos
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Filtre a movimentação por origem para conferir cada conta com mais clareza.
+              </p>
+            </div>
 
-              <select
-                value={originFilter}
-                onChange={(event) => setOriginFilter(event.target.value as OriginFilter)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="all">Todas origens</option>
-                <option value="purchase">Compras</option>
-                <option value="staff">Funcionários</option>
-                <option value="delivery">Entregadores</option>
-                <option value="manual">Manuais/fixas</option>
-                <option value="loss">Perdas/consumo</option>
-              </select>
+            <button
+              type="button"
+              onClick={() => setOriginFilter("all")}
+              className={cn(
+                "w-fit rounded-lg px-3 py-2 text-xs font-bold ring-1 transition",
+                originFilter === "all"
+                  ? "bg-slate-900 text-white ring-slate-900 shadow-sm"
+                  : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+              )}
+            >
+              Todos os centros
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {sourceCards.map((item) => {
+              const Icon = item.icon
+              const active = originFilter === item.key
+
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setOriginFilter(active ? "all" : item.key)}
+                  className={cn(
+                    "group rounded-2xl border border-l-4 bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md",
+                    originAccentStyles[item.key],
+                    active
+                      ? cn("ring-2", originActiveStyles[item.key])
+                      : "border-slate-200",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-950">{item.title}</p>
+                      <p className="mt-0.5 line-clamp-2 min-h-[32px] text-xs leading-4 text-slate-500">
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border bg-white shadow-sm transition group-hover:scale-105",
+                        active ? "border-slate-300 text-slate-900" : "border-slate-200 text-slate-500",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-end justify-between gap-2 border-t border-slate-100 pt-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                        Lançado
+                      </span>
+                      <strong className="block text-lg font-bold tracking-tight text-slate-950">
+                        {formatCurrency(item.value)}
+                      </strong>
+                    </div>
+
+                    {active && (
+                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200">
+                        filtrando
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-3">
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_145px_145px_145px_145px]">
+                <div className="relative md:col-span-2 xl:col-span-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar despesa, categoria, origem..."
+                    className="h-9 pl-9"
+                  />
+                </div>
+
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="h-9"
+                />
+
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  className="h-9"
+                />
+
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="all">Todos status</option>
+                  <option value="pending">Pendentes</option>
+                  <option value="paid">Pagas</option>
+                  <option value="cancelled">Canceladas</option>
+                </select>
+
+                <select
+                  value={originFilter}
+                  onChange={(event) => setOriginFilter(event.target.value as OriginFilter)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="all">Todas origens</option>
+                  <option value="purchase">Compras</option>
+                  <option value="staff">Funcionários</option>
+                  <option value="delivery">Entregadores</option>
+                  <option value="manual">Manuais/fixas</option>
+                  <option value="loss">Perdas/consumo</option>
+                </select>
+              </div>
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-12 text-sm text-slate-500">
+              <div className="flex items-center justify-center py-14 text-sm text-slate-500">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Carregando despesas 360...
               </div>
             ) : filteredExpenses.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center sm:p-10">
+              <div className="m-3 rounded-xl border border-dashed border-slate-200 p-8 text-center sm:p-10">
                 <ArrowDownCircle className="mx-auto h-9 w-9 text-slate-300" />
                 <p className="mt-2 font-medium text-slate-800">
                   Nenhuma despesa encontrada
@@ -1257,18 +1371,21 @@ export default function DespesasPage() {
               </div>
             ) : (
               <>
-                <div className="space-y-3 lg:hidden">
+                <div className="space-y-2 p-3 lg:hidden">
                   {filteredExpenses.map((expense) => (
                     <div
                       key={expense.id}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                      className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <p className="line-clamp-2 font-semibold text-slate-950">
+                            {expense.description}
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
                             <span
                               className={cn(
-                                "rounded-full px-2 py-1 text-xs font-medium ring-1",
+                                "rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
                                 originStyles[expense.origin],
                               )}
                             >
@@ -1277,7 +1394,7 @@ export default function DespesasPage() {
 
                             <span
                               className={cn(
-                                "rounded-full px-2 py-1 text-xs font-medium ring-1",
+                                "rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
                                 statusStyles[expense.status] ||
                                   "bg-slate-100 text-slate-600 ring-slate-200",
                               )}
@@ -1285,49 +1402,32 @@ export default function DespesasPage() {
                               {statusLabels[expense.status] || expense.status}
                             </span>
                           </div>
-
-                          <p className="mt-2 font-semibold text-slate-950">
-                            {expense.description}
-                          </p>
-                          <p className="text-sm text-slate-500">{expense.category}</p>
                         </div>
 
-                        {isExpenseOverdue(expense) && (
-                          <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
-                        )}
+                        <div className="text-right">
+                          <strong className="block text-sm font-semibold text-orange-600">
+                            {formatCurrency(expense.amount)}
+                          </strong>
+                          <span className="text-xs text-slate-500">{formatDate(expense.date)}</span>
+                        </div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+                      <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
                         <div>
-                          <p className="text-xs text-slate-500">Data</p>
-                          <p className="font-medium text-slate-800">
-                            {formatDate(expense.date)}
-                          </p>
+                          <p className="text-slate-400">Categoria</p>
+                          <p className="font-medium text-slate-700">{expense.category}</p>
                         </div>
 
                         <div>
-                          <p className="text-xs text-slate-500">Valor</p>
-                          <p className="font-semibold text-orange-600">
-                            {formatCurrency(expense.amount)}
-                          </p>
-                        </div>
-
-                        <div className="col-span-2">
-                          <p className="text-xs text-slate-500">Pagamento</p>
-                          <p className="font-medium text-slate-800">
-                            {expense.status === "paid"
-                              ? `${expense.paymentMethod || "Método não informado"}${
-                                  expense.paidAt
-                                    ? ` • ${formatDateTime(expense.paidAt)}`
-                                    : ""
-                                }`
-                              : "Ainda não pago"}
+                          <p className="text-slate-400">Pagamento</p>
+                          <p className="font-medium text-slate-700">
+                            {expense.status === "paid" ? expense.paymentMethod || "Pago" : "Em aberto"}
                           </p>
                         </div>
                       </div>
 
                       {expense.notes && (
-                        <p className="mt-3 text-sm text-slate-500">{expense.notes}</p>
+                        <p className="mt-2 line-clamp-2 text-xs text-slate-500">{expense.notes}</p>
                       )}
 
                       <div className="mt-3 flex justify-end">
@@ -1337,46 +1437,46 @@ export default function DespesasPage() {
                   ))}
                 </div>
 
-                <div className="hidden overflow-hidden rounded-xl border border-slate-200 lg:block">
-                  <div className="max-h-[640px] overflow-auto">
+                <div className="hidden overflow-hidden lg:block">
+                  <div className="max-h-[650px] overflow-auto">
                     <table className="w-full min-w-[980px] text-sm">
-                      <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                      <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 shadow-[inset_0_-1px_0_#e2e8f0]">
                         <tr>
-                          <th className="px-4 py-3">Despesa</th>
-                          <th className="px-4 py-3">Origem</th>
-                          <th className="px-4 py-3">Categoria</th>
-                          <th className="px-4 py-3">Data</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3">Pagamento</th>
-                          <th className="px-4 py-3 text-right">Valor</th>
-                          <th className="px-4 py-3 text-right">Ações</th>
+                          <th className="px-4 py-2.5">Despesa</th>
+                          <th className="px-4 py-2.5">Centro</th>
+                          <th className="px-4 py-2.5">Categoria</th>
+                          <th className="px-4 py-2.5">Venc./data</th>
+                          <th className="px-4 py-2.5">Status</th>
+                          <th className="px-4 py-2.5">Pagamento</th>
+                          <th className="px-4 py-2.5 text-right">Valor</th>
+                          <th className="px-4 py-2.5 text-right">Ações</th>
                         </tr>
                       </thead>
 
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {filteredExpenses.map((expense) => (
-                          <tr key={expense.id} className="hover:bg-slate-50">
-                            <td className="px-4 py-3">
+                          <tr key={expense.id} className="hover:bg-slate-50/80">
+                            <td className="px-4 py-3 align-top">
                               <div className="flex items-start gap-2">
                                 {isExpenseOverdue(expense) && (
                                   <AlertTriangle className="mt-0.5 h-4 w-4 text-red-500" />
                                 )}
 
-                                <div>
-                                  <p className="font-medium text-slate-950">
+                                <div className="min-w-0">
+                                  <p className="max-w-[360px] truncate font-medium text-slate-950">
                                     {expense.description}
                                   </p>
-                                  <p className="text-xs text-slate-500">
+                                  <p className="max-w-[420px] truncate text-xs text-slate-500">
                                     {expense.notes || "Sem observação"}
                                   </p>
                                 </div>
                               </div>
                             </td>
 
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 align-top">
                               <span
                                 className={cn(
-                                  "rounded-full px-2 py-1 text-xs font-medium ring-1",
+                                  "whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ring-1",
                                   originStyles[expense.origin],
                                 )}
                               >
@@ -1384,11 +1484,11 @@ export default function DespesasPage() {
                               </span>
                             </td>
 
-                            <td className="px-4 py-3 text-slate-700">
+                            <td className="px-4 py-3 align-top text-slate-700">
                               {expense.category}
                             </td>
 
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 align-top">
                               <div className="flex items-center gap-2 text-slate-700">
                                 {isExpenseOverdue(expense) ? (
                                   <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -1399,10 +1499,10 @@ export default function DespesasPage() {
                               </div>
                             </td>
 
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 align-top">
                               <span
                                 className={cn(
-                                  "rounded-full px-2 py-1 text-xs font-medium ring-1",
+                                  "whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ring-1",
                                   statusStyles[expense.status] ||
                                     "bg-slate-100 text-slate-600 ring-slate-200",
                                 )}
@@ -1411,9 +1511,9 @@ export default function DespesasPage() {
                               </span>
                             </td>
 
-                            <td className="px-4 py-3 text-slate-500">
+                            <td className="px-4 py-3 align-top text-slate-500">
                               {expense.status === "paid" ? (
-                                <span>
+                                <span className="line-clamp-2 max-w-[220px]">
                                   {expense.paymentMethod || "Método não informado"}
                                   {expense.paidAt
                                     ? ` • ${formatDateTime(expense.paidAt)}`
@@ -1424,11 +1524,11 @@ export default function DespesasPage() {
                               )}
                             </td>
 
-                            <td className="px-4 py-3 text-right font-semibold text-orange-600">
+                            <td className="px-4 py-3 text-right align-top font-semibold text-orange-600">
                               {formatCurrency(expense.amount)}
                             </td>
 
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-3 text-right align-top">
                               {renderExpenseActions(expense)}
                             </td>
                           </tr>
@@ -1441,11 +1541,14 @@ export default function DespesasPage() {
             )}
           </div>
 
-          <div className="space-y-4">
+          <aside className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-slate-500" />
-                <h2 className="font-semibold text-slate-950">Maiores categorias</h2>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-slate-500" />
+                  <h2 className="font-semibold text-slate-950">Maiores categorias</h2>
+                </div>
+                <span className="text-xs text-slate-400">Top 8</span>
               </div>
 
               {totalsByCategory.length === 0 ? (
@@ -1482,17 +1585,20 @@ export default function DespesasPage() {
               )}
             </div>
 
-            <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
-              <div className="flex gap-2">
-                <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <Clock3 className="h-4 w-4" />
+                </div>
                 <div>
-                  <strong>Regra da tela:</strong> compras de fornecedores entram
-                  automaticamente aqui como despesa. O botão “Nova despesa” fica apenas
-                  para gastos manuais como doação, consumo próprio, impostos e contas fixas.
+                  <h3 className="font-semibold text-slate-950">Regra operacional</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    A tela consolida despesas automáticas dos módulos. O lançamento manual fica para contas fixas, impostos, doações, consumo próprio e ajustes contábeis.
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </AdminLayout>

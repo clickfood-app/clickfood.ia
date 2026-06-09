@@ -420,8 +420,31 @@ export default function CmvMargemPage() {
       weightedMargin,
       bestMarginProduct,
       alertProducts: alertProducts.length,
+      healthyProducts: calculatedProducts.filter(
+        (product) => product.status === "healthy",
+      ).length,
+      attentionProducts: calculatedProducts.filter(
+        (product) => product.status === "attention",
+      ).length,
+      dangerProducts: calculatedProducts.filter(
+        (product) => product.status === "danger",
+      ).length,
+      missingCostProducts: calculatedProducts.filter(
+        (product) => product.status === "missing_cost",
+      ).length,
+      noRecipeProducts: calculatedProducts.filter(
+        (product) => product.status === "no_recipe",
+      ).length,
+      noPriceProducts: calculatedProducts.filter(
+        (product) => product.status === "no_price",
+      ).length,
     }
   }, [calculatedProducts])
+
+  const recipeCoverage =
+    summary.totalProducts > 0
+      ? (summary.productsWithRecipe / summary.totalProducts) * 100
+      : 0
 
   const statusOptions = [
     { value: "all", label: "Todos" },
@@ -435,39 +458,43 @@ export default function CmvMargemPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                    <Calculator className="h-5 w-5" />
-                  </div>
-
-                  <div>
-                    <h1 className="text-xl font-bold text-slate-950">
-                      CMV e Margem
-                    </h1>
-                    <p className="text-sm text-slate-500">
-                      Controle o custo da ficha técnica e a margem de cada
-                      produto.
-                    </p>
-                  </div>
+      <div className="min-h-screen bg-slate-50 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
+                  <Calculator className="h-5 w-5" />
                 </div>
 
-                {restaurant?.name ? (
-                  <p className="text-xs font-medium text-slate-400">
-                    Restaurante: {restaurant.name}
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-lg font-black text-slate-950 sm:text-xl">
+                      CMV e Margem
+                    </h1>
+
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                      Controle gerencial
+                    </span>
+                  </div>
+
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Custo da ficha técnica, margem, lucro bruto e produtos que precisam de ajuste.
                   </p>
-                ) : null}
+
+                  {restaurant?.name ? (
+                    <p className="mt-1 text-xs font-semibold text-slate-400">
+                      {restaurant.name}
+                    </p>
+                  ) : null}
+                </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => loadData(true)}
                 disabled={refreshing}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {refreshing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -480,98 +507,122 @@ export default function CmvMargemPage() {
           </div>
 
           {error ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
               {error}
             </div>
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-slate-200 bg-white">
+            <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
               <div className="flex flex-col items-center gap-3 text-slate-500">
                 <Loader2 className="h-7 w-7 animate-spin" />
-                <p className="text-sm font-medium">
+                <p className="text-sm font-bold">
                   Carregando CMV e margem...
                 </p>
               </div>
             </div>
           ) : (
             <>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
-                      <PackageSearch className="h-5 w-5" />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                      <PackageSearch className="h-4 w-4" />
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
                       {summary.productsWithRecipe}/{summary.totalProducts}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
-                    Produtos com ficha
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
-                    {summary.productsWithRecipe}
-                  </p>
+
+                  <div className="mt-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      Produtos com ficha
+                    </p>
+                    <div className="mt-1 flex items-end justify-between gap-3">
+                      <p className="text-2xl font-black text-slate-950">
+                        {summary.productsWithRecipe}
+                      </p>
+                      <p className="text-sm font-black text-blue-600">
+                        {formatPercent(recipeCoverage)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                    <Percent className="h-5 w-5" />
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
+                    <Percent className="h-4 w-4" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
-                    CMV médio
-                  </p>
-                  <p
-                    className={cn(
-                      "mt-1 text-2xl font-black",
-                      summary.weightedCmv >= 45
-                        ? "text-red-600"
-                        : summary.weightedCmv >= 35
-                          ? "text-amber-600"
-                          : "text-emerald-600",
-                    )}
-                  >
-                    {formatPercent(summary.weightedCmv)}
-                  </p>
+
+                  <div className="mt-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      CMV médio
+                    </p>
+                    <p
+                      className={cn(
+                        "mt-1 text-2xl font-black",
+                        summary.weightedCmv >= 45
+                          ? "text-red-600"
+                          : summary.weightedCmv >= 35
+                            ? "text-amber-600"
+                            : "text-emerald-600",
+                      )}
+                    >
+                      {formatPercent(summary.weightedCmv)}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                    <TrendingUp className="h-5 w-5" />
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                    <TrendingUp className="h-4 w-4" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
-                    Margem média
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
-                    {formatPercent(summary.weightedMargin)}
-                  </p>
+
+                  <div className="mt-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      Margem média
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-slate-950">
+                      {formatPercent(summary.weightedMargin)}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-red-100 text-red-600">
-                    <AlertTriangle className="h-5 w-5" />
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                    <AlertTriangle className="h-4 w-4" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
-                    Produtos em alerta
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
-                    {summary.alertProducts}
-                  </p>
+
+                  <div className="mt-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      Produtos em alerta
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-slate-950">
+                      {summary.alertProducts}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-slate-700" />
-                    <h2 className="text-base font-bold text-slate-950">
-                      Resumo financeiro dos produtos
-                    </h2>
+              <div className="grid gap-3 lg:grid-cols-[1.6fr_0.9fr]">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-slate-500" />
+                      <h2 className="text-sm font-black text-slate-950">
+                        Resumo financeiro dos produtos
+                      </h2>
+                    </div>
+
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                      Base: preço de venda x ficha técnica
+                    </span>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
                         Preço somado
                       </p>
                       <p className="mt-1 text-lg font-black text-slate-950">
@@ -579,8 +630,8 @@ export default function CmvMargemPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
                         Custo somado
                       </p>
                       <p className="mt-1 text-lg font-black text-orange-600">
@@ -588,8 +639,8 @@ export default function CmvMargemPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
                         Lucro bruto estimado
                       </p>
                       <p className="mt-1 text-lg font-black text-emerald-600">
@@ -599,55 +650,122 @@ export default function CmvMargemPage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-bold text-slate-950">
-                    Melhor margem
-                  </p>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className="text-sm font-black text-slate-950">
+                      Melhor margem
+                    </p>
+
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
+                      Destaque
+                    </span>
+                  </div>
 
                   {summary.bestMarginProduct ? (
-                    <div className="mt-4 rounded-2xl bg-emerald-50 p-4">
-                      <p className="line-clamp-1 text-base font-black text-emerald-950">
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3">
+                      <p className="line-clamp-1 text-sm font-black text-emerald-950">
                         {summary.bestMarginProduct.name}
                       </p>
-                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
                         <div>
-                          <p className="text-xs font-bold uppercase text-emerald-600/70">
+                          <p className="text-[11px] font-black uppercase text-emerald-700/70">
                             Margem
                           </p>
-                          <p className="font-black text-emerald-700">
+                          <p className="text-base font-black text-emerald-700">
                             {formatPercent(
                               summary.bestMarginProduct.marginPercentage,
                             )}
                           </p>
                         </div>
+
                         <div>
-                          <p className="text-xs font-bold uppercase text-emerald-600/70">
+                          <p className="text-[11px] font-black uppercase text-emerald-700/70">
                             Lucro
                           </p>
-                          <p className="font-black text-emerald-700">
+                          <p className="text-base font-black text-emerald-700">
                             {formatMoney(summary.bestMarginProduct.grossProfit)}
                           </p>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-500">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500">
                       Cadastre ficha técnica e custo dos insumos para calcular.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-sm font-black text-slate-950">
+                      Diagnóstico operacional
+                    </h2>
+                    <p className="text-xs font-medium text-slate-500">
+                      Onde o restaurante precisa corrigir cadastro, custo ou margem.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700/70">
+                      Saudáveis
+                    </p>
+                    <p className="mt-1 text-xl font-black text-emerald-700">
+                      {summary.healthyProducts}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-amber-700/70">
+                      Atenção
+                    </p>
+                    <p className="mt-1 text-xl font-black text-amber-700">
+                      {summary.attentionProducts}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-red-700/70">
+                      CMV alto
+                    </p>
+                    <p className="mt-1 text-xl font-black text-red-700">
+                      {summary.dangerProducts}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-purple-100 bg-purple-50 px-3 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-purple-700/70">
+                      Sem custo
+                    </p>
+                    <p className="mt-1 text-xl font-black text-purple-700">
+                      {summary.missingCostProducts}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                      Sem ficha
+                    </p>
+                    <p className="mt-1 text-xl font-black text-slate-900">
+                      {summary.noRecipeProducts}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 px-4 py-3">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-base font-bold text-slate-950">
+                      <h2 className="text-sm font-black text-slate-950">
                         Produtos analisados
                       </h2>
-                      <p className="text-sm text-slate-500">
-                        Baseado na ficha técnica e no custo cadastrado dos
-                        insumos.
+                      <p className="text-xs font-medium text-slate-500">
+                        Lista compacta com preço, custo, CMV, margem e status.
                       </p>
                     </div>
 
@@ -658,7 +776,7 @@ export default function CmvMargemPage() {
                           value={searchTerm}
                           onChange={(event) => setSearchTerm(event.target.value)}
                           placeholder="Buscar produto..."
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 sm:w-64"
+                          className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 sm:w-64"
                         />
                       </div>
 
@@ -669,7 +787,7 @@ export default function CmvMargemPage() {
                             event.target.value as typeof statusFilter,
                           )
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                        className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
                       >
                         {statusOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -682,16 +800,16 @@ export default function CmvMargemPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-left">
+                  <table className="w-full min-w-[920px] text-left">
                     <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-black uppercase tracking-wide text-slate-400">
-                        <th className="px-5 py-3">Produto</th>
-                        <th className="px-5 py-3">Preço</th>
-                        <th className="px-5 py-3">Custo ficha</th>
-                        <th className="px-5 py-3">CMV</th>
-                        <th className="px-5 py-3">Margem</th>
-                        <th className="px-5 py-3">Lucro bruto</th>
-                        <th className="px-5 py-3">Status</th>
+                      <tr className="border-b border-slate-100 bg-slate-50 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                        <th className="px-4 py-3">Produto</th>
+                        <th className="px-4 py-3">Preço</th>
+                        <th className="px-4 py-3">Custo ficha</th>
+                        <th className="px-4 py-3">CMV</th>
+                        <th className="px-4 py-3">Margem</th>
+                        <th className="px-4 py-3">Lucro bruto</th>
+                        <th className="px-4 py-3">Status</th>
                       </tr>
                     </thead>
 
@@ -700,11 +818,11 @@ export default function CmvMargemPage() {
                         filteredProducts.map((product) => (
                           <tr
                             key={product.id}
-                            className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
+                            className="border-b border-slate-100 text-sm last:border-0 hover:bg-slate-50/80"
                           >
-                            <td className="px-5 py-4">
+                            <td className="px-4 py-3">
                               <div>
-                                <p className="font-bold text-slate-950">
+                                <p className="line-clamp-1 font-black text-slate-950">
                                   {product.name}
                                 </p>
                                 <p className="mt-1 line-clamp-1 text-xs font-medium text-slate-400">
@@ -721,15 +839,15 @@ export default function CmvMargemPage() {
                               </div>
                             </td>
 
-                            <td className="px-5 py-4 text-sm font-black text-slate-900">
+                            <td className="px-4 py-3 font-black text-slate-900">
                               {formatMoney(product.salePrice)}
                             </td>
 
-                            <td className="px-5 py-4 text-sm font-black text-orange-600">
+                            <td className="px-4 py-3 font-black text-orange-600">
                               {formatMoney(product.recipeCost)}
                             </td>
 
-                            <td className="px-5 py-4">
+                            <td className="px-4 py-3">
                               <span
                                 className={cn(
                                   "rounded-full px-2.5 py-1 text-xs font-black",
@@ -744,13 +862,13 @@ export default function CmvMargemPage() {
                               </span>
                             </td>
 
-                            <td className="px-5 py-4 text-sm font-black text-slate-900">
+                            <td className="px-4 py-3 font-black text-slate-900">
                               {formatPercent(product.marginPercentage)}
                             </td>
 
                             <td
                               className={cn(
-                                "px-5 py-4 text-sm font-black",
+                                "px-4 py-3 font-black",
                                 product.grossProfit > 0
                                   ? "text-emerald-600"
                                   : "text-red-600",
@@ -759,7 +877,7 @@ export default function CmvMargemPage() {
                               {formatMoney(product.grossProfit)}
                             </td>
 
-                            <td className="px-5 py-4">
+                            <td className="px-4 py-3">
                               <span
                                 className={cn(
                                   "rounded-full px-2.5 py-1 text-xs font-black",
@@ -786,7 +904,7 @@ export default function CmvMargemPage() {
                         <tr>
                           <td
                             colSpan={7}
-                            className="px-5 py-12 text-center text-sm font-medium text-slate-500"
+                            className="px-4 py-10 text-center text-sm font-bold text-slate-500"
                           >
                             Nenhum produto encontrado para os filtros atuais.
                           </td>
@@ -797,12 +915,12 @@ export default function CmvMargemPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <div className="flex gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 flex-none" />
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
                   <div>
                     <p className="font-black">Importante</p>
-                    <p className="mt-1 font-medium">
+                    <p className="mt-1 font-semibold">
                       O CMV depende do custo cadastrado nos insumos do estoque.
                       Se algum insumo estiver sem custo, o produto vai aparecer
                       como “Insumo sem custo” e a margem pode ficar incorreta.

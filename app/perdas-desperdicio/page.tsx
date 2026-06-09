@@ -4,12 +4,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   CheckCircle2,
+  ClipboardList,
   Loader2,
   Package,
   Plus,
   Search,
   Trash2,
   TrendingDown,
+  Utensils,
+  Warehouse,
   X,
 } from "lucide-react"
 
@@ -18,6 +21,25 @@ import { createClient } from "@/lib/supabase/client"
 
 type Product = Record<string, any>
 type StockItem = Record<string, any>
+type ItemSource = "manual" | "product" | "stock"
+type LossPresetId =
+  | "perda"
+  | "vencimento"
+  | "quebra"
+  | "sobra"
+  | "consumo_funcionario"
+  | "consumo_proprio"
+  | "doacao"
+  | "pedido_cancelado"
+
+type LossFilter =
+  | "todos"
+  | "perdas"
+  | "vencimento"
+  | "quebra"
+  | "sobra"
+  | "consumos"
+  | "doacoes"
 
 type ProductLoss = {
   id: string
@@ -44,6 +66,8 @@ type ProductLoss = {
 }
 
 type LossForm = {
+  preset_id: LossPresetId
+  item_source: ItemSource
   product_id: string
   stock_item_id: string
   product_name: string
@@ -70,6 +94,8 @@ const defaultDateTime = new Date(
   .slice(0, 16)
 
 const emptyForm: LossForm = {
+  preset_id: "perda",
+  item_source: "manual",
   product_id: "",
   stock_item_id: "",
   product_name: "",
@@ -85,8 +111,101 @@ const emptyForm: LossForm = {
   loss_origin: "estoque",
   responsible_name: "",
   is_preventable: true,
-  update_stock: true,
+  update_stock: false,
 }
+
+const lossPresets: Array<{
+  id: LossPresetId
+  label: string
+  description: string
+  reason: string
+  origin: string
+  sector: string
+  preventable: boolean
+}> = [
+  {
+    id: "perda",
+    label: "Perda",
+    description: "erro, descarte ou produção perdida",
+    reason: "Outro",
+    origin: "desperdicio",
+    sector: "cozinha",
+    preventable: true,
+  },
+  {
+    id: "vencimento",
+    label: "Vencimento",
+    description: "produto venceu ou ficou impróprio",
+    reason: "Vencimento",
+    origin: "estoque",
+    sector: "estoque",
+    preventable: true,
+  },
+  {
+    id: "quebra",
+    label: "Quebra",
+    description: "item quebrado, rasgado ou derramado",
+    reason: "Quebra",
+    origin: "estoque",
+    sector: "estoque",
+    preventable: true,
+  },
+  {
+    id: "sobra",
+    label: "Sobra",
+    description: "sobra do dia ou preparo excedente",
+    reason: "Sobra",
+    origin: "producao",
+    sector: "cozinha",
+    preventable: true,
+  },
+  {
+    id: "consumo_funcionario",
+    label: "Consumo funcionário",
+    description: "refeição, bebida ou consumo interno",
+    reason: "Consumo de funcionário",
+    origin: "funcionarios",
+    sector: "equipe",
+    preventable: false,
+  },
+  {
+    id: "consumo_proprio",
+    label: "Consumo próprio",
+    description: "retirada do dono ou uso interno",
+    reason: "Consumo próprio",
+    origin: "consumo_proprio",
+    sector: "administrativo",
+    preventable: false,
+  },
+  {
+    id: "doacao",
+    label: "Doação / cortesia",
+    description: "cortesia, brinde ou doação",
+    reason: "Doação",
+    origin: "doacao",
+    sector: "atendimento",
+    preventable: false,
+  },
+  {
+    id: "pedido_cancelado",
+    label: "Pedido cancelado",
+    description: "produção perdida por cancelamento",
+    reason: "Pedido cancelado",
+    origin: "delivery",
+    sector: "atendimento",
+    preventable: true,
+  },
+]
+
+const lossFilters: Array<{ id: LossFilter; label: string }> = [
+  { id: "todos", label: "Todos" },
+  { id: "perdas", label: "Perdas" },
+  { id: "vencimento", label: "Vencimento" },
+  { id: "quebra", label: "Quebras" },
+  { id: "sobra", label: "Sobras" },
+  { id: "consumos", label: "Consumos" },
+  { id: "doacoes", label: "Doações" },
+]
 
 function parseNumber(value: string | number | null | undefined) {
   const normalized = String(value ?? "").replace(",", ".")
@@ -180,6 +299,40 @@ function getStockQuantity(item?: StockItem) {
   return Number(item.current_quantity ?? item.quantity ?? 0)
 }
 
+function normalizeText(value: string | null | undefined) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+}
+
+function getLossGroup(loss: ProductLoss): LossFilter {
+  const reason = normalizeText(loss.reason)
+  const origin = normalizeText(loss.loss_origin)
+
+  if (reason.includes("vencimento")) return "vencimento"
+  if (reason.includes("quebra")) return "quebra"
+  if (reason.includes("sobra")) return "sobra"
+
+  if (
+    reason.includes("consumo") ||
+    origin.includes("funcionario") ||
+    origin.includes("consumo")
+  ) {
+    return "consumos"
+  }
+
+  if (
+    reason.includes("doacao") ||
+    reason.includes("cortesia") ||
+    origin.includes("doacao")
+  ) {
+    return "doacoes"
+  }
+
+  return "perdas"
+}
+
 export default function PerdasDesperdicioPage() {
   const supabase = useMemo(() => createClient(), [])
 
@@ -191,12 +344,14 @@ export default function PerdasDesperdicioPage() {
   const [losses, setLosses] = useState<ProductLoss[]>([])
 
   const [search, setSearch] = useState("")
+  const [activeFilter, setActiveFilter] = useState<LossFilter>("todos")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState<LossForm>(emptyForm)
+  const [itemSearch, setItemSearch] = useState("")
 
   async function loadPageData() {
     setLoading(true)
@@ -297,26 +452,83 @@ export default function PerdasDesperdicioPage() {
     return map
   }, [stockItems])
 
+  const selectedStockItem = useMemo(() => {
+    if (!form.stock_item_id) return null
+
+    return stockById.get(form.stock_item_id) || null
+  }, [form.stock_item_id, stockById])
+
   const filteredLosses = useMemo(() => {
     const term = search.trim().toLowerCase()
 
-    if (!term) return losses
-
     return losses.filter((loss) => {
-      return [
-        loss.product_name,
-        loss.reason,
-        loss.notes,
-        loss.sector,
-        loss.loss_origin,
-        loss.responsible_name,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
+      const matchesFilter =
+        activeFilter === "todos" || getLossGroup(loss) === activeFilter
+
+      const matchesSearch = !term
+        ? true
+        : [
+            loss.product_name,
+            loss.reason,
+            loss.notes,
+            loss.sector,
+            loss.loss_origin,
+            loss.responsible_name,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(term))
+
+      return matchesFilter && matchesSearch
     })
-  }, [losses, search])
+  }, [losses, search, activeFilter])
+
+  const filterCounts = useMemo(() => {
+    return losses.reduce(
+      (acc, loss) => {
+        const group = getLossGroup(loss)
+        acc.todos += 1
+        acc[group] += 1
+        return acc
+      },
+      {
+        todos: 0,
+        perdas: 0,
+        vencimento: 0,
+        quebra: 0,
+        sobra: 0,
+        consumos: 0,
+        doacoes: 0,
+      } as Record<LossFilter, number>,
+    )
+  }, [losses])
+
+  const productOptions = useMemo(() => {
+    const term = normalizeText(itemSearch)
+
+    return products
+      .filter((product) => {
+        if (!term) return true
+        return normalizeText(getProductName(product)).includes(term)
+      })
+      .slice(0, 8)
+  }, [products, itemSearch])
+
+  const stockOptions = useMemo(() => {
+    const term = normalizeText(itemSearch)
+
+    return stockItems
+      .filter((item) => {
+        if (!term) return true
+        return normalizeText(getStockName(item)).includes(term)
+      })
+      .slice(0, 8)
+  }, [stockItems, itemSearch])
 
   const totals = useMemo(() => {
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
     const totalLoss = losses.reduce(
       (sum, loss) => sum + Number(loss.total_cost || 0),
       0,
@@ -327,24 +539,29 @@ export default function PerdasDesperdicioPage() {
       0,
     )
 
+    const todayLoss = losses
+      .filter((loss) => new Date(loss.occurred_at) >= startOfToday)
+      .reduce((sum, loss) => sum + Number(loss.total_cost || 0), 0)
+
+    const monthLoss = losses
+      .filter((loss) => new Date(loss.occurred_at) >= startOfMonth)
+      .reduce((sum, loss) => sum + Number(loss.total_cost || 0), 0)
+
     const preventableLoss = losses
       .filter((loss) => loss.is_preventable)
       .reduce((sum, loss) => sum + Number(loss.total_cost || 0), 0)
 
-    const stockLoss = losses
-      .filter((loss) => loss.loss_origin === "estoque")
-      .reduce((sum, loss) => sum + Number(loss.total_cost || 0), 0)
-
-    const productionLoss = losses
-      .filter((loss) => loss.loss_origin === "producao")
-      .reduce((sum, loss) => sum + Number(loss.total_cost || 0), 0)
+    const internalConsumption = losses
+      .filter((loss) => getLossGroup(loss) === "consumos")
+      .reduce((sum, loss) => sum + Number(loss.potential_sale_amount || 0), 0)
 
     return {
       totalLoss,
       potentialSaleAmount,
+      todayLoss,
+      monthLoss,
       preventableLoss,
-      stockLoss,
-      productionLoss,
+      internalConsumption,
       count: losses.length,
     }
   }, [losses])
@@ -352,9 +569,15 @@ export default function PerdasDesperdicioPage() {
   const totalCost = parseNumber(form.quantity) * parseNumber(form.unit_cost)
   const potentialSaleAmount =
     parseNumber(form.quantity) * parseNumber(form.sale_unit_price)
+  const stockCurrentQuantity = getStockQuantity(selectedStockItem || undefined)
+  const stockAfterQuantity = Math.max(
+    stockCurrentQuantity - parseNumber(form.quantity),
+    0,
+  )
 
   function openModal() {
-    setForm(emptyForm)
+    setForm({ ...emptyForm, occurred_at: defaultDateTime })
+    setItemSearch("")
     setIsModalOpen(true)
     setError(null)
   }
@@ -363,7 +586,74 @@ export default function PerdasDesperdicioPage() {
     if (saving) return
 
     setIsModalOpen(false)
-    setForm(emptyForm)
+    setForm({ ...emptyForm, occurred_at: defaultDateTime })
+    setItemSearch("")
+  }
+
+  function handlePresetSelect(presetId: LossPresetId) {
+    const preset = lossPresets.find((item) => item.id === presetId)
+    if (!preset) return
+
+    setForm((current) => ({
+      ...current,
+      preset_id: preset.id,
+      reason: preset.reason,
+      loss_origin: preset.origin,
+      sector: preset.sector,
+      is_preventable: preset.preventable,
+    }))
+  }
+
+  function handleItemSourceChange(source: ItemSource) {
+    setItemSearch("")
+    setForm((current) => ({
+      ...current,
+      item_source: source,
+      product_id: "",
+      stock_item_id: "",
+      product_name: source === "manual" ? current.product_name : "",
+      update_stock: source === "stock",
+    }))
+  }
+
+  function handleProductSelect(product: Product) {
+    const productName = getProductName(product)
+    const productCost = getProductCost(product)
+    const productPrice = getProductPrice(product)
+
+    setItemSearch(productName)
+    setForm((current) => ({
+      ...current,
+      item_source: "product",
+      product_id: product.id,
+      stock_item_id: "",
+      product_name: productName,
+      unit_cost:
+        current.unit_cost === "0" && productCost > 0
+          ? String(productCost)
+          : current.unit_cost,
+      sale_unit_price: productPrice > 0 ? String(productPrice) : current.sale_unit_price,
+      update_stock: false,
+    }))
+  }
+
+  function handleStockSelect(item: StockItem) {
+    const itemName = getStockName(item)
+    const itemCost = getStockCost(item)
+    const itemUnit = getStockUnit(item)
+
+    setItemSearch(itemName)
+    setForm((current) => ({
+      ...current,
+      item_source: "stock",
+      product_id: "",
+      stock_item_id: item.id,
+      product_name: itemName,
+      unit_cost: itemCost > 0 ? String(itemCost) : current.unit_cost,
+      loss_unit_type: itemUnit,
+      base_unit_type: itemUnit,
+      update_stock: true,
+    }))
   }
 
   async function handleCreateLoss(event: FormEvent<HTMLFormElement>) {
@@ -483,6 +773,12 @@ export default function PerdasDesperdicioPage() {
   async function handleDeleteLoss(loss: ProductLoss) {
     if (!restaurantId) return
 
+    const shouldDelete = window.confirm(
+      "Deseja remover este lançamento de perdas e consumos?",
+    )
+
+    if (!shouldDelete) return
+
     const { error: deleteError } = await supabase
       .from("product_losses")
       .delete()
@@ -499,19 +795,19 @@ export default function PerdasDesperdicioPage() {
 
   return (
     <AdminLayout title="Perdas e Consumos">
-      <div className="w-full space-y-4">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="w-full space-y-3 pb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">
-              Gestão interna
+              Controle de margem perdida
             </p>
 
-            <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
               Perdas e Consumos
             </h1>
 
-            <p className="mt-1 max-w-3xl text-sm font-medium text-slate-500">
-              Controle desperdícios, consumo interno, doações, quebras, sobras e vendas que deixaram de acontecer.
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              Registre desperdícios, quebras, vencimentos, consumo interno e cortesias.
             </p>
           </div>
 
@@ -521,123 +817,153 @@ export default function PerdasDesperdicioPage() {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
-            Novo registro
+            Novo lançamento
           </button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                Registros
-              </p>
-              <Package className="h-4 w-4 text-blue-600" />
-            </div>
-
-            <p className="mt-2 text-2xl font-black text-slate-950">
-              {totals.count}
-            </p>
-
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              lançamentos feitos
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                Custo perdido
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                Perda hoje
               </p>
               <TrendingDown className="h-4 w-4 text-red-600" />
             </div>
 
-            <p className="mt-2 text-2xl font-black text-red-600">
-              {formatCurrency(totals.totalLoss)}
+            <p className="mt-1 text-xl font-black text-red-600">
+              {formatCurrency(totals.todayLoss)}
             </p>
 
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              prejuízo real
+            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+              impacto do dia
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                Venda perdida
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                Perda no mês
               </p>
-              <TrendingDown className="h-4 w-4 text-blue-600" />
+              <Package className="h-4 w-4 text-slate-500" />
             </div>
 
-            <p className="mt-2 text-2xl font-black text-blue-600">
+            <p className="mt-1 text-xl font-black text-slate-950">
+              {formatCurrency(totals.monthLoss)}
+            </p>
+
+            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+              {totals.count} lançamentos
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                Venda perdida
+              </p>
+              <ClipboardList className="h-4 w-4 text-blue-600" />
+            </div>
+
+            <p className="mt-1 text-xl font-black text-blue-600">
               {formatCurrency(totals.potentialSaleAmount)}
             </p>
 
-            <p className="mt-1 text-xs font-semibold text-slate-400">
+            <p className="mt-0.5 text-xs font-semibold text-slate-400">
               potencial não vendido
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
                 Evitável
               </p>
               <AlertTriangle className="h-4 w-4 text-orange-500" />
             </div>
 
-            <p className="mt-2 text-2xl font-black text-slate-950">
+            <p className="mt-1 text-xl font-black text-orange-600">
               {formatCurrency(totals.preventableLoss)}
             </p>
 
-            <p className="mt-1 text-xs font-semibold text-slate-400">
+            <p className="mt-0.5 text-xs font-semibold text-slate-400">
               pode ser reduzido
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                Operacional
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                Consumo interno
               </p>
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <Utensils className="h-4 w-4 text-emerald-600" />
             </div>
 
-            <p className="mt-2 text-2xl font-black text-slate-950">
-              {formatCurrency(totals.stockLoss + totals.productionLoss)}
+            <p className="mt-1 text-xl font-black text-emerald-600">
+              {formatCurrency(totals.internalConsumption)}
             </p>
 
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              estoque/produção
+            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+              funcionários/dono
             </p>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-base font-black text-slate-950">
-                Histórico
-              </h2>
+          <div className="space-y-3 border-b border-slate-100 p-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-base font-black text-slate-950">
+                  Histórico operacional
+                </h2>
 
-              <p className="text-sm font-medium text-slate-500">
-                Veja o que foi perdido, consumido, doado ou desperdiçado.
-              </p>
+                <p className="text-sm font-medium text-slate-500">
+                  Lista de tudo que tirou margem do restaurante.
+                </p>
+              </div>
+
+              <div className="relative w-full lg:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar item, motivo ou responsável..."
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
+                />
+              </div>
             </div>
 
-            <div className="relative w-full lg:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {lossFilters.map((filter) => {
+                const isActive = activeFilter === filter.id
 
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por item, motivo ou responsável..."
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
-              />
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-black transition ${
+                      isActive
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {filter.label}
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                        isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {filterCounts[filter.id]}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {error && (
-            <div className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            <div className="m-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
               {error}
             </div>
           )}
@@ -650,17 +976,17 @@ export default function PerdasDesperdicioPage() {
               </div>
             </div>
           ) : filteredLosses.length === 0 ? (
-            <div className="flex min-h-[260px] flex-col items-center justify-center p-6 text-center">
+            <div className="flex min-h-[240px] flex-col items-center justify-center p-6 text-center">
               <div className="rounded-xl bg-slate-100 p-3 text-slate-500">
                 <TrendingDown className="h-6 w-6" />
               </div>
 
               <h3 className="mt-3 text-base font-black text-slate-950">
-                Nenhum registro encontrado
+                Nenhum lançamento encontrado
               </h3>
 
               <p className="mt-1 max-w-md text-sm font-medium text-slate-500">
-                Registre perdas, consumos internos, doações e quebras para enxergar onde o restaurante está perdendo margem.
+                Registre perdas, consumos, doações e quebras para enxergar onde o restaurante está perdendo dinheiro.
               </p>
 
               <button
@@ -669,7 +995,7 @@ export default function PerdasDesperdicioPage() {
                 className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4" />
-                Criar primeiro registro
+                Criar primeiro lançamento
               </button>
             </div>
           ) : (
@@ -678,12 +1004,13 @@ export default function PerdasDesperdicioPage() {
                 <table className="w-full min-w-[1050px] text-left">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <th className="px-4 py-3">Data</th>
+                      <th className="px-4 py-3">Tipo</th>
                       <th className="px-4 py-3">Item</th>
-                      <th className="px-4 py-3">Motivo</th>
                       <th className="px-4 py-3">Origem</th>
                       <th className="px-4 py-3">Qtd.</th>
-                      <th className="px-4 py-3">Impacto</th>
-                      <th className="px-4 py-3">Data</th>
+                      <th className="px-4 py-3">Custo</th>
+                      <th className="px-4 py-3">Venda perdida</th>
                       <th className="px-4 py-3">Responsável</th>
                       <th className="px-4 py-3 text-right">Ações</th>
                     </tr>
@@ -692,16 +1019,8 @@ export default function PerdasDesperdicioPage() {
                   <tbody className="divide-y divide-slate-100">
                     {filteredLosses.map((loss) => (
                       <tr key={loss.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3">
-                          <p className="font-black text-slate-950">
-                            {loss.product_name}
-                          </p>
-
-                          {loss.notes && (
-                            <p className="mt-1 max-w-xs truncate text-xs font-semibold text-slate-400">
-                              {loss.notes}
-                            </p>
-                          )}
+                        <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-500">
+                          {formatDateTime(loss.occurred_at)}
                         </td>
 
                         <td className="px-4 py-3">
@@ -717,11 +1036,23 @@ export default function PerdasDesperdicioPage() {
                         </td>
 
                         <td className="px-4 py-3">
-                          <p className="text-sm font-bold text-slate-700">
-                            {loss.loss_origin}
+                          <p className="font-black text-slate-950">
+                            {loss.product_name}
                           </p>
 
-                          <p className="text-xs font-semibold text-slate-400">
+                          {loss.notes && (
+                            <p className="mt-1 max-w-xs truncate text-xs font-semibold text-slate-400">
+                              {loss.notes}
+                            </p>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-bold capitalize text-slate-700">
+                            {loss.loss_origin.replaceAll("_", " ")}
+                          </p>
+
+                          <p className="text-xs font-semibold capitalize text-slate-400">
                             {loss.sector}
                           </p>
                         </td>
@@ -730,18 +1061,12 @@ export default function PerdasDesperdicioPage() {
                           {Number(loss.quantity || 0)} {loss.loss_unit_type}
                         </td>
 
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-black text-red-600">
-                            {formatCurrency(Number(loss.total_cost || 0))}
-                          </p>
-
-                          <p className="text-xs font-bold text-blue-600">
-                            Venda: {formatCurrency(Number(loss.potential_sale_amount || 0))}
-                          </p>
+                        <td className="px-4 py-3 text-sm font-black text-red-600">
+                          {formatCurrency(Number(loss.total_cost || 0))}
                         </td>
 
-                        <td className="px-4 py-3 text-sm font-semibold text-slate-500">
-                          {formatDateTime(loss.occurred_at)}
+                        <td className="px-4 py-3 text-sm font-black text-blue-600">
+                          {formatCurrency(Number(loss.potential_sale_amount || 0))}
                         </td>
 
                         <td className="px-4 py-3 text-sm font-bold text-slate-700">
@@ -770,13 +1095,13 @@ export default function PerdasDesperdicioPage() {
                 {filteredLosses.map((loss) => (
                   <div key={loss.id} className="p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-black text-slate-950">
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-slate-950">
                           {loss.product_name}
                         </p>
 
                         <p className="mt-1 text-xs font-semibold text-slate-500">
-                          {formatDateTime(loss.occurred_at)}
+                          {formatDateTime(loss.occurred_at)} · {loss.sector}
                         </p>
                       </div>
 
@@ -795,8 +1120,8 @@ export default function PerdasDesperdicioPage() {
                         {loss.reason}
                       </span>
 
-                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">
-                        {loss.loss_origin}
+                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black capitalize text-slate-700">
+                        {loss.loss_origin.replaceAll("_", " ")}
                       </span>
 
                       {loss.is_preventable && (
@@ -847,362 +1172,521 @@ export default function PerdasDesperdicioPage() {
         </div>
 
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-5">
-            <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/50">
+            <form
+              onSubmit={handleCreateLoss}
+              className="flex h-full w-full flex-col bg-white shadow-2xl sm:max-w-2xl sm:rounded-l-3xl"
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
                 <div>
-                  <h2 className="text-lg font-black text-slate-950">
-                    Novo registro
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">
+                    Novo lançamento
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    Perda ou consumo
                   </h2>
 
-                  <p className="text-sm font-medium text-slate-500">
-                    Lance perda, consumo interno, doação, quebra ou sobra.
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Informe o tipo, item, quantidade e impacto financeiro.
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <form
-                onSubmit={handleCreateLoss}
-                className="max-h-[calc(92vh-76px)] overflow-y-auto p-5"
-              >
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Produto do cardápio
-                    </span>
-
-                    <select
-                      value={form.product_id}
-                      onChange={(event) => {
-                        const product = productById.get(event.target.value)
-
-                        setForm((current) => ({
-                          ...current,
-                          product_id: event.target.value,
-                          product_name: product
-                            ? getProductName(product)
-                            : current.product_name,
-                          unit_cost:
-                            current.unit_cost === "0" &&
-                            product &&
-                            getProductCost(product) > 0
-                              ? String(getProductCost(product))
-                              : current.unit_cost,
-                          sale_unit_price: product
-                            ? String(getProductPrice(product))
-                            : current.sale_unit_price,
-                        }))
-                      }}
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    >
-                      <option value="">Item manual</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {getProductName(product)} · {formatCurrency(getProductPrice(product))}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Item do estoque
-                    </span>
-
-                    <select
-                      value={form.stock_item_id}
-                      onChange={(event) => {
-                        const stockItem = stockById.get(event.target.value)
-
-                        setForm((current) => ({
-                          ...current,
-                          stock_item_id: event.target.value,
-                          product_name: stockItem
-                            ? getStockName(stockItem)
-                            : current.product_name,
-                          unit_cost:
-                            current.unit_cost === "0" && stockItem
-                              ? String(getStockCost(stockItem))
-                              : current.unit_cost,
-                          loss_unit_type: stockItem
-                            ? getStockUnit(stockItem)
-                            : current.loss_unit_type,
-                          base_unit_type: stockItem
-                            ? getStockUnit(stockItem)
-                            : current.base_unit_type,
-                        }))
-                      }}
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    >
-                      <option value="">Sem vínculo com estoque</option>
-                      {stockItems.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {getStockName(item)} · estoque {getStockQuantity(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="md:col-span-2">
-                    <span className="text-sm font-black text-slate-700">
-                      Nome do item *
-                    </span>
-
-                    <input
-                      value={form.product_name}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          product_name: event.target.value,
-                        }))
-                      }
-                      placeholder="Ex: Márcia: marmita G de picanha com fritas"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Quantidade *
-                    </span>
-
-                    <input
-                      value={form.quantity}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          quantity: event.target.value,
-                        }))
-                      }
-                      placeholder="1"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Unidade
-                    </span>
-
-                    <input
-                      value={form.loss_unit_type}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          loss_unit_type: event.target.value,
-                          base_unit_type: event.target.value,
-                        }))
-                      }
-                      placeholder="unidade, kg, g, ml..."
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Custo unitário
-                    </span>
-
-                    <input
-                      value={form.unit_cost}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          unit_cost: event.target.value,
-                        }))
-                      }
-                      placeholder="0"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Preço de venda unitário
-                    </span>
-
-                    <input
-                      value={form.sale_unit_price}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          sale_unit_price: event.target.value,
-                        }))
-                      }
-                      placeholder="0"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Data/hora
-                    </span>
-
-                    <input
-                      type="datetime-local"
-                      value={form.occurred_at}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          occurred_at: event.target.value,
-                        }))
-                      }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Motivo
-                    </span>
-
-                    <select
-                      value={form.reason}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          reason: event.target.value,
-                        }))
-                      }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    >
-                      <option value="Vencimento">Vencimento</option>
-                      <option value="Erro de produção">Erro de produção</option>
-                      <option value="Quebra">Quebra</option>
-                      <option value="Sobra">Sobra</option>
-                      <option value="Pedido cancelado">Pedido cancelado</option>
-                      <option value="Consumo de funcionário">Consumo de funcionário</option>
-                      <option value="Consumo próprio">Consumo próprio</option>
-                      <option value="Doação">Doação</option>
-                      <option value="Cortesia">Cortesia</option>
-                      <option value="Produto queimado">Produto queimado</option>
-                      <option value="Armazenamento incorreto">Armazenamento incorreto</option>
-                      <option value="Outro">Outro</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Origem
-                    </span>
-
-                    <select
-                      value={form.loss_origin}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          loss_origin: event.target.value,
-                        }))
-                      }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    >
-                      <option value="estoque">Estoque</option>
-                      <option value="producao">Produção</option>
-                      <option value="cozinha">Cozinha</option>
-                      <option value="atendimento">Atendimento</option>
-                      <option value="delivery">Delivery</option>
-                      <option value="funcionarios">Funcionários</option>
-                      <option value="doacao">Doação/cortesia</option>
-                      <option value="consumo_proprio">Consumo próprio</option>
-                      <option value="desperdicio">Desperdício</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Setor
-                    </span>
-
-                    <input
-                      value={form.sector}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          sector: event.target.value,
-                        }))
-                      }
-                      placeholder="estoque, cozinha, salão..."
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label>
-                    <span className="text-sm font-black text-slate-700">
-                      Responsável
-                    </span>
-
-                    <input
-                      value={form.responsible_name}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          responsible_name: event.target.value,
-                        }))
-                      }
-                      placeholder="Nome da pessoa/setor"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-
-                  <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <input
-                      type="checkbox"
-                      checked={form.is_preventable}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          is_preventable: event.target.checked,
-                        }))
-                      }
-                      className="mt-1 h-4 w-4 rounded border-slate-300"
-                    />
-
+              <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-black text-slate-700">
-                        Perda evitável
-                      </p>
+                      <h3 className="text-sm font-black text-slate-950">
+                        1. Tipo do lançamento
+                      </h3>
 
-                      <p className="mt-1 text-xs font-semibold text-slate-500">
-                        Marque quando poderia ser reduzida.
+                      <p className="text-xs font-semibold text-slate-500">
+                        Escolha o cenário para preencher o cadastro mais rápido.
                       </p>
                     </div>
-                  </label>
+                  </div>
 
-                  <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <input
-                      type="checkbox"
-                      checked={form.update_stock}
-                      disabled={!form.stock_item_id}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          update_stock: event.target.checked,
-                        }))
-                      }
-                      className="mt-1 h-4 w-4 rounded border-slate-300 disabled:opacity-40"
-                    />
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {lossPresets.map((preset) => {
+                      const isActive = form.preset_id === preset.id
 
-                    <div>
-                      <p className="text-sm font-black text-slate-700">
-                        Baixar do estoque
-                      </p>
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => handlePresetSelect(preset.id)}
+                          className={`rounded-xl border p-3 text-left transition ${
+                            isActive
+                              ? "border-blue-600 bg-white shadow-sm ring-2 ring-blue-100"
+                              : "border-slate-200 bg-white hover:border-blue-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-black text-slate-950">
+                              {preset.label}
+                            </p>
 
-                      <p className="mt-1 text-xs font-semibold text-slate-500">
-                        Apenas se houver item de estoque.
-                      </p>
+                            {isActive && (
+                              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                            )}
+                          </div>
+
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            {preset.description}
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <h3 className="text-sm font-black text-slate-950">
+                    2. Item perdido ou consumido
+                  </h3>
+
+                  <p className="text-xs font-semibold text-slate-500">
+                    Busque no cardápio, estoque ou lance manualmente.
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleItemSourceChange("manual")}
+                      className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-xs font-black transition ${
+                        form.item_source === "manual"
+                          ? "border-blue-600 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <ClipboardList className="h-4 w-4" />
+                      Manual
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleItemSourceChange("product")}
+                      className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-xs font-black transition ${
+                        form.item_source === "product"
+                          ? "border-blue-600 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Utensils className="h-4 w-4" />
+                      Cardápio
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleItemSourceChange("stock")}
+                      className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-xs font-black transition ${
+                        form.item_source === "stock"
+                          ? "border-blue-600 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Warehouse className="h-4 w-4" />
+                      Estoque
+                    </button>
+                  </div>
+
+                  {form.item_source === "manual" ? (
+                    <label className="mt-3 block">
+                      <span className="text-sm font-black text-slate-700">
+                        Nome do item *
+                      </span>
+
+                      <input
+                        value={form.product_name}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            product_name: event.target.value,
+                          }))
+                        }
+                        placeholder="Ex: marmita G de picanha com fritas"
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <label className="block">
+                        <span className="text-sm font-black text-slate-700">
+                          Buscar item
+                        </span>
+
+                        <div className="relative mt-2">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                          <input
+                            value={itemSearch}
+                            onChange={(event) => setItemSearch(event.target.value)}
+                            placeholder={
+                              form.item_source === "product"
+                                ? "Digite o nome do produto do cardápio..."
+                                : "Digite o nome do item do estoque..."
+                            }
+                            className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                          />
+                        </div>
+                      </label>
+
+                      <div className="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-2">
+                        {form.item_source === "product" &&
+                          productOptions.map((product) => {
+                            const isActive = form.product_id === product.id
+
+                            return (
+                              <button
+                                key={product.id}
+                                type="button"
+                                onClick={() => handleProductSelect(product)}
+                                className={`w-full rounded-xl border p-3 text-left transition ${
+                                  isActive
+                                    ? "border-blue-600 bg-white ring-2 ring-blue-100"
+                                    : "border-slate-200 bg-white hover:border-blue-200"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-black text-slate-950">
+                                    {getProductName(product)}
+                                  </p>
+
+                                  <p className="shrink-0 text-sm font-black text-blue-600">
+                                    {formatCurrency(getProductPrice(product))}
+                                  </p>
+                                </div>
+
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  Cardápio · custo estimado {formatCurrency(getProductCost(product))}
+                                </p>
+                              </button>
+                            )
+                          })}
+
+                        {form.item_source === "stock" &&
+                          stockOptions.map((item) => {
+                            const isActive = form.stock_item_id === item.id
+
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleStockSelect(item)}
+                                className={`w-full rounded-xl border p-3 text-left transition ${
+                                  isActive
+                                    ? "border-blue-600 bg-white ring-2 ring-blue-100"
+                                    : "border-slate-200 bg-white hover:border-blue-200"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-black text-slate-950">
+                                    {getStockName(item)}
+                                  </p>
+
+                                  <p className="shrink-0 text-xs font-black text-slate-500">
+                                    {getStockQuantity(item)} {getStockUnit(item)}
+                                  </p>
+                                </div>
+
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  Estoque · custo {formatCurrency(getStockCost(item))} por {getStockUnit(item)}
+                                </p>
+                              </button>
+                            )
+                          })}
+
+                        {form.item_source === "product" && productOptions.length === 0 && (
+                          <p className="p-3 text-sm font-bold text-slate-500">
+                            Nenhum produto encontrado.
+                          </p>
+                        )}
+
+                        {form.item_source === "stock" && stockOptions.length === 0 && (
+                          <p className="p-3 text-sm font-bold text-slate-500">
+                            Nenhum item de estoque encontrado.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </label>
+                  )}
+                </section>
 
-                  <label className="md:col-span-2">
+                <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <h3 className="text-sm font-black text-slate-950">
+                    3. Quantidade e valores
+                  </h3>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Quantidade *
+                      </span>
+
+                      <input
+                        value={form.quantity}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            quantity: event.target.value,
+                          }))
+                        }
+                        placeholder="1"
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Unidade
+                      </span>
+
+                      <input
+                        value={form.loss_unit_type}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            loss_unit_type: event.target.value,
+                            base_unit_type: event.target.value,
+                          }))
+                        }
+                        placeholder="unidade, kg, g..."
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Data/hora
+                      </span>
+
+                      <input
+                        type="datetime-local"
+                        value={form.occurred_at}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            occurred_at: event.target.value,
+                          }))
+                        }
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Custo unitário
+                      </span>
+
+                      <input
+                        value={form.unit_cost}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            unit_cost: event.target.value,
+                          }))
+                        }
+                        placeholder="0"
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Preço de venda unitário
+                      </span>
+
+                      <input
+                        value={form.sale_unit_price}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            sale_unit_price: event.target.value,
+                          }))
+                        }
+                        placeholder="0"
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <h3 className="text-sm font-black text-slate-950">
+                    4. Operação
+                  </h3>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Motivo
+                      </span>
+
+                      <select
+                        value={form.reason}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            reason: event.target.value,
+                          }))
+                        }
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      >
+                        <option value="Vencimento">Vencimento</option>
+                        <option value="Erro de produção">Erro de produção</option>
+                        <option value="Quebra">Quebra</option>
+                        <option value="Sobra">Sobra</option>
+                        <option value="Pedido cancelado">Pedido cancelado</option>
+                        <option value="Consumo de funcionário">Consumo de funcionário</option>
+                        <option value="Consumo próprio">Consumo próprio</option>
+                        <option value="Doação">Doação</option>
+                        <option value="Cortesia">Cortesia</option>
+                        <option value="Produto queimado">Produto queimado</option>
+                        <option value="Armazenamento incorreto">Armazenamento incorreto</option>
+                        <option value="Outro">Outro</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Origem
+                      </span>
+
+                      <select
+                        value={form.loss_origin}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            loss_origin: event.target.value,
+                          }))
+                        }
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      >
+                        <option value="estoque">Estoque</option>
+                        <option value="producao">Produção</option>
+                        <option value="cozinha">Cozinha</option>
+                        <option value="atendimento">Atendimento</option>
+                        <option value="delivery">Delivery</option>
+                        <option value="funcionarios">Funcionários</option>
+                        <option value="doacao">Doação/cortesia</option>
+                        <option value="consumo_proprio">Consumo próprio</option>
+                        <option value="desperdicio">Desperdício</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Setor
+                      </span>
+
+                      <input
+                        value={form.sector}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            sector: event.target.value,
+                          }))
+                        }
+                        placeholder="estoque, cozinha, salão..."
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+
+                    <label>
+                      <span className="text-sm font-black text-slate-700">
+                        Responsável
+                      </span>
+
+                      <input
+                        value={form.responsible_name}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            responsible_name: event.target.value,
+                          }))
+                        }
+                        placeholder="Nome da pessoa ou setor"
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <input
+                        type="checkbox"
+                        checked={form.is_preventable}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            is_preventable: event.target.checked,
+                          }))
+                        }
+                        className="mt-1 h-4 w-4 rounded border-slate-300"
+                      />
+
+                      <div>
+                        <p className="text-sm font-black text-slate-700">
+                          Perda evitável
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          Marque quando poderia ser reduzida com processo.
+                        </p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <input
+                        type="checkbox"
+                        checked={form.update_stock}
+                        disabled={!form.stock_item_id}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            update_stock: event.target.checked,
+                          }))
+                        }
+                        className="mt-1 h-4 w-4 rounded border-slate-300 disabled:opacity-40"
+                      />
+
+                      <div>
+                        <p className="text-sm font-black text-slate-700">
+                          Baixar do estoque
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          Disponível apenas para item vinculado ao estoque.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {selectedStockItem && (
+                    <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                        Movimento de estoque
+                      </p>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-sm font-bold text-blue-900">
+                        <p>Atual: {stockCurrentQuantity} {getStockUnit(selectedStockItem)}</p>
+                        <p>Após baixa: {stockAfterQuantity} {getStockUnit(selectedStockItem)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <label className="mt-3 block">
                     <span className="text-sm font-black text-slate-700">
                       Observações
                     </span>
@@ -1220,39 +1704,57 @@ export default function PerdasDesperdicioPage() {
                       className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold outline-none transition focus:border-blue-500"
                     />
                   </label>
-                </div>
+                </section>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-red-100 bg-red-50 p-4">
-                    <p className="text-sm font-black text-red-700">
-                      Custo perdido
-                    </p>
+                <section className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-black text-white">
+                        Resumo do impacto
+                      </h3>
 
-                    <p className="mt-1 text-2xl font-black text-red-700">
-                      {formatCurrency(totalCost)}
-                    </p>
+                      <p className="text-xs font-semibold text-slate-400">
+                        Conferência antes de salvar o lançamento.
+                      </p>
+                    </div>
 
-                    <p className="mt-1 text-xs font-semibold text-red-700/70">
-                      Quantidade x custo unitário.
-                    </p>
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                   </div>
 
-                  <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-                    <p className="text-sm font-black text-blue-700">
-                      Venda possível perdida
-                    </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl bg-white/10 p-3">
+                      <p className="text-xs font-bold text-slate-300">
+                        Custo perdido
+                      </p>
 
-                    <p className="mt-1 text-2xl font-black text-blue-700">
-                      {formatCurrency(potentialSaleAmount)}
-                    </p>
+                      <p className="mt-1 text-2xl font-black text-white">
+                        {formatCurrency(totalCost)}
+                      </p>
+                    </div>
 
-                    <p className="mt-1 text-xs font-semibold text-blue-700/70">
-                      Quantidade x preço de venda.
+                    <div className="rounded-xl bg-white/10 p-3">
+                      <p className="text-xs font-bold text-slate-300">
+                        Venda possível perdida
+                      </p>
+
+                      <p className="mt-1 text-2xl font-black text-white">
+                        {formatCurrency(potentialSaleAmount)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-xl bg-white/10 p-3 text-xs font-semibold text-slate-300">
+                    <p>Tipo: {form.reason}</p>
+                    <p>Item: {form.product_name || "não informado"}</p>
+                    <p>
+                      Estoque: {form.stock_item_id && form.update_stock ? "será baixado" : "não será baixado"}
                     </p>
                   </div>
-                </div>
+                </section>
+              </div>
 
-                <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <div className="border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={closeModal}
@@ -1268,11 +1770,11 @@ export default function PerdasDesperdicioPage() {
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Salvar registro
+                    Salvar lançamento
                   </button>
                 </div>
-              </form>
-            </div>
+              </div>
+            </form>
           </div>
         )}
       </div>

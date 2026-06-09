@@ -4,17 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   BadgeDollarSign,
   CalendarDays,
+  CheckCircle2,
   Clock3,
   Copy,
+  DollarSign,
+  Eye,
+  EyeOff,
   ImageIcon,
   Link2,
+  ListChecks,
   Loader2,
   Package2,
+  Pencil,
   Percent,
   Plus,
   Save,
   Settings2,
   Trash2,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,6 +44,7 @@ import {
 
 type PromotionType = "none" | "fixed" | "percentage"
 type AvailabilityType = "always" | "scheduled"
+type EditorTab = "general" | "pricing" | "modifiers" | "availability"
 
 type WeekdayOption = {
   value: number
@@ -119,6 +127,33 @@ const WEEKDAYS: WeekdayOption[] = [
   { value: 6, label: "Sábado", shortLabel: "Sáb" },
 ]
 
+const EDITOR_TABS: Array<{
+  id: EditorTab
+  label: string
+  description: string
+}> = [
+  {
+    id: "general",
+    label: "Geral",
+    description: "Nome, descrição, categoria e imagem.",
+  },
+  {
+    id: "pricing",
+    label: "Preço",
+    description: "Preço, custo, margem e promoção.",
+  },
+  {
+    id: "modifiers",
+    label: "Complementos",
+    description: "Grupos vinculados, opções e adicionais.",
+  },
+  {
+    id: "availability",
+    label: "Disponibilidade",
+    description: "Status, dias e horários de venda.",
+  },
+]
+
 export interface ProductEditorValues {
   name: string
   description: string
@@ -155,7 +190,15 @@ function formatMoneyInput(value: number): string {
 
 function parseMoneyInput(value: string): number {
   if (!value.trim()) return 0
-  return Number.parseFloat(value.replace(",", "."))
+
+  const normalizedValue = value
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .replace(/[^0-9.]/g, "")
+
+  const parsed = Number.parseFloat(normalizedValue)
+
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function formatCurrency(value: number) {
@@ -172,23 +215,6 @@ function roundMoney(value: number) {
 function normalizeTimeInput(value: string | null | undefined) {
   if (!value) return ""
   return value.slice(0, 5)
-}
-
-function createEmptyModifierGroup(sortOrder = 0): ModifierGroupDraft {
-  return {
-    name: "",
-    required: false,
-    minSelect: 0,
-    maxSelect: 1,
-    sortOrder,
-    options: [
-      {
-        name: "",
-        price: 0,
-        sortOrder: 0,
-      },
-    ],
-  }
 }
 
 function parseIntegerInput(value: string, fallback = 0) {
@@ -209,6 +235,23 @@ function getDiscountValue(price: number, type: PromotionType, value: number) {
   }
 
   return 0
+}
+
+function createEmptyModifierGroup(sortOrder = 0): ModifierGroupDraft {
+  return {
+    name: "",
+    required: false,
+    minSelect: 0,
+    maxSelect: 1,
+    sortOrder,
+    options: [
+      {
+        name: "",
+        price: 0,
+        sortOrder: 0,
+      },
+    ],
+  }
 }
 
 function normalizeModifierGroup(
@@ -252,6 +295,30 @@ function duplicateModifierGroup(group: ReusableModifierGroup): ModifierGroupDraf
   }
 }
 
+function sanitizeModifierGroupDraft(group: ModifierGroupDraft, sortOrder = 0) {
+  const safeMaxSelect = Math.max(Number(group.maxSelect || 1), 1)
+  const safeMinSelect = group.required
+    ? Math.max(Math.min(Number(group.minSelect || 0), safeMaxSelect), 1)
+    : Math.min(Number(group.minSelect || 0), safeMaxSelect)
+
+  return {
+    ...group,
+    name: group.name.trim(),
+    required: group.required,
+    minSelect: safeMinSelect,
+    maxSelect: safeMaxSelect,
+    sortOrder,
+    options: group.options
+      .map((option, optionIndex) => ({
+        ...option,
+        name: option.name.trim(),
+        price: roundMoney(Number(option.price || 0)),
+        sortOrder: optionIndex,
+      }))
+      .filter((option) => option.name.length > 0),
+  }
+}
+
 export default function ProductEditorSheet({
   open,
   mode,
@@ -261,6 +328,8 @@ export default function ProductEditorSheet({
   onOpenChange,
   onSave,
 }: ProductEditorSheetProps) {
+  const [activeTab, setActiveTab] = useState<EditorTab>("general")
+
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [price, setPrice] = useState("")
@@ -268,9 +337,11 @@ export default function ProductEditorSheet({
   const [category, setCategory] = useState("")
   const [active, setActive] = useState(true)
   const [image, setImage] = useState<string | null>(null)
+
   const [promotionActive, setPromotionActive] = useState(false)
   const [promotionType, setPromotionType] = useState<PromotionType>("none")
   const [promotionValue, setPromotionValue] = useState("")
+
   const [availabilityType, setAvailabilityType] =
     useState<AvailabilityType>("always")
   const [availabilityWeekdays, setAvailabilityWeekdays] = useState<number[]>([])
@@ -278,7 +349,9 @@ export default function ProductEditorSheet({
   const [availabilityEndTime, setAvailabilityEndTime] = useState("")
   const [availabilityCategory, setAvailabilityCategory] = useState("")
   const [loadingAvailability, setLoadingAvailability] = useState(false)
+
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
+
   const [availableModifierGroups, setAvailableModifierGroups] = useState<
     ReusableModifierGroup[]
   >([])
@@ -288,11 +361,102 @@ export default function ProductEditorSheet({
   const [newModifierGroups, setNewModifierGroups] = useState<
     ModifierGroupDraft[]
   >([])
+  const [editingModifierGroup, setEditingModifierGroup] =
+    useState<ReusableModifierGroup | null>(null)
+
   const [loadingModifiers, setLoadingModifiers] = useState(false)
   const [savingModifiers, setSavingModifiers] = useState(false)
+  const [savingReusableGroup, setSavingReusableGroup] = useState(false)
+  const [deletingReusableGroupId, setDeletingReusableGroupId] = useState<
+    string | null
+  >(null)
   const [modifiersTouched, setModifiersTouched] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
+
+  const numericPrice = parseMoneyInput(price)
+  const numericCost = parseMoneyInput(cost)
+  const numericPromotionValue = parseMoneyInput(promotionValue)
+  const normalizedPromotionActive =
+    promotionActive && promotionType !== "none" && numericPromotionValue > 0
+
+  const promotionDiscount = normalizedPromotionActive
+    ? getDiscountValue(numericPrice, promotionType, numericPromotionValue)
+    : 0
+
+  const finalPrice = Math.max(numericPrice - promotionDiscount, 0)
+  const previewProfit = getProfit(finalPrice, numericCost)
+  const previewMargin = getMargin(finalPrice, numericCost)
+  const baseProfit = getProfit(numericPrice, numericCost)
+  const baseMargin = getMargin(numericPrice, numericCost)
+
+  const selectedExistingGroups = useMemo(() => {
+    return selectedModifierGroupIds
+      .map((groupId) =>
+        availableModifierGroups.find((group) => group.id === groupId)
+      )
+      .filter((group): group is ReusableModifierGroup => Boolean(group))
+  }, [availableModifierGroups, selectedModifierGroupIds])
+
+  const unselectedExistingGroups = useMemo(() => {
+    return availableModifierGroups.filter(
+      (group) => !selectedModifierGroupIds.includes(group.id)
+    )
+  }, [availableModifierGroups, selectedModifierGroupIds])
+
+  const totalModifierGroups =
+    selectedModifierGroupIds.length + newModifierGroups.length
+
+  const canSave = useMemo(() => {
+    const validPromotion =
+      !promotionActive ||
+      (promotionType !== "none" &&
+        Number.isFinite(numericPromotionValue) &&
+        numericPromotionValue > 0 &&
+        numericPrice > 0 &&
+        (promotionType !== "percentage" || numericPromotionValue <= 100) &&
+        finalPrice > 0)
+
+    const hasPartialAvailabilityTime =
+      Boolean(availabilityStartTime) !== Boolean(availabilityEndTime)
+
+    const hasValidAvailabilityTime =
+      !availabilityStartTime ||
+      !availabilityEndTime ||
+      availabilityStartTime < availabilityEndTime
+
+    const validAvailability =
+      availabilityType === "always" ||
+      (availabilityWeekdays.length > 0 &&
+        availabilityCategory.trim().length > 0 &&
+        !hasPartialAvailabilityTime &&
+        hasValidAvailabilityTime)
+
+    return (
+      name.trim().length > 0 &&
+      category.trim().length > 0 &&
+      Number.isFinite(numericPrice) &&
+      numericPrice >= 0 &&
+      Number.isFinite(numericCost) &&
+      numericCost >= 0 &&
+      validPromotion &&
+      validAvailability
+    )
+  }, [
+    availabilityCategory,
+    availabilityEndTime,
+    availabilityStartTime,
+    availabilityType,
+    availabilityWeekdays.length,
+    category,
+    finalPrice,
+    name,
+    numericCost,
+    numericPrice,
+    numericPromotionValue,
+    promotionActive,
+    promotionType,
+  ])
 
   const resolveRestaurantId = useCallback(async () => {
     if (restaurantId) return restaurantId
@@ -363,6 +527,7 @@ export default function ProductEditorSheet({
         if (!productIdToLoad) {
           setSelectedModifierGroupIds([])
           setNewModifierGroups([])
+          setEditingModifierGroup(null)
           setModifiersTouched(false)
           return
         }
@@ -387,12 +552,14 @@ export default function ProductEditorSheet({
             .map((link) => link.group_id)
         )
         setNewModifierGroups([])
+        setEditingModifierGroup(null)
         setModifiersTouched(false)
       } catch (error) {
-        console.error("Erro ao carregar complementos reutilizáveis:", error)
+        console.error("Erro ao carregar complementos:", error)
         setAvailableModifierGroups([])
         setSelectedModifierGroupIds([])
         setNewModifierGroups([])
+        setEditingModifierGroup(null)
         setModifiersTouched(false)
       } finally {
         setLoadingModifiers(false)
@@ -403,6 +570,8 @@ export default function ProductEditorSheet({
 
   useEffect(() => {
     if (!open) return
+
+    setActiveTab("general")
 
     if (mode === "edit" && product) {
       setName(product.name)
@@ -420,6 +589,8 @@ export default function ProductEditorSheet({
       setAvailabilityStartTime(normalizeTimeInput(product.availabilityStartTime))
       setAvailabilityEndTime(normalizeTimeInput(product.availabilityEndTime))
       setAvailabilityCategory(product.availabilityCategory ?? product.category)
+      setNewModifierGroups([])
+      setEditingModifierGroup(null)
       setModifiersTouched(false)
       return
     }
@@ -441,6 +612,7 @@ export default function ProductEditorSheet({
     setAvailabilityCategory(defaultCategoryId ?? categories[0]?.id ?? "")
     setSelectedModifierGroupIds([])
     setNewModifierGroups([])
+    setEditingModifierGroup(null)
     setModifiersTouched(false)
   }, [categories, defaultCategoryId, mode, open, product])
 
@@ -501,84 +673,6 @@ export default function ProductEditorSheet({
     }
   }, [mode, open, product?.category, product?.id, supabase])
 
-  const numericPrice = parseMoneyInput(price)
-  const numericCost = parseMoneyInput(cost)
-  const numericPromotionValue = parseMoneyInput(promotionValue)
-  const normalizedPromotionActive =
-    promotionActive && promotionType !== "none" && numericPromotionValue > 0
-
-  const promotionDiscount = normalizedPromotionActive
-    ? getDiscountValue(numericPrice, promotionType, numericPromotionValue)
-    : 0
-
-  const finalPrice = Math.max(numericPrice - promotionDiscount, 0)
-  const previewProfit = getProfit(finalPrice, numericCost)
-  const previewMargin = getMargin(finalPrice, numericCost)
-  const baseProfit = getProfit(numericPrice, numericCost)
-  const baseMargin = getMargin(numericPrice, numericCost)
-
-  const selectedExistingGroups = useMemo(() => {
-    return selectedModifierGroupIds
-      .map((groupId) =>
-        availableModifierGroups.find((group) => group.id === groupId)
-      )
-      .filter((group): group is ReusableModifierGroup => Boolean(group))
-  }, [availableModifierGroups, selectedModifierGroupIds])
-
-  const totalModifierGroups =
-    selectedModifierGroupIds.length + newModifierGroups.length
-
-  const canSave = useMemo(() => {
-    const validPromotion =
-      !promotionActive ||
-      (promotionType !== "none" &&
-        Number.isFinite(numericPromotionValue) &&
-        numericPromotionValue > 0 &&
-        numericPrice > 0 &&
-        (promotionType !== "percentage" || numericPromotionValue <= 100) &&
-        finalPrice > 0)
-
-    const hasPartialAvailabilityTime =
-      Boolean(availabilityStartTime) !== Boolean(availabilityEndTime)
-
-    const hasValidAvailabilityTime =
-      !availabilityStartTime ||
-      !availabilityEndTime ||
-      availabilityStartTime < availabilityEndTime
-
-    const validAvailability =
-      availabilityType === "always" ||
-      (availabilityWeekdays.length > 0 &&
-        availabilityCategory.trim().length > 0 &&
-        !hasPartialAvailabilityTime &&
-        hasValidAvailabilityTime)
-
-    return (
-      name.trim().length > 0 &&
-      category.trim().length > 0 &&
-      Number.isFinite(numericPrice) &&
-      numericPrice >= 0 &&
-      Number.isFinite(numericCost) &&
-      numericCost >= 0 &&
-      validPromotion &&
-      validAvailability
-    )
-  }, [
-    availabilityCategory,
-    availabilityEndTime,
-    availabilityStartTime,
-    availabilityType,
-    availabilityWeekdays.length,
-    category,
-    finalPrice,
-    name,
-    numericCost,
-    numericPrice,
-    numericPromotionValue,
-    promotionActive,
-    promotionType,
-  ])
-
   const toggleAvailabilityWeekday = (weekday: number) => {
     setAvailabilityWeekdays((currentWeekdays) => {
       if (currentWeekdays.includes(weekday)) {
@@ -589,16 +683,22 @@ export default function ProductEditorSheet({
     })
   }
 
-  const toggleExistingModifierGroup = (groupId: string) => {
+  const linkExistingModifierGroup = (groupId: string) => {
     setModifiersTouched(true)
 
     setSelectedModifierGroupIds((currentGroupIds) => {
-      if (currentGroupIds.includes(groupId)) {
-        return currentGroupIds.filter((item) => item !== groupId)
-      }
+      if (currentGroupIds.includes(groupId)) return currentGroupIds
 
       return [...currentGroupIds, groupId]
     })
+  }
+
+  const unlinkExistingModifierGroup = (groupId: string) => {
+    setModifiersTouched(true)
+
+    setSelectedModifierGroupIds((currentGroupIds) =>
+      currentGroupIds.filter((item) => item !== groupId)
+    )
   }
 
   const addNewModifierGroup = () => {
@@ -704,26 +804,252 @@ export default function ProductEditorSheet({
     ])
   }
 
+  const openEditReusableModifierGroup = (group: ReusableModifierGroup) => {
+    setEditingModifierGroup({
+      ...group,
+      options: group.options.map((option, index) => ({
+        ...option,
+        sortOrder: index,
+      })),
+    })
+  }
+
+  const closeEditReusableModifierGroup = () => {
+    setEditingModifierGroup(null)
+  }
+
+  const updateEditingModifierGroup = (updates: Partial<ModifierGroupDraft>) => {
+    setEditingModifierGroup((currentGroup) => {
+      if (!currentGroup) return currentGroup
+
+      return {
+        ...currentGroup,
+        ...updates,
+      }
+    })
+  }
+
+  const addEditingModifierOption = () => {
+    setEditingModifierGroup((currentGroup) => {
+      if (!currentGroup) return currentGroup
+
+      return {
+        ...currentGroup,
+        options: [
+          ...currentGroup.options,
+          {
+            name: "",
+            price: 0,
+            sortOrder: currentGroup.options.length,
+          },
+        ],
+      }
+    })
+  }
+
+  const updateEditingModifierOption = (
+    optionIndex: number,
+    updates: Partial<ModifierOptionDraft>
+  ) => {
+    setEditingModifierGroup((currentGroup) => {
+      if (!currentGroup) return currentGroup
+
+      return {
+        ...currentGroup,
+        options: currentGroup.options.map((option, currentOptionIndex) =>
+          currentOptionIndex === optionIndex
+            ? {
+                ...option,
+                ...updates,
+              }
+            : option
+        ),
+      }
+    })
+  }
+
+  const removeEditingModifierOption = (optionIndex: number) => {
+    setEditingModifierGroup((currentGroup) => {
+      if (!currentGroup) return currentGroup
+
+      return {
+        ...currentGroup,
+        options: currentGroup.options.filter((_, index) => index !== optionIndex),
+      }
+    })
+  }
+
+  const saveEditingReusableModifierGroup = async () => {
+    if (!editingModifierGroup) return
+
+    const sanitizedGroup = sanitizeModifierGroupDraft(editingModifierGroup)
+
+    if (!sanitizedGroup.name || sanitizedGroup.options.length === 0) {
+      alert("Informe o nome do grupo e pelo menos uma opção.")
+      return
+    }
+
+    if (sanitizedGroup.minSelect > sanitizedGroup.maxSelect) {
+      alert("O mínimo não pode ser maior que o máximo.")
+      return
+    }
+
+    try {
+      setSavingReusableGroup(true)
+
+      const resolvedRestaurantId = await resolveRestaurantId()
+
+      const { error: updateGroupError } = await supabase
+        .from("modifier_groups")
+        .update({
+          name: sanitizedGroup.name,
+          required: sanitizedGroup.required,
+          min_select: sanitizedGroup.minSelect,
+          max_select: sanitizedGroup.maxSelect,
+          sort_order: sanitizedGroup.sortOrder,
+          is_active: true,
+        })
+        .eq("id", editingModifierGroup.id)
+        .eq("restaurant_id", resolvedRestaurantId)
+
+      if (updateGroupError) throw updateGroupError
+
+      const originalOptionIds = editingModifierGroup.options
+        .map((option) => option.id)
+        .filter((id): id is string => Boolean(id))
+
+      const currentOptionIds = sanitizedGroup.options
+        .map((option) => option.id)
+        .filter((id): id is string => Boolean(id))
+
+      const removedOptionIds = originalOptionIds.filter(
+        (optionId) => !currentOptionIds.includes(optionId)
+      )
+
+      if (removedOptionIds.length > 0) {
+        const { error: removeOptionsError } = await supabase
+          .from("modifier_group_options")
+          .update({ is_active: false })
+          .eq("restaurant_id", resolvedRestaurantId)
+          .eq("group_id", editingModifierGroup.id)
+          .in("id", removedOptionIds)
+
+        if (removeOptionsError) throw removeOptionsError
+      }
+
+      for (const option of sanitizedGroup.options) {
+        if (option.id) {
+          const { error: updateOptionError } = await supabase
+            .from("modifier_group_options")
+            .update({
+              name: option.name,
+              price: option.price,
+              sort_order: option.sortOrder,
+              is_active: true,
+            })
+            .eq("id", option.id)
+            .eq("restaurant_id", resolvedRestaurantId)
+            .eq("group_id", editingModifierGroup.id)
+
+          if (updateOptionError) throw updateOptionError
+        } else {
+          const { error: insertOptionError } = await supabase
+            .from("modifier_group_options")
+            .insert({
+              restaurant_id: resolvedRestaurantId,
+              group_id: editingModifierGroup.id,
+              name: option.name,
+              price: option.price,
+              sort_order: option.sortOrder,
+              is_active: true,
+            })
+
+          if (insertOptionError) throw insertOptionError
+        }
+      }
+
+      await loadModifierData(mode === "edit" ? product?.id ?? null : null)
+      setEditingModifierGroup(null)
+      alert("Grupo de complemento atualizado com sucesso.")
+    } catch (error) {
+      console.error("Erro ao editar grupo de complemento:", error)
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível editar o grupo de complemento."
+      )
+    } finally {
+      setSavingReusableGroup(false)
+    }
+  }
+
+  const deleteReusableModifierGroup = async (group: ReusableModifierGroup) => {
+    const confirmed = window.confirm(
+      `Tem certeza que deseja excluir o grupo "${group.name}"?\n\nEle será removido da biblioteca e desvinculado dos produtos que usam esse complemento.`
+    )
+
+    if (!confirmed) return
+
+    try {
+      setDeletingReusableGroupId(group.id)
+
+      const resolvedRestaurantId = await resolveRestaurantId()
+
+      const { error: linksError } = await supabase
+        .from("product_modifier_group_links")
+        .update({ is_active: false })
+        .eq("restaurant_id", resolvedRestaurantId)
+        .eq("group_id", group.id)
+
+      if (linksError) throw linksError
+
+      const { error: optionsError } = await supabase
+        .from("modifier_group_options")
+        .update({ is_active: false })
+        .eq("restaurant_id", resolvedRestaurantId)
+        .eq("group_id", group.id)
+
+      if (optionsError) throw optionsError
+
+      const { error: groupError } = await supabase
+        .from("modifier_groups")
+        .update({ is_active: false })
+        .eq("restaurant_id", resolvedRestaurantId)
+        .eq("id", group.id)
+
+      if (groupError) throw groupError
+
+      setSelectedModifierGroupIds((currentGroupIds) =>
+        currentGroupIds.filter((groupId) => groupId !== group.id)
+      )
+      setAvailableModifierGroups((currentGroups) =>
+        currentGroups.filter((currentGroup) => currentGroup.id !== group.id)
+      )
+
+      if (editingModifierGroup?.id === group.id) {
+        setEditingModifierGroup(null)
+      }
+
+      setModifiersTouched(true)
+      alert("Grupo de complemento excluído com sucesso.")
+    } catch (error) {
+      console.error("Erro ao excluir grupo de complemento:", error)
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o grupo de complemento."
+      )
+    } finally {
+      setDeletingReusableGroupId(null)
+    }
+  }
+
   const saveProductModifierGroups = async (
     savedProductId: string,
     options?: { silent?: boolean }
   ) => {
     const normalizedNewGroups = newModifierGroups
-      .map((group, groupIndex) => ({
-        ...group,
-        name: group.name.trim(),
-        minSelect: Math.max(Number(group.minSelect || 0), 0),
-        maxSelect: Math.max(Number(group.maxSelect || 1), 1),
-        sortOrder: groupIndex,
-        options: group.options
-          .map((option, optionIndex) => ({
-            ...option,
-            name: option.name.trim(),
-            price: roundMoney(Number(option.price || 0)),
-            sortOrder: optionIndex,
-          }))
-          .filter((option) => option.name.length > 0),
-      }))
+      .map((group, groupIndex) => sanitizeModifierGroupDraft(group, groupIndex))
       .filter((group) => group.name.length > 0)
 
     const invalidGroup = normalizedNewGroups.find(
@@ -777,19 +1103,14 @@ export default function ProductEditorSheet({
       let nextSortOrder = validExistingGroupIds.length
 
       for (const group of normalizedNewGroups) {
-        const safeMaxSelect = Math.max(group.maxSelect, 1)
-        const safeMinSelect = group.required
-          ? Math.max(Math.min(group.minSelect, safeMaxSelect), 1)
-          : Math.min(group.minSelect, safeMaxSelect)
-
         const { data: insertedGroup, error: groupError } = await supabase
           .from("modifier_groups")
           .insert({
             restaurant_id: resolvedRestaurantId,
             name: group.name,
             required: group.required,
-            min_select: safeMinSelect,
-            max_select: safeMaxSelect,
+            min_select: group.minSelect,
+            max_select: group.maxSelect,
             sort_order: availableModifierGroups.length + nextSortOrder,
             is_active: true,
           })
@@ -904,7 +1225,7 @@ export default function ProductEditorSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full overflow-hidden p-0 sm:max-w-[760px] xl:max-w-[960px]"
+        className="w-full overflow-hidden p-0 sm:max-w-[900px] xl:max-w-[1080px]"
       >
         <div className="flex h-full flex-col bg-slate-50">
           <SheetHeader className="border-b border-slate-200 bg-white px-5 py-4">
@@ -917,861 +1238,966 @@ export default function ProductEditorSheet({
                 )}
               </div>
 
-              <div>
-                <SheetTitle className="text-lg font-black text-slate-950">
-                  {mode === "create" ? "Novo Produto" : "Editar Produto"}
+              <div className="min-w-0">
+                <SheetTitle className="truncate text-lg font-black text-slate-950">
+                  {mode === "create" ? "Novo produto" : "Editar produto"}
                 </SheetTitle>
 
                 <SheetDescription className="text-xs text-slate-500">
-                  Produto, preço, dias de venda e complementos no mesmo lugar.
+                  Edite apenas uma área por vez: dados, preço, complementos ou disponibilidade.
                 </SheetDescription>
               </div>
             </div>
           </SheetHeader>
 
+          <div className="border-b border-slate-200 bg-white px-4 py-3">
+            <div className="grid gap-2 sm:grid-cols-4">
+              {EDITOR_TABS.map((tab) => {
+                const selected = activeTab === tab.id
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "rounded-xl border px-3 py-3 text-left transition",
+                      selected
+                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-500/10"
+                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                    )}
+                  >
+                    <p className="text-sm font-black">{tab.label}</p>
+                    <p className="mt-0.5 hidden text-xs leading-4 sm:block">
+                      {tab.description}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5">
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="min-w-0 space-y-4">
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-black text-slate-950">
-                      Dados do produto
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Informações que aparecem no cardápio do cliente.
-                    </p>
-                  </div>
-
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="min-w-0">
+                {activeTab === "general" && (
                   <div className="space-y-4">
-                    <div>
-                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                        Nome do produto <span className="text-red-500">*</span>
-                      </label>
-
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                        placeholder="Ex: X-Bacon"
-                        className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                        Descrição
-                      </label>
-
-                      <textarea
-                        value={description}
-                        onChange={(event) => setDescription(event.target.value)}
-                        placeholder="Ex: Pão brioche, hambúrguer bovino, cheddar, bacon e molho especial..."
-                        rows={3}
-                        className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                        Categoria <span className="text-red-500">*</span>
-                      </label>
-
-                      <select
-                        value={category}
-                        onChange={(event) => {
-                          setCategory(event.target.value)
-
-                          if (!availabilityCategory) {
-                            setAvailabilityCategory(event.target.value)
-                          }
-                        }}
-                        className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                      >
-                        {categories.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-black text-slate-950">
-                      Imagem
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Foto do produto no cardápio.
-                    </p>
-                  </div>
-
-                  <div className="max-w-[340px]">
-                    <ImageUpload value={image} onChange={setImage} />
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                        <CalendarDays className="h-5 w-5" />
-                      </div>
-
-                      <div>
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4">
                         <h3 className="text-sm font-black text-slate-950">
-                          Dias e horários de venda
+                          Dados do produto
                         </h3>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
-                          Defina se o produto aparece sempre ou apenas em dias e horários específicos.
+                        <p className="mt-1 text-xs text-slate-500">
+                          Informações principais que aparecem no cardápio.
                         </p>
                       </div>
-                    </div>
 
-                    {loadingAvailability ? (
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
-                        Carregando
-                      </span>
-                    ) : null}
-                  </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            Nome do produto <span className="text-red-500">*</span>
+                          </label>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAvailabilityType("always")
-                        setAvailabilityWeekdays([])
-                        setAvailabilityStartTime("")
-                        setAvailabilityEndTime("")
-                        setAvailabilityCategory(category)
-                      }}
-                      className={cn(
-                        "rounded-xl border px-4 py-3 text-left transition",
-                        availabilityType === "always"
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
-                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                      )}
-                    >
-                      <p className="text-sm font-black">Sempre disponível</p>
-                      <p className="mt-1 text-xs leading-5">
-                        Aparece no cardápio todos os dias.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAvailabilityType("scheduled")
-
-                        if (!availabilityCategory) {
-                          setAvailabilityCategory(category)
-                        }
-                      }}
-                      className={cn(
-                        "rounded-xl border px-4 py-3 text-left transition",
-                        availabilityType === "scheduled"
-                          ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                      )}
-                    >
-                      <p className="text-sm font-black">Dias específicos</p>
-                      <p className="mt-1 text-xs leading-5">
-                        Ideal para tropeiro, feijoada, almoço e pratos do dia.
-                      </p>
-                    </button>
-                  </div>
-
-                  {availabilityType === "scheduled" && (
-                    <div className="mt-4 space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                      <div>
-                        <label className="mb-2 block text-sm font-black text-slate-800">
-                          Dias em que aparece
-                        </label>
-
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {WEEKDAYS.map((weekday) => {
-                            const selected = availabilityWeekdays.includes(
-                              weekday.value
-                            )
-
-                            return (
-                              <button
-                                key={weekday.value}
-                                type="button"
-                                onClick={() =>
-                                  toggleAvailabilityWeekday(weekday.value)
-                                }
-                                className={cn(
-                                  "rounded-lg border px-3 py-2 text-sm font-black transition",
-                                  selected
-                                    ? "border-emerald-500 bg-emerald-600 text-white shadow-sm"
-                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                )}
-                              >
-                                {weekday.shortLabel}
-                              </button>
-                            )
-                          })}
+                          <input
+                            type="text"
+                            value={name}
+                            onChange={(event) => setName(event.target.value)}
+                            placeholder="Ex: X-Bacon"
+                            className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                          />
                         </div>
 
-                        {availabilityWeekdays.length === 0 ? (
-                          <p className="mt-2 text-xs font-semibold text-red-600">
-                            Selecione pelo menos um dia.
+                        <div>
+                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            Descrição
+                          </label>
+
+                          <textarea
+                            value={description}
+                            onChange={(event) =>
+                              setDescription(event.target.value)
+                            }
+                            placeholder="Ex: Pão brioche, hambúrguer bovino, cheddar, bacon e molho especial..."
+                            rows={4}
+                            className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            Categoria <span className="text-red-500">*</span>
+                          </label>
+
+                          <select
+                            value={category}
+                            onChange={(event) => {
+                              setCategory(event.target.value)
+
+                              if (!availabilityCategory) {
+                                setAvailabilityCategory(event.target.value)
+                              }
+                            }}
+                            className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                          >
+                            {categories.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-black text-slate-950">
+                          Imagem
+                        </h3>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Foto do produto no cardápio.
+                        </p>
+                      </div>
+
+                      <div className="max-w-[360px]">
+                        <ImageUpload value={image} onChange={setImage} />
+                      </div>
+                    </section>
+                  </div>
+                )}
+
+                {activeTab === "pricing" && (
+                  <div className="space-y-4">
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4 flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                          <DollarSign className="h-5 w-5" />
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-black text-slate-950">
+                            Preço e custo
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Use custo para calcular margem e lucro do produto.
                           </p>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                          Categoria onde vai aparecer
-                        </label>
-
-                        <select
-                          value={availabilityCategory}
-                          onChange={(event) =>
-                            setAvailabilityCategory(event.target.value)
-                          }
-                          className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
-                        >
-                          {categories.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <div className="mb-2 flex items-center gap-2 text-sm font-black text-slate-800">
-                          <Clock3 className="h-4 w-4 text-emerald-600" />
-                          Horário de venda
                         </div>
+                      </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                              Início
-                            </label>
-                            <input
-                              type="time"
-                              value={availabilityStartTime}
-                              onChange={(event) =>
-                                setAvailabilityStartTime(event.target.value)
-                              }
-                              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
-                            />
-                          </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            Preço de venda <span className="text-red-500">*</span>
+                          </label>
 
-                          <div>
-                            <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                              Fim
-                            </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                              R$
+                            </span>
+
                             <input
-                              type="time"
-                              value={availabilityEndTime}
+                              type="text"
+                              value={price}
                               onChange={(event) =>
-                                setAvailabilityEndTime(event.target.value)
+                                setPrice(
+                                  event.target.value.replace(/[^0-9,.]/g, "")
+                                )
                               }
-                              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                              placeholder="0,00"
+                              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                             />
                           </div>
                         </div>
 
-                        {Boolean(availabilityStartTime) !==
-                        Boolean(availabilityEndTime) ? (
-                          <p className="mt-2 text-xs font-semibold text-red-600">
-                            Preencha início e fim, ou deixe os dois vazios.
-                          </p>
-                        ) : null}
+                        <div>
+                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            Custo
+                          </label>
 
-                        {availabilityStartTime &&
-                        availabilityEndTime &&
-                        availabilityStartTime >= availabilityEndTime ? (
-                          <p className="mt-2 text-xs font-semibold text-red-600">
-                            O horário final precisa ser maior que o inicial.
-                          </p>
-                        ) : null}
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                              R$
+                            </span>
+
+                            <input
+                              type="text"
+                              value={cost}
+                              onChange={(event) =>
+                                setCost(
+                                  event.target.value.replace(/[^0-9,.]/g, "")
+                                )
+                              }
+                              placeholder="0,00"
+                              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </section>
+                    </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-                        <Settings2 className="h-5 w-5" />
-                      </div>
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                            <Percent className="h-5 w-5" />
+                          </div>
 
-                      <div>
-                        <h3 className="text-sm font-black text-slate-950">
-                          Complementos reutilizáveis
-                        </h3>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
-                          Use grupos já cadastrados ou crie um novo grupo enquanto adiciona o produto.
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
-                      {totalModifierGroups} grupo(s)
-                    </span>
-                  </div>
-
-                  {loadingModifiers ? (
-                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Carregando complementos...
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <div className="mb-3 flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                              Usar grupo existente
-                            </p>
+                            <h3 className="text-sm font-black text-slate-950">
+                              Promoção
+                            </h3>
                             <p className="mt-1 text-xs text-slate-500">
-                              O mesmo grupo pode ser usado em vários produtos.
+                              Desconto aplicado sobre o preço de venda.
                             </p>
                           </div>
-
-                          <Link2 className="h-4 w-4 text-slate-400" />
                         </div>
 
-                        {availableModifierGroups.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
-                            Nenhum grupo reutilizável cadastrado ainda.
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextActive = !promotionActive
+                            setPromotionActive(nextActive)
+
+                            if (nextActive && promotionType === "none") {
+                              setPromotionType("fixed")
+                            }
+
+                            if (!nextActive) {
+                              setPromotionType("none")
+                              setPromotionValue("")
+                            }
+                          }}
+                          className={cn(
+                            "inline-flex h-9 items-center rounded-full px-3 text-xs font-black transition",
+                            promotionActive
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-slate-100 text-slate-500"
+                          )}
+                        >
+                          {promotionActive ? "Promoção ativa" : "Sem promoção"}
+                        </button>
+                      </div>
+
+                      {promotionActive ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                              Tipo de desconto
+                            </label>
+
+                            <select
+                              value={promotionType}
+                              onChange={(event) =>
+                                setPromotionType(
+                                  event.target.value as PromotionType
+                                )
+                              }
+                              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                            >
+                              <option value="fixed">Valor fixo em reais</option>
+                              <option value="percentage">Porcentagem</option>
+                            </select>
                           </div>
-                        ) : (
-                          <div className="grid gap-2">
-                            {availableModifierGroups.map((group) => {
-                              const selected = selectedModifierGroupIds.includes(
-                                group.id
-                              )
 
-                              return (
-                                <div
-                                  key={group.id}
-                                  className={cn(
-                                    "rounded-lg border bg-white p-3 transition",
-                                    selected
-                                      ? "border-blue-300 ring-2 ring-blue-500/10"
-                                      : "border-slate-200"
-                                  )}
-                                >
-                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        toggleExistingModifierGroup(group.id)
-                                      }
-                                      className="min-w-0 flex-1 text-left"
-                                    >
+                          <div>
+                            <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                              Valor do desconto
+                            </label>
+
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                                {promotionType === "percentage" ? "%" : "R$"}
+                              </span>
+
+                              <input
+                                type="text"
+                                value={promotionValue}
+                                onChange={(event) =>
+                                  setPromotionValue(
+                                    event.target.value.replace(/[^0-9,.]/g, "")
+                                  )
+                                }
+                                placeholder={
+                                  promotionType === "percentage" ? "10" : "5,00"
+                                }
+                                className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                              />
+                            </div>
+
+                            {promotionType === "percentage" &&
+                              numericPromotionValue > 100 && (
+                                <p className="mt-1 text-xs font-semibold text-red-600">
+                                  A porcentagem não pode passar de 100%.
+                                </p>
+                              )}
+
+                            {finalPrice <= 0 && numericPrice > 0 && (
+                              <p className="mt-1 text-xs font-semibold text-red-600">
+                                O desconto não pode zerar o preço.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                          Ative a promoção para aplicar desconto neste produto.
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                )}
+
+                {activeTab === "modifiers" && (
+                  <div className="space-y-4">
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                            <Settings2 className="h-5 w-5" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-sm font-black text-slate-950">
+                              Complementos do produto
+                            </h3>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              Vincule grupos existentes, crie novos grupos ou edite a biblioteca.
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                          {totalModifierGroups} grupo(s)
+                        </span>
+                      </div>
+
+                      {loadingModifiers ? (
+                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Carregando complementos...
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                                  Vinculados neste produto
+                                </p>
+                                <p className="mt-1 text-xs text-blue-700/80">
+                                  Remover aqui não exclui o grupo da biblioteca.
+                                </p>
+                              </div>
+                            </div>
+
+                            {selectedExistingGroups.length === 0 &&
+                            newModifierGroups.length === 0 ? (
+                              <div className="rounded-lg border border-dashed border-blue-200 bg-white p-3 text-sm text-slate-500">
+                                Nenhum complemento vinculado neste produto.
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {selectedExistingGroups.map((group) => (
+                                  <div
+                                    key={group.id}
+                                    className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+                                  >
+                                    <div className="min-w-0">
                                       <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-sm font-black text-slate-950">
+                                        <p className="text-sm font-black text-slate-950">
                                           {group.name}
-                                        </span>
+                                        </p>
 
-                                        {selected ? (
-                                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-black text-blue-700">
-                                            Vinculado
-                                          </span>
-                                        ) : null}
-
-                                        {group.required ? (
+                                        {group.required && (
                                           <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
                                             Obrigatório
                                           </span>
-                                        ) : null}
+                                        )}
                                       </div>
 
-                                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                                      <p className="mt-1 text-xs text-slate-500">
                                         {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
                                       </p>
-                                    </button>
+                                    </div>
 
-                                    <div className="flex shrink-0 gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          toggleExistingModifierGroup(group.id)
+                                          openEditReusableModifierGroup(group)
                                         }
-                                        className={cn(
-                                          "h-9 rounded-lg px-3 text-xs font-black transition",
-                                          selected
-                                            ? "bg-blue-600 text-white hover:bg-blue-700"
-                                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-                                        )}
+                                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
                                       >
-                                        {selected ? "Remover" : "Usar"}
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        Editar grupo
                                       </button>
 
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          duplicateExistingGroupForProduct(group)
+                                          unlinkExistingModifierGroup(group.id)
                                         }
-                                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-100"
+                                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100"
                                       >
-                                        <Copy className="h-3.5 w-3.5" />
-                                        Duplicar
+                                        <X className="h-3.5 w-3.5" />
+                                        Remover do produto
                                       </button>
                                     </div>
                                   </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
+                                ))}
 
-                      {selectedExistingGroups.length > 0 ? (
-                        <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3">
-                          <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-                            Grupos vinculados neste produto
-                          </p>
-
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {selectedExistingGroups.map((group) => (
-                              <span
-                                key={group.id}
-                                className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100"
-                              >
-                                {group.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div className="rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                              Criar novo grupo
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              O grupo novo será salvo e poderá ser reutilizado depois.
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={addNewModifierGroup}
-                            className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Grupo
-                          </button>
-                        </div>
-
-                        {newModifierGroups.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                            Clique em <strong>Grupo</strong> para criar adicionais, molhos, ponto da carne ou escolha obrigatória.
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {newModifierGroups.map((group, groupIndex) => (
-                              <div
-                                key={`new-group-${groupIndex}`}
-                                className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-                              >
-                                <div className="mb-3 flex items-start justify-between gap-3">
-                                  <div className="flex-1">
-                                    <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                                      Nome do grupo
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={group.name}
-                                      onChange={(event) =>
-                                        updateNewModifierGroup(groupIndex, {
-                                          name: event.target.value,
-                                        })
-                                      }
-                                      placeholder="Ex: Adicionais, Molhos, Ponto da carne"
-                                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                                    />
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      removeNewModifierGroup(groupIndex)
-                                    }
-                                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
-                                    aria-label="Remover grupo"
+                                {newModifierGroups.map((group, groupIndex) => (
+                                  <div
+                                    key={`linked-new-${groupIndex}`}
+                                    className="rounded-xl border border-slate-200 bg-white p-3"
                                   >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
-
-                                <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      updateNewModifierGroup(groupIndex, {
-                                        required: !group.required,
-                                        minSelect: !group.required
-                                          ? Math.max(group.minSelect, 1)
-                                          : 0,
-                                      })
-                                    }
-                                    className={cn(
-                                      "rounded-lg border px-3 py-2 text-left transition",
-                                      group.required
-                                        ? "border-orange-300 bg-orange-50 text-orange-700"
-                                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                                    )}
-                                  >
-                                    <p className="text-xs font-black uppercase">
-                                      Obrigatório
-                                    </p>
-                                    <p className="mt-0.5 text-xs">
-                                      {group.required ? "Sim" : "Não"}
-                                    </p>
-                                  </button>
-
-                                  <div>
-                                    <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                                      Mínimo
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      value={group.minSelect}
-                                      onChange={(event) =>
-                                        updateNewModifierGroup(groupIndex, {
-                                          minSelect: parseIntegerInput(
-                                            event.target.value
-                                          ),
-                                        })
-                                      }
-                                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                                      Máximo
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      value={group.maxSelect}
-                                      onChange={(event) =>
-                                        updateNewModifierGroup(groupIndex, {
-                                          maxSelect: Math.max(
-                                            parseIntegerInput(
-                                              event.target.value,
-                                              1
-                                            ),
-                                            1
-                                          ),
-                                        })
-                                      }
-                                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                                      Opções
-                                    </p>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        addNewModifierOption(groupIndex)
-                                      }
-                                      className="text-xs font-black text-blue-600 hover:text-blue-700"
-                                    >
-                                      + Adicionar opção
-                                    </button>
-                                  </div>
-
-                                  {group.options.map((option, optionIndex) => (
-                                    <div
-                                      key={`new-option-${groupIndex}-${optionIndex}`}
-                                      className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_120px_40px]"
-                                    >
-                                      <input
-                                        type="text"
-                                        value={option.name}
-                                        onChange={(event) =>
-                                          updateNewModifierOption(
-                                            groupIndex,
-                                            optionIndex,
-                                            {
-                                              name: event.target.value,
-                                            }
-                                          )
-                                        }
-                                        placeholder="Ex: Bacon extra"
-                                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                                      />
-
-                                      <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                          R$
-                                        </span>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          step="0.01"
-                                          value={
-                                            option.price === 0
-                                              ? ""
-                                              : option.price
-                                          }
-                                          onChange={(event) =>
-                                            updateNewModifierOption(
-                                              groupIndex,
-                                              optionIndex,
-                                              {
-                                                price: Number(
-                                                  event.target.value || 0
-                                                ),
-                                              }
-                                            )
-                                          }
-                                          placeholder="0,00"
-                                          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                                        />
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm font-black text-slate-950">
+                                          {group.name || "Novo grupo sem nome"}
+                                        </p>
+                                        <p className="mt-1 text-xs text-slate-500">
+                                          {group.options.filter((option) => option.name.trim()).length} opção(ões)
+                                        </p>
                                       </div>
 
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          removeNewModifierOption(
-                                            groupIndex,
-                                            optionIndex
-                                          )
+                                          removeNewModifierGroup(groupIndex)
                                         }
-                                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
-                                        aria-label="Remover opção"
+                                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Remover
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                  Biblioteca de grupos
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Use, edite ou exclua grupos reutilizáveis.
+                                </p>
+                              </div>
+
+                              <Link2 className="h-4 w-4 text-slate-400" />
+                            </div>
+
+                            {availableModifierGroups.length === 0 ? (
+                              <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
+                                Nenhum grupo reutilizável cadastrado ainda.
+                              </div>
+                            ) : (
+                              <div className="grid gap-2">
+                                {unselectedExistingGroups.map((group) => (
+                                  <div
+                                    key={group.id}
+                                    className="rounded-xl border border-slate-200 bg-white p-3"
+                                  >
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                      <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <p className="text-sm font-black text-slate-950">
+                                            {group.name}
+                                          </p>
+
+                                          {group.required && (
+                                            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                              Obrigatório
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <p className="mt-1 text-xs text-slate-500">
+                                          {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
+                                        </p>
+                                      </div>
+
+                                      <div className="flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            linkExistingModifierGroup(group.id)
+                                          }
+                                          className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+                                        >
+                                          <Plus className="h-3.5 w-3.5" />
+                                          Usar
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            openEditReusableModifierGroup(group)
+                                          }
+                                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                          Editar
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            duplicateExistingGroupForProduct(group)
+                                          }
+                                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                        >
+                                          <Copy className="h-3.5 w-3.5" />
+                                          Duplicar
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void deleteReusableModifierGroup(group)
+                                          }
+                                          disabled={
+                                            deletingReusableGroupId === group.id
+                                          }
+                                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {deletingReusableGroupId === group.id ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          )}
+                                          Excluir
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {unselectedExistingGroups.length === 0 && (
+                                  <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
+                                    Todos os grupos da biblioteca já estão vinculados neste produto.
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {editingModifierGroup && (
+                            <div className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm">
+                              <div className="mb-4 flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                                    Editando grupo
+                                  </p>
+                                  <h4 className="mt-1 text-sm font-black text-slate-950">
+                                    {editingModifierGroup.name || "Grupo sem nome"}
+                                  </h4>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={closeEditReusableModifierGroup}
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+
+                              <ModifierGroupForm
+                                group={editingModifierGroup}
+                                onUpdateGroup={updateEditingModifierGroup}
+                                onAddOption={addEditingModifierOption}
+                                onUpdateOption={updateEditingModifierOption}
+                                onRemoveOption={removeEditingModifierOption}
+                              />
+
+                              <div className="mt-4 flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={closeEditReusableModifierGroup}
+                                  className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  Cancelar
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void saveEditingReusableModifierGroup()
+                                  }
+                                  disabled={savingReusableGroup}
+                                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {savingReusableGroup && (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  )}
+                                  Salvar grupo
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                  Criar novo grupo
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Exemplo: tamanhos, adicionais, ponto da carne ou molhos.
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={addNewModifierGroup}
+                                className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Grupo
+                              </button>
+                            </div>
+
+                            {newModifierGroups.length === 0 ? (
+                              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                                Clique em <strong>Grupo</strong> para criar um novo complemento.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {newModifierGroups.map((group, groupIndex) => (
+                                  <div
+                                    key={`new-group-${groupIndex}`}
+                                    className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                                  >
+                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                      <p className="text-sm font-black text-slate-950">
+                                        Novo grupo #{groupIndex + 1}
+                                      </p>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeNewModifierGroup(groupIndex)
+                                        }
+                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
+                                        aria-label="Remover grupo"
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </button>
                                     </div>
-                                  ))}
-                                </div>
+
+                                    <ModifierGroupForm
+                                      group={group}
+                                      onUpdateGroup={(updates) =>
+                                        updateNewModifierGroup(
+                                          groupIndex,
+                                          updates
+                                        )
+                                      }
+                                      onAddOption={() =>
+                                        addNewModifierOption(groupIndex)
+                                      }
+                                      onUpdateOption={(optionIndex, updates) =>
+                                        updateNewModifierOption(
+                                          groupIndex,
+                                          optionIndex,
+                                          updates
+                                        )
+                                      }
+                                      onRemoveOption={(optionIndex) =>
+                                        removeNewModifierOption(
+                                          groupIndex,
+                                          optionIndex
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
                           </div>
-                        )}
+
+                          {mode === "edit" && product?.id && modifiersTouched ? (
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void saveProductModifierGroups(product.id)
+                                }
+                                disabled={savingModifiers}
+                                className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {savingModifiers ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : null}
+                                {savingModifiers
+                                  ? "Salvando..."
+                                  : "Salvar complementos"}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                )}
+
+                {activeTab === "availability" && (
+                  <div className="space-y-4">
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                            <CalendarDays className="h-5 w-5" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-sm font-black text-slate-950">
+                              Dias e horários de venda
+                            </h3>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              Defina se aparece sempre ou somente em dias específicos.
+                            </p>
+                          </div>
+                        </div>
+
+                        {loadingAvailability ? (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                            Carregando
+                          </span>
+                        ) : null}
                       </div>
 
-                      {mode === "edit" && product?.id && modifiersTouched ? (
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void saveProductModifierGroups(product.id)
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAvailabilityType("always")
+                            setAvailabilityWeekdays([])
+                            setAvailabilityStartTime("")
+                            setAvailabilityEndTime("")
+                            setAvailabilityCategory(category)
+                          }}
+                          className={cn(
+                            "rounded-xl border px-4 py-3 text-left transition",
+                            availabilityType === "always"
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          )}
+                        >
+                          <p className="text-sm font-black">Sempre disponível</p>
+                          <p className="mt-1 text-xs leading-5">
+                            Aparece no cardápio todos os dias.
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAvailabilityType("scheduled")
+
+                            if (!availabilityCategory) {
+                              setAvailabilityCategory(category)
                             }
-                            disabled={savingModifiers}
-                            className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {savingModifiers ? "Salvando..." : "Salvar complementos"}
-                          </button>
+                          }}
+                          className={cn(
+                            "rounded-xl border px-4 py-3 text-left transition",
+                            availabilityType === "scheduled"
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          )}
+                        >
+                          <p className="text-sm font-black">Dias específicos</p>
+                          <p className="mt-1 text-xs leading-5">
+                            Ideal para pratos do dia, almoço, tropeiro e feijoada.
+                          </p>
+                        </button>
+                      </div>
+
+                      {availabilityType === "scheduled" && (
+                        <div className="mt-4 space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                          <div>
+                            <label className="mb-2 block text-sm font-black text-slate-800">
+                              Dias em que aparece
+                            </label>
+
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              {WEEKDAYS.map((weekday) => {
+                                const selected = availabilityWeekdays.includes(
+                                  weekday.value
+                                )
+
+                                return (
+                                  <button
+                                    key={weekday.value}
+                                    type="button"
+                                    onClick={() =>
+                                      toggleAvailabilityWeekday(weekday.value)
+                                    }
+                                    className={cn(
+                                      "rounded-lg border px-3 py-2 text-sm font-black transition",
+                                      selected
+                                        ? "border-emerald-500 bg-emerald-600 text-white shadow-sm"
+                                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    )}
+                                  >
+                                    {weekday.shortLabel}
+                                  </button>
+                                )
+                              })}
+                            </div>
+
+                            {availabilityWeekdays.length === 0 ? (
+                              <p className="mt-2 text-xs font-semibold text-red-600">
+                                Selecione pelo menos um dia.
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div>
+                            <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                              Categoria onde vai aparecer
+                            </label>
+
+                            <select
+                              value={availabilityCategory}
+                              onChange={(event) =>
+                                setAvailabilityCategory(event.target.value)
+                              }
+                              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                            >
+                              {categories.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <div className="mb-2 flex items-center gap-2 text-sm font-black text-slate-800">
+                              <Clock3 className="h-4 w-4 text-emerald-600" />
+                              Horário de venda
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                  Início
+                                </label>
+                                <input
+                                  type="time"
+                                  value={availabilityStartTime}
+                                  onChange={(event) =>
+                                    setAvailabilityStartTime(event.target.value)
+                                  }
+                                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                  Fim
+                                </label>
+                                <input
+                                  type="time"
+                                  value={availabilityEndTime}
+                                  onChange={(event) =>
+                                    setAvailabilityEndTime(event.target.value)
+                                  }
+                                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                                />
+                              </div>
+                            </div>
+
+                            {Boolean(availabilityStartTime) !==
+                            Boolean(availabilityEndTime) ? (
+                              <p className="mt-2 text-xs font-semibold text-red-600">
+                                Preencha início e fim, ou deixe os dois vazios.
+                              </p>
+                            ) : null}
+
+                            {availabilityStartTime &&
+                            availabilityEndTime &&
+                            availabilityStartTime >= availabilityEndTime ? (
+                              <p className="mt-2 text-xs font-semibold text-red-600">
+                                O horário final precisa ser maior que o inicial.
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
-                      ) : null}
-                    </div>
-                  )}
-                </section>
+                      )}
+                    </section>
+
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4 flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                          {active ? (
+                            <Eye className="h-5 w-5" />
+                          ) : (
+                            <EyeOff className="h-5 w-5" />
+                          )}
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-black text-slate-950">
+                            Status no cardápio
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Controle se o produto aparece para o cliente.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => setActive(true)}
+                          className={cn(
+                            "rounded-lg border px-4 py-3 text-left transition",
+                            active
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          )}
+                        >
+                          <p className="text-sm font-black">Ativo</p>
+                          <p className="mt-1 text-xs">
+                            Aparece no cardápio e pode ser vendido.
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setActive(false)}
+                          className={cn(
+                            "rounded-lg border px-4 py-3 text-left transition",
+                            !active
+                              ? "border-amber-400 bg-amber-50 text-amber-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          )}
+                        >
+                          <p className="text-sm font-black">Inativo</p>
+                          <p className="mt-1 text-xs">
+                            Fica salvo, mas não aparece para o cliente.
+                          </p>
+                        </button>
+                      </div>
+                    </section>
+                  </div>
+                )}
               </div>
 
-              <div className="min-w-0 space-y-4">
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-black text-slate-950">
-                      Preço e custo
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Lucro e margem são calculados automaticamente.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    <div>
-                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                        Preço de venda <span className="text-red-500">*</span>
-                      </label>
-
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                          R$
-                        </span>
-
-                        <input
-                          type="text"
-                          value={price}
-                          onChange={(event) =>
-                            setPrice(event.target.value.replace(/[^0-9,.]/g, ""))
-                          }
-                          placeholder="0,00"
-                          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                        Custo
-                      </label>
-
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                          R$
-                        </span>
-
-                        <input
-                          type="text"
-                          value={cost}
-                          onChange={(event) =>
-                            setCost(event.target.value.replace(/[^0-9,.]/g, ""))
-                          }
-                          placeholder="0,00"
-                          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-black text-slate-950">
-                        Promoção fixa
-                      </h3>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Desconto direto no produto.
-                      </p>
-                    </div>
-
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-                      <Percent className="h-5 w-5" />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextActive = !promotionActive
-                      setPromotionActive(nextActive)
-
-                      if (nextActive && promotionType === "none") {
-                        setPromotionType("fixed")
-                      }
-
-                      if (!nextActive) {
-                        setPromotionType("none")
-                        setPromotionValue("")
-                      }
-                    }}
-                    className={cn(
-                      "mb-4 flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition",
-                      promotionActive
-                        ? "border-orange-300 bg-orange-50 text-orange-700"
-                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                    )}
-                  >
-                    <div>
-                      <p className="text-sm font-black">
-                        {promotionActive ? "Promoção ativa" : "Sem promoção"}
-                      </p>
-                      <p className="mt-1 text-xs">
-                        {promotionActive
-                          ? "O preço promocional será usado no cardápio."
-                          : "Ative para aplicar desconto nesse produto."}
-                      </p>
-                    </div>
-
-                    <span
-                      className={cn(
-                        "h-6 w-11 rounded-full p-0.5 transition",
-                        promotionActive ? "bg-orange-500" : "bg-slate-300"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "block h-5 w-5 rounded-full bg-white shadow transition",
-                          promotionActive && "translate-x-5"
-                        )}
-                      />
-                    </span>
-                  </button>
-
-                  {promotionActive && (
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                      <div>
-                        <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                          Tipo
-                        </label>
-
-                        <select
-                          value={promotionType}
-                          onChange={(event) =>
-                            setPromotionType(event.target.value as PromotionType)
-                          }
-                          className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                        >
-                          <option value="fixed">Valor fixo</option>
-                          <option value="percentage">Porcentagem</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-sm font-bold text-slate-700">
-                          Valor
-                        </label>
-
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                            {promotionType === "percentage" ? "%" : "R$"}
-                          </span>
-
-                          <input
-                            type="text"
-                            value={promotionValue}
-                            onChange={(event) =>
-                              setPromotionValue(
-                                event.target.value.replace(/[^0-9,.]/g, "")
-                              )
-                            }
-                            placeholder={
-                              promotionType === "percentage" ? "10" : "5,00"
-                            }
-                            className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                          />
-                        </div>
-
-                        {promotionType === "percentage" &&
-                          numericPromotionValue > 100 && (
-                            <p className="mt-1 text-xs font-semibold text-red-600">
-                              A porcentagem não pode passar de 100%.
-                            </p>
-                          )}
-
-                        {finalPrice <= 0 && numericPrice > 0 && (
-                          <p className="mt-1 text-xs font-semibold text-red-600">
-                            O desconto não pode zerar o preço.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </section>
-
+              <aside className="min-w-0 space-y-4 xl:sticky xl:top-0 xl:self-start">
                 <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-black text-slate-950">
-                        Resultado
+                        Resumo
                       </h3>
                       <p className="mt-1 text-xs text-slate-500">
                         Visão rápida antes de salvar.
@@ -1814,15 +2240,6 @@ export default function ProductEditorSheet({
                         </div>
                       </>
                     )}
-
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Custo
-                      </p>
-                      <p className="mt-1 text-xl font-black text-slate-950">
-                        {formatCurrency(numericCost)}
-                      </p>
-                    </div>
 
                     <div
                       className={cn(
@@ -1887,49 +2304,45 @@ export default function ProductEditorSheet({
                         </p>
                       )}
                     </div>
+
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Complementos
+                      </p>
+                      <p className="mt-1 text-xl font-black text-slate-950">
+                        {totalModifierGroups}
+                      </p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        grupo(s) vinculado(s)
+                      </p>
+                    </div>
                   </div>
                 </section>
 
                 <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <h3 className="text-sm font-black text-slate-950">
-                    Status no cardápio
+                    Checklist
                   </h3>
 
-                  <div className="mt-4 grid gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setActive(true)}
-                      className={cn(
-                        "rounded-lg border px-4 py-3 text-left transition",
-                        active
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
-                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                      )}
-                    >
-                      <p className="text-sm font-black">Ativo</p>
-                      <p className="mt-1 text-xs">
-                        Aparece no cardápio e pode ser vendido.
-                      </p>
-                    </button>
+                  <div className="mt-3 space-y-2">
+                    <ChecklistItem checked={name.trim().length > 0}>
+                      Nome informado
+                    </ChecklistItem>
 
-                    <button
-                      type="button"
-                      onClick={() => setActive(false)}
-                      className={cn(
-                        "rounded-lg border px-4 py-3 text-left transition",
-                        !active
-                          ? "border-amber-400 bg-amber-50 text-amber-700"
-                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                      )}
-                    >
-                      <p className="text-sm font-black">Inativo</p>
-                      <p className="mt-1 text-xs">
-                        Fica salvo, mas não aparece para o cliente.
-                      </p>
-                    </button>
+                    <ChecklistItem checked={category.trim().length > 0}>
+                      Categoria selecionada
+                    </ChecklistItem>
+
+                    <ChecklistItem checked={numericPrice >= 0}>
+                      Preço válido
+                    </ChecklistItem>
+
+                    <ChecklistItem checked={canSave}>
+                      Pronto para salvar
+                    </ChecklistItem>
                   </div>
                 </section>
-              </div>
+              </aside>
             </div>
           </div>
 
@@ -1937,7 +2350,7 @@ export default function ProductEditorSheet({
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 {mode === "create"
-                  ? "Você já pode criar o produto com complementos vinculados."
+                  ? "Crie o produto e salve os complementos vinculados."
                   : "As alterações são aplicadas no catálogo após salvar."}
               </p>
 
@@ -1963,8 +2376,8 @@ export default function ProductEditorSheet({
                   {savingModifiers
                     ? "Salvando..."
                     : mode === "create"
-                      ? "Salvar Produto"
-                      : "Salvar Alterações"}
+                      ? "Salvar produto"
+                      : "Salvar alterações"}
                 </Button>
               </div>
             </div>
@@ -1972,5 +2385,197 @@ export default function ProductEditorSheet({
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function ChecklistItem({
+  checked,
+  children,
+}: {
+  checked: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span
+        className={cn(
+          "flex h-5 w-5 items-center justify-center rounded-full",
+          checked ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
+        )}
+      >
+        {checked ? (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        ) : (
+          <ListChecks className="h-3.5 w-3.5" />
+        )}
+      </span>
+
+      <span
+        className={cn(
+          "font-semibold",
+          checked ? "text-slate-700" : "text-slate-400"
+        )}
+      >
+        {children}
+      </span>
+    </div>
+  )
+}
+
+function ModifierGroupForm({
+  group,
+  onUpdateGroup,
+  onAddOption,
+  onUpdateOption,
+  onRemoveOption,
+}: {
+  group: ModifierGroupDraft
+  onUpdateGroup: (updates: Partial<ModifierGroupDraft>) => void
+  onAddOption: () => void
+  onUpdateOption: (
+    optionIndex: number,
+    updates: Partial<ModifierOptionDraft>
+  ) => void
+  onRemoveOption: (optionIndex: number) => void
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+          Nome do grupo
+        </label>
+
+        <input
+          type="text"
+          value={group.name}
+          onChange={(event) =>
+            onUpdateGroup({
+              name: event.target.value,
+            })
+          }
+          placeholder="Ex: Tamanhos, Adicionais, Molhos"
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() =>
+            onUpdateGroup({
+              required: !group.required,
+              minSelect: !group.required ? Math.max(group.minSelect, 1) : 0,
+            })
+          }
+          className={cn(
+            "rounded-lg border px-3 py-2 text-left transition",
+            group.required
+              ? "border-orange-300 bg-orange-50 text-orange-700"
+              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+          )}
+        >
+          <p className="text-xs font-black uppercase">Obrigatório</p>
+          <p className="mt-0.5 text-xs">{group.required ? "Sim" : "Não"}</p>
+        </button>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+            Mínimo
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={group.minSelect}
+            onChange={(event) =>
+              onUpdateGroup({
+                minSelect: parseIntegerInput(event.target.value),
+              })
+            }
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+            Máximo
+          </label>
+          <input
+            type="number"
+            min={1}
+            value={group.maxSelect}
+            onChange={(event) =>
+              onUpdateGroup({
+                maxSelect: Math.max(parseIntegerInput(event.target.value, 1), 1),
+              })
+            }
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+            Opções
+          </p>
+
+          <button
+            type="button"
+            onClick={onAddOption}
+            className="text-xs font-black text-blue-600 hover:text-blue-700"
+          >
+            + Adicionar opção
+          </button>
+        </div>
+
+        {group.options.map((option, optionIndex) => (
+          <div
+            key={`${option.id ?? "new"}-${optionIndex}`}
+            className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_120px_40px]"
+          >
+            <input
+              type="text"
+              value={option.name}
+              onChange={(event) =>
+                onUpdateOption(optionIndex, {
+                  name: event.target.value,
+                })
+              }
+              placeholder="Ex: Bacon extra"
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            />
+
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                R$
+              </span>
+
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={option.price === 0 ? "" : option.price}
+                onChange={(event) =>
+                  onUpdateOption(optionIndex, {
+                    price: Number(event.target.value || 0),
+                  })
+                }
+                placeholder="0,00"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onRemoveOption(optionIndex)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+              aria-label="Remover opção"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
