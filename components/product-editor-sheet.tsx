@@ -1,6 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import {
   BadgeDollarSign,
   CalendarDays,
@@ -20,6 +26,7 @@ import {
   Plus,
   Save,
   Settings2,
+  ShoppingBag,
   Trash2,
   X,
 } from "lucide-react"
@@ -71,11 +78,21 @@ type ProductWithPromotion = Product & {
   availabilityCategory?: string | null
 }
 
+type ModifierProductOption = {
+  id: string
+  name: string
+  price: number
+  imageUrl: string | null
+  active: boolean
+  categoryId: string | null
+}
+
 type ModifierOptionDraft = {
   id?: string
   name: string
   price: number
   sortOrder: number
+  sourceProductId?: string | null
 }
 
 type ModifierGroupDraft = {
@@ -109,12 +126,22 @@ type DbModifierOption = {
   price: number | string | null
   sort_order: number | null
   is_active: boolean | null
+  source_product_id: string | null
 }
 
 type DbModifierGroupLink = {
   group_id: string
   sort_order: number | null
   is_active: boolean | null
+}
+
+type DbModifierProductOption = {
+  id: string
+  name: string
+  price: number | string | null
+  image_url: string | null
+  is_available: boolean | null
+  category_id: string | null
 }
 
 const WEEKDAYS: WeekdayOption[] = [
@@ -249,6 +276,7 @@ function createEmptyModifierGroup(sortOrder = 0): ModifierGroupDraft {
         name: "",
         price: 0,
         sortOrder: 0,
+        sourceProductId: null,
       },
     ],
   }
@@ -276,6 +304,7 @@ function normalizeModifierGroup(
         name: option.name,
         price: Number(option.price ?? 0),
         sortOrder: Number(option.sort_order ?? optionIndex),
+        sourceProductId: option.source_product_id ?? null,
       })),
   }
 }
@@ -291,6 +320,7 @@ function duplicateModifierGroup(group: ReusableModifierGroup): ModifierGroupDraf
       name: option.name,
       price: option.price,
       sortOrder: optionIndex,
+      sourceProductId: option.sourceProductId ?? null,
     })),
   }
 }
@@ -314,9 +344,32 @@ function sanitizeModifierGroupDraft(group: ModifierGroupDraft, sortOrder = 0) {
         name: option.name.trim(),
         price: roundMoney(Number(option.price || 0)),
         sortOrder: optionIndex,
+        sourceProductId: option.sourceProductId ?? null,
       }))
       .filter((option) => option.name.length > 0),
   }
+}
+
+function normalizeModifierProductOption(
+  product: DbModifierProductOption
+): ModifierProductOption {
+  return {
+    id: product.id,
+    name: product.name,
+    price: Number(product.price ?? 0),
+    imageUrl: product.image_url ?? null,
+    active: product.is_available ?? true,
+    categoryId: product.category_id ?? null,
+  }
+}
+
+function getProductOptionName(
+  productId: string | null | undefined,
+  products: ModifierProductOption[]
+) {
+  if (!productId) return null
+
+  return products.find((product) => product.id === productId)?.name ?? null
 }
 
 export default function ProductEditorSheet({
@@ -354,6 +407,9 @@ export default function ProductEditorSheet({
 
   const [availableModifierGroups, setAvailableModifierGroups] = useState<
     ReusableModifierGroup[]
+  >([])
+  const [modifierProductOptions, setModifierProductOptions] = useState<
+    ModifierProductOption[]
   >([])
   const [selectedModifierGroupIds, setSelectedModifierGroupIds] = useState<
     string[]
@@ -406,6 +462,20 @@ export default function ProductEditorSheet({
 
   const totalModifierGroups =
     selectedModifierGroupIds.length + newModifierGroups.length
+
+  const totalModifierOptions = useMemo(() => {
+    const selectedOptionsCount = selectedExistingGroups.reduce(
+      (sum, group) => sum + group.options.length,
+      0
+    )
+    const newOptionsCount = newModifierGroups.reduce(
+      (sum, group) =>
+        sum + group.options.filter((option) => option.name.trim()).length,
+      0
+    )
+
+    return selectedOptionsCount + newOptionsCount
+  }, [newModifierGroups, selectedExistingGroups])
 
   const canSave = useMemo(() => {
     const validPromotion =
@@ -499,6 +569,20 @@ export default function ProductEditorSheet({
 
         if (groupsError) throw groupsError
 
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select("id, name, price, image_url, is_available, category_id")
+          .eq("restaurant_id", resolvedRestaurantId)
+          .order("name", { ascending: true })
+
+        if (productsError) throw productsError
+
+        setModifierProductOptions(
+          ((productsData ?? []) as DbModifierProductOption[]).map(
+            normalizeModifierProductOption
+          )
+        )
+
         const groups = (groupsData ?? []) as DbModifierGroup[]
         const groupIds = groups.map((group) => group.id)
 
@@ -507,7 +591,9 @@ export default function ProductEditorSheet({
         if (groupIds.length > 0) {
           const { data: optionsData, error: optionsError } = await supabase
             .from("modifier_group_options")
-            .select("id, group_id, name, price, sort_order, is_active")
+            .select(
+              "id, group_id, name, price, sort_order, is_active, source_product_id"
+            )
             .eq("restaurant_id", resolvedRestaurantId)
             .eq("is_active", true)
             .in("group_id", groupIds)
@@ -557,6 +643,7 @@ export default function ProductEditorSheet({
       } catch (error) {
         console.error("Erro ao carregar complementos:", error)
         setAvailableModifierGroups([])
+        setModifierProductOptions([])
         setSelectedModifierGroupIds([])
         setNewModifierGroups([])
         setEditingModifierGroup(null)
@@ -743,6 +830,33 @@ export default function ProductEditorSheet({
               name: "",
               price: 0,
               sortOrder: group.options.length,
+              sourceProductId: null,
+            },
+          ],
+        }
+      })
+    )
+  }
+
+  const addProductAsNewModifierOption = (
+    groupIndex: number,
+    productOption: ModifierProductOption
+  ) => {
+    setModifiersTouched(true)
+
+    setNewModifierGroups((currentGroups) =>
+      currentGroups.map((group, index) => {
+        if (index !== groupIndex) return group
+
+        return {
+          ...group,
+          options: [
+            ...group.options,
+            {
+              name: productOption.name,
+              price: productOption.price,
+              sortOrder: group.options.length,
+              sourceProductId: productOption.id,
             },
           ],
         }
@@ -841,6 +955,28 @@ export default function ProductEditorSheet({
             name: "",
             price: 0,
             sortOrder: currentGroup.options.length,
+            sourceProductId: null,
+          },
+        ],
+      }
+    })
+  }
+
+  const addProductAsEditingModifierOption = (
+    productOption: ModifierProductOption
+  ) => {
+    setEditingModifierGroup((currentGroup) => {
+      if (!currentGroup) return currentGroup
+
+      return {
+        ...currentGroup,
+        options: [
+          ...currentGroup.options,
+          {
+            name: productOption.name,
+            price: productOption.price,
+            sortOrder: currentGroup.options.length,
+            sourceProductId: productOption.id,
           },
         ],
       }
@@ -945,6 +1081,7 @@ export default function ProductEditorSheet({
               name: option.name,
               price: option.price,
               sort_order: option.sortOrder,
+              source_product_id: option.sourceProductId ?? null,
               is_active: true,
             })
             .eq("id", option.id)
@@ -961,6 +1098,7 @@ export default function ProductEditorSheet({
               name: option.name,
               price: option.price,
               sort_order: option.sortOrder,
+              source_product_id: option.sourceProductId ?? null,
               is_active: true,
             })
 
@@ -1128,6 +1266,7 @@ export default function ProductEditorSheet({
           name: option.name,
           price: option.price,
           sort_order: option.sortOrder,
+          source_product_id: option.sourceProductId ?? null,
           is_active: true,
         }))
 
@@ -1225,7 +1364,7 @@ export default function ProductEditorSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full overflow-hidden p-0 sm:max-w-[900px] xl:max-w-[1080px]"
+        className="w-full overflow-hidden p-0 sm:max-w-[940px] xl:max-w-[1120px]"
       >
         <div className="flex h-full flex-col bg-slate-50">
           <SheetHeader className="border-b border-slate-200 bg-white px-5 py-4">
@@ -1244,7 +1383,7 @@ export default function ProductEditorSheet({
                 </SheetTitle>
 
                 <SheetDescription className="text-xs text-slate-500">
-                  Edite apenas uma área por vez: dados, preço, complementos ou disponibilidade.
+                  Monte produto, preço, complementos e disponibilidade em uma tela profissional.
                 </SheetDescription>
               </div>
             </div>
@@ -1549,400 +1688,472 @@ export default function ProductEditorSheet({
 
                 {activeTab === "modifiers" && (
                   <div className="space-y-4">
-                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <div className="mb-4 flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-                            <Settings2 className="h-5 w-5" />
+                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <div className="border-b border-slate-200 bg-slate-950 p-4 text-white">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/10">
+                              <Settings2 className="h-5 w-5" />
+                            </div>
+
+                            <div>
+                              <h3 className="text-sm font-black">
+                                Montador de complementos
+                              </h3>
+                              <p className="mt-1 text-xs leading-5 text-slate-300">
+                                Crie grupos tipo iFood: tamanhos, adicionais, molhos, carnes e opções vinculadas a produtos existentes.
+                              </p>
+                            </div>
                           </div>
 
-                          <div>
-                            <h3 className="text-sm font-black text-slate-950">
-                              Complementos do produto
-                            </h3>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">
-                              Vincule grupos existentes, crie novos grupos ou edite a biblioteca.
-                            </p>
+                          <div className="grid grid-cols-2 gap-2 sm:min-w-[220px]">
+                            <div className="rounded-xl bg-white/10 p-3 ring-1 ring-white/10">
+                              <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">
+                                Grupos
+                              </p>
+                              <p className="mt-1 text-xl font-black">
+                                {totalModifierGroups}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-white/10 p-3 ring-1 ring-white/10">
+                              <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">
+                                Itens
+                              </p>
+                              <p className="mt-1 text-xl font-black">
+                                {totalModifierOptions}
+                              </p>
+                            </div>
                           </div>
                         </div>
-
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
-                          {totalModifierGroups} grupo(s)
-                        </span>
                       </div>
 
-                      {loadingModifiers ? (
-                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Carregando complementos...
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-                                  Vinculados neste produto
-                                </p>
-                                <p className="mt-1 text-xs text-blue-700/80">
-                                  Remover aqui não exclui o grupo da biblioteca.
-                                </p>
-                              </div>
-                            </div>
-
-                            {selectedExistingGroups.length === 0 &&
-                            newModifierGroups.length === 0 ? (
-                              <div className="rounded-lg border border-dashed border-blue-200 bg-white p-3 text-sm text-slate-500">
-                                Nenhum complemento vinculado neste produto.
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                {selectedExistingGroups.map((group) => (
-                                  <div
-                                    key={group.id}
-                                    className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
-                                  >
-                                    <div className="min-w-0">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <p className="text-sm font-black text-slate-950">
-                                          {group.name}
-                                        </p>
-
-                                        {group.required && (
-                                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
-                                            Obrigatório
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      <p className="mt-1 text-xs text-slate-500">
-                                        {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
-                                      </p>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          openEditReusableModifierGroup(group)
-                                        }
-                                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                        Editar grupo
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          unlinkExistingModifierGroup(group.id)
-                                        }
-                                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                        Remover do produto
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-
-                                {newModifierGroups.map((group, groupIndex) => (
-                                  <div
-                                    key={`linked-new-${groupIndex}`}
-                                    className="rounded-xl border border-slate-200 bg-white p-3"
-                                  >
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div>
-                                        <p className="text-sm font-black text-slate-950">
-                                          {group.name || "Novo grupo sem nome"}
-                                        </p>
-                                        <p className="mt-1 text-xs text-slate-500">
-                                          {group.options.filter((option) => option.name.trim()).length} opção(ões)
-                                        </p>
-                                      </div>
-
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          removeNewModifierGroup(groupIndex)
-                                        }
-                                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                        Remover
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                      <div className="p-4">
+                        {loadingModifiers ? (
+                          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Carregando complementos...
                           </div>
-
-                          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                                  Biblioteca de grupos
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  Use, edite ou exclua grupos reutilizáveis.
-                                </p>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                                    Vinculados neste produto
+                                  </p>
+                                  <p className="mt-1 text-xs text-blue-700/80">
+                                    Grupos que aparecem para o cliente ao abrir este item.
+                                  </p>
+                                </div>
                               </div>
 
-                              <Link2 className="h-4 w-4 text-slate-400" />
-                            </div>
+                              {selectedExistingGroups.length === 0 &&
+                              newModifierGroups.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-blue-200 bg-white p-3 text-sm text-slate-500">
+                                  Nenhum complemento vinculado neste produto.
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {selectedExistingGroups.map((group) => (
+                                    <div
+                                      key={group.id}
+                                      className="rounded-xl border border-blue-100 bg-white p-3"
+                                    >
+                                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-sm font-black text-slate-950">
+                                              {group.name}
+                                            </p>
 
-                            {availableModifierGroups.length === 0 ? (
-                              <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
-                                Nenhum grupo reutilizável cadastrado ainda.
-                              </div>
-                            ) : (
-                              <div className="grid gap-2">
-                                {unselectedExistingGroups.map((group) => (
-                                  <div
-                                    key={group.id}
-                                    className="rounded-xl border border-slate-200 bg-white p-3"
-                                  >
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                      <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <p className="text-sm font-black text-slate-950">
-                                            {group.name}
+                                            {group.required && (
+                                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                                Obrigatório
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <p className="mt-1 text-xs text-slate-500">
+                                            {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
                                           </p>
+                                        </div>
 
-                                          {group.required && (
-                                            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
-                                              Obrigatório
+                                        <div className="flex flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              openEditReusableModifierGroup(group)
+                                            }
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                          >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                            Editar grupo
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              duplicateExistingGroupForProduct(group)
+                                            }
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                          >
+                                            <Copy className="h-3.5 w-3.5" />
+                                            Personalizar
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              unlinkExistingModifierGroup(group.id)
+                                            }
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100"
+                                          >
+                                            <X className="h-3.5 w-3.5" />
+                                            Remover
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {group.options.length > 0 && (
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                          {group.options.slice(0, 5).map((option) => {
+                                            const productName = getProductOptionName(
+                                              option.sourceProductId,
+                                              modifierProductOptions
+                                            )
+
+                                            return (
+                                              <span
+                                                key={option.id ?? option.name}
+                                                className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600"
+                                              >
+                                                {option.name} · {formatCurrency(option.price)}
+                                                {productName ? " · produto" : ""}
+                                              </span>
+                                            )
+                                          })}
+
+                                          {group.options.length > 5 && (
+                                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+                                              +{group.options.length - 5} opções
                                             </span>
                                           )}
                                         </div>
+                                      )}
+                                    </div>
+                                  ))}
 
-                                        <p className="mt-1 text-xs text-slate-500">
-                                          {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
-                                        </p>
-                                      </div>
-
-                                      <div className="flex flex-wrap gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            linkExistingModifierGroup(group.id)
-                                          }
-                                          className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
-                                        >
-                                          <Plus className="h-3.5 w-3.5" />
-                                          Usar
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            openEditReusableModifierGroup(group)
-                                          }
-                                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
-                                        >
-                                          <Pencil className="h-3.5 w-3.5" />
-                                          Editar
-                                        </button>
+                                  {newModifierGroups.map((group, groupIndex) => (
+                                    <div
+                                      key={`linked-new-${groupIndex}`}
+                                      className="rounded-xl border border-slate-200 bg-white p-3"
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                          <p className="text-sm font-black text-slate-950">
+                                            {group.name || "Novo grupo sem nome"}
+                                          </p>
+                                          <p className="mt-1 text-xs text-slate-500">
+                                            {group.options.filter((option) => option.name.trim()).length} opção(ões)
+                                          </p>
+                                        </div>
 
                                         <button
                                           type="button"
                                           onClick={() =>
-                                            duplicateExistingGroupForProduct(group)
+                                            removeNewModifierGroup(groupIndex)
                                           }
-                                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100"
                                         >
-                                          <Copy className="h-3.5 w-3.5" />
-                                          Duplicar
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            void deleteReusableModifierGroup(group)
-                                          }
-                                          disabled={
-                                            deletingReusableGroupId === group.id
-                                          }
-                                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                          {deletingReusableGroupId === group.id ? (
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                          ) : (
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          )}
-                                          Excluir
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                          Remover
                                         </button>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
+                              )}
+                            </div>
 
-                                {unselectedExistingGroups.length === 0 && (
-                                  <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
-                                    Todos os grupos da biblioteca já estão vinculados neste produto.
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Biblioteca de grupos
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Use grupos prontos ou edite a biblioteca reaproveitável.
+                                  </p>
+                                </div>
+
+                                <Link2 className="h-4 w-4 text-slate-400" />
+                              </div>
+
+                              {availableModifierGroups.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
+                                  Nenhum grupo reutilizável cadastrado ainda.
+                                </div>
+                              ) : (
+                                <div className="grid gap-2">
+                                  {unselectedExistingGroups.map((group) => (
+                                    <div
+                                      key={group.id}
+                                      className="rounded-xl border border-slate-200 bg-white p-3"
+                                    >
+                                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-sm font-black text-slate-950">
+                                              {group.name}
+                                            </p>
+
+                                            {group.required && (
+                                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                                Obrigatório
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <p className="mt-1 text-xs text-slate-500">
+                                            {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
+                                          </p>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              linkExistingModifierGroup(group.id)
+                                            }
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+                                          >
+                                            <Plus className="h-3.5 w-3.5" />
+                                            Usar
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              openEditReusableModifierGroup(group)
+                                            }
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                          >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                            Editar
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              duplicateExistingGroupForProduct(group)
+                                            }
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                          >
+                                            <Copy className="h-3.5 w-3.5" />
+                                            Duplicar
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void deleteReusableModifierGroup(group)
+                                            }
+                                            disabled={
+                                              deletingReusableGroupId === group.id
+                                            }
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            {deletingReusableGroupId === group.id ? (
+                                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            )}
+                                            Excluir
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {unselectedExistingGroups.length === 0 && (
+                                    <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
+                                      Todos os grupos da biblioteca já estão vinculados neste produto.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {editingModifierGroup && (
+                              <div className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm">
+                                <div className="mb-4 flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                                      Editando grupo
+                                    </p>
+                                    <h4 className="mt-1 text-sm font-black text-slate-950">
+                                      {editingModifierGroup.name || "Grupo sem nome"}
+                                    </h4>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      Aqui você pode adicionar item manual ou puxar produto já cadastrado.
+                                    </p>
                                   </div>
-                                )}
+
+                                  <button
+                                    type="button"
+                                    onClick={closeEditReusableModifierGroup}
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                <ModifierGroupForm
+                                  group={editingModifierGroup}
+                                  availableProducts={modifierProductOptions}
+                                  onUpdateGroup={updateEditingModifierGroup}
+                                  onAddOption={addEditingModifierOption}
+                                  onAddProductOption={addProductAsEditingModifierOption}
+                                  onUpdateOption={updateEditingModifierOption}
+                                  onRemoveOption={removeEditingModifierOption}
+                                />
+
+                                <div className="mt-4 flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={closeEditReusableModifierGroup}
+                                    className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                                  >
+                                    Cancelar
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void saveEditingReusableModifierGroup()
+                                    }
+                                    disabled={savingReusableGroup}
+                                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {savingReusableGroup && (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Salvar grupo
+                                  </button>
+                                </div>
                               </div>
                             )}
-                          </div>
 
-                          {editingModifierGroup && (
-                            <div className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm">
-                              <div className="mb-4 flex items-start justify-between gap-3">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
+                              <div className="mb-4 flex items-center justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-                                    Editando grupo
+                                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Criar novo grupo
                                   </p>
-                                  <h4 className="mt-1 text-sm font-black text-slate-950">
-                                    {editingModifierGroup.name || "Grupo sem nome"}
-                                  </h4>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Exemplo: tamanhos, adicionais, ponto da carne ou molhos.
+                                  </p>
                                 </div>
 
                                 <button
                                   type="button"
-                                  onClick={closeEditReusableModifierGroup}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                  onClick={addNewModifierGroup}
+                                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <Plus className="h-3.5 w-3.5" />
+                                  Grupo
                                 </button>
                               </div>
 
-                              <ModifierGroupForm
-                                group={editingModifierGroup}
-                                onUpdateGroup={updateEditingModifierGroup}
-                                onAddOption={addEditingModifierOption}
-                                onUpdateOption={updateEditingModifierOption}
-                                onRemoveOption={removeEditingModifierOption}
-                              />
+                              {newModifierGroups.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                                  Clique em <strong>Grupo</strong> para criar um novo complemento.
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {newModifierGroups.map((group, groupIndex) => (
+                                    <div
+                                      key={`new-group-${groupIndex}`}
+                                      className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                                    >
+                                      <div className="mb-3 flex items-center justify-between gap-3">
+                                        <p className="text-sm font-black text-slate-950">
+                                          Novo grupo #{groupIndex + 1}
+                                        </p>
 
-                              <div className="mt-4 flex justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={closeEditReusableModifierGroup}
-                                  className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-                                >
-                                  Cancelar
-                                </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            removeNewModifierGroup(groupIndex)
+                                          }
+                                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
+                                          aria-label="Remover grupo"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
 
+                                      <ModifierGroupForm
+                                        group={group}
+                                        availableProducts={modifierProductOptions}
+                                        onUpdateGroup={(updates) =>
+                                          updateNewModifierGroup(
+                                            groupIndex,
+                                            updates
+                                          )
+                                        }
+                                        onAddOption={() =>
+                                          addNewModifierOption(groupIndex)
+                                        }
+                                        onAddProductOption={(productOption) =>
+                                          addProductAsNewModifierOption(
+                                            groupIndex,
+                                            productOption
+                                          )
+                                        }
+                                        onUpdateOption={(optionIndex, updates) =>
+                                          updateNewModifierOption(
+                                            groupIndex,
+                                            optionIndex,
+                                            updates
+                                          )
+                                        }
+                                        onRemoveOption={(optionIndex) =>
+                                          removeNewModifierOption(
+                                            groupIndex,
+                                            optionIndex
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {mode === "edit" && product?.id && modifiersTouched ? (
+                              <div className="flex justify-end">
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    void saveEditingReusableModifierGroup()
+                                    void saveProductModifierGroups(product.id)
                                   }
-                                  disabled={savingReusableGroup}
-                                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={savingModifiers}
+                                  className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  {savingReusableGroup && (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  )}
-                                  Salvar grupo
+                                  {savingModifiers ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : null}
+                                  {savingModifiers
+                                    ? "Salvando..."
+                                    : "Salvar complementos"}
                                 </button>
                               </div>
-                            </div>
-                          )}
-
-                          <div className="rounded-xl border border-slate-200 bg-white p-4">
-                            <div className="mb-4 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                                  Criar novo grupo
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  Exemplo: tamanhos, adicionais, ponto da carne ou molhos.
-                                </p>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={addNewModifierGroup}
-                                className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                                Grupo
-                              </button>
-                            </div>
-
-                            {newModifierGroups.length === 0 ? (
-                              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                                Clique em <strong>Grupo</strong> para criar um novo complemento.
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {newModifierGroups.map((group, groupIndex) => (
-                                  <div
-                                    key={`new-group-${groupIndex}`}
-                                    className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-                                  >
-                                    <div className="mb-3 flex items-center justify-between gap-3">
-                                      <p className="text-sm font-black text-slate-950">
-                                        Novo grupo #{groupIndex + 1}
-                                      </p>
-
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          removeNewModifierGroup(groupIndex)
-                                        }
-                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
-                                        aria-label="Remover grupo"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    </div>
-
-                                    <ModifierGroupForm
-                                      group={group}
-                                      onUpdateGroup={(updates) =>
-                                        updateNewModifierGroup(
-                                          groupIndex,
-                                          updates
-                                        )
-                                      }
-                                      onAddOption={() =>
-                                        addNewModifierOption(groupIndex)
-                                      }
-                                      onUpdateOption={(optionIndex, updates) =>
-                                        updateNewModifierOption(
-                                          groupIndex,
-                                          optionIndex,
-                                          updates
-                                        )
-                                      }
-                                      onRemoveOption={(optionIndex) =>
-                                        removeNewModifierOption(
-                                          groupIndex,
-                                          optionIndex
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            ) : null}
                           </div>
-
-                          {mode === "edit" && product?.id && modifiersTouched ? (
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void saveProductModifierGroups(product.id)
-                                }
-                                disabled={savingModifiers}
-                                className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {savingModifiers ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : null}
-                                {savingModifiers
-                                  ? "Salvando..."
-                                  : "Salvar complementos"}
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </section>
                   </div>
                 )}
@@ -2313,7 +2524,7 @@ export default function ProductEditorSheet({
                         {totalModifierGroups}
                       </p>
                       <p className="text-xs font-semibold text-slate-500">
-                        grupo(s) vinculado(s)
+                        grupo(s) · {totalModifierOptions} item(ns)
                       </p>
                     </div>
                   </div>
@@ -2393,7 +2604,7 @@ function ChecklistItem({
   children,
 }: {
   checked: boolean
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <div className="flex items-center gap-2 text-sm">
@@ -2424,157 +2635,262 @@ function ChecklistItem({
 
 function ModifierGroupForm({
   group,
+  availableProducts,
   onUpdateGroup,
   onAddOption,
+  onAddProductOption,
   onUpdateOption,
   onRemoveOption,
 }: {
   group: ModifierGroupDraft
+  availableProducts: ModifierProductOption[]
   onUpdateGroup: (updates: Partial<ModifierGroupDraft>) => void
   onAddOption: () => void
+  onAddProductOption: (product: ModifierProductOption) => void
   onUpdateOption: (
     optionIndex: number,
     updates: Partial<ModifierOptionDraft>
   ) => void
   onRemoveOption: (optionIndex: number) => void
 }) {
+  const [selectedProductId, setSelectedProductId] = useState("")
+
+  const selectedProduct = useMemo(() => {
+    return availableProducts.find((product) => product.id === selectedProductId) ?? null
+  }, [availableProducts, selectedProductId])
+
+  const handleAddProductOption = () => {
+    if (!selectedProduct) return
+
+    onAddProductOption(selectedProduct)
+    setSelectedProductId("")
+  }
+
   return (
     <div className="space-y-4">
-      <div>
-        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-          Nome do grupo
-        </label>
-
-        <input
-          type="text"
-          value={group.name}
-          onChange={(event) =>
-            onUpdateGroup({
-              name: event.target.value,
-            })
-          }
-          placeholder="Ex: Tamanhos, Adicionais, Molhos"
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-        />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() =>
-            onUpdateGroup({
-              required: !group.required,
-              minSelect: !group.required ? Math.max(group.minSelect, 1) : 0,
-            })
-          }
-          className={cn(
-            "rounded-lg border px-3 py-2 text-left transition",
-            group.required
-              ? "border-orange-300 bg-orange-50 text-orange-700"
-              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-          )}
-        >
-          <p className="text-xs font-black uppercase">Obrigatório</p>
-          <p className="mt-0.5 text-xs">{group.required ? "Sim" : "Não"}</p>
-        </button>
-
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div>
           <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-            Mínimo
+            Nome do grupo
           </label>
+
           <input
-            type="number"
-            min={0}
-            value={group.minSelect}
+            type="text"
+            value={group.name}
             onChange={(event) =>
               onUpdateGroup({
-                minSelect: parseIntegerInput(event.target.value),
+                name: event.target.value,
               })
             }
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            placeholder="Ex: Tamanhos, Adicionais, Molhos"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
           />
         </div>
 
         <div>
           <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-            Máximo
+            Regra de escolha
           </label>
-          <input
-            type="number"
-            min={1}
-            value={group.maxSelect}
-            onChange={(event) =>
-              onUpdateGroup({
-                maxSelect: Math.max(parseIntegerInput(event.target.value, 1), 1),
-              })
-            }
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-          />
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                onUpdateGroup({
+                  required: !group.required,
+                  minSelect: !group.required ? Math.max(group.minSelect, 1) : 0,
+                })
+              }
+              className={cn(
+                "h-10 rounded-lg border px-2 text-left transition",
+                group.required
+                  ? "border-orange-300 bg-orange-50 text-orange-700"
+                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              <p className="text-[11px] font-black uppercase leading-3">
+                {group.required ? "Obrig." : "Opcional"}
+              </p>
+            </button>
+
+            <input
+              type="number"
+              min={0}
+              value={group.minSelect}
+              onChange={(event) =>
+                onUpdateGroup({
+                  minSelect: parseIntegerInput(event.target.value),
+                })
+              }
+              title="Mínimo"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            />
+
+            <input
+              type="number"
+              min={1}
+              value={group.maxSelect}
+              onChange={(event) =>
+                onUpdateGroup({
+                  maxSelect: Math.max(parseIntegerInput(event.target.value, 1), 1),
+                })
+              }
+              title="Máximo"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+        <div className="mb-3 flex items-start gap-2">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <ShoppingBag className="h-4 w-4" />
+          </div>
+
+          <div>
+            <p className="text-sm font-black text-slate-950">
+              Adicionar produto existente ao grupo
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Selecione um item já cadastrado e ajuste o preço que ele terá dentro deste complemento.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
+          <select
+            value={selectedProductId}
+            onChange={(event) => setSelectedProductId(event.target.value)}
+            className="h-10 rounded-lg border border-blue-100 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+          >
+            <option value="">Selecione um produto existente...</option>
+            {availableProducts.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} · {formatCurrency(product.price)}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={handleAddProductOption}
+            disabled={!selectedProduct}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Adicionar
+          </button>
         </div>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-            Opções
-          </p>
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+              Opções do grupo
+            </p>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Nome exibido e preço cobrado dentro deste grupo.
+            </p>
+          </div>
 
           <button
             type="button"
             onClick={onAddOption}
             className="text-xs font-black text-blue-600 hover:text-blue-700"
           >
-            + Adicionar opção
+            + Item manual
           </button>
         </div>
 
-        {group.options.map((option, optionIndex) => (
-          <div
-            key={`${option.id ?? "new"}-${optionIndex}`}
-            className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_120px_40px]"
-          >
-            <input
-              type="text"
-              value={option.name}
-              onChange={(event) =>
-                onUpdateOption(optionIndex, {
-                  name: event.target.value,
-                })
-              }
-              placeholder="Ex: Bacon extra"
-              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-            />
+        {group.options.map((option, optionIndex) => {
+          const linkedProductName = getProductOptionName(
+            option.sourceProductId,
+            availableProducts
+          )
 
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                R$
-              </span>
-
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={option.price === 0 ? "" : option.price}
-                onChange={(event) =>
-                  onUpdateOption(optionIndex, {
-                    price: Number(event.target.value || 0),
-                  })
-                }
-                placeholder="0,00"
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onRemoveOption(optionIndex)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
-              aria-label="Remover opção"
+          return (
+            <div
+              key={`${option.id ?? "new"}-${optionIndex}`}
+              className="rounded-xl border border-slate-200 bg-white p-3"
             >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">
+                    #{optionIndex + 1}
+                  </span>
+
+                  {linkedProductName ? (
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-black text-blue-700">
+                      Produto: {linkedProductName}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">
+                      Manual
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onRemoveOption(optionIndex)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-2 text-[11px] font-black text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+                  aria-label="Remover opção"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remover
+                </button>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
+                <div>
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    Nome exibido
+                  </label>
+
+                  <input
+                    type="text"
+                    value={option.name}
+                    onChange={(event) =>
+                      onUpdateOption(optionIndex, {
+                        name: event.target.value,
+                      })
+                    }
+                    placeholder="Ex: Bacon extra"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    Preço no grupo
+                  </label>
+
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      R$
+                    </span>
+
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={option.price === 0 ? "" : option.price}
+                      onChange={(event) =>
+                        onUpdateOption(optionIndex, {
+                          price: Number(event.target.value || 0),
+                        })
+                      }
+                      placeholder="0,00"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
