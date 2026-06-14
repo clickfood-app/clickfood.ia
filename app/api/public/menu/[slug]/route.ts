@@ -1070,6 +1070,8 @@ export async function GET(_request: Request, context: RouteContext) {
       state: restaurant.state ?? "",
       pixEnabled: Boolean(restaurant.pix_enabled ?? false),
       pix_enabled: Boolean(restaurant.pix_enabled ?? false),
+      picpayEnabled: Boolean(restaurant.picpay_enabled ?? false),
+      picpay_enabled: Boolean(restaurant.picpay_enabled ?? false),
       pixKey: restaurant.pix_key ?? null,
       pix_key: restaurant.pix_key ?? null,
       pixKeyType: restaurant.pix_key_type ?? null,

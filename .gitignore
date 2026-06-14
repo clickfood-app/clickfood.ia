@@ -15,3 +15,8 @@ node_modules
 .pnpm-store
 .next
 .env
+
+# Certificados Efí
+certs/
+*.p12
+*.pem

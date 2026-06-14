@@ -232,6 +232,7 @@ function normalizeModifiers(
 
 type PublicPaymentMethod =
   | "pix_manual"
+  | "picpay_pix"
   | "pix"
   | "cash"
   | "card_on_delivery"
@@ -253,6 +254,15 @@ function mapPaymentMethod(value: string): PublicPaymentMethod {
   ) {
     return "pix_manual"
   }
+
+  if (
+  normalized === "picpay_pix" ||
+  normalized === "pix_picpay" ||
+  normalized === "picpay" ||
+  normalized === "picpay_checkout"
+) {
+  return "picpay_pix"
+}
 
   if (normalized === "pix") {
     return "pix"
@@ -898,13 +908,13 @@ async function createOrderLegacy({
 
   const nowIso = new Date().toISOString()
 
-  const initialStatus = shouldAutoAcceptOrder
-    ? "accepted"
-    : paymentMethod === "pix_manual"
-      ? "waiting_payment"
-      : paymentMethod === "pix"
-        ? "awaiting_payment"
-        : "pending"
+const initialStatus = shouldAutoAcceptOrder
+  ? "accepted"
+  : paymentMethod === "pix_manual"
+    ? "waiting_payment"
+    : paymentMethod === "pix" || paymentMethod === "picpay_pix"
+      ? "awaiting_payment"
+      : "pending"
 
   const initialPaymentStatus =
     paymentMethod === "pix_manual" ? "waiting_customer_payment" : "pending"
@@ -1188,7 +1198,11 @@ export async function POST(request: Request) {
       Boolean(requestedCashbackWalletId) ||
       Boolean(requestedCashbackCampaignId)
 
-    const canUseFastPath = !hasCashback && !tableId && !needsChange
+    const canUseFastPath =
+  !hasCashback &&
+  !tableId &&
+  !needsChange &&
+  paymentMethod !== "picpay_pix"
 
     if (canUseFastPath) {
       const { response, error } = await createOrderFast({

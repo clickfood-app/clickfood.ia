@@ -70,6 +70,8 @@ interface PublicRestaurant {
   pix_instructions?: string | null
   pixEnabled?: boolean | null
   pix_enabled?: boolean | null
+  picpayEnabled?: boolean | null
+  picpay_enabled?: boolean | null
   deliveryFee: number
   deliveryFeeRules?: DeliveryFeeRule[] | null
   openTime?: string | null
@@ -3553,9 +3555,12 @@ const cashbackProgressPercent =
     : 100
 
 const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
-  const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
-  const isPixPayment = normalizedPaymentMethod === "pix"
-  const isCashPayment = normalizedPaymentMethod === "dinheiro"
+const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
+const isPicpayEnabled = Boolean(restaurant.picpayEnabled ?? restaurant.picpay_enabled)
+const isPixPayment = normalizedPaymentMethod === "pix"
+const isPicpayPayment = normalizedPaymentMethod === "picpay_pix"
+const isAnyPixPayment = isPixPayment || isPicpayPayment
+const isCashPayment = normalizedPaymentMethod === "dinheiro"
   const changeForAmount = parseCurrencyInput(changeFor)
   const pixKey = (restaurant.pixKey ?? restaurant.pix_key ?? "").trim()
   const pixReceiverName = (
@@ -3592,10 +3597,22 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
       )}`
     : ""
 
-  const primaryButtonLabel = isPixPayment
+const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
+  ? pixPayment.qrCodeBase64.startsWith("data:")
+    ? pixPayment.qrCodeBase64
+    : `data:image/png;base64,${pixPayment.qrCodeBase64}`
+  : pixPayment?.pixCopyPaste
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+        pixPayment?.pixCopyPaste
+      )}`
+    : ""
+
+  const primaryButtonLabel = isPicpayPayment
+  ? "Pagar com Pix automático"
+  : isPixPayment
     ? pixPayment
       ? "Abrir comprovante Pix"
-      : "Pagar com Pix"
+      : "Pagar com Pix manual"
     : "Confirmar pedido"
 
   const formattedCustomerAddress =
@@ -3652,8 +3669,10 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
     return true
   }
 
-  const handleCopyPixCode = async () => {
-    const codeToCopy = manualPixCopyPaste || pixKey
+ const handleCopyPixCode = async () => {
+  const codeToCopy = isPicpayPayment
+    ? pixPayment?.pixCopyPaste || pixPayment?.qrCode || ""
+    : manualPixCopyPaste || pixKey
 
     if (!codeToCopy) {
       alert("Este restaurante ainda não cadastrou a chave Pix.")
@@ -3864,6 +3883,88 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
       setIsProcessing(false)
     }
   }
+
+  const createPicpayPaymentOrder = async () => {
+  if (!validateForm()) return
+
+  if (!customer?.document || onlyDigits(customer.document).length !== 11) {
+    alert("Informe um CPF válido para pagar com Pix automático.")
+    onEditCustomer()
+    return
+  }
+
+  setIsProcessing(true)
+  setPaymentCheckError("")
+
+  try {
+    const createdOrder = await createPublicOrder("picpay_pix")
+
+    const response = await fetch("/api/payments/picpay/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        orderId: createdOrder.id,
+        customerDocument: onlyDigits(customer.document),
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Erro ao criar pagamento PicPay.")
+    }
+
+    const payment = data.payment
+
+    setPixPayment({
+      orderId: createdOrder.id,
+      paymentId: payment.providerTransactionId ?? payment.providerChargeId,
+      qrCodeBase64: payment.qrCodeBase64 ?? null,
+      qrCode: payment.qrCode ?? null,
+      pixCopyPaste: payment.pixCopyPaste ?? null,
+      status: payment.status ?? "pending",
+      publicOrderNumber:
+        payment.publicOrderNumber ?? createdOrder.public_order_number ?? null,
+      expiresAt: payment.expiresAt ?? null,
+    })
+
+    setPixCardOpen(true)
+
+    onOrderCreated({
+      id: createdOrder.id,
+      public_order_number: createdOrder.public_order_number,
+      status: "awaiting_payment",
+      payment_status: "pending",
+      total: createdOrder.total ?? total,
+      payment_method: "picpay_pix",
+      order_type: createdOrder.order_type ?? orderType,
+      delivery_fee: createdOrder.delivery_fee ?? deliveryFee,
+      service_fee: createdOrder.service_fee ?? serviceFee,
+      created_at: createdOrder.created_at ?? new Date().toISOString(),
+      items: items.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+      })),
+    })
+  } catch (error) {
+    setPaymentCheckError(
+      error instanceof Error
+        ? error.message
+        : "Erro ao criar pagamento PicPay."
+    )
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Erro ao criar pagamento PicPay."
+    )
+  } finally {
+    setIsProcessing(false)
+  }
+}
 
   const createManualPaymentOrder = async () => {
     if (!validateForm()) return
@@ -4302,33 +4403,38 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
                 </label>
 
                 <div className="mt-2 space-y-2">
-                  {[
-                    { id: "dinheiro", label: "Dinheiro", icon: Banknote },
-                    { id: "pix", label: "Pix", icon: QrCode },
-                    { id: "cartao", label: "Cartao na entrega", icon: CreditCard },
-                  ].map((method) => (
+                 {[
+  { id: "dinheiro", label: "Dinheiro", value: "dinheiro", icon: Banknote },
+  {
+    id: "pix",
+    label: "Pix",
+    value: isPicpayEnabled ? "picpay_pix" : "pix",
+    icon: QrCode,
+  },
+  { id: "cartao", label: "Cartão na entrega", value: "cartao", icon: CreditCard },
+].map((method) => (
                     <button
                       key={method.id}
                       onClick={() => {
-                        setPaymentMethod(method.label)
+                        setPaymentMethod(method.value)
 
                         if (method.id !== "dinheiro") {
                           setNeedsChange(false)
                           setChangeFor("")
                         }
 
-                        if (method.id === "pix") {
-                          setPixCardOpen(true)
-                        } else {
-                          setPixCardOpen(false)
-                        }
+                        if (method.value === "pix") {
+  setPixCardOpen(true)
+} else {
+  setPixCardOpen(false)
+}
                       }}
                       className={cn(
                         "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-all",
-                        paymentMethod === method.label ? "ring-2" : "bg-gray-50 hover:bg-gray-100"
+                        paymentMethod === method.value ? "ring-2" : "bg-gray-50 hover:bg-gray-100"
                       )}
                       style={
-                        paymentMethod === method.label
+                        paymentMethod === method.value
                           ? {
                               backgroundColor: `${accentColor}12`,
                               boxShadow: `0 0 0 2px ${accentColor}`,
@@ -4339,20 +4445,20 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
                       <method.icon
                         className={cn(
                           "h-5 w-5",
-                          paymentMethod === method.label ? "text-gray-900" : "text-gray-400"
+                          paymentMethod === method.value ? "text-gray-900" : "text-gray-400"
                         )}
                       />
 
                       <span
                         className={cn(
                           "text-sm",
-                          paymentMethod === method.label ? "font-semibold" : "text-gray-700"
+                          paymentMethod === method.value ? "font-semibold" : "text-gray-700"
                         )}
                       >
                         {method.label}
                       </span>
 
-                      {paymentMethod === method.label && (
+                      {paymentMethod === method.value && (
                         <Check className="ml-auto h-4 w-4" style={{ color: accentColor }} />
                       )}
                     </button>
@@ -4508,13 +4614,18 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
 
               <button
                 onClick={() => {
-                  if (isPixPayment) {
-                    setPixCardOpen(true)
-                    return
-                  }
+  if (isPixPayment) {
+    setPixCardOpen(true)
+    return
+  }
 
-                  void createManualPaymentOrder()
-                }}
+  if (isPicpayPayment) {
+  void createPicpayPaymentOrder()
+  return
+}
+
+  void createManualPaymentOrder()
+}}
                 disabled={isProcessing}
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 style={{
@@ -4538,219 +4649,305 @@ const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
       </div>
     </div>
 
-    {isPixPayment && pixCardOpen && step === "checkout" && (
-      <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
-        <div
-          className="absolute inset-0"
-          onClick={() => {
-            if (!isProcessing) {
-              setPixCardOpen(false)
-            }
-          }}
-          aria-hidden="true"
-        />
+    {isAnyPixPayment && pixCardOpen && step === "checkout" && (
+  <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+    <div
+      className="absolute inset-0"
+      onClick={() => {
+        if (!isProcessing) {
+          setPixCardOpen(false)
+        }
+      }}
+      aria-hidden="true"
+    />
 
-        <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-          <button
-            type="button"
-            onClick={() => setPixCardOpen(false)}
-            disabled={isProcessing}
-            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 disabled:opacity-50"
-            aria-label="Fechar Pix"
-          >
-            <X className="h-4 w-4" />
-          </button>
+    <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+      <button
+        type="button"
+        onClick={() => setPixCardOpen(false)}
+        disabled={isProcessing}
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 disabled:opacity-50"
+        aria-label="Fechar Pix"
+      >
+        <X className="h-4 w-4" />
+      </button>
 
-          {!pixPayment ? (
-            <div className="pr-0">
-              <div className="pr-10">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
-                  Pagamento Pix
-                </p>
+      {isPicpayPayment && pixPayment ? (
+        <div className="pr-0">
+          <div className="pr-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+              Pix automático
+            </p>
 
-                <h4 className="mt-1 text-xl font-black text-gray-900">
-                  Pague direto ao restaurante
-                </h4>
+            <h4 className="mt-1 text-xl font-black text-gray-900">
+              Pague com Pix para confirmar o pedido
+            </h4>
 
-                <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
-                  Escaneie o QR Code ou copie o Pix copia e cola. Depois toque em
-                  <span className="font-black text-gray-800"> Já paguei</span> para anexar o comprovante.
-                </p>
-              </div>
+            <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+              Escaneie o QR Code ou copie o Pix copia e cola. Assim que o pagamento for confirmado, o pedido entra automaticamente para preparo.
+            </p>
+          </div>
 
-              <div className="mt-4 rounded-[24px] border border-blue-100 bg-blue-50/70 p-3 text-center">
-                <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
-                  Valor do Pix
-                </p>
-
-                <p className="mt-1 text-2xl font-black text-blue-950">
-                  {formatPrice(total)}
-                </p>
-
-                <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
-                  {manualPixQrCodeUrl ? (
-                    <div className="flex justify-center">
-                      <img
-                        src={manualPixQrCodeUrl}
-                        alt="QR Code Pix"
-                        className="h-52 w-52 rounded-xl"
-                      />
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
-                      Cadastre uma chave Pix válida para gerar o QR Code.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-gray-50 px-3 py-2">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-                    Recebedor
-                  </p>
-
-                  <p className="mt-1 truncate text-sm font-black text-gray-900">
-                    {pixReceiverName}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 px-3 py-2">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-                    Cidade
-                  </p>
-
-                  <p className="mt-1 truncate text-sm font-black text-gray-900">
-                    {pixCity || "BRASIL"}
-                  </p>
-                </div>
-              </div>
-
-              <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
-                Pix copia e cola
+          {pixPayment.publicOrderNumber && (
+            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase text-blue-500">
+                Pedido gerado
               </p>
 
-              <textarea
-                readOnly
-                value={manualPixCopyPaste}
-                rows={3}
-                className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
-              />
-
-              <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
-                {pixKeyType}
+              <p className="text-sm font-black text-blue-900">
+                #{pixPayment.publicOrderNumber}
               </p>
-
-              <p className="mt-1 break-all rounded-xl bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
-                {pixKey || "Chave Pix não cadastrada"}
-              </p>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopyPixCode}
-                  disabled={!manualPixCopyPaste && !pixKey}
-                  className="rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 disabled:opacity-50"
-                >
-                  {pixCopied ? "Copiado" : "Copiar Pix"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => void startManualPixProofFlow()}
-                  disabled={isProcessing || !manualPixCopyPaste}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-lg disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4" />
-                  )}
-                  Já paguei
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="pr-0">
-              <div className="pr-10">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
-                  Comprovante Pix
-                </p>
-
-                <h4 className="mt-1 text-xl font-black text-gray-900">
-                  Agora anexe o print do pagamento
-                </h4>
-
-                <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
-                  O restaurante vai conferir valor, data, horário e destinatário antes de iniciar o preparo.
-                </p>
-              </div>
-
-              {pixPayment.publicOrderNumber && (
-                <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-                  <p className="text-[9px] font-black uppercase text-blue-500">
-                    Pedido gerado
-                  </p>
-
-                  <p className="text-sm font-black text-blue-900">
-                    #{pixPayment.publicOrderNumber}
-                  </p>
-                </div>
-              )}
-
-              <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-blue-200 bg-blue-50/60 px-4 py-6 text-center transition-colors hover:bg-blue-50">
-                <Upload className="h-7 w-7 text-blue-600" />
-
-                <span className="mt-2 text-sm font-black text-gray-900">
-                  {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
-                </span>
-
-                <span className="mt-1 text-xs font-semibold text-gray-400">
-                  PNG, JPG ou WEBP até 5 MB
-                </span>
-
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handlePixProofFileChange}
-                  className="hidden"
-                />
-              </label>
-
-              {pixProofPreview && (
-                <div className="mt-3 overflow-hidden rounded-2xl border border-blue-100 bg-white">
-                  <img
-                    src={pixProofPreview}
-                    alt="Comprovante Pix"
-                    className="max-h-64 w-full object-contain"
-                  />
-                </div>
-              )}
-
-              {paymentCheckError && (
-                <p className="mt-3 text-center text-xs font-bold text-red-600">
-                  {paymentCheckError}
-                </p>
-              )}
-
-              <button
-                type="button"
-                onClick={() => void submitManualPixProof()}
-                disabled={isProcessing || !pixProofFile}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white shadow-lg disabled:opacity-50"
-              >
-                {isProcessing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                Enviar comprovante
-              </button>
             </div>
           )}
+
+          <div className="mt-4 rounded-[24px] border border-blue-100 bg-blue-50/70 p-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
+              Valor do Pix
+            </p>
+
+            <p className="mt-1 text-2xl font-black text-blue-950">
+              {formatPrice(total)}
+            </p>
+
+            <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
+              {picpayQrCodeImageUrl ? (
+                <div className="flex justify-center">
+                  <img
+                    src={picpayQrCodeImageUrl}
+                    alt="QR Code Pix PicPay"
+                    className="h-52 w-52 rounded-xl"
+                  />
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
+                  Não foi possível carregar o QR Code do PicPay.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+            Pix copia e cola
+          </p>
+
+          <textarea
+            readOnly
+            value={pixPayment.pixCopyPaste || pixPayment.qrCode || ""}
+            rows={3}
+            className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+          />
+
+          {paymentCheckError && (
+            <p className="mt-3 text-center text-xs font-bold text-red-600">
+              {paymentCheckError}
+            </p>
+          )}
+
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              onClick={handleCopyPixCode}
+              disabled={!pixPayment.pixCopyPaste && !pixPayment.qrCode}
+              className="rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 disabled:opacity-50"
+            >
+              {pixCopied ? "Pix copiado" : "Copiar Pix"}
+            </button>
+
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-700">
+              Aguardando confirmação automática do pagamento...
+            </div>
+          </div>
         </div>
-      </div>
-    )}
+      ) : !pixPayment ? (
+        <div className="pr-0">
+          <div className="pr-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+              Pagamento Pix
+            </p>
+
+            <h4 className="mt-1 text-xl font-black text-gray-900">
+              Pague direto ao restaurante
+            </h4>
+
+            <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+              Escaneie o QR Code ou copie o Pix copia e cola. Depois toque em
+              <span className="font-black text-gray-800"> Já paguei</span> para anexar o comprovante.
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-[24px] border border-blue-100 bg-blue-50/70 p-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
+              Valor do Pix
+            </p>
+
+            <p className="mt-1 text-2xl font-black text-blue-950">
+              {formatPrice(total)}
+            </p>
+
+            <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
+              {manualPixQrCodeUrl ? (
+                <div className="flex justify-center">
+                  <img
+                    src={manualPixQrCodeUrl}
+                    alt="QR Code Pix"
+                    className="h-52 w-52 rounded-xl"
+                  />
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
+                  Cadastre uma chave Pix válida para gerar o QR Code.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-gray-50 px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                Recebedor
+              </p>
+
+              <p className="mt-1 truncate text-sm font-black text-gray-900">
+                {pixReceiverName}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                Cidade
+              </p>
+
+              <p className="mt-1 truncate text-sm font-black text-gray-900">
+                {pixCity || "BRASIL"}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+            Pix copia e cola
+          </p>
+
+          <textarea
+            readOnly
+            value={manualPixCopyPaste}
+            rows={3}
+            className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+          />
+
+          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+            {pixKeyType}
+          </p>
+
+          <p className="mt-1 break-all rounded-xl bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
+            {pixKey || "Chave Pix não cadastrada"}
+          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleCopyPixCode}
+              disabled={!manualPixCopyPaste && !pixKey}
+              className="rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 disabled:opacity-50"
+            >
+              {pixCopied ? "Copiado" : "Copiar Pix"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void startManualPixProofFlow()}
+              disabled={isProcessing || !manualPixCopyPaste}
+              className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-lg disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              Já paguei
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="pr-0">
+          <div className="pr-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+              Comprovante Pix
+            </p>
+
+            <h4 className="mt-1 text-xl font-black text-gray-900">
+              Agora anexe o print do pagamento
+            </h4>
+
+            <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+              O restaurante vai conferir valor, data, horário e destinatário antes de iniciar o preparo.
+            </p>
+          </div>
+
+          {pixPayment.publicOrderNumber && (
+            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase text-blue-500">
+                Pedido gerado
+              </p>
+
+              <p className="text-sm font-black text-blue-900">
+                #{pixPayment.publicOrderNumber}
+              </p>
+            </div>
+          )}
+
+          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-blue-200 bg-blue-50/60 px-4 py-6 text-center transition-colors hover:bg-blue-50">
+            <Upload className="h-7 w-7 text-blue-600" />
+
+            <span className="mt-2 text-sm font-black text-gray-900">
+              {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
+            </span>
+
+            <span className="mt-1 text-xs font-semibold text-gray-400">
+              PNG, JPG ou WEBP até 5 MB
+            </span>
+
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handlePixProofFileChange}
+              className="hidden"
+            />
+          </label>
+
+          {pixProofPreview && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-blue-100 bg-white">
+              <img
+                src={pixProofPreview}
+                alt="Comprovante Pix"
+                className="max-h-64 w-full object-contain"
+              />
+            </div>
+          )}
+
+          {paymentCheckError && (
+            <p className="mt-3 text-center text-xs font-bold text-red-600">
+              {paymentCheckError}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void submitManualPixProof()}
+            disabled={isProcessing || !pixProofFile}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white shadow-lg disabled:opacity-50"
+          >
+            {isProcessing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Enviar comprovante
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+)}
     </>
   )
 }
