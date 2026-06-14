@@ -70,8 +70,8 @@ interface PublicRestaurant {
   pix_instructions?: string | null
   pixEnabled?: boolean | null
   pix_enabled?: boolean | null
-  picpayEnabled?: boolean | null
-  picpay_enabled?: boolean | null
+  efiPixEnabled?: boolean | null
+  efi_pix_enabled?: boolean | null
   deliveryFee: number
   deliveryFeeRules?: DeliveryFeeRule[] | null
   openTime?: string | null
@@ -1906,6 +1906,7 @@ function formatPaymentMethodLabel(method?: string | null) {
   const normalizedMethod = normalizeOrderStatus(method)
 
   if (["cash", "dinheiro"].includes(normalizedMethod)) return "Dinheiro"
+  if (["efi_pix", "pix_efi", "efi"].includes(normalizedMethod)) return "Pix automático"
   if (["pix", "pix_manual", "pix_direto"].includes(normalizedMethod)) return "Pix"
 
   if (
@@ -3556,10 +3557,11 @@ const cashbackProgressPercent =
 
 const total = Math.max(subtotal + deliveryFee - cashbackDiscount, 0)
 const normalizedPaymentMethod = paymentMethod.trim().toLowerCase()
-const isPicpayEnabled = Boolean(restaurant.picpayEnabled ?? restaurant.picpay_enabled)
+const isEfiPixEnabled = Boolean(restaurant.efiPixEnabled ?? restaurant.efi_pix_enabled)
 const isPixPayment = normalizedPaymentMethod === "pix"
-const isPicpayPayment = normalizedPaymentMethod === "picpay_pix"
-const isAnyPixPayment = isPixPayment || isPicpayPayment
+const isEfiPayment = normalizedPaymentMethod === "efi_pix"
+const isAutomaticPixPayment = isEfiPayment
+const isAnyPixPayment = isPixPayment || isAutomaticPixPayment
 const isCashPayment = normalizedPaymentMethod === "dinheiro"
   const changeForAmount = parseCurrencyInput(changeFor)
   const pixKey = (restaurant.pixKey ?? restaurant.pix_key ?? "").trim()
@@ -3597,7 +3599,7 @@ const isCashPayment = normalizedPaymentMethod === "dinheiro"
       )}`
     : ""
 
-const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
+const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
   ? pixPayment.qrCodeBase64.startsWith("data:")
     ? pixPayment.qrCodeBase64
     : `data:image/png;base64,${pixPayment.qrCodeBase64}`
@@ -3607,7 +3609,7 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
       )}`
     : ""
 
-  const primaryButtonLabel = isPicpayPayment
+  const primaryButtonLabel = isAutomaticPixPayment
   ? "Pagar com Pix automático"
   : isPixPayment
     ? pixPayment
@@ -3623,7 +3625,9 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
         : customerAddress.trim()
 
   function isPixPaymentResetSafe(currentPaymentMethod: string) {
-    return currentPaymentMethod.trim().toLowerCase() === "pix"
+    const normalizedMethod = currentPaymentMethod.trim().toLowerCase()
+
+    return normalizedMethod === "pix" || normalizedMethod === "efi_pix"
   }
 
   const validateForm = () => {
@@ -3670,7 +3674,7 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
   }
 
  const handleCopyPixCode = async () => {
-  const codeToCopy = isPicpayPayment
+  const codeToCopy = isAutomaticPixPayment
     ? pixPayment?.pixCopyPaste || pixPayment?.qrCode || ""
     : manualPixCopyPaste || pixKey
 
@@ -3884,87 +3888,138 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
     }
   }
 
-  const createPicpayPaymentOrder = async () => {
-  if (!validateForm()) return
+  const createEfiPaymentOrder = async () => {
+    if (!validateForm()) return
 
-  if (!customer?.document || onlyDigits(customer.document).length !== 11) {
-    alert("Informe um CPF válido para pagar com Pix automático.")
-    onEditCustomer()
-    return
-  }
-
-  setIsProcessing(true)
-  setPaymentCheckError("")
-
-  try {
-    const createdOrder = await createPublicOrder("picpay_pix")
-
-    const response = await fetch("/api/payments/picpay/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        orderId: createdOrder.id,
-        customerDocument: onlyDigits(customer.document),
-      }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || "Erro ao criar pagamento PicPay.")
+    if (!customer) {
+      alert("Cliente não identificado.")
+      return
     }
 
-    const payment = data.payment
+    if (orderType === "delivery") {
+      onSaveAddress({
+        customerAddress: customerAddress.trim(),
+        selectedNeighborhoodKey,
+      })
+    }
 
-    setPixPayment({
-      orderId: createdOrder.id,
-      paymentId: payment.providerTransactionId ?? payment.providerChargeId,
-      qrCodeBase64: payment.qrCodeBase64 ?? null,
-      qrCode: payment.qrCode ?? null,
-      pixCopyPaste: payment.pixCopyPaste ?? null,
-      status: payment.status ?? "pending",
-      publicOrderNumber:
-        payment.publicOrderNumber ?? createdOrder.public_order_number ?? null,
-      expiresAt: payment.expiresAt ?? null,
-    })
+    setIsProcessing(true)
+    setPaymentCheckError("")
 
-    setPixCardOpen(true)
+    try {
+      const response = await fetch("/api/public/checkout/efi-pix", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restaurant_id: restaurant.id,
+          customer_name: customer.name,
+          customer_phone: onlyDigits(customer.phone),
+          order_type: orderType,
+          customer_address: orderType === "delivery" ? formattedCustomerAddress : null,
+          customer_neighborhood:
+            orderType === "delivery"
+              ? selectedNeighborhoodOption?.neighborhood ?? null
+              : null,
+          delivery_address: orderType === "delivery" ? formattedCustomerAddress : null,
+          delivery_neighborhood:
+            orderType === "delivery"
+              ? selectedNeighborhoodOption?.neighborhood ?? null
+              : null,
+          notes: null,
+          subtotal,
+          discount: cashbackDiscount,
+          delivery_fee: deliveryFee,
+          total,
+          items: items.map((item) => ({
+            product_id: item.product.id,
+            product_name: item.product.name,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            total_price: item.unitPrice * item.quantity,
+            modifiers: item.modifiers,
+            notes: item.notes || null,
+          })),
+        }),
+      })
 
-    onOrderCreated({
-      id: createdOrder.id,
-      public_order_number: createdOrder.public_order_number,
-      status: "awaiting_payment",
-      payment_status: "pending",
-      total: createdOrder.total ?? total,
-      payment_method: "picpay_pix",
-      order_type: createdOrder.order_type ?? orderType,
-      delivery_fee: createdOrder.delivery_fee ?? deliveryFee,
-      service_fee: createdOrder.service_fee ?? serviceFee,
-      created_at: createdOrder.created_at ?? new Date().toISOString(),
-      items: items.map((item) => ({
-        name: item.product.name,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-      })),
-    })
-  } catch (error) {
-    setPaymentCheckError(
-      error instanceof Error
-        ? error.message
-        : "Erro ao criar pagamento PicPay."
-    )
+      const data = await response.json()
 
-    alert(
-      error instanceof Error
-        ? error.message
-        : "Erro ao criar pagamento PicPay."
-    )
-  } finally {
-    setIsProcessing(false)
+      if (!response.ok || !data.success) {
+        throw new Error(data.error?.message || data.error || "Erro ao criar Pix Efí.")
+      }
+
+      const createdOrder = data.order
+      const payment = data.payment ?? {}
+      const charge = data.charge ?? {}
+      const qrCode = data.qrCode ?? data.qr_code ?? {}
+
+      const copyPaste =
+        payment.copy_paste ??
+        payment.copyPaste ??
+        payment.pixCopyPaste ??
+        charge.pixCopiaECola ??
+        qrCode.qrcode ??
+        null
+
+      const qrCodeBase64 =
+        payment.qr_code_base64 ??
+        payment.qrCodeBase64 ??
+        qrCode.imagemQrcode ??
+        null
+
+      setPixPayment({
+        orderId: createdOrder.id,
+        paymentId:
+          payment.transaction_id ??
+          payment.transactionId ??
+          payment.provider_charge_id ??
+          charge.txid ??
+          createdOrder.id,
+        qrCodeBase64,
+        qrCode: copyPaste,
+        pixCopyPaste: copyPaste,
+        status: payment.status ?? charge.status ?? "pending",
+        publicOrderNumber: createdOrder.public_order_number ?? null,
+        expiresAt: payment.expires_at ?? payment.expiresAt ?? null,
+      })
+
+      setPixCardOpen(true)
+
+      onOrderCreated({
+        id: createdOrder.id,
+        public_order_number: createdOrder.public_order_number,
+        status: "awaiting_payment",
+        payment_status: "pending",
+        total: createdOrder.total ?? total,
+        payment_method: "efi_pix",
+        order_type: createdOrder.order_type ?? orderType,
+        delivery_fee: deliveryFee,
+        service_fee: serviceFee,
+        created_at: new Date().toISOString(),
+        items: items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
+      })
+    } catch (error) {
+      setPaymentCheckError(
+        error instanceof Error
+          ? error.message
+          : "Erro ao criar pagamento Efí."
+      )
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Erro ao criar pagamento Efí."
+      )
+    } finally {
+      setIsProcessing(false)
+    }
   }
-}
 
   const createManualPaymentOrder = async () => {
     if (!validateForm()) return
@@ -4405,12 +4460,26 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
                 <div className="mt-2 space-y-2">
                  {[
   { id: "dinheiro", label: "Dinheiro", value: "dinheiro", icon: Banknote },
-  {
-    id: "pix",
-    label: "Pix",
-    value: isPicpayEnabled ? "picpay_pix" : "pix",
-    icon: QrCode,
-  },
+  ...(isEfiPixEnabled
+    ? [
+        {
+          id: "efi_pix",
+          label: "Pix automático",
+          value: "efi_pix",
+          icon: QrCode,
+        },
+      ]
+    : []),
+  ...(Boolean((restaurant.pixEnabled ?? restaurant.pix_enabled) && pixKey)
+    ? [
+        {
+          id: "pix",
+          label: isEfiPixEnabled ? "Pix manual" : "Pix",
+          value: "pix",
+          icon: QrCode,
+        },
+      ]
+    : []),
   { id: "cartao", label: "Cartão na entrega", value: "cartao", icon: CreditCard },
 ].map((method) => (
                     <button
@@ -4619,10 +4688,10 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
     return
   }
 
-  if (isPicpayPayment) {
-  void createPicpayPaymentOrder()
-  return
-}
+  if (isEfiPayment) {
+    void createEfiPaymentOrder()
+    return
+  }
 
   void createManualPaymentOrder()
 }}
@@ -4672,7 +4741,7 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
         <X className="h-4 w-4" />
       </button>
 
-      {isPicpayPayment && pixPayment ? (
+      {isAutomaticPixPayment && pixPayment ? (
         <div className="pr-0">
           <div className="pr-10">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
@@ -4710,17 +4779,17 @@ const picpayQrCodeImageUrl = pixPayment?.qrCodeBase64
             </p>
 
             <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
-              {picpayQrCodeImageUrl ? (
+              {automaticPixQrCodeImageUrl ? (
                 <div className="flex justify-center">
                   <img
-                    src={picpayQrCodeImageUrl}
-                    alt="QR Code Pix PicPay"
+                    src={automaticPixQrCodeImageUrl}
+                    alt="QR Code Pix automático"
                     className="h-52 w-52 rounded-xl"
                   />
                 </div>
               ) : (
                 <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
-                  Não foi possível carregar o QR Code do PicPay.
+                  Não foi possível carregar o QR Code Pix.
                 </div>
               )}
             </div>

@@ -1041,6 +1041,34 @@ export async function GET(_request: Request, context: RouteContext) {
       })
     }
 
+    const { data: efiIntegration, error: efiIntegrationError } = await supabaseAdmin
+      .from("restaurant_payment_integrations")
+      .select(
+        "id, restaurant_id, provider, enabled, environment, client_id, client_secret, pix_key, certificate_storage_path"
+      )
+      .eq("restaurant_id", restaurant.id)
+      .eq("provider", "efi")
+      .eq("enabled", true)
+      .maybeSingle()
+
+    if (efiIntegrationError) {
+      console.error("Erro ao buscar integração Efí pública:", {
+        restaurantId: restaurant.id,
+        message: efiIntegrationError.message,
+        details: efiIntegrationError.details,
+        hint: efiIntegrationError.hint,
+        code: efiIntegrationError.code,
+      })
+    }
+
+    const efiPixEnabled = Boolean(
+      efiIntegration?.enabled &&
+        efiIntegration?.client_id &&
+        efiIntegration?.client_secret &&
+        efiIntegration?.pix_key &&
+        efiIntegration?.certificate_storage_path
+    )
+
     const normalizedDeliveryRules = deliveryRules.map((rule, index) => ({
       id: rule.id,
       label: rule.label?.trim() || `Faixa ${index + 1}`,
@@ -1070,8 +1098,8 @@ export async function GET(_request: Request, context: RouteContext) {
       state: restaurant.state ?? "",
       pixEnabled: Boolean(restaurant.pix_enabled ?? false),
       pix_enabled: Boolean(restaurant.pix_enabled ?? false),
-      picpayEnabled: Boolean(restaurant.picpay_enabled ?? false),
-      picpay_enabled: Boolean(restaurant.picpay_enabled ?? false),
+      efiPixEnabled,
+      efi_pix_enabled: efiPixEnabled,
       pixKey: restaurant.pix_key ?? null,
       pix_key: restaurant.pix_key ?? null,
       pixKeyType: restaurant.pix_key_type ?? null,
