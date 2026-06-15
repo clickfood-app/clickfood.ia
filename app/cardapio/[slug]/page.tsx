@@ -740,7 +740,7 @@ function FeaturedOfferCard({
       </div>
 
       <div className="flex min-w-0 flex-col py-1 pr-1">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
           Oferta especial
         </p>
 
@@ -1444,67 +1444,84 @@ function UpsellModal({
 
   if (!firstSuggestion) return null
 
+  const suggestionPromotion = getProductPromotion(firstSuggestion)
+  const offerPrice = Number(firstSuggestion.price || 0)
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg px-3 pb-3 animate-in slide-in-from-bottom-4 duration-300">
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_80px_-34px_rgba(15,23,42,0.85)]">
-        <div className="relative border-b border-gray-100 bg-white p-4 pr-14">
-          <button
-            type="button"
-            onClick={onSkip}
-            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-500 active:scale-95"
-            aria-label="Fechar oferta"
-          >
-            <X className="h-4 w-4" />
-          </button>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 px-3 pb-3 backdrop-blur-sm sm:items-center sm:pb-0">
+      <div className="absolute inset-0" onClick={onSkip} aria-hidden="true" />
 
-          <p className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 ring-1 ring-blue-100">
-            <Sparkles className="h-3.5 w-3.5" />
-            Sugestão inteligente
-          </p>
+      <div className="relative w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-[0_28px_90px_-36px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-5 duration-300 sm:rounded-[30px]">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-lg backdrop-blur-md active:scale-95"
+          aria-label="Fechar oferta"
+        >
+          <X className="h-5 w-5" />
+        </button>
 
-          <h3 className="mt-2 text-[22px] font-black leading-tight tracking-tight text-gray-950">
-            Que tal completar seu pedido?
-          </h3>
+        <div className="relative h-[185px] overflow-hidden bg-slate-950">
+          {firstSuggestion.imageUrl ? (
+            <Image
+              src={firstSuggestion.imageUrl}
+              alt={firstSuggestion.name}
+              fill
+              className="object-cover"
+              sizes="512px"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 to-slate-700">
+              <Utensils className="h-12 w-12 text-white/35" />
+            </div>
+          )}
 
-          <p className="mt-1 text-sm font-semibold text-gray-500">
-            Esse item combina com o que você escolheu.
-          </p>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+
+          <div className="absolute bottom-0 left-0 right-0 p-5 pr-14">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 shadow-lg">
+              <Sparkles className="h-3.5 w-3.5" />
+              Sugestão da casa
+            </span>
+
+            <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">
+              Combina com seu pedido
+            </h3>
+
+            <p className="mt-1 text-sm font-semibold text-white/75">
+              Adicione agora sem voltar para o cardápio.
+            </p>
+          </div>
         </div>
 
         <div className="p-4">
-          <div className="grid grid-cols-[112px_1fr] gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
-            {firstSuggestion.imageUrl ? (
-              <div className="relative h-[112px] w-[112px] shrink-0 overflow-hidden rounded-lg bg-gray-100 shadow-sm">
-                <Image
-                  src={firstSuggestion.imageUrl}
-                  alt={firstSuggestion.name}
-                  fill
-                  className="object-cover"
-                  sizes="112px"
-                />
+          <div className="rounded-[22px] border border-gray-200 bg-gray-50 p-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                  Oferta no checkout
+                </p>
+
+                <h4 className="mt-1 line-clamp-2 text-[18px] font-black leading-tight text-gray-950">
+                  {firstSuggestion.name}
+                </h4>
+
+                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-gray-500">
+                  {formatMenuProductDescription(firstSuggestion.description)}
+                </p>
               </div>
-            ) : (
-              <div className="flex h-[112px] w-[112px] shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
-                <Utensils className="h-8 w-8 text-gray-300" />
+
+              <div className="shrink-0 text-right">
+                {suggestionPromotion.isPromotional && suggestionPromotion.originalPrice ? (
+                  <p className="text-xs font-bold text-gray-400 line-through">
+                    {formatPrice(suggestionPromotion.originalPrice)}
+                  </p>
+                ) : null}
+
+                <p className="text-2xl font-black text-gray-950">
+                  {formatPrice(offerPrice)}
+                </p>
               </div>
-            )}
-
-            <div className="min-w-0 py-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
-                Adicione agora
-              </p>
-
-              <h3 className="mt-1 line-clamp-2 text-[16px] font-black leading-tight text-gray-950">
-                {firstSuggestion.name}
-              </h3>
-
-              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-gray-500">
-                {formatMenuProductDescription(firstSuggestion.description)}
-              </p>
-
-              <p className="mt-3 text-xl font-black text-gray-950">
-                {formatPrice(firstSuggestion.price)}
-              </p>
             </div>
           </div>
 
@@ -1515,7 +1532,7 @@ function UpsellModal({
                   key={product.id}
                   type="button"
                   onClick={() => onAdd(product)}
-                  className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left active:scale-95"
+                  className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left shadow-sm active:scale-95"
                 >
                   <span className="max-w-[118px] truncate text-xs font-black text-gray-800">
                     {product.name}
@@ -1533,22 +1550,22 @@ function UpsellModal({
             <button
               type="button"
               onClick={() => onAdd(firstSuggestion)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-black text-white shadow-lg active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg active:scale-[0.98]"
               style={{
                 backgroundColor: accentColor,
                 boxShadow: `0 18px 34px -16px ${accentColor}`,
               }}
             >
               <Plus className="h-5 w-5" strokeWidth={3} />
-              Adicionar por {formatPrice(firstSuggestion.price)}
+              Adicionar ao pedido por {formatPrice(offerPrice)}
             </button>
 
             <button
               type="button"
               onClick={onSkip}
-              className="w-full rounded-xl border border-gray-200 bg-white py-3 text-xs font-black text-gray-500 active:scale-[0.98]"
+              className="w-full rounded-2xl border border-gray-200 bg-white py-3 text-xs font-black text-gray-500 active:scale-[0.98]"
             >
-              Agora não
+              Não, continuar sem esse item
             </button>
           </div>
         </div>
@@ -1577,6 +1594,7 @@ type PixPaymentData = {
   status?: string | null
   publicOrderNumber: string | null
   expiresAt?: string | null
+  amount?: number | string | null
 }
 
 type OrderPaymentStatusResponse = {
@@ -2670,16 +2688,14 @@ function CustomerStartModal({
     setDocument(initialCustomer?.document ? formatCpfPreview(initialCustomer.document) : "")
   }, [open, initialCustomer])
 
-  const title =
-    mode === "checkout" ? "Finalize seu pedido" : "Entrar ou criar conta"
+  const title = mode === "checkout" ? "Identifique seu pedido" : "Entrar neste restaurante"
 
   const description =
     mode === "checkout"
-      ? `Entre ou cadastre seu WhatsApp para acompanhar o pedido, cashback e fidelidade em ${restaurantName}.`
-      : `Use o mesmo nome e WhatsApp dos pedidos anteriores para acessar histórico, cashback e fidelidade em ${restaurantName}.`
+      ? `Seu acesso fica salvo apenas em ${restaurantName}. Endereço, histórico e benefícios não misturam com outros restaurantes.`
+      : `Use seu WhatsApp para acessar histórico, endereço salvo, cashback e fidelidade somente em ${restaurantName}.`
 
-  const buttonLabel =
-    mode === "checkout" ? "Continuar pedido" : "Entrar / cadastrar"
+  const buttonLabel = mode === "checkout" ? "Continuar com segurança" : "Entrar neste restaurante"
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -2727,121 +2743,132 @@ function CustomerStartModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
-      <div
-        className="absolute inset-0"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative w-full max-w-md rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700"
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm transition-colors hover:bg-white hover:text-gray-700"
           aria-label="Fechar"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <div className="mb-5 pr-8">
-          <div
-            className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg"
-            style={{ backgroundColor: accentColor }}
-          >
-            <UserRound className="h-6 w-6" />
-          </div>
+        <div className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-slate-950 p-5 pr-14 text-white">
+          <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 h-44 w-44 rounded-full bg-emerald-400/15 blur-3xl" />
 
-          <h2 className="text-xl font-black text-gray-900">{title}</h2>
-
-          <p className="mt-1 text-sm leading-relaxed text-gray-500">
-            {description}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="text-xs font-bold uppercase text-gray-500">
-              Nome *
-            </label>
-
-            <input
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Seu nome"
-              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold uppercase text-gray-500">
-              Telefone / WhatsApp *
-            </label>
-
-            <input
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
-              placeholder="(00) 00000-0000"
-              maxLength={15}
-              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-xs font-bold uppercase text-gray-500">
-                CPF {requireDocument ? "*" : ""}
-              </label>
-
-              {!requireDocument && (
-                <span className="text-[11px] font-semibold text-gray-400">
-                  opcional agora
-                </span>
-              )}
+          <div className="relative">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
+              <UserRound className="h-6 w-6" />
             </div>
 
-            <input
-              type="text"
-              value={document}
-              onChange={(event) => setDocument(formatCpfPreview(event.target.value))}
-              placeholder="000.000.000-00"
-              maxLength={14}
-              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-            />
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+              Acesso seguro
+            </p>
 
-            <p className="mt-1 text-xs text-gray-400">
-              {requireDocument
-                ? "Necessário apenas quando o restaurante exigir identificação completa."
-                : "Opcional para pedido com Pix direto."}
+            <h2 className="mt-1 text-2xl font-black leading-tight">{title}</h2>
+
+            <p className="mt-2 text-sm font-semibold leading-relaxed text-white/75">
+              {description}
             </p>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-60"
-            style={{
-              backgroundColor: accentColor,
-              boxShadow: `0 14px 28px -12px ${accentColor}`,
-            }}
-          >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isSubmitting ? "Verificando conta..." : buttonLabel}
-          </button>
+        <div className="p-5">
+          <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                <Check className="h-4 w-4" strokeWidth={3} />
+              </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
-          >
-            Continuar vendo o cardápio
-          </button>
-        </form>
+              <div>
+                <p className="text-xs font-black text-emerald-800">
+                  Seus dados ficam salvos neste restaurante
+                </p>
+
+                <p className="mt-1 text-[11px] font-semibold leading-relaxed text-emerald-700">
+                  Na próxima compra aqui, endereço e conta já aparecem preenchidos.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-500">Nome *</label>
+
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Seu nome"
+                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-500">WhatsApp *</label>
+
+              <input
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-bold uppercase text-gray-500">
+                  CPF {requireDocument ? "*" : ""}
+                </label>
+
+                {!requireDocument && (
+                  <span className="text-[11px] font-semibold text-gray-400">opcional agora</span>
+                )}
+              </div>
+
+              <input
+                type="text"
+                value={document}
+                onChange={(event) => setDocument(formatCpfPreview(event.target.value))}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-60"
+              style={{
+                backgroundColor: accentColor,
+                boxShadow: `0 16px 30px -14px ${accentColor}`,
+              }}
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSubmitting ? "Verificando..." : buttonLabel}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              Continuar vendo o cardápio
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )
 }
+
 
 function ProfileLoyaltyCoins({
   loyalty,
@@ -3139,7 +3166,7 @@ function CustomerProfileModal({
                 <div className="mb-3 rounded-[24px] border border-blue-100 bg-blue-50 p-4 shadow-[0_18px_42px_-34px_rgba(37,99,235,0.75)]">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
                         Pedido em andamento
                       </p>
 
@@ -3563,6 +3590,12 @@ const isEfiPayment = normalizedPaymentMethod === "efi_pix"
 const isAutomaticPixPayment = isEfiPayment
 const isAnyPixPayment = isPixPayment || isAutomaticPixPayment
 const isCashPayment = normalizedPaymentMethod === "dinheiro"
+const PIX_GREEN = "#16a34a"
+const checkoutActionColor = isAnyPixPayment ? PIX_GREEN : accentColor
+const whatsappPhone = onlyDigits(restaurant.whatsapp || restaurant.phone || "")
+const whatsappUrl = whatsappPhone ? `https://wa.me/${whatsappPhone}` : ""
+const savedAddressLabel = customer?.address?.customerAddress?.trim() || ""
+const hasSavedAddress = Boolean(savedAddressLabel)
   const changeForAmount = parseCurrencyInput(changeFor)
   const pixKey = (restaurant.pixKey ?? restaurant.pix_key ?? "").trim()
   const pixReceiverName = (
@@ -3609,12 +3642,19 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
       )}`
     : ""
 
+    const pixPaymentConfirmed =
+  paymentApproved ||
+  ["paid", "confirmed", "approved", "concluido", "concluida", "settled"].includes(
+    normalizeOrderStatus(String(pixPayment?.status ?? ""))
+  )
+const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
+
   const primaryButtonLabel = isAutomaticPixPayment
-  ? "Pagar com Pix automático"
+  ? "Gerar Pix automático"
   : isPixPayment
     ? pixPayment
-      ? "Abrir comprovante Pix"
-      : "Pagar com Pix manual"
+      ? "Enviar comprovante Pix"
+      : "Pagar com Pix"
     : "Confirmar pedido"
 
   const formattedCustomerAddress =
@@ -3631,82 +3671,122 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
   }
 
   useEffect(() => {
-    if (
-      !open ||
-      !pixCardOpen ||
-      !pixPayment?.orderId ||
-      !isAutomaticPixPayment ||
-      paymentApproved
-    ) {
-      return
-    }
+  if (
+    !open ||
+    !pixCardOpen ||
+    !pixPayment?.orderId ||
+    !isAutomaticPixPayment ||
+    paymentApproved
+  ) {
+    return
+  }
 
-    let cancelled = false
+  let cancelled = false
 
-    async function pollAutomaticPixPaymentStatus() {
-      if (cancelled || !pixPayment?.orderId) return
+  async function pollAutomaticPixPaymentStatus() {
+    if (cancelled || !pixPayment?.orderId) return
 
-      try {
-        const params = new URLSearchParams({
-          restaurantId: restaurant.id,
-          orderId: pixPayment.orderId,
-          _: String(Date.now()),
-        })
+    try {
+      const params = new URLSearchParams({
+        restaurantId: restaurant.id,
+        orderId: pixPayment.orderId,
+        _: String(Date.now()),
+      })
 
-        const response = await fetch(`/api/public/orders/status?${params.toString()}`, {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        })
+      const response = await fetch(`/api/public/orders/status?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
 
-        if (!response.ok) return
+      if (!response.ok) return
 
-        const data = await response.json()
-        const paymentStatus = String(
+      const data = await response.json()
+
+      const paymentStatus = normalizeOrderStatus(
+        String(
           data?.order?.payment_status ??
             data?.payment_status ??
             data?.order?.paymentStatus ??
             ""
-        ).toLowerCase()
-
-        if (paymentStatus !== "paid") return
-
-        setPixPayment((currentPayment) =>
-          currentPayment
-            ? {
-                ...currentPayment,
-                status: "paid",
-              }
-            : currentPayment
         )
+      )
 
-        setPaymentApproved(true)
-        setPaymentCheckError("")
-      } catch (error) {
-        console.error("Erro ao consultar confirmação do Pix automático:", error)
-      }
+      const confirmedStatuses = [
+        "paid",
+        "confirmed",
+        "approved",
+        "concluido",
+        "concluida",
+        "settled",
+      ]
+
+      if (!confirmedStatuses.includes(paymentStatus)) return
+
+      setPixPayment((currentPayment) =>
+        currentPayment
+          ? {
+              ...currentPayment,
+              status: "paid",
+            }
+          : currentPayment
+      )
+
+      setPaymentApproved(true)
+      setPaymentCheckError("")
+
+      onOrderCreated({
+        id: pixPayment.orderId,
+        public_order_number: pixPayment.publicOrderNumber,
+        status: data?.order?.status ?? "preparing",
+        payment_status: "paid",
+        total: data?.order?.total ?? total,
+        payment_method: "efi_pix",
+        order_type: data?.order?.order_type ?? orderType,
+        delivery_fee: data?.order?.delivery_fee ?? deliveryFee,
+        service_fee: data?.order?.service_fee ?? serviceFee,
+        created_at: data?.order?.created_at ?? new Date().toISOString(),
+        items: items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
+      })
+
+      onClearCart()
+    } catch (error) {
+      console.error("Erro ao consultar confirmação do Pix automático:", error)
     }
+  }
 
+  void pollAutomaticPixPaymentStatus()
+
+  const intervalId = window.setInterval(() => {
     void pollAutomaticPixPaymentStatus()
+  }, 2500)
 
-    const intervalId = window.setInterval(() => {
-      void pollAutomaticPixPaymentStatus()
-    }, 2500)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(intervalId)
-    }
-  }, [
-    open,
-    pixCardOpen,
-    pixPayment?.orderId,
-    isAutomaticPixPayment,
-    paymentApproved,
-    restaurant.id,
-  ])
+  return () => {
+    cancelled = true
+    window.clearInterval(intervalId)
+  }
+}, [
+  open,
+  pixCardOpen,
+  pixPayment?.orderId,
+  pixPayment?.publicOrderNumber,
+  isAutomaticPixPayment,
+  paymentApproved,
+  restaurant.id,
+  total,
+  orderType,
+  deliveryFee,
+  serviceFee,
+  items,
+  onOrderCreated,
+  onClearCart,
+])
 
   const validateForm = () => {
     if (!customer?.name?.trim()) {
@@ -4048,20 +4128,21 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
         null
 
       setPixPayment({
-        orderId: createdOrder.id,
-        paymentId:
-          payment.transaction_id ??
-          payment.transactionId ??
-          payment.provider_charge_id ??
-          charge.txid ??
-          createdOrder.id,
-        qrCodeBase64,
-        qrCode: copyPaste,
-        pixCopyPaste: copyPaste,
-        status: payment.status ?? charge.status ?? "pending",
-        publicOrderNumber: createdOrder.public_order_number ?? null,
-        expiresAt: payment.expires_at ?? payment.expiresAt ?? null,
-      })
+  orderId: createdOrder.id,
+  paymentId:
+    payment.transaction_id ??
+    payment.transactionId ??
+    payment.provider_charge_id ??
+    charge.txid ??
+    createdOrder.id,
+  qrCodeBase64,
+  qrCode: copyPaste,
+  pixCopyPaste: copyPaste,
+  status: payment.status ?? charge.status ?? "pending",
+  publicOrderNumber: createdOrder.public_order_number ?? null,
+  expiresAt: payment.expires_at ?? payment.expiresAt ?? null,
+  amount: createdOrder.total ?? total,
+})
 
       setPixCardOpen(true)
 
@@ -4299,9 +4380,23 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
         ) : (
           <>
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+              <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-sm">
+                    <Check className="h-5 w-5" strokeWidth={3} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-gray-950">Checkout seguro</p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">
+                      Seus dados ficam salvos apenas neste restaurante. Na próxima compra, endereço e WhatsApp já aparecem preenchidos.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div>
-                <label className="text-xs font-semibold uppercase text-gray-500">
+                <label className="text-xs font-black uppercase tracking-wide text-gray-500">
                   Tipo de pedido
                 </label>
 
@@ -4318,10 +4413,10 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
                       key={type.id}
                       onClick={() => setOrderType(type.id as "delivery" | "pickup")}
                       className={cn(
-                        "flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all",
+                        "flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black transition-all active:scale-[0.98]",
                         orderType === type.id
                           ? "text-white shadow-md"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                       )}
                       style={orderType === type.id ? { backgroundColor: accentColor } : undefined}
                     >
@@ -4332,30 +4427,38 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+              <div className="rounded-[22px] border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase text-blue-600">
-                      Cliente identificado
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                      Cliente deste restaurante
                     </p>
 
-                    <h4 className="mt-1 text-base font-black text-gray-900">
+                    <h4 className="mt-1 truncate text-lg font-black text-gray-950">
                       {customer?.name ?? "Cliente"}
                     </h4>
 
-                    <p className="mt-1 text-sm text-gray-600">
-                      {formatPhonePreview(customer?.phone ?? "")}
-                    </p>
+                    <div className="mt-2 grid gap-1 text-xs font-semibold text-gray-500">
+                      <p>{formatPhonePreview(customer?.phone ?? "")}</p>
 
-                    <p className="text-xs text-gray-500">
-                      CPF: {formatCpfPreview(customer?.document ?? "")}
-                    </p>
+                      {customer?.document ? (
+                        <p>CPF: {formatCpfPreview(customer.document)}</p>
+                      ) : (
+                        <p>CPF não informado</p>
+                      )}
+
+                      {hasSavedAddress ? (
+                        <p className="line-clamp-1 text-gray-700">Endereço salvo: {savedAddressLabel}</p>
+                      ) : (
+                        <p className="text-amber-600">Endereço será salvo após finalizar.</p>
+                      )}
+                    </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={onEditCustomer}
-                    className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 shadow-sm"
+                    className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 shadow-sm active:scale-[0.98]"
                   >
                     Alterar
                   </button>
@@ -4480,136 +4583,209 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
               ) : null}
 
               {orderType === "delivery" && (
-                <div className="space-y-3">
-                  {hasNeighborhoodRules && (
+                <div className="rounded-[22px] border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
-                      <label className="text-xs font-semibold uppercase text-gray-500">Bairro *</label>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
+                        Entrega
+                      </p>
 
-                      <select
-                        value={selectedNeighborhoodKey}
-                        onChange={(e) => setSelectedNeighborhoodKey(e.target.value)}
-                        className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-                      >
-                        <option value="">Selecione seu bairro</option>
-
-                        {neighborhoodOptions.map((option) => (
-                          <option key={option.key} value={option.key}>
-                            {option.neighborhood} • {formatPrice(option.fee)}
-                          </option>
-                        ))}
-                      </select>
-
-                      {selectedNeighborhoodOption && (
-                        <p className="mt-2 text-xs text-gray-500">
-                          Taxa aplicada:{" "}
-                          <span className="font-semibold text-gray-900">
-                            {formatPrice(selectedNeighborhoodOption.fee)}
-                          </span>
-                        </p>
-                      )}
+                      <h4 className="mt-1 text-base font-black text-gray-950">
+                        Endereço do pedido
+                      </h4>
                     </div>
-                  )}
 
-                  <div>
-                    <label className="text-xs font-semibold uppercase text-gray-500">
-                      {hasNeighborhoodRules ? "Rua, numero e complemento *" : "Endereco *"}
-                    </label>
+                    {hasSavedAddress && (
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
+                        Salvo
+                      </span>
+                    )}
+                  </div>
 
-                    <textarea
-                      value={customerAddress}
-                      onChange={(e) => setCustomerAddress(e.target.value)}
-                      placeholder={
-                        hasNeighborhoodRules
-                          ? "Rua, numero, complemento e referencia"
-                          : "Rua, numero, bairro..."
-                      }
-                      rows={2}
-                      className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
-                    />
+                  <div className="space-y-3">
+                    {hasNeighborhoodRules && (
+                      <div>
+                        <label className="text-xs font-bold uppercase text-gray-500">Bairro *</label>
+
+                        <select
+                          value={selectedNeighborhoodKey}
+                          onChange={(e) => setSelectedNeighborhoodKey(e.target.value)}
+                          className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                        >
+                          <option value="">Selecione seu bairro</option>
+
+                          {neighborhoodOptions.map((option) => (
+                            <option key={option.key} value={option.key}>
+                              {option.neighborhood} • {formatPrice(option.fee)}
+                            </option>
+                          ))}
+                        </select>
+
+                        {selectedNeighborhoodOption && (
+                          <p className="mt-2 text-xs font-semibold text-gray-500">
+                            Taxa aplicada:{" "}
+                            <span className="font-black text-gray-900">
+                              {formatPrice(selectedNeighborhoodOption.fee)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-xs font-bold uppercase text-gray-500">
+                        {hasNeighborhoodRules ? "Rua, número e complemento *" : "Endereço *"}
+                      </label>
+
+                      <textarea
+                        value={customerAddress}
+                        onChange={(e) => setCustomerAddress(e.target.value)}
+                        placeholder={
+                          hasNeighborhoodRules
+                            ? "Rua, número, complemento e referência"
+                            : "Rua, número, bairro..."
+                        }
+                        rows={2}
+                        className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                      />
+
+                      <p className="mt-2 text-[11px] font-semibold text-gray-400">
+                        Esse endereço fica salvo somente para {restaurant.name}.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div>
-                <label className="text-xs font-semibold uppercase text-gray-500">
-                  Forma de pagamento
-                </label>
+              <div className="rounded-[22px] border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
+                      Pagamento
+                    </p>
 
-                <div className="mt-2 space-y-2">
-                 {[
-  { id: "dinheiro", label: "Dinheiro", value: "dinheiro", icon: Banknote },
+                    <h4 className="mt-1 text-base font-black text-gray-950">
+                      Escolha como vai pagar
+                    </h4>
+                  </div>
+
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
+                    Seguro
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {[
+  {
+    id: "dinheiro",
+    label: "Dinheiro",
+    value: "dinheiro",
+    icon: Banknote,
+    helper: "Pague na entrega ou retirada.",
+    tag: undefined as string | undefined,
+  },
+
   ...(isEfiPixEnabled
     ? [
         {
           id: "efi_pix",
-          label: "Pix automático",
+          label: "Pix",
           value: "efi_pix",
           icon: QrCode,
+          helper: "Confirmação automática após o pagamento.",
+          tag: "Automático",
         },
       ]
-    : []),
-  ...(Boolean((restaurant.pixEnabled ?? restaurant.pix_enabled) && pixKey)
-    ? [
-        {
-          id: "pix",
-          label: isEfiPixEnabled ? "Pix manual" : "Pix",
-          value: "pix",
-          icon: QrCode,
-        },
-      ]
-    : []),
-  { id: "cartao", label: "Cartão na entrega", value: "cartao", icon: CreditCard },
-].map((method) => (
-                    <button
-                      key={method.id}
-                      onClick={() => {
-                        setPaymentMethod(method.value)
+    : Boolean((restaurant.pixEnabled ?? restaurant.pix_enabled) && pixKey)
+      ? [
+          {
+            id: "pix",
+            label: "Pix",
+            value: "pix",
+            icon: QrCode,
+            helper: "Copie o Pix, pague e envie o comprovante.",
+            tag: "Manual",
+          },
+        ]
+      : []),
 
-                        if (method.id !== "dinheiro") {
-                          setNeedsChange(false)
-                          setChangeFor("")
-                        }
+  {
+    id: "cartao",
+    label: "Cartão na entrega",
+    value: "cartao",
+    icon: CreditCard,
+    helper: "Crédito ou débito na entrega.",
+    tag: undefined as string | undefined,
+  },
+].map((method) => {
+                    const isSelected = paymentMethod === method.value
+                    const isPixMethod = method.value === "pix" || method.value === "efi_pix"
+                    const methodColor = isPixMethod ? PIX_GREEN : accentColor
 
-                        if (method.value === "pix") {
-  setPixCardOpen(true)
-} else {
-  setPixCardOpen(false)
-}
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-all",
-                        paymentMethod === method.value ? "ring-2" : "bg-gray-50 hover:bg-gray-100"
-                      )}
-                      style={
-                        paymentMethod === method.value
-                          ? {
-                              backgroundColor: `${accentColor}12`,
-                              boxShadow: `0 0 0 2px ${accentColor}`,
-                            }
-                          : undefined
-                      }
-                    >
-                      <method.icon
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => {
+                          setPaymentMethod(method.value)
+
+                          if (method.id !== "dinheiro") {
+                            setNeedsChange(false)
+                            setChangeFor("")
+                          }
+
+                          if (method.value === "pix") {
+                            setPixCardOpen(true)
+                          } else {
+                            setPixCardOpen(false)
+                          }
+                        }}
                         className={cn(
-                          "h-5 w-5",
-                          paymentMethod === method.value ? "text-gray-900" : "text-gray-400"
-                        )}
-                      />
-
-                      <span
-                        className={cn(
-                          "text-sm",
-                          paymentMethod === method.value ? "font-semibold" : "text-gray-700"
+                          "flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.99]",
+                          isSelected
+                            ? isPixMethod
+                              ? "border-emerald-200 bg-emerald-50 shadow-sm"
+                              : "border-blue-200 bg-blue-50 shadow-sm"
+                            : "border-gray-200 bg-gray-50 hover:bg-white"
                         )}
                       >
-                        {method.label}
-                      </span>
+                        <div
+                          className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                            isSelected ? "text-white" : "bg-white text-gray-400 ring-1 ring-gray-200"
+                          )}
+                          style={isSelected ? { backgroundColor: methodColor } : undefined}
+                        >
+                          <method.icon className="h-5 w-5" />
+                        </div>
 
-                      {paymentMethod === method.value && (
-                        <Check className="ml-auto h-4 w-4" style={{ color: accentColor }} />
-                      )}
-                    </button>
-                  ))}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "text-sm font-black",
+                                isSelected ? "text-gray-950" : "text-gray-700"
+                              )}
+                            >
+                              {method.label}
+                            </span>
+
+                            {isPixMethod && (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                                Pix
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-gray-500">
+                            {method.helper}
+                          </p>
+                        </div>
+
+                        {isSelected && <Check className="h-4 w-4" style={{ color: methodColor }} />}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -4626,7 +4802,7 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
                       </p>
 
                       <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
-                        Total do pedido: {formatPrice(total)}
+                        Total do pedido: {formatPrice(pixPaymentAmount)}
                       </p>
 
                       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -4691,30 +4867,42 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
                 <button
                   type="button"
                   onClick={() => setPixCardOpen(true)}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left transition-colors hover:bg-blue-100/70"
+                  className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-left transition-colors hover:bg-emerald-100/70"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
                       <QrCode className="h-5 w-5" />
                     </div>
 
                     <div className="min-w-0">
                       <p className="text-sm font-black text-gray-900">
-                        {pixPayment ? "Comprovante Pix pendente" : "Pagamento Pix selecionado"}
+                        {pixPayment ? "Comprovante Pix pendente" : "Pix selecionado"}
                       </p>
 
-                      <p className="truncate text-xs font-semibold text-gray-500">
+                      <p className="truncate text-xs font-semibold text-emerald-700">
                         {pixPayment
                           ? "Toque para anexar o comprovante."
-                          : "Toque para abrir o QR Code e o Pix copia e cola."}
+                          : "Abra o QR Code e pague direto ao restaurante."}
                       </p>
                     </div>
                   </div>
 
-                  <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+                  <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
                     Abrir
                   </span>
                 </button>
+              )}
+
+              {whatsappUrl && (
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white py-3 text-sm font-black text-green-700 shadow-sm active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Precisa de ajuda? Chamar no WhatsApp
+                </a>
               )}
             </div>
 
@@ -4755,7 +4943,7 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
 
                 <div className="flex justify-between border-t border-gray-100 pt-1 text-base font-bold text-gray-900">
                   <span>Total</span>
-                  <span>{formatPrice(total)}</span>
+                  <span>{formatPrice(pixPaymentAmount)}</span>
                 </div>
               </div>
 
@@ -4774,15 +4962,15 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
   void createManualPaymentOrder()
 }}
                 disabled={isProcessing}
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 style={{
-                  backgroundColor: accentColor,
-                  boxShadow: `0 14px 28px -12px ${accentColor}`,
+                  backgroundColor: checkoutActionColor,
+                  boxShadow: `0 16px 30px -14px ${checkoutActionColor}`,
                 }}
               >
                 {isProcessing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isPixPayment ? (
+                ) : isAnyPixPayment ? (
                   <QrCode className="h-4 w-4" />
                 ) : (
                   <Check className="h-4 w-4" />
@@ -4820,101 +5008,204 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
       </button>
 
       {isAutomaticPixPayment && pixPayment ? (
-        <div className="pr-0">
-          <div className="pr-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
-              Pix automático
-            </p>
+  <div className="pr-0">
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-[26px] border p-4",
+        pixPaymentConfirmed
+          ? "border-emerald-200 bg-emerald-50"
+          : "border-emerald-100 bg-white"
+      )}
+    >
+      <div className="absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-300/25 blur-3xl" />
+      <div className="absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-blue-300/15 blur-3xl" />
 
-            <h4 className="mt-1 text-xl font-black text-gray-900">
-              Pague com Pix para confirmar o pedido
-            </h4>
-
-            <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
-              Escaneie o QR Code ou copie o Pix copia e cola. Assim que o pagamento for confirmado, o pedido entra automaticamente para preparo.
-            </p>
-          </div>
-
-          {pixPayment.publicOrderNumber && (
-            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-              <p className="text-[9px] font-black uppercase text-blue-500">
-                Pedido gerado
-              </p>
-
-              <p className="text-sm font-black text-blue-900">
-                #{pixPayment.publicOrderNumber}
-              </p>
-            </div>
+      <div className="relative pr-10">
+        <div
+          className={cn(
+            "mb-4 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg",
+            pixPaymentConfirmed ? "bg-emerald-600" : "bg-emerald-500"
           )}
+        >
+          {pixPaymentConfirmed ? (
+            <Check className="h-6 w-6" strokeWidth={3} />
+          ) : (
+            <QrCode className="h-6 w-6" />
+          )}
+        </div>
 
-          <div className="mt-4 rounded-[24px] border border-blue-100 bg-blue-50/70 p-3 text-center">
-            <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
-              Valor do Pix
-            </p>
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+          Pix automático
+        </p>
 
-            <p className="mt-1 text-2xl font-black text-blue-950">
-              {formatPrice(total)}
-            </p>
+        <h4 className="mt-1 text-2xl font-black leading-tight text-gray-950">
+          {pixPaymentConfirmed
+            ? "Pagamento confirmado"
+            : "Pague com Pix para confirmar"}
+        </h4>
 
-            <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
-              {automaticPixQrCodeImageUrl ? (
-                <div className="flex justify-center">
-                  <img
-                    src={automaticPixQrCodeImageUrl}
-                    alt="QR Code Pix automático"
-                    className="h-52 w-52 rounded-xl"
-                  />
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
-                  Não foi possível carregar o QR Code Pix.
-                </div>
-              )}
-            </div>
-          </div>
+        <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-600">
+          {pixPaymentConfirmed
+            ? "Recebemos a confirmação do pagamento. Seu pedido já foi enviado para preparo."
+            : "Escaneie o QR Code ou copie o Pix copia e cola. A confirmação acontece automaticamente."}
+        </p>
+      </div>
 
-          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
-            Pix copia e cola
+      {pixPayment.publicOrderNumber && (
+        <div className="relative mt-4 rounded-2xl border border-emerald-100 bg-white/80 px-3 py-2 shadow-sm">
+          <p className="text-[9px] font-black uppercase tracking-wide text-emerald-600">
+            Pedido
           </p>
+
+          <p className="text-base font-black text-emerald-950">
+            #{pixPayment.publicOrderNumber}
+          </p>
+        </div>
+      )}
+    </div>
+
+    <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
+        <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+          Valor
+        </p>
+
+        <p className="mt-1 text-lg font-black text-gray-950">
+          {formatPrice(pixPaymentAmount)}
+        </p>
+      </div>
+
+      <div
+        className={cn(
+          "rounded-2xl border px-3 py-3",
+          pixPaymentConfirmed
+            ? "border-emerald-100 bg-emerald-50"
+            : "border-amber-100 bg-amber-50"
+        )}
+      >
+        <p
+          className={cn(
+            "text-[9px] font-black uppercase tracking-wide",
+            pixPaymentConfirmed ? "text-emerald-600" : "text-amber-600"
+          )}
+        >
+          Status
+        </p>
+
+        <p
+          className={cn(
+            "mt-1 text-sm font-black",
+            pixPaymentConfirmed ? "text-emerald-800" : "text-amber-800"
+          )}
+        >
+          {pixPaymentConfirmed ? "Confirmado" : "Aguardando"}
+        </p>
+      </div>
+    </div>
+
+    {!pixPaymentConfirmed ? (
+      <>
+        <div className="mt-4 rounded-[26px] border border-emerald-100 bg-emerald-50/70 p-4 text-center">
+          <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+            Escaneie para pagar
+          </p>
+
+          <div className="mt-3 rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm">
+            {automaticPixQrCodeImageUrl ? (
+              <div className="flex justify-center">
+                <img
+                  src={automaticPixQrCodeImageUrl}
+                  alt="QR Code Pix automático"
+                  className="h-56 w-56 rounded-xl object-contain"
+                />
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-700">
+                Não foi possível carregar o QR Code Pix.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+              Pix copia e cola
+            </p>
+
+            <button
+              type="button"
+              onClick={handleCopyPixCode}
+              disabled={!pixPayment.pixCopyPaste && !pixPayment.qrCode}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-black text-white disabled:opacity-50"
+            >
+              {pixCopied ? "Copiado" : "Copiar"}
+            </button>
+          </div>
 
           <textarea
             readOnly
             value={pixPayment.pixCopyPaste || pixPayment.qrCode || ""}
             rows={3}
-            className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+            className="w-full resize-none rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
           />
-
-          {paymentCheckError && (
-            <p className="mt-3 text-center text-xs font-bold text-red-600">
-              {paymentCheckError}
-            </p>
-          )}
-
-          <div className="mt-4 grid grid-cols-1 gap-2">
-            <button
-              type="button"
-              onClick={handleCopyPixCode}
-              disabled={!pixPayment.pixCopyPaste && !pixPayment.qrCode}
-              className="rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 disabled:opacity-50"
-            >
-              {pixCopied ? "Pix copiado" : "Copiar Pix"}
-            </button>
-
-            {paymentApproved || String(pixPayment?.status ?? "").toLowerCase() === "paid" ? (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-center text-xs font-bold text-emerald-700">
-                Pagamento confirmado! Pedido enviado ao restaurante.
-              </div>
-            ) : (
-              <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-700">
-                Aguardando confirmação automática do pagamento...
-              </div>
-            )}
-          </div>
         </div>
+
+        {paymentCheckError && (
+          <p className="mt-3 text-center text-xs font-bold text-red-600">
+            {paymentCheckError}
+          </p>
+        )}
+
+        <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-black text-amber-700">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Aguardando confirmação automática do pagamento...
+        </div>
+      </>
+    ) : (
+      <div className="mt-4 rounded-[26px] border border-emerald-100 bg-emerald-50 p-5 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg">
+          <Check className="h-7 w-7" strokeWidth={3} />
+        </div>
+
+        <h5 className="mt-3 text-lg font-black text-emerald-950">
+          Pedido enviado para preparo
+        </h5>
+
+        <p className="mt-1 text-sm font-semibold leading-relaxed text-emerald-700">
+          Agora é só acompanhar o andamento do pedido pelo cardápio.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => {
+            setPixCardOpen(false)
+            setStep("cart")
+            onClose()
+          }}
+          className="mt-4 w-full rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white shadow-lg active:scale-[0.98]"
+        >
+          Acompanhar pedido
+        </button>
+      </div>
+    )}
+
+    {!pixPaymentConfirmed && whatsappUrl && (
+      <a
+        href={whatsappUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-white py-3 text-sm font-black text-green-700"
+      >
+        <MessageCircle className="h-4 w-4" />
+        Problema no Pix? Chamar restaurante
+      </a>
+    )}
+  </div>
       ) : !pixPayment ? (
         <div className="pr-0">
           <div className="pr-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
               Pagamento Pix
             </p>
 
@@ -4928,13 +5219,13 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
             </p>
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-blue-100 bg-blue-50/70 p-3 text-center">
-            <p className="text-[10px] font-black uppercase tracking-wide text-blue-600">
+          <div className="mt-4 rounded-[24px] border border-emerald-100 bg-emerald-50/70 p-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
               Valor do Pix
             </p>
 
-            <p className="mt-1 text-2xl font-black text-blue-950">
-              {formatPrice(total)}
+            <p className="mt-1 text-2xl font-black text-emerald-950">
+              {formatPrice(pixPaymentAmount)}
             </p>
 
             <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
@@ -5009,7 +5300,7 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
               type="button"
               onClick={() => void startManualPixProofFlow()}
               disabled={isProcessing || !manualPixCopyPaste}
-              className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-lg disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-black text-white shadow-lg disabled:opacity-50"
             >
               {isProcessing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -5019,11 +5310,23 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
               Já paguei
             </button>
           </div>
+
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-white py-3 text-sm font-black text-green-700"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Dúvida no Pix? Chamar restaurante
+            </a>
+          )}
         </div>
       ) : (
         <div className="pr-0">
           <div className="pr-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
               Comprovante Pix
             </p>
 
@@ -5037,19 +5340,19 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
           </div>
 
           {pixPayment.publicOrderNumber && (
-            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-              <p className="text-[9px] font-black uppercase text-blue-500">
+            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase text-emerald-600">
                 Pedido gerado
               </p>
 
-              <p className="text-sm font-black text-blue-900">
+              <p className="text-sm font-black text-emerald-900">
                 #{pixPayment.publicOrderNumber}
               </p>
             </div>
           )}
 
-          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-blue-200 bg-blue-50/60 px-4 py-6 text-center transition-colors hover:bg-blue-50">
-            <Upload className="h-7 w-7 text-blue-600" />
+          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-6 text-center transition-colors hover:bg-emerald-50">
+            <Upload className="h-7 w-7 text-emerald-600" />
 
             <span className="mt-2 text-sm font-black text-gray-900">
               {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
@@ -5068,7 +5371,7 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
           </label>
 
           {pixProofPreview && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-blue-100 bg-white">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-100 bg-white">
               <img
                 src={pixProofPreview}
                 alt="Comprovante Pix"
@@ -5087,7 +5390,7 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
             type="button"
             onClick={() => void submitManualPixProof()}
             disabled={isProcessing || !pixProofFile}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white shadow-lg disabled:opacity-50"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-black text-white shadow-lg disabled:opacity-50"
           >
             {isProcessing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -5096,6 +5399,18 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
             )}
             Enviar comprovante
           </button>
+
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-white py-3 text-sm font-black text-green-700"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Precisa de ajuda? Chamar restaurante
+            </a>
+          )}
         </div>
       )}
     </div>
@@ -6172,14 +6487,10 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 </div>
 
                 <div className="min-w-0 flex-1 pb-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
-                    Cardápio digital
-                  </p>
-
-                  <h1 className="mt-1 truncate text-[21px] font-black leading-tight tracking-tight text-gray-950">
-                    {restaurant.name}
-                  </h1>
-                </div>
+  <h1 className="truncate text-[23px] font-black leading-tight tracking-tight text-gray-950">
+    {restaurant.name}
+  </h1>
+</div>
               </div>
 
               <p className="mt-2 line-clamp-2 text-sm font-medium leading-relaxed text-gray-500">

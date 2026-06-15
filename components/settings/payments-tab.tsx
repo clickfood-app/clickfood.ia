@@ -207,7 +207,7 @@ export default function PaymentsTab() {
       if (error) throw error
 
       setPixForm({
-        pixEnabled: Boolean(data?.pix_enabled),
+        pixEnabled: data?.pix_enabled === true,
         pixKeyType: (data?.pix_key_type as PixKeyType) || "random",
         pixKey: data?.pix_key || "",
         pixReceiverName: data?.pix_receiver_name || data?.name || "",
@@ -286,6 +286,87 @@ export default function PaymentsTab() {
         error instanceof Error
           ? error.message
           : "Erro ao salvar Pix Direto."
+      )
+    } finally {
+      setSavingPix(false)
+    }
+  }
+
+  async function handleTogglePixEnabled(nextEnabled: boolean) {
+    if (!restaurant?.id) {
+      toast.error("Restaurante não identificado.")
+      return
+    }
+
+    const previousPixForm = pixForm
+    const pixKey = pixForm.pixKey.trim()
+    const pixReceiverName = pixForm.pixReceiverName.trim()
+    const pixReceiverCity = pixForm.pixReceiverCity.trim().toUpperCase()
+    const pixInstructions = pixForm.pixInstructions.trim()
+
+    if (nextEnabled) {
+      if (!pixKey) {
+        toast.error("Informe a chave Pix para ativar o Pix Direto.")
+        return
+      }
+
+      if (!pixReceiverName) {
+        toast.error("Informe o nome do recebedor Pix.")
+        return
+      }
+
+      if (!pixReceiverCity) {
+        toast.error("Informe a cidade do recebedor Pix.")
+        return
+      }
+    }
+
+    try {
+      setSavingPix(true)
+      setPixForm((prev) => ({ ...prev, pixEnabled: nextEnabled }))
+
+      const updatePayload = nextEnabled
+        ? {
+            pix_enabled: true,
+            pix_key: pixKey || null,
+            pix_key_type: pixForm.pixKeyType,
+            pix_receiver_name: pixReceiverName || null,
+            pix_receiver_city: pixReceiverCity || null,
+            pix_instructions: pixInstructions || null,
+          }
+        : {
+            pix_enabled: false,
+          }
+
+      const { error } = await supabase
+        .from("restaurants")
+        .update(updatePayload)
+        .eq("id", restaurant.id)
+
+      if (error) throw error
+
+      setPixForm((prev) => ({
+        ...prev,
+        pixEnabled: nextEnabled,
+        ...(nextEnabled
+          ? {
+              pixKey,
+              pixReceiverName,
+              pixReceiverCity,
+              pixInstructions,
+            }
+          : {}),
+      }))
+
+      toast.success(
+        nextEnabled ? "Pix Direto ativado." : "Pix Direto desativado."
+      )
+    } catch (error) {
+      setPixForm(previousPixForm)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao alterar Pix Direto."
       )
     } finally {
       setSavingPix(false)
@@ -814,7 +895,7 @@ export default function PaymentsTab() {
             </span>
             <Switch
               checked={pixForm.pixEnabled}
-              onCheckedChange={(checked) => updatePixForm("pixEnabled", checked)}
+              onCheckedChange={(checked) => void handleTogglePixEnabled(checked)}
               disabled={loadingPix || savingPix}
             />
           </div>
@@ -1082,7 +1163,6 @@ export default function PaymentsTab() {
           {saving ? "Salvando..." : "Salvar Alterações"}
         </button>
       </div>
-
     </div>
   )
 }

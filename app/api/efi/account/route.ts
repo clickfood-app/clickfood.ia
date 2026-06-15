@@ -1,19 +1,6 @@
-﻿import { NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js"
 import { createClient as createServerClient } from "@/lib/supabase/server"
-import fs from "node:fs"
-import os from "node:os"
-import path from "node:path"
-import crypto from "node:crypto"
-import { createRequire } from "node:module"
-
-export const runtime = "nodejs"
-export const dynamic = "force-dynamic"
-
-const require = createRequire(import.meta.url)
-const EfiPay = require("sdk-node-apis-efi")
-
-const EFI_CERTIFICATES_BUCKET = "efi-certificates"
 
 type EfiEnvironment = "sandbox" | "production"
 
@@ -34,22 +21,19 @@ type EfiIntegrationRow = {
   updated_at: string | null
 }
 
-type EfiClient = {
-  pixListCharges?: (params: {
-    inicio: string
-    fim: string
-  }) => Promise<unknown>
+type SaveEfiAccountBody = {
+  enabled?: boolean
+  environment?: string
+  clientId?: string
+  client_id?: string
+  clientSecret?: string
+  client_secret?: string
+  pixKey?: string
+  pix_key?: string
 }
 
-function jsonError(message: string, status = 400, details?: unknown) {
-  return NextResponse.json(
-    {
-      success: false,
-      error: message,
-      details,
-    },
-    { status }
-  )
+function jsonError(message: string, status = 400) {
+  return NextResponse.json({ success: false, error: message }, { status })
 }
 
 function getRequiredEnv(name: string) {
@@ -75,21 +59,58 @@ function createAdminClient() {
   )
 }
 
-function normalizeError(error: unknown) {
-  if (error instanceof Error) {
+function normalizeText(value: unknown, maxLength = 500) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : ""
+}
+
+function normalizeEnvironment(value: unknown): EfiEnvironment {
+  const normalized = normalizeText(value, 30).toLowerCase()
+
+  return normalized === "sandbox" ? "sandbox" : "production"
+}
+
+function last4(value: string | null | undefined) {
+  if (!value) return null
+
+  return value.slice(-4)
+}
+
+function serializeIntegration(row: EfiIntegrationRow | null) {
+  if (!row) {
     return {
-      name: error.name,
-      message: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      connected: false,
+      account: null,
     }
   }
 
-  if (typeof error === "object" && error !== null) {
-    return error
-  }
+  const hasClientId = Boolean(row.client_id)
+  const hasClientSecret = Boolean(row.client_secret)
+  const hasPixKey = Boolean(row.pix_key)
+  const hasCertificate = Boolean(row.certificate_storage_path)
 
   return {
-    message: String(error),
+    connected: hasClientId && hasClientSecret && hasPixKey && hasCertificate,
+    account: {
+      id: row.id,
+      restaurantId: row.restaurant_id,
+      provider: "efi",
+      enabled: Boolean(row.enabled),
+      environment: row.environment,
+      clientIdLast4: last4(row.client_id),
+      clientSecretLast4: last4(row.client_secret),
+      pixKey: row.pix_key,
+      pixKeyLast4: last4(row.pix_key),
+      hasClientId,
+      hasClientSecret,
+      hasPixKey,
+      hasCertificate,
+      certificateFileName: row.certificate_file_name,
+      lastConnectionTestAt: row.last_connection_test_at,
+      lastConnectionError: row.last_connection_error,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      readyToEnable: hasClientId && hasClientSecret && hasPixKey && hasCertificate,
+    },
   }
 }
 
@@ -115,7 +136,7 @@ async function getAuthenticatedRestaurant() {
     .maybeSingle()
 
   if (restaurantError) {
-    console.error("Erro ao buscar restaurante em /api/efi/account/test:", {
+    console.error("Erro ao buscar restaurante em /api/efi/account:", {
       message: restaurantError.message,
       code: restaurantError.code,
     })
@@ -158,77 +179,7 @@ async function getExistingIntegration(restaurantId: string) {
   return data as EfiIntegrationRow | null
 }
 
-async function downloadCertificateToTempFile(certificateStoragePath: string) {
-  const admin = createAdminClient()
-
-  const { data, error } = await admin.storage
-    .from(EFI_CERTIFICATES_BUCKET)
-    .download(certificateStoragePath)
-
-  if (error) {
-    throw new Error(`Erro ao baixar certificado Efi: ${error.message}`)
-  }
-
-  if (!data) {
-    throw new Error("Certificado Efi nao encontrado no Storage.")
-  }
-
-  const certificateBuffer = Buffer.from(await data.arrayBuffer())
-  const tempFilePath = path.join(os.tmpdir(), `efi-test-${crypto.randomUUID()}.p12`)
-
-  fs.writeFileSync(tempFilePath, certificateBuffer)
-
-  return tempFilePath
-}
-
-function createEfiClient(integration: EfiIntegrationRow, certificatePath: string) {
-  if (!integration.client_id) {
-    throw new Error("Client ID da Efi nao cadastrado.")
-  }
-
-  if (!integration.client_secret) {
-    throw new Error("Client Secret da Efi nao cadastrado.")
-  }
-
-  if (!integration.pix_key) {
-    throw new Error("Chave Pix da Efi nao cadastrada.")
-  }
-
-  const isSandbox = integration.environment !== "production"
-
-  return new EfiPay({
-    sandbox: isSandbox,
-    client_id: integration.client_id,
-    client_secret: integration.client_secret,
-    certificate: certificatePath,
-    cert_base64: false,
-  }) as EfiClient
-}
-
-async function saveConnectionTestResult({
-  integrationId,
-  success,
-  message,
-}: {
-  integrationId: string
-  success: boolean
-  message: string | null
-}) {
-  const admin = createAdminClient()
-
-  await admin
-    .from("restaurant_payment_integrations")
-    .update({
-      last_connection_test_at: new Date().toISOString(),
-      last_connection_error: success ? null : message,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", integrationId)
-}
-
-export async function POST() {
-  let tempCertificatePath: string | null = null
-
+export async function GET() {
   try {
     const { error, restaurant } = await getAuthenticatedRestaurant()
 
@@ -238,89 +189,156 @@ export async function POST() {
 
     const integration = await getExistingIntegration(restaurant.id)
 
-    if (!integration) {
-      return jsonError("Configure a conta Efi antes de testar a conexao.", 400)
-    }
-
-    if (!integration.certificate_storage_path) {
-      return jsonError("Envie o certificado .p12 da Efi antes de testar.", 400)
-    }
-
-    tempCertificatePath = await downloadCertificateToTempFile(
-      integration.certificate_storage_path
-    )
-
-    const efipay = createEfiClient(integration, tempCertificatePath)
-
-    if (typeof efipay.pixListCharges !== "function") {
-      throw new Error("Metodo pixListCharges nao encontrado no SDK da Efi.")
-    }
-
-    const now = new Date()
-    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-
-    await efipay.pixListCharges({
-      inicio: start.toISOString(),
-      fim: now.toISOString(),
-    })
-
-    await saveConnectionTestResult({
-      integrationId: integration.id,
-      success: true,
-      message: null,
-    })
-
     return NextResponse.json({
       success: true,
-      message: "Conexao Efi validada com sucesso.",
       restaurant: {
         id: restaurant.id,
         name: restaurant.name,
       },
-      account: {
-        provider: "efi",
-        environment: integration.environment,
-        enabled: Boolean(integration.enabled),
-        hasClientId: Boolean(integration.client_id),
-        hasClientSecret: Boolean(integration.client_secret),
-        hasPixKey: Boolean(integration.pix_key),
-        hasCertificate: Boolean(integration.certificate_storage_path),
-        certificateFileName: integration.certificate_file_name,
-        lastConnectionTestAt: new Date().toISOString(),
-        lastConnectionError: null,
-      },
+      ...serializeIntegration(integration),
     })
   } catch (error) {
-    const normalizedError = normalizeError(error)
-    const message =
+    console.error("Erro em GET /api/efi/account:", error)
+
+    return jsonError(
       error instanceof Error
         ? error.message
-        : "Nao foi possivel validar a conexao Efi."
+        : "Erro ao carregar conta Efi.",
+      500
+    )
+  }
+}
 
-    try {
-      const { restaurant } = await getAuthenticatedRestaurant()
+export async function PUT(request: NextRequest) {
+  try {
+    const { error, restaurant } = await getAuthenticatedRestaurant()
 
-      if (restaurant) {
-        const integration = await getExistingIntegration(restaurant.id)
+    if (error || !restaurant) {
+      return error
+    }
 
-        if (integration?.id) {
-          await saveConnectionTestResult({
-            integrationId: integration.id,
-            success: false,
-            message,
-          })
-        }
+    const body = (await request.json()) as SaveEfiAccountBody
+
+    const existing = await getExistingIntegration(restaurant.id)
+
+    const hasClientIdInput =
+      Object.prototype.hasOwnProperty.call(body, "clientId") ||
+      Object.prototype.hasOwnProperty.call(body, "client_id")
+
+    const hasClientSecretInput =
+      Object.prototype.hasOwnProperty.call(body, "clientSecret") ||
+      Object.prototype.hasOwnProperty.call(body, "client_secret")
+
+    const hasPixKeyInput =
+      Object.prototype.hasOwnProperty.call(body, "pixKey") ||
+      Object.prototype.hasOwnProperty.call(body, "pix_key")
+
+    const environment = normalizeEnvironment(body.environment)
+    const enabled = Boolean(body.enabled)
+
+    const clientIdInput = normalizeText(body.clientId ?? body.client_id, 300)
+    const clientSecretInput = normalizeText(
+      body.clientSecret ?? body.client_secret,
+      500
+    )
+    const pixKeyInput = normalizeText(body.pixKey ?? body.pix_key, 500)
+
+    const nextClientId = hasClientIdInput
+      ? clientIdInput || null
+      : existing?.client_id ?? null
+
+    const nextClientSecret = hasClientSecretInput
+      ? clientSecretInput || null
+      : existing?.client_secret ?? null
+
+    const nextPixKey = hasPixKeyInput
+      ? pixKeyInput || null
+      : existing?.pix_key ?? null
+
+    if (enabled) {
+      if (!nextClientId) {
+        return jsonError("Informe o Client ID da Efi para ativar.")
       }
-    } catch {
-      // Ignora erro secundario ao salvar resultado do teste.
+
+      if (!nextClientSecret) {
+        return jsonError("Informe o Client Secret da Efi para ativar.")
+      }
+
+      if (!nextPixKey) {
+        return jsonError("Informe a chave Pix da Efi para ativar.")
+      }
+
+      if (!existing?.certificate_storage_path) {
+        return jsonError(
+          "Envie o certificado .p12 da Efi antes de ativar o Pix automatico."
+        )
+      }
     }
 
-    console.error("Erro em POST /api/efi/account/test:", normalizedError)
+    const admin = createAdminClient()
 
-    return jsonError(message, 400, normalizedError)
-  } finally {
-    if (tempCertificatePath && fs.existsSync(tempCertificatePath)) {
-      fs.unlinkSync(tempCertificatePath)
+    const payload = {
+      restaurant_id: restaurant.id,
+      provider: "efi",
+      enabled,
+      environment,
+      client_id: nextClientId,
+      client_secret: nextClientSecret,
+      pix_key: nextPixKey,
+      updated_at: new Date().toISOString(),
     }
+
+    let saved: EfiIntegrationRow | null = null
+
+    if (existing?.id) {
+      const { data, error: updateError } = await admin
+        .from("restaurant_payment_integrations")
+        .update(payload)
+        .eq("id", existing.id)
+        .select(
+          "id, restaurant_id, provider, enabled, environment, client_id, client_secret, pix_key, certificate_storage_path, certificate_file_name, last_connection_test_at, last_connection_error, created_at, updated_at"
+        )
+        .single()
+
+      if (updateError) {
+        throw new Error(`Erro ao atualizar conta Efi: ${updateError.message}`)
+      }
+
+      saved = data as EfiIntegrationRow
+    } else {
+      const { data, error: insertError } = await admin
+        .from("restaurant_payment_integrations")
+        .insert({
+          ...payload,
+          created_at: new Date().toISOString(),
+        })
+        .select(
+          "id, restaurant_id, provider, enabled, environment, client_id, client_secret, pix_key, certificate_storage_path, certificate_file_name, last_connection_test_at, last_connection_error, created_at, updated_at"
+        )
+        .single()
+
+      if (insertError) {
+        throw new Error(`Erro ao criar conta Efi: ${insertError.message}`)
+      }
+
+      saved = data as EfiIntegrationRow
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Configuracao Efi salva com sucesso.",
+      restaurant: {
+        id: restaurant.id,
+        name: restaurant.name,
+      },
+      ...serializeIntegration(saved),
+    })
+  } catch (error) {
+    console.error("Erro em PUT /api/efi/account:", error)
+
+    return jsonError(
+      error instanceof Error ? error.message : "Erro ao salvar conta Efi.",
+      500
+    )
   }
 }
