@@ -112,7 +112,6 @@ export default function PaymentsTab() {
   const [loadingEfi, setLoadingEfi] = useState(true)
   const [savingEfi, setSavingEfi] = useState(false)
   const [uploadingEfiCertificate, setUploadingEfiCertificate] = useState(false)
-  const [testingEfiConnection, setTestingEfiConnection] = useState(false)
   const [efiConnected, setEfiConnected] = useState(false)
   const [savedEfiAccount, setSavedEfiAccount] =
     useState<EfiAccountResponse["account"]>(null)
@@ -413,36 +412,6 @@ export default function PaymentsTab() {
     }
   }
 
-  async function handleTestEfiConnection() {
-    try {
-      setTestingEfiConnection(true)
-
-      const res = await fetch("/api/efi/account/test", {
-        method: "POST",
-        credentials: "include",
-      })
-
-      const data = (await res.json().catch(() => null)) as
-        | EfiAccountResponse
-        | null
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Erro ao testar conexão Efí.")
-      }
-
-      await loadEfiAccount()
-      toast.success(data?.message || "Conexão Efí validada com sucesso.")
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Erro ao testar conexão Efí."
-      )
-    } finally {
-      setTestingEfiConnection(false)
-    }
-  }
-
   useEffect(() => {
     void loadEfiAccount()
   }, [restaurant?.id])
@@ -620,24 +589,13 @@ export default function PaymentsTab() {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={handleTestEfiConnection}
-                    disabled={testingEfiConnection || savingEfi || uploadingEfiCertificate}
-                    className="rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {testingEfiConnection ? "Testando..." : "Testar conexão"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setEditingEfi((current) => !current)}
-                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50"
-                  >
-                    {editingEfi ? "Ocultar configuração" : "Alterar conexão"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingEfi((current) => !current)}
+                  className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50"
+                >
+                  {editingEfi ? "Ocultar configuração" : "Alterar conexão"}
+                </button>
               </div>
             ) : (
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
