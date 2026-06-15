@@ -2,12 +2,9 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react"
 import {
-  AlertCircle,
-  CheckCircle2,
   CreditCard,
   GripVertical,
   Loader2,
-  Pencil,
   Plus,
   QrCode,
   Save,
@@ -26,31 +23,42 @@ import {
   generatePaymentId,
 } from "@/lib/settings-data"
 
-type AsaasEnvironment = "sandbox" | "production"
+type EfiEnvironment = "sandbox" | "production"
 
-type AsaasAccountResponse = {
+type EfiAccountResponse = {
+  success: boolean
   connected: boolean
   account: {
-    environment: AsaasEnvironment
-    walletId: string | null
-    userAgent: string | null
-    apiKeyLast4: string | null
-    webhookTokenLast4: string | null
-    isActive: boolean
-    connectedAt: string | null
-    lastTestedAt: string | null
-    lastError: string | null
+    id: string
+    restaurantId: string
+    provider: "efi"
+    enabled: boolean
+    environment: EfiEnvironment
+    clientIdLast4: string | null
+    clientSecretLast4: string | null
+    pixKey: string | null
+    pixKeyLast4: string | null
+    hasClientId: boolean
+    hasClientSecret: boolean
+    hasPixKey: boolean
+    hasCertificate: boolean
+    certificateFileName: string | null
+    lastConnectionTestAt: string | null
+    lastConnectionError: string | null
     createdAt: string | null
     updatedAt: string | null
+    readyToEnable: boolean
   } | null
   error?: string
+  message?: string
 }
 
-type AsaasFormState = {
-  environment: AsaasEnvironment
-  apiKey: string
-  webhookToken: string
-  isActive: boolean
+type EfiFormState = {
+  enabled: boolean
+  environment: EfiEnvironment
+  clientId: string
+  clientSecret: string
+  pixKey: string
 }
 
 type PixKeyType = "cpf" | "cnpj" | "phone" | "email" | "random"
@@ -64,11 +72,12 @@ type PixSettingsForm = {
   pixInstructions: string
 }
 
-const emptyAsaasForm: AsaasFormState = {
+const emptyEfiForm: EfiFormState = {
+  enabled: false,
   environment: "production",
-  apiKey: "",
-  webhookToken: "",
-  isActive: true,
+  clientId: "",
+  clientSecret: "",
+  pixKey: "",
 }
 
 const emptyPixForm: PixSettingsForm = {
@@ -100,14 +109,15 @@ export default function PaymentsTab() {
   const [savingPix, setSavingPix] = useState(false)
   const [pixForm, setPixForm] = useState<PixSettingsForm>(emptyPixForm)
 
-  const [loadingAsaas, setLoadingAsaas] = useState(true)
-  const [asaasConnected, setAsaasConnected] = useState(false)
-  const [savedAccount, setSavedAccount] =
-    useState<AsaasAccountResponse["account"]>(null)
-
-  const [editingAsaas, setEditingAsaas] = useState(false)
-  const [savingAsaas, setSavingAsaas] = useState(false)
-  const [asaasForm, setAsaasForm] = useState<AsaasFormState>(emptyAsaasForm)
+  const [loadingEfi, setLoadingEfi] = useState(true)
+  const [savingEfi, setSavingEfi] = useState(false)
+  const [uploadingEfiCertificate, setUploadingEfiCertificate] = useState(false)
+  const [testingEfiConnection, setTestingEfiConnection] = useState(false)
+  const [efiConnected, setEfiConnected] = useState(false)
+  const [savedEfiAccount, setSavedEfiAccount] =
+    useState<EfiAccountResponse["account"]>(null)
+  const [efiForm, setEfiForm] = useState<EfiFormState>(emptyEfiForm)
+  const [editingEfi, setEditingEfi] = useState(false)
 
   const toggleMethod = useCallback((id: string) => {
     setMethods((prev) =>
@@ -129,6 +139,13 @@ export default function PaymentsTab() {
     value: PixSettingsForm[K]
   ) {
     setPixForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function updateEfiForm<K extends keyof EfiFormState>(
+    key: K,
+    value: EfiFormState[K]
+  ) {
+    setEfiForm((prev) => ({ ...prev, [key]: value }))
   }
 
   async function loadPixSettings() {
@@ -236,88 +253,86 @@ export default function PaymentsTab() {
     }
   }
 
-  async function loadAsaasAccount() {
+  async function loadEfiAccount() {
     try {
-      setLoadingAsaas(true)
+      setLoadingEfi(true)
 
-      const res = await fetch("/api/asaas/account", {
+      const res = await fetch("/api/efi/account", {
         method: "GET",
         credentials: "include",
         cache: "no-store",
       })
 
-      const data = (await res.json()) as AsaasAccountResponse
+      const data = (await res.json()) as EfiAccountResponse
 
       if (!res.ok) {
-        throw new Error(data.error || "Erro ao carregar conta Asaas.")
+        throw new Error(data.error || "Erro ao carregar conta Efí.")
       }
 
-      setAsaasConnected(data.connected)
-      setSavedAccount(data.account)
+      setEfiConnected(Boolean(data.connected))
+      setSavedEfiAccount(data.account)
+      setEfiForm({
+        enabled: Boolean(data.account?.enabled),
+        environment: data.account?.environment ?? "production",
+        clientId: "",
+        clientSecret: "",
+        pixKey: data.account?.pixKey ?? "",
+      })
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Erro ao carregar conta Asaas."
+        error instanceof Error ? error.message : "Erro ao carregar conta Efí."
       )
     } finally {
-      setLoadingAsaas(false)
+      setLoadingEfi(false)
     }
   }
 
-  useEffect(() => {
-    void loadAsaasAccount()
-  }, [])
+  async function handleSaveEfiAccount() {
+    const clientId = efiForm.clientId.trim()
+    const clientSecret = efiForm.clientSecret.trim()
+    const pixKey = efiForm.pixKey.trim()
 
-  useEffect(() => {
-    void loadPixSettings()
-  }, [restaurant?.id])
+    if (efiForm.enabled) {
+      if (!clientId && !savedEfiAccount?.hasClientId) {
+        toast.error("Informe o Client ID da Efí.")
+        return
+      }
 
-  function openAsaasEditor() {
-    setAsaasForm({
-      environment: savedAccount?.environment ?? "production",
-      apiKey: "",
-      webhookToken: "",
-      isActive: savedAccount?.isActive ?? true,
-    })
+      if (!clientSecret && !savedEfiAccount?.hasClientSecret) {
+        toast.error("Informe o Client Secret da Efí.")
+        return
+      }
 
-    setEditingAsaas(true)
-  }
+      if (!pixKey && !savedEfiAccount?.hasPixKey) {
+        toast.error("Informe a chave Pix da conta Efí.")
+        return
+      }
 
-  async function handleSaveAsaasAccount() {
-    const apiKey = asaasForm.apiKey.trim()
-    const webhookToken = asaasForm.webhookToken.trim()
-
-    if (!savedAccount?.apiKeyLast4 && !apiKey) {
-      toast.error("Informe a API Key do Asaas.")
-      return
-    }
-
-    if (!savedAccount?.webhookTokenLast4 && !webhookToken) {
-      toast.error("Informe o Webhook Token do Asaas.")
-      return
+      if (!savedEfiAccount?.hasCertificate) {
+        toast.error("Envie o certificado .p12 antes de ativar o Pix automático.")
+        return
+      }
     }
 
     try {
-      setSavingAsaas(true)
+      setSavingEfi(true)
 
       const payload: {
-        environment: AsaasEnvironment
-        isActive: boolean
-        apiKey?: string
-        webhookToken?: string
+        enabled: boolean
+        environment: EfiEnvironment
+        clientId?: string
+        clientSecret?: string
+        pixKey?: string
       } = {
-        environment: asaasForm.environment,
-        isActive: asaasForm.isActive,
+        enabled: efiForm.enabled,
+        environment: efiForm.environment,
       }
 
-      if (apiKey) {
-        payload.apiKey = apiKey
-      }
+      if (clientId) payload.clientId = clientId
+      if (clientSecret) payload.clientSecret = clientSecret
+      if (pixKey) payload.pixKey = pixKey
 
-      if (webhookToken) {
-        payload.webhookToken = webhookToken
-      }
-
-      const res = await fetch("/api/asaas/account", {
+      const res = await fetch("/api/efi/account", {
         method: "PUT",
         credentials: "include",
         headers: {
@@ -327,27 +342,196 @@ export default function PaymentsTab() {
       })
 
       const data = (await res.json().catch(() => null)) as
-        | AsaasAccountResponse
+        | EfiAccountResponse
         | null
 
       if (!res.ok) {
-        throw new Error(
-          data?.error || "Erro ao salvar a conexão Asaas do restaurante."
-        )
+        throw new Error(data?.error || "Erro ao salvar conta Efí.")
       }
 
-      setAsaasConnected(data?.connected ?? true)
-      setSavedAccount(data?.account ?? null)
-      setEditingAsaas(false)
-      toast.success("Conexão Asaas atualizada com sucesso.")
+      setEfiConnected(Boolean(data?.connected))
+      setSavedEfiAccount(data?.account ?? null)
+      setEfiForm((prev) => ({
+        ...prev,
+        clientId: "",
+        clientSecret: "",
+        pixKey: data?.account?.pixKey ?? pixKey,
+      }))
+
+      toast.success("Conta Efí salva com sucesso.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar Efí.")
+    } finally {
+      setSavingEfi(false)
+    }
+  }
+
+  async function handleUploadEfiCertificate(file: File | null) {
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith(".p12")) {
+      toast.error("Envie um certificado no formato .p12.")
+      return
+    }
+
+    try {
+      setUploadingEfiCertificate(true)
+
+      const formData = new FormData()
+      formData.append("certificate", file)
+
+      const res = await fetch("/api/efi/account/certificate", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      })
+
+      const data = (await res.json().catch(() => null)) as
+        | EfiAccountResponse
+        | null
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao enviar certificado Efí.")
+      }
+
+      setEfiConnected(Boolean(data?.connected))
+      setSavedEfiAccount(data?.account ?? null)
+      setEfiForm((prev) => ({
+        ...prev,
+        enabled: Boolean(data?.account?.enabled),
+        environment: data?.account?.environment ?? prev.environment,
+        pixKey: data?.account?.pixKey ?? prev.pixKey,
+      }))
+
+      toast.success("Certificado Efí enviado com sucesso.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao enviar certificado Efí."
+      )
+    } finally {
+      setUploadingEfiCertificate(false)
+    }
+  }
+
+  async function handleTestEfiConnection() {
+    try {
+      setTestingEfiConnection(true)
+
+      const res = await fetch("/api/efi/account/test", {
+        method: "POST",
+        credentials: "include",
+      })
+
+      const data = (await res.json().catch(() => null)) as
+        | EfiAccountResponse
+        | null
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao testar conexão Efí.")
+      }
+
+      await loadEfiAccount()
+      toast.success(data?.message || "Conexão Efí validada com sucesso.")
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Erro ao salvar a conexão Asaas."
+          : "Erro ao testar conexão Efí."
       )
     } finally {
-      setSavingAsaas(false)
+      setTestingEfiConnection(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadEfiAccount()
+  }, [restaurant?.id])
+
+  useEffect(() => {
+    void loadPixSettings()
+  }, [restaurant?.id])
+
+  async function handleToggleEfiEnabled(nextEnabled: boolean) {
+    if (!nextEnabled) {
+      try {
+        setSavingEfi(true)
+        setEfiForm((prev) => ({ ...prev, enabled: false }))
+
+        const res = await fetch("/api/efi/account", {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            enabled: false,
+            environment: efiForm.environment,
+          }),
+        })
+
+        const data = (await res.json().catch(() => null)) as
+          | EfiAccountResponse
+          | null
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Erro ao desativar Pix automático Efí.")
+        }
+
+        setEfiConnected(Boolean(data?.connected))
+        setSavedEfiAccount(data?.account ?? null)
+        toast.success("Pix automático desativado.")
+      } catch (error) {
+        setEfiForm((prev) => ({ ...prev, enabled: true }))
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Erro ao desativar Pix automático Efí."
+        )
+      } finally {
+        setSavingEfi(false)
+      }
+
+      return
+    }
+
+    if (!savedEfiAccount?.readyToEnable) {
+      toast.error("Conecte a conta Efí antes de ativar o Pix automático.")
+      setEditingEfi(true)
+      return
+    }
+
+    try {
+      setSavingEfi(true)
+      setEfiForm((prev) => ({ ...prev, enabled: true }))
+
+      const res = await fetch("/api/efi/account", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          environment: efiForm.environment,
+        }),
+      })
+
+      const data = (await res.json().catch(() => null)) as
+        | EfiAccountResponse
+        | null
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao ativar Pix automático Efí.")
+      }
+
+      setEfiConnected(Boolean(data?.connected))
+      setSavedEfiAccount(data?.account ?? null)
+      toast.success("Pix automático ativado.")
+    } catch (error) {
+      setEfiForm((prev) => ({ ...prev, enabled: false }))
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao ativar Pix automático Efí."
+      )
+    } finally {
+      setSavingEfi(false)
     }
   }
 
@@ -387,6 +571,234 @@ export default function PaymentsTab() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-blue-700" />
+              <h3 className="text-base font-bold text-card-foreground">
+                Pix automático
+              </h3>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Receba Pix direto na conta Efí. O pedido só aparece no painel
+              depois que o pagamento for confirmado.
+            </p>
+          </div>
+
+          {loadingEfi ? (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Carregando
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-white px-3 py-2">
+              <span className="text-sm font-semibold text-blue-900">
+                {efiForm.enabled ? "Ativo" : "Desativado"}
+              </span>
+              <Switch
+                checked={efiForm.enabled}
+                onCheckedChange={(checked) => void handleToggleEfiEnabled(checked)}
+                disabled={savingEfi || uploadingEfiCertificate}
+              />
+            </div>
+          )}
+        </div>
+
+        {!loadingEfi ? (
+          <div className="mt-4 rounded-lg border border-blue-100 bg-white p-4">
+            {savedEfiAccount?.readyToEnable ? (
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-blue-950">
+                    Conta Efí conectada
+                  </p>
+                  <p className="mt-1 text-sm text-blue-800">
+                    {efiForm.enabled
+                      ? "Os pedidos pagos por Pix entram automaticamente no painel."
+                      : "Ative para começar a receber pedidos com Pix automático."}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleTestEfiConnection}
+                    disabled={testingEfiConnection || savingEfi || uploadingEfiCertificate}
+                    className="rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {testingEfiConnection ? "Testando..." : "Testar conexão"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingEfi((current) => !current)}
+                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50"
+                  >
+                    {editingEfi ? "Ocultar configuração" : "Alterar conexão"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-amber-900">
+                    Pix automático não configurado
+                  </p>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Conecte a conta Efí para liberar Pix automático no checkout.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingEfi(true)}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+                >
+                  Conectar conta Efí
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {editingEfi ? (
+          <div className="mt-5 rounded-xl border border-blue-100 bg-white p-4">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-card-foreground">
+                  Configuração avançada
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Esses dados ficam protegidos e só precisam ser alterados na conexão da Efí.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingEfi(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Fechar configuração avançada"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ambiente da Efí
+                </label>
+                <select
+                  value={efiForm.environment}
+                  onChange={(event) =>
+                    updateEfiForm("environment", event.target.value as EfiEnvironment)
+                  }
+                  className="input-field"
+                  disabled={savingEfi}
+                >
+                  <option value="sandbox">Homologação</option>
+                  <option value="production">Produção</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Chave Pix da conta Efí
+                </label>
+                <input
+                  type="text"
+                  value={efiForm.pixKey}
+                  onChange={(event) => updateEfiForm("pixKey", event.target.value)}
+                  className="input-field"
+                  placeholder="Cole a chave Pix cadastrada na Efí"
+                  disabled={savingEfi}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Client ID
+                </label>
+                <input
+                  type="password"
+                  value={efiForm.clientId}
+                  onChange={(event) => updateEfiForm("clientId", event.target.value)}
+                  className="input-field"
+                  placeholder={
+                    savedEfiAccount?.clientIdLast4
+                      ? `Deixe vazio para manter o atual — final ${savedEfiAccount.clientIdLast4}`
+                      : "Cole o Client ID da Efí"
+                  }
+                  disabled={savingEfi}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Client Secret
+                </label>
+                <input
+                  type="password"
+                  value={efiForm.clientSecret}
+                  onChange={(event) => updateEfiForm("clientSecret", event.target.value)}
+                  className="input-field"
+                  placeholder={
+                    savedEfiAccount?.clientSecretLast4
+                      ? `Deixe vazio para manter o atual — final ${savedEfiAccount.clientSecretLast4}`
+                      : "Cole o Client Secret da Efí"
+                  }
+                  disabled={savingEfi}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Certificado .p12
+              </label>
+              <input
+                type="file"
+                accept=".p12"
+                className="input-field file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                disabled={uploadingEfiCertificate}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null
+                  void handleUploadEfiCertificate(file)
+                  event.currentTarget.value = ""
+                }}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Certificado atual: {savedEfiAccount?.certificateFileName || "não enviado"}
+              </p>
+            </div>
+
+            {savedEfiAccount?.lastConnectionError ? (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                Último erro: {savedEfiAccount.lastConnectionError}
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveEfiAccount}
+                disabled={savingEfi || uploadingEfiCertificate}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingEfi ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {savingEfi ? "Salvando..." : "Salvar conexão Efí"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
@@ -540,133 +952,6 @@ export default function PaymentsTab() {
         )}
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-[hsl(var(--primary))]" />
-              <h3 className="text-base font-bold text-card-foreground">
-                Conta Asaas do restaurante
-              </h3>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              O recebimento online é feito diretamente na conta Asaas conectada
-              ao restaurante.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {loadingAsaas ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando
-              </div>
-            ) : asaasConnected && savedAccount?.isActive ? (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
-                <CheckCircle2 className="h-4 w-4" />
-                Conectada
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
-                <AlertCircle className="h-4 w-4" />
-                Não conectada
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={openAsaasEditor}
-              disabled={loadingAsaas}
-              className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Pencil className="h-4 w-4" />
-              {savedAccount ? "Editar conexão" : "Conectar Asaas"}
-            </button>
-          </div>
-        </div>
-
-        {savedAccount ? (
-          <>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Ambiente
-                </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
-                  {savedAccount.environment === "production"
-                    ? "Produção"
-                    : "Sandbox"}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  API Key
-                </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
-                  {savedAccount.apiKeyLast4
-                    ? `Final ${savedAccount.apiKeyLast4}`
-                    : "Não informada"}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Webhook
-                </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
-                  {savedAccount.webhookTokenLast4
-                    ? `Final ${savedAccount.webhookTokenLast4}`
-                    : "Não informado"}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Status
-                </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
-                  {savedAccount.isActive ? "Ativa" : "Inativa"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-lg border border-border bg-muted/20 p-4">
-              <p className="text-sm text-muted-foreground">
-                A conexão da conta Asaas pode ser alterada pelo botão{" "}
-                <span className="font-semibold text-foreground">
-                  Editar conexão
-                </span>
-                . Por segurança, a API Key e o Webhook Token completos nunca
-                são exibidos na tela.
-              </p>
-            </div>
-
-            {savedAccount.lastError ? (
-              <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-destructive">
-                  Último erro
-                </p>
-                <p className="mt-1 text-sm text-destructive">
-                  {savedAccount.lastError}
-                </p>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4">
-            <p className="text-sm text-muted-foreground">
-              Nenhuma conta Asaas conectada no momento. Para ativar o Pix
-              online, clique em{" "}
-              <span className="font-semibold text-foreground">
-                Conectar Asaas
-              </span>{" "}
-              e informe as credenciais do restaurante.
-            </p>
-          </div>
-        )}
-      </div>
-
       <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
         <div className="flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-[hsl(var(--primary))]" />
@@ -804,172 +1089,6 @@ export default function PaymentsTab() {
         </button>
       </div>
 
-      {editingAsaas ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-border p-5">
-              <div>
-                <h3 className="text-lg font-bold text-card-foreground">
-                  Editar conexão Asaas
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Atualize as credenciais usadas para gerar Pix e validar o
-                  webhook de pagamento.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setEditingAsaas(false)}
-                disabled={savingAsaas}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Fechar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-5 p-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Ambiente
-                  </label>
-                  <select
-                    value={asaasForm.environment}
-                    onChange={(e) =>
-                      setAsaasForm((prev) => ({
-                        ...prev,
-                        environment: e.target.value as AsaasEnvironment,
-                      }))
-                    }
-                    className="input-field"
-                    disabled={savingAsaas}
-                  >
-                    <option value="production">Produção</option>
-                    <option value="sandbox">Sandbox</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Status
-                  </label>
-                  <div className="flex h-10 items-center justify-between rounded-lg border border-border bg-background px-3">
-                    <span className="text-sm font-medium text-foreground">
-                      {asaasForm.isActive ? "Ativa" : "Inativa"}
-                    </span>
-                    <Switch
-                      checked={asaasForm.isActive}
-                      onCheckedChange={(checked) =>
-                        setAsaasForm((prev) => ({
-                          ...prev,
-                          isActive: checked,
-                        }))
-                      }
-                      disabled={savingAsaas}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  API Key do Asaas
-                </label>
-                <input
-                  type="password"
-                  value={asaasForm.apiKey}
-                  onChange={(e) =>
-                    setAsaasForm((prev) => ({
-                      ...prev,
-                      apiKey: e.target.value,
-                    }))
-                  }
-                  className="input-field"
-                  placeholder={
-                    savedAccount?.apiKeyLast4
-                      ? `Deixe vazio para manter a atual — final ${savedAccount.apiKeyLast4}`
-                      : "Cole a API Key do Asaas"
-                  }
-                  disabled={savingAsaas}
-                  autoComplete="off"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  A chave completa não será exibida novamente depois de salvar.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Webhook Token do Asaas
-                </label>
-                <input
-                  type="password"
-                  value={asaasForm.webhookToken}
-                  onChange={(e) =>
-                    setAsaasForm((prev) => ({
-                      ...prev,
-                      webhookToken: e.target.value,
-                    }))
-                  }
-                  className="input-field"
-                  placeholder={
-                    savedAccount?.webhookTokenLast4
-                      ? `Deixe vazio para manter o atual — final ${savedAccount.webhookTokenLast4}`
-                      : "Cole o token do webhook"
-                  }
-                  disabled={savingAsaas}
-                  autoComplete="off"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Esse token precisa ser o mesmo configurado no webhook dentro
-                  do painel do Asaas.
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-semibold text-amber-900">
-                  Atenção ao webhook em produção
-                </p>
-                <p className="mt-1 text-sm text-amber-800">
-                  No painel do Asaas, a URL precisa apontar para o domínio
-                  público da ClickFood, por exemplo:{" "}
-                  <span className="font-mono">
-                    https://seudominio.com/api/asaas/webhook
-                  </span>
-                  .
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-border p-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setEditingAsaas(false)}
-                disabled={savingAsaas}
-                className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveAsaasAccount}
-                disabled={savingAsaas}
-                className="flex items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {savingAsaas ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {savingAsaas ? "Salvando..." : "Salvar conexão"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
