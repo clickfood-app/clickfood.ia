@@ -305,7 +305,7 @@ function isOrderVisibleOnBoard(order: Partial<OrderRow>) {
   const paymentStatus = String(order.payment_status || "").trim().toLowerCase()
   const status = String(order.status || "").trim().toLowerCase()
 
-  if (paymentMethod === "pix") {
+  if (paymentMethod === "pix" || paymentMethod === "efi_pix") {
     return paymentStatus === "paid"
   }
 

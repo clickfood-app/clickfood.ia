@@ -176,9 +176,11 @@ export async function GET() {
       const paymentMethod = String(order.payment_method || "").toLowerCase()
       const paymentStatus = String(order.payment_status || "").toLowerCase()
 
-      if (paymentMethod !== "pix") return true
+      if (paymentMethod === "pix" || paymentMethod === "efi_pix") {
+        return paymentStatus === "paid"
+      }
 
-      return paymentStatus === "paid"
+      return true
     })
 
     return NextResponse.json({
