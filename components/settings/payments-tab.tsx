@@ -147,6 +147,46 @@ export default function PaymentsTab() {
     setEfiForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  async function readApiJson<T>(response: Response) {
+    const rawText = await response.text()
+
+    if (!rawText) return null
+
+    try {
+      return JSON.parse(rawText) as T
+    } catch {
+      return null
+    }
+  }
+
+  function getApiErrorMessage(
+    data: { error?: unknown; message?: unknown } | null,
+    fallback: string
+  ) {
+    const error = data?.error ?? data?.message
+
+    if (typeof error === "string" && error.trim()) {
+      return error
+    }
+
+    if (typeof error === "object" && error !== null) {
+      const objectError = error as { message?: unknown; error_description?: unknown }
+
+      if (typeof objectError.message === "string" && objectError.message.trim()) {
+        return objectError.message
+      }
+
+      if (
+        typeof objectError.error_description === "string" &&
+        objectError.error_description.trim()
+      ) {
+        return objectError.error_description
+      }
+    }
+
+    return fallback
+  }
+
   async function loadPixSettings() {
     if (!restaurant?.id) {
       setLoadingPix(false)
@@ -262,10 +302,12 @@ export default function PaymentsTab() {
         cache: "no-store",
       })
 
-      const data = (await res.json()) as EfiAccountResponse
+      const data = await readApiJson<EfiAccountResponse>(res)
 
-      if (!res.ok) {
-        throw new Error(data.error || "Erro ao carregar conta Efí.")
+      if (!res.ok || !data) {
+        throw new Error(
+          getApiErrorMessage(data, "Erro ao carregar conta Efí.")
+        )
       }
 
       setEfiConnected(Boolean(data.connected))
@@ -340,12 +382,12 @@ export default function PaymentsTab() {
         body: JSON.stringify(payload),
       })
 
-      const data = (await res.json().catch(() => null)) as
-        | EfiAccountResponse
-        | null
+      const data = await readApiJson<EfiAccountResponse>(res)
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Erro ao salvar conta Efí.")
+      if (!res.ok || !data) {
+        throw new Error(
+          getApiErrorMessage(data, "Erro ao salvar conta Efí.")
+        )
       }
 
       setEfiConnected(Boolean(data?.connected))
@@ -385,12 +427,12 @@ export default function PaymentsTab() {
         body: formData,
       })
 
-      const data = (await res.json().catch(() => null)) as
-        | EfiAccountResponse
-        | null
+      const data = await readApiJson<EfiAccountResponse>(res)
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Erro ao enviar certificado Efí.")
+      if (!res.ok || !data) {
+        throw new Error(
+          getApiErrorMessage(data, "Erro ao enviar certificado Efí.")
+        )
       }
 
       setEfiConnected(Boolean(data?.connected))
@@ -436,12 +478,12 @@ export default function PaymentsTab() {
           }),
         })
 
-        const data = (await res.json().catch(() => null)) as
-          | EfiAccountResponse
-          | null
+        const data = await readApiJson<EfiAccountResponse>(res)
 
-        if (!res.ok) {
-          throw new Error(data?.error || "Erro ao desativar Pix automático Efí.")
+        if (!res.ok || !data) {
+          throw new Error(
+            getApiErrorMessage(data, "Erro ao desativar Pix automático Efí.")
+          )
         }
 
         setEfiConnected(Boolean(data?.connected))
@@ -481,12 +523,12 @@ export default function PaymentsTab() {
         }),
       })
 
-      const data = (await res.json().catch(() => null)) as
-        | EfiAccountResponse
-        | null
+      const data = await readApiJson<EfiAccountResponse>(res)
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Erro ao ativar Pix automático Efí.")
+      if (!res.ok || !data) {
+        throw new Error(
+          getApiErrorMessage(data, "Erro ao ativar Pix automático Efí.")
+        )
       }
 
       setEfiConnected(Boolean(data?.connected))
@@ -580,12 +622,12 @@ export default function PaymentsTab() {
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-sm font-bold text-blue-950">
-                    Conta Efí conectada
+                    {efiForm.enabled ? "Pix automático ativo" : "Pix automático desativado"}
                   </p>
                   <p className="mt-1 text-sm text-blue-800">
                     {efiForm.enabled
                       ? "Os pedidos pagos por Pix entram automaticamente no painel."
-                      : "Ative para começar a receber pedidos com Pix automático."}
+                      : "Sua conta Efí está conectada. Ative para receber Pix automático."}
                   </p>
                 </div>
 
@@ -732,12 +774,6 @@ export default function PaymentsTab() {
               </p>
             </div>
 
-            {savedEfiAccount?.lastConnectionError ? (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
-                Último erro: {savedEfiAccount.lastConnectionError}
-              </div>
-            ) : null}
-
             <div className="mt-5 flex justify-end">
               <button
                 type="button"
@@ -750,7 +786,7 @@ export default function PaymentsTab() {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                {savingEfi ? "Salvando..." : "Salvar conexão Efí"}
+                {savingEfi ? "Salvando..." : "Salvar alterações"}
               </button>
             </div>
           </div>
