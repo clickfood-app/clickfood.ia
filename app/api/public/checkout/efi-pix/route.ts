@@ -80,14 +80,8 @@ type PixChargeResponse = {
     tipoCob?: string
     criacao?: string
   }
+  location?: string
   pixCopiaECola?: string
-  [key: string]: unknown
-}
-
-type PixQrCodeResponse = {
-  qrcode?: string
-  imagemQrcode?: string
-  linkVisualizacao?: string
   [key: string]: unknown
 }
 
@@ -96,7 +90,6 @@ type EfiClient = {
     params: Record<string, never>,
     body: PixCreateImmediateChargeBody
   ) => Promise<PixChargeResponse>
-  pixGenerateQRCode: (params: { id: number }) => Promise<PixQrCodeResponse>
 }
 
 type EfiConstructor = new (options: EfiOptions) => EfiClient
@@ -403,15 +396,12 @@ export async function POST(request: NextRequest) {
     }
 
     const charge = await efipay.pixCreateImmediateCharge({}, body)
-    const locationId = charge.loc?.id
+    const locationId = charge.loc?.id ?? null
+    const pixCopyPaste = charge.pixCopiaECola || null
 
-    if (!locationId) {
-      throw new Error("Cobrança Efí criada, mas sem loc.id para gerar QR Code.")
+    if (!pixCopyPaste) {
+      throw new Error("Cobrança Efí criada, mas sem Pix copia e cola.")
     }
-
-    const qrCode = await efipay.pixGenerateQRCode({
-      id: locationId,
-    })
 
     const expiresAt = new Date(Date.now() + PIX_EXPIRATION_SECONDS * 1000)
 
@@ -421,16 +411,16 @@ export async function POST(request: NextRequest) {
         restaurant_id: payload.restaurant_id,
         order_id: order.id,
         provider: "efi",
-        provider_charge_id: charge.txid || String(locationId),
-        provider_transaction_id: String(locationId),
+        provider_charge_id: charge.txid || String(locationId || order.id),
+        provider_transaction_id: locationId ? String(locationId) : null,
         amount_cents: moneyToCents(total),
         status: "pending",
-        qr_code: qrCode.imagemQrcode || null,
-        qr_code_base64: qrCode.imagemQrcode || null,
-        copy_paste: qrCode.qrcode || charge.pixCopiaECola || null,
+        qr_code: null,
+        qr_code_base64: null,
+        copy_paste: pixCopyPaste,
         raw_response: {
           charge,
-          qrCode,
+          qrCodeSource: "copy_paste",
         },
         expires_at: expiresAt.toISOString(),
       })
@@ -459,9 +449,9 @@ export async function POST(request: NextRequest) {
         status: "pending",
         txid: charge.txid,
         expires_at: expiresAt.toISOString(),
-        copy_paste: qrCode.qrcode || charge.pixCopiaECola || null,
-        qr_code_base64: qrCode.imagemQrcode || null,
-        link_visualizacao: qrCode.linkVisualizacao || null,
+        copy_paste: pixCopyPaste,
+        qr_code_base64: null,
+        link_visualizacao: null,
       },
     })
   } catch (error) {
