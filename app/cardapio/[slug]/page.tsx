@@ -3630,6 +3630,84 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
     return normalizedMethod === "pix" || normalizedMethod === "efi_pix"
   }
 
+  useEffect(() => {
+    if (
+      !open ||
+      !pixCardOpen ||
+      !pixPayment?.orderId ||
+      !isAutomaticPixPayment ||
+      paymentApproved
+    ) {
+      return
+    }
+
+    let cancelled = false
+
+    async function pollAutomaticPixPaymentStatus() {
+      if (cancelled || !pixPayment?.orderId) return
+
+      try {
+        const params = new URLSearchParams({
+          restaurantId: restaurant.id,
+          orderId: pixPayment.orderId,
+          _: String(Date.now()),
+        })
+
+        const response = await fetch(`/api/public/orders/status?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
+
+        if (!response.ok) return
+
+        const data = await response.json()
+        const paymentStatus = String(
+          data?.order?.payment_status ??
+            data?.payment_status ??
+            data?.order?.paymentStatus ??
+            ""
+        ).toLowerCase()
+
+        if (paymentStatus !== "paid") return
+
+        setPixPayment((currentPayment) =>
+          currentPayment
+            ? {
+                ...currentPayment,
+                status: "paid",
+              }
+            : currentPayment
+        )
+
+        setPaymentApproved(true)
+        setPaymentCheckError("")
+      } catch (error) {
+        console.error("Erro ao consultar confirmação do Pix automático:", error)
+      }
+    }
+
+    void pollAutomaticPixPaymentStatus()
+
+    const intervalId = window.setInterval(() => {
+      void pollAutomaticPixPaymentStatus()
+    }, 2500)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [
+    open,
+    pixCardOpen,
+    pixPayment?.orderId,
+    isAutomaticPixPayment,
+    paymentApproved,
+    restaurant.id,
+  ])
+
   const validateForm = () => {
     if (!customer?.name?.trim()) {
       alert("Cadastre seu nome antes de finalizar.")
@@ -4822,9 +4900,15 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
               {pixCopied ? "Pix copiado" : "Copiar Pix"}
             </button>
 
-            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-700">
-              Aguardando confirmação automática do pagamento...
-            </div>
+            {paymentApproved || String(pixPayment?.status ?? "").toLowerCase() === "paid" ? (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-center text-xs font-bold text-emerald-700">
+                Pagamento confirmado! Pedido enviado ao restaurante.
+              </div>
+            ) : (
+              <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-700">
+                Aguardando confirmação automática do pagamento...
+              </div>
+            )}
           </div>
         </div>
       ) : !pixPayment ? (
