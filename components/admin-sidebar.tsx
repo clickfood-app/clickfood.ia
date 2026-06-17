@@ -30,13 +30,13 @@ import {
   ShoppingBag,
   ShoppingCart,
   Store,
+  Target,
   TicketPercent,
   TrendingUp,
   Truck,
   Users,
   Wallet,
   X,
-  Target,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -136,12 +136,11 @@ const navItems: NavItem[] = [
         icon: <CircleAlert className="h-4 w-4" />,
         href: "/perdas-desperdicio",
       },
-
       {
-  label: "Metas",
-  icon: <Target className="h-4 w-4" />,
-  href: "/metas",
-},
+        label: "Metas",
+        icon: <Target className="h-4 w-4" />,
+        href: "/metas",
+      },
     ],
   },
   {
@@ -410,7 +409,7 @@ export default function AdminSidebar({
             isCollapsed && "justify-center",
           )}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-700 shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-100 bg-blue-50 text-sm font-semibold text-blue-700 shadow-sm">
             {brand.logoUrl && !logoFailed ? (
               <img
                 src={brand.logoUrl}
@@ -425,7 +424,7 @@ export default function AdminSidebar({
 
           {!isCollapsed && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-black leading-tight text-slate-950">
+              <p className="truncate text-sm font-semibold leading-tight text-slate-950">
                 {brand.name}
               </p>
 
@@ -515,7 +514,7 @@ export default function AdminSidebar({
                               className={cn(
                                 "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition",
                                 childActive
-                                  ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                                  ? "bg-blue-600 text-white shadow-sm shadow-blue-950/30"
                                   : "text-slate-500 hover:bg-blue-50 hover:text-blue-700",
                               )}
                             >
@@ -548,7 +547,7 @@ export default function AdminSidebar({
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition",
                   active
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-950/30"
                     : "text-slate-600 hover:bg-blue-50 hover:text-blue-700",
                   isCollapsed && "justify-center px-0",
                 )}
@@ -588,14 +587,14 @@ export default function AdminSidebar({
                     onError={() => setLogoFailed(true)}
                   />
                 ) : (
-                  <span className="text-xs font-black text-blue-700">
+                  <span className="text-xs font-semibold text-blue-700">
                     {initials}
                   </span>
                 )}
               </div>
 
               <div className="min-w-0">
-                <p className="truncate text-sm font-black text-slate-950">
+                <p className="truncate text-sm font-semibold text-slate-950">
                   {brand.name}
                 </p>
 

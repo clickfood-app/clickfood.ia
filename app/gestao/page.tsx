@@ -1,37 +1,55 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import Link from "next/link"
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import {
   AlertTriangle,
-  Banknote,
+  ArrowUpRight,
+  BarChart3,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   CreditCard,
   DollarSign,
+  FileBarChart,
+  ListChecks,
   Loader2,
+  PackageOpen,
+  Printer,
   ReceiptText,
   RefreshCcw,
   Search,
   ShieldCheck,
+  ShoppingCart,
+  Timer,
   TrendingDown,
+  TrendingUp,
+  Users,
   Wallet,
   X,
-  Zap,
 } from "lucide-react"
 
 type OrderRow = {
   id: string
   public_order_number: string | null
   customer_name: string | null
+  customer_phone: string | null
   total: number | string | null
   created_at: string
   status: string | null
   payment_method: string | null
   payment_status: string | null
+  order_source: string | null
+  order_type: string | null
+  accepted_at: string | null
+  preparation_started_at: string | null
+  out_for_delivery_at: string | null
+  delivered_at: string | null
+  cancelled_at: string | null
 }
 
 type PaymentGroup = "pix" | "cash" | "card" | "other"
@@ -40,6 +58,7 @@ type PaymentBreakdown = Record<PaymentGroup, number>
 
 type FinancialRow = Record<string, unknown>
 type CashClosingRow = Record<string, unknown>
+type OrderItemRow = Record<string, unknown>
 
 type ExpenseItem = {
   id: string
@@ -49,8 +68,21 @@ type ExpenseItem = {
   paidAt: string | null
 }
 
-type CaixaData = {
-  sessionStartISO: string
+type ActivityPoint = {
+  hour: string
+  orders: number
+  sales: number
+}
+
+type ItemSale = {
+  id: string
+  name: string
+  quantity: number
+  revenue: number
+  isUpsell: boolean
+}
+
+type MetricsSnapshot = {
   totalOrders: number
   paidOrders: number
   pendingOrders: number
@@ -61,12 +93,39 @@ type CaixaData = {
   totalReceived: number
   totalPending: number
   totalExpenses: number
+  manualIncome: number
   estimatedBalance: number
+  paymentBreakdown: PaymentBreakdown
+  expenses: ExpenseItem[]
+}
+
+type CaixaData = MetricsSnapshot & {
+  sessionStartISO: string
   todayClosedReceived: number
   todayClosedBalance: number
-  paymentBreakdown: PaymentBreakdown
+  dayTotalOrders: number
+  dayPaidOrders: number
+  dayPendingOrders: number
+  dayCancelledOrders: number
+  dayDelayedOrders: number
+  dayPendingPixOrders: number
+  dayTotalSales: number
+  dayTotalReceived: number
+  dayTotalPending: number
+  dayTotalExpenses: number
+  dayManualIncome: number
+  dayEstimatedBalance: number
+  dayUniqueCustomers: number
+  dayAverageTicket: number
+  dayPaymentBreakdown: PaymentBreakdown
+  dayExpenses: ExpenseItem[]
+  activityData: ActivityPoint[]
+  topItems: ItemSale[]
+  upsellItems: ItemSale[]
+  upsellRevenue: number
+  upsellQuantity: number
   orders: OrderRow[]
-  expenses: ExpenseItem[]
+  dayOrders: OrderRow[]
   closingsToday: CashClosingRow[]
   lastClosingToday: CashClosingRow | null
   lastClosingOverall: CashClosingRow | null
@@ -87,9 +146,15 @@ const emptyBreakdown: PaymentBreakdown = {
   other: 0,
 }
 
-function createEmptyCaixaData(sessionStartISO = new Date().toISOString()): CaixaData {
+const paymentLabels: Record<PaymentGroup, string> = {
+  pix: "Pix",
+  cash: "Dinheiro",
+  card: "Cartão",
+  other: "Outros",
+}
+
+function createEmptyMetrics(): MetricsSnapshot {
   return {
-    sessionStartISO,
     totalOrders: 0,
     paidOrders: 0,
     pendingOrders: 0,
@@ -100,16 +165,58 @@ function createEmptyCaixaData(sessionStartISO = new Date().toISOString()): Caixa
     totalReceived: 0,
     totalPending: 0,
     totalExpenses: 0,
+    manualIncome: 0,
     estimatedBalance: 0,
+    paymentBreakdown: { ...emptyBreakdown },
+    expenses: [],
+  }
+}
+
+function createEmptyCaixaData(sessionStartISO = new Date().toISOString()): CaixaData {
+  return {
+    sessionStartISO,
+    ...createEmptyMetrics(),
     todayClosedReceived: 0,
     todayClosedBalance: 0,
-    paymentBreakdown: { ...emptyBreakdown },
+    dayTotalOrders: 0,
+    dayPaidOrders: 0,
+    dayPendingOrders: 0,
+    dayCancelledOrders: 0,
+    dayDelayedOrders: 0,
+    dayPendingPixOrders: 0,
+    dayTotalSales: 0,
+    dayTotalReceived: 0,
+    dayTotalPending: 0,
+    dayTotalExpenses: 0,
+    dayManualIncome: 0,
+    dayEstimatedBalance: 0,
+    dayUniqueCustomers: 0,
+    dayAverageTicket: 0,
+    dayPaymentBreakdown: { ...emptyBreakdown },
+    dayExpenses: [],
+    activityData: [],
+    topItems: [],
+    upsellItems: [],
+    upsellRevenue: 0,
+    upsellQuantity: 0,
     orders: [],
-    expenses: [],
+    dayOrders: [],
     closingsToday: [],
     lastClosingToday: null,
     lastClosingOverall: null,
   }
+}
+
+function parseLocalAwareDate(value: Date | string | null | undefined) {
+  if (!value) return null
+  if (value instanceof Date) return value
+
+  const raw = String(value)
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T00:00:00`)
+    : new Date(raw)
+
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 function formatCurrency(value: number) {
@@ -117,6 +224,10 @@ function formatCurrency(value: number) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value || 0))
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("pt-BR").format(Number(value || 0))
 }
 
 function formatDate(value: Date) {
@@ -128,27 +239,41 @@ function formatDate(value: Date) {
 }
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return "-"
+  const date = parseLocalAwareDate(value)
+  if (!date) return "-"
 
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value))
+  }).format(date)
 }
 
 function formatTime(value: string | null | undefined) {
-  if (!value) return "-"
+  const date = parseLocalAwareDate(value)
+  if (!date) return "-"
 
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value))
+  }).format(date)
+}
+
+function formatMinutes(minutes: number) {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "0 min"
+  if (minutes < 60) return `${Math.round(minutes)} min`
+
+  const hours = Math.floor(minutes / 60)
+  const rest = Math.round(minutes % 60)
+
+  return rest > 0 ? `${hours}h ${rest}min` : `${hours}h`
 }
 
 function getLocalDateKey(value: Date | string) {
-  const date = typeof value === "string" ? new Date(value) : value
+  const date = parseLocalAwareDate(value)
+  if (!date) return ""
+
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
@@ -221,24 +346,37 @@ function readString(
   return null
 }
 
+function readBoolean(row: FinancialRow | null | undefined, fields: string[]) {
+  if (!row) return false
+
+  for (const field of fields) {
+    const value = row[field]
+
+    if (typeof value === "boolean") return value
+    if (typeof value === "number") return value === 1
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase()
+      if (["true", "1", "sim", "yes", "s"].includes(normalized)) return true
+      if (["false", "0", "não", "nao", "no", "n"].includes(normalized)) return false
+    }
+  }
+
+  return false
+}
+
 function readDateString(
   row: FinancialRow | null | undefined,
   fields: string[]
 ): string | null {
   const value = readString(row, fields)
-  if (!value) return null
+  const date = parseLocalAwareDate(value)
 
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toISOString()
+  return date ? date.toISOString() : null
 }
 
 function isSameLocalDate(value: string | null | undefined, dateKey: string) {
-  if (!value) return false
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return false
+  const date = parseLocalAwareDate(value)
+  if (!date) return false
 
   return getLocalDateKey(date) === dateKey
 }
@@ -248,15 +386,13 @@ function isDateInsideRange(
   startISO: string,
   endISO: string
 ) {
-  if (!value) return false
+  const date = parseLocalAwareDate(value)
+  const start = parseLocalAwareDate(startISO)
+  const end = parseLocalAwareDate(endISO)
 
-  const dateMs = new Date(value).getTime()
-  const startMs = new Date(startISO).getTime()
-  const endMs = new Date(endISO).getTime()
+  if (!date || !start || !end) return false
 
-  if (Number.isNaN(dateMs)) return false
-
-  return dateMs >= startMs && dateMs < endMs
+  return date.getTime() >= start.getTime() && date.getTime() < end.getTime()
 }
 
 function getStatusBucket(status: string | null) {
@@ -396,7 +532,7 @@ function isPendingPix(order: OrderRow) {
 }
 
 function getOrderAgeMinutes(createdAt: string) {
-  const created = new Date(createdAt).getTime()
+  const created = parseLocalAwareDate(createdAt)?.getTime() ?? Date.now()
   const now = Date.now()
 
   return Math.max(0, Math.floor((now - created) / 1000 / 60))
@@ -411,6 +547,12 @@ function isDelayed(order: OrderRow) {
   if (bucket === "route") return age >= 50
 
   return false
+}
+
+function isActiveOrder(order: OrderRow) {
+  const bucket = getStatusBucket(order.status)
+
+  return bucket !== "cancelled" && bucket !== "finished"
 }
 
 function isPaidFinancialRow(row: FinancialRow) {
@@ -430,26 +572,49 @@ function isPaidFinancialRow(row: FinancialRow) {
   ].includes(status)
 }
 
-function getFinancialRowDate(row: FinancialRow) {
-  return readDateString(row, [
-    "paid_at",
-    "payment_date",
-    "settled_at",
-    "closed_at",
-    "date",
-    "created_at",
-  ])
+function isCashClosingTransaction(row: FinancialRow) {
+  const origin = String(readString(row, ["origin", "source"]) || "").toLowerCase()
+  const text = String(
+    readString(row, ["title", "description", "category", "notes"]) || ""
+  ).toLowerCase()
+
+  return (
+    origin.includes("cash_closing") ||
+    origin.includes("fechamento") ||
+    text.includes("fechamento de caixa") ||
+    text.includes("fechamento do caixa")
+  )
 }
 
-function getExpenseAmount(row: FinancialRow) {
-  return readNumber(row, [
-    "amount",
-    "total_amount",
-    "value",
-    "total",
-    "paid_amount",
-    "settlement_amount",
-  ])
+function getFinancialRowDate(row: FinancialRow, fields?: string[]) {
+  return readDateString(
+    row,
+    fields ?? [
+      "paid_at",
+      "payment_date",
+      "settled_at",
+      "closed_at",
+      "occurred_at",
+      "purchase_date",
+      "date",
+      "created_at",
+    ]
+  )
+}
+
+function getExpenseAmount(row: FinancialRow, fields?: string[]) {
+  return readNumber(
+    row,
+    fields ?? [
+      "amount",
+      "total_amount",
+      "total_cost",
+      "value",
+      "total",
+      "paid_amount",
+      "settlement_amount",
+    ]
+  )
 }
 
 function getExpenseTitle(row: FinancialRow, fallback: string) {
@@ -458,6 +623,9 @@ function getExpenseTitle(row: FinancialRow, fallback: string) {
       "description",
       "title",
       "name",
+      "item_name",
+      "product_name",
+      "reason",
       "note",
       "notes",
       "reference",
@@ -470,19 +638,70 @@ function normalizeExpenseRows(
   source: string,
   fallbackTitle: string,
   startISO: string,
-  endISO: string
+  endISO: string,
+  options?: {
+    paidOnly?: boolean
+    dateFields?: string[]
+    amountFields?: string[]
+  }
 ): ExpenseItem[] {
+  const paidOnly = options?.paidOnly ?? true
+
   return rows
-    .filter((row) => isPaidFinancialRow(row))
-    .filter((row) => isDateInsideRange(getFinancialRowDate(row), startISO, endISO))
+    .filter((row) => !paidOnly || isPaidFinancialRow(row))
+    .filter((row) =>
+      isDateInsideRange(
+        getFinancialRowDate(row, options?.dateFields),
+        startISO,
+        endISO
+      )
+    )
     .map((row, index) => ({
       id: String(readString(row, ["id"]) || `${source}-${index}`),
       title: getExpenseTitle(row, fallbackTitle),
       source,
-      amount: getExpenseAmount(row),
-      paidAt: getFinancialRowDate(row),
+      amount: getExpenseAmount(row, options?.amountFields),
+      paidAt: getFinancialRowDate(row, options?.dateFields),
     }))
     .filter((item) => item.amount > 0)
+}
+
+function normalizeManualIncomeRows(
+  rows: FinancialRow[],
+  startISO: string,
+  endISO: string
+) {
+  return rows
+    .filter((row) => !isCashClosingTransaction(row))
+    .filter(
+      (row) => String(readString(row, ["type", "transaction_type"]) || "") === "income"
+    )
+    .filter((row) =>
+      isDateInsideRange(getFinancialRowDate(row, ["occurred_at", "created_at"]), startISO, endISO)
+    )
+}
+
+function normalizeManualExpenseRows(
+  rows: FinancialRow[],
+  startISO: string,
+  endISO: string
+) {
+  return normalizeExpenseRows(
+    rows.filter(
+      (row) =>
+        !isCashClosingTransaction(row) &&
+        String(readString(row, ["type", "transaction_type"]) || "") === "expense"
+    ),
+    "Lançamentos manuais",
+    "Saída manual",
+    startISO,
+    endISO,
+    {
+      paidOnly: false,
+      dateFields: ["occurred_at", "created_at"],
+      amountFields: ["amount", "value", "total"],
+    }
+  )
 }
 
 function getClosingClosedAt(row: CashClosingRow | null) {
@@ -494,7 +713,18 @@ function getClosingOpenedAt(row: CashClosingRow | null) {
 }
 
 function getClosingReceived(row: CashClosingRow | null) {
-  return readNumber(row, ["total_received", "received_total", "received_amount"])
+  const directTotal = readNumber(row, [
+    "total_received",
+    "received_total",
+    "received_amount",
+  ])
+
+  if (directTotal > 0) return directTotal
+
+  return (
+    readNumber(row, ["gross_revenue", "gross_total"]) +
+    readNumber(row, ["manual_income", "manual_received"])
+  )
 }
 
 function getClosingBalance(row: CashClosingRow | null) {
@@ -502,6 +732,7 @@ function getClosingBalance(row: CashClosingRow | null) {
     "final_balance",
     "estimated_balance",
     "expected_balance",
+    "estimated_profit",
     "balance",
   ])
 }
@@ -521,6 +752,116 @@ function getPaymentStatusLabel(order: OrderRow) {
   return "Pendente"
 }
 
+function getCustomerKey(order: OrderRow) {
+  const phone = String(order.customer_phone || "").replace(/\D/g, "")
+  if (phone) return phone
+
+  return String(order.customer_name || "").trim().toLowerCase()
+}
+
+function buildActivityData(orders: OrderRow[]) {
+  const points: ActivityPoint[] = Array.from({ length: 24 }, (_, hour) => ({
+    hour: `${String(hour).padStart(2, "0")}h`,
+    orders: 0,
+    sales: 0,
+  }))
+
+  orders
+    .filter((order) => getStatusBucket(order.status) !== "cancelled")
+    .forEach((order) => {
+      const date = parseLocalAwareDate(order.created_at)
+      if (!date) return
+
+      const hour = date.getHours()
+      points[hour].orders += 1
+      points[hour].sales += Number(order.total || 0)
+    })
+
+  const currentHour = new Date().getHours()
+
+  return points.slice(0, currentHour + 1)
+}
+
+function getItemName(row: OrderItemRow) {
+  return (
+    readString(row, ["product_name", "name", "title", "item_name"]) ||
+    "Item sem nome"
+  )
+}
+
+function getItemQuantity(row: OrderItemRow) {
+  const quantity = readNumber(row, ["quantity", "qty", "amount"])
+
+  return quantity > 0 ? quantity : 1
+}
+
+function getItemRevenue(row: OrderItemRow) {
+  const total = readNumber(row, [
+    "total_price",
+    "line_total",
+    "total",
+    "amount",
+    "value",
+  ])
+
+  if (total > 0) return total
+
+  return readNumber(row, ["unit_price", "price", "item_price"]) * getItemQuantity(row)
+}
+
+function isUpsellItem(row: OrderItemRow) {
+  if (readBoolean(row, ["is_upsell"])) return true
+
+  if (readString(row, ["upsell_rule_id", "upsell_id", "campaign_id"])) {
+    return true
+  }
+
+  const marker = String(
+    readString(row, ["source", "origin", "item_type", "type", "category"]) || ""
+  ).toLowerCase()
+
+  return ["upsell", "adicional", "complemento", "combo"].some((item) =>
+    marker.includes(item)
+  )
+}
+
+function buildItemAnalytics(rows: OrderItemRow[]) {
+  const map = new Map<string, ItemSale>()
+
+  for (const row of rows) {
+    const name = getItemName(row)
+    const key = `${readString(row, ["product_id"]) || name}`.toLowerCase()
+    const current =
+      map.get(key) ??
+      ({
+        id: key,
+        name,
+        quantity: 0,
+        revenue: 0,
+        isUpsell: false,
+      } satisfies ItemSale)
+
+    current.quantity += getItemQuantity(row)
+    current.revenue += getItemRevenue(row)
+    current.isUpsell = current.isUpsell || isUpsellItem(row)
+
+    map.set(key, current)
+  }
+
+  const items = Array.from(map.values()).sort((a, b) => {
+    if (b.revenue !== a.revenue) return b.revenue - a.revenue
+    return b.quantity - a.quantity
+  })
+  const upsellItems = items.filter((item) => item.isUpsell)
+
+  return {
+    topItems: items.slice(0, 6),
+    upsellItems: upsellItems.slice(0, 5),
+    upsellRevenue: upsellItems.reduce((sum, item) => sum + item.revenue, 0),
+    upsellQuantity: upsellItems.reduce((sum, item) => sum + item.quantity, 0),
+  }
+}
+
 function MetricCard({
   title,
   value,
@@ -535,35 +876,38 @@ function MetricCard({
   tone: "blue" | "green" | "amber" | "red" | "slate"
 }) {
   const toneClass = {
-    blue: "border-blue-100 bg-blue-50 text-blue-700",
-    green: "border-emerald-100 bg-emerald-50 text-emerald-700",
-    amber: "border-orange-100 bg-orange-50 text-orange-700",
-    red: "border-red-100 bg-red-50 text-red-700",
-    slate: "border-slate-200 bg-slate-50 text-slate-700",
+    blue: "border-blue-500/20 bg-blue-500/15 text-blue-300",
+    green: "border-emerald-500/20 bg-emerald-500/15 text-emerald-300",
+    amber: "border-orange-500/20 bg-orange-500/15 text-orange-300",
+    red: "border-red-500/20 bg-red-500/15 text-red-300",
+    slate: "border-slate-700 bg-slate-800 text-slate-300",
   }[tone]
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+    <div className="min-h-[122px] rounded-lg border border-slate-800 bg-slate-900/75 p-4 shadow-[0_18px_45px_rgba(2,6,23,0.22)]">
+      <div className="flex h-full flex-col justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-300">
             {title}
           </p>
-          <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
-            {value}
-          </p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-            {subtitle}
-          </p>
+
+          <div
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+              toneClass
+            )}
+          >
+            {icon}
+          </div>
         </div>
 
-        <div
-          className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-            toneClass
-          )}
-        >
-          {icon}
+        <div className="min-w-0">
+          <p className="truncate text-2xl font-semibold tabular-nums text-white">
+            {value}
+          </p>
+          <p className="mt-2 truncate text-xs font-medium text-slate-400">
+            {subtitle}
+          </p>
         </div>
       </div>
     </div>
@@ -576,27 +920,30 @@ function Panel({
   children,
   action,
   className,
+  id,
 }: {
   title: string
   subtitle?: string
   children: ReactNode
   action?: ReactNode
   className?: string
+  id?: string
 }) {
   return (
     <section
+      id={id}
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        "rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow-[0_18px_45px_rgba(2,6,23,0.18)]",
         className
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-base font-black tracking-tight text-slate-950">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight text-white">
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-1 text-sm font-medium leading-5 text-slate-500">
+            <p className="mt-1 text-xs font-medium leading-5 text-slate-400">
               {subtitle}
             </p>
           )}
@@ -612,7 +959,7 @@ function Panel({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+    <div className="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 px-4 py-8 text-center text-sm font-medium text-slate-400">
       {message}
     </div>
   )
@@ -630,10 +977,10 @@ function MoneyInput({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="block rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <span className="flex items-center justify-between gap-3 text-xs font-black uppercase tracking-wide text-slate-500">
+    <label className="block rounded-lg border border-slate-700 bg-slate-900 p-3">
+      <span className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">
         {label}
-        <span className="text-slate-400">
+        <span className="text-slate-500">
           Esperado: {formatCurrency(expected)}
         </span>
       </span>
@@ -643,7 +990,7 @@ function MoneyInput({
         onChange={(event) => onChange(event.target.value)}
         inputMode="decimal"
         placeholder="0,00"
-        className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        className="mt-2 h-10 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-sm font-medium tabular-nums text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
       />
     </label>
   )
@@ -653,17 +1000,17 @@ function StatusBadge({ order }: { order: OrderRow }) {
   const bucket = getStatusBucket(order.status)
 
   const className = {
-    analysis: "bg-blue-50 text-blue-700 ring-blue-100",
-    open: "bg-orange-50 text-orange-700 ring-orange-100",
-    route: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    finished: "bg-slate-100 text-slate-700 ring-slate-200",
-    cancelled: "bg-red-50 text-red-700 ring-red-100",
+    analysis: "bg-blue-500/15 text-blue-300 ring-blue-500/20",
+    open: "bg-orange-500/15 text-orange-300 ring-orange-500/20",
+    route: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
+    finished: "bg-slate-700/70 text-slate-300 ring-slate-600",
+    cancelled: "bg-red-500/15 text-red-300 ring-red-500/20",
   }[bucket]
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-black ring-1",
+        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ring-1",
         className
       )}
     >
@@ -679,14 +1026,190 @@ function PaymentBadge({ order }: { order: OrderRow }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-black ring-1",
-        paid && "bg-emerald-50 text-emerald-700 ring-emerald-100",
-        pendingPix && "bg-orange-50 text-orange-700 ring-orange-100",
-        !paid && !pendingPix && "bg-slate-100 text-slate-700 ring-slate-200"
+        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ring-1",
+        paid && "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
+        pendingPix && "bg-orange-500/15 text-orange-300 ring-orange-500/20",
+        !paid && !pendingPix && "bg-slate-700/70 text-slate-300 ring-slate-600"
       )}
     >
       {getPaymentStatusLabel(order)}
     </span>
+  )
+}
+
+function ActivityChart({ data }: { data: ActivityPoint[] }) {
+  const hasData = data.some((point) => point.orders > 0)
+
+  if (!hasData) {
+    return <EmptyState message="Nenhum pedido registrado hoje." />
+  }
+
+  const maxOrders = Math.max(1, ...data.map((point) => point.orders))
+
+  return (
+    <div className="relative h-[230px] overflow-hidden rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+      <div className="pointer-events-none absolute inset-3 rounded-md bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:36px_28px]" />
+      <div className="relative flex h-[170px] items-end gap-1">
+        {data.map((point, index) => {
+          const height =
+            point.orders === 0
+              ? 4
+              : Math.max(12, Math.round((point.orders / maxOrders) * 100))
+
+          return (
+            <div
+              key={point.hour}
+              className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+            >
+              <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-20 w-max -translate-x-1/2 rounded-md border border-slate-700 bg-slate-950 px-2.5 py-2 text-left text-[11px] text-slate-400 opacity-0 shadow-xl shadow-slate-950/40 transition duration-150 group-hover:opacity-100">
+                <p className="font-medium tabular-nums text-white">
+                  {point.hour}
+                </p>
+                <p className="mt-0.5 tabular-nums">
+                  {point.orders} pedido(s)
+                </p>
+                <p className="tabular-nums text-emerald-300">
+                  {formatCurrency(point.sales)}
+                </p>
+              </div>
+
+              <div
+                className={cn(
+                  "w-full max-w-8 origin-bottom rounded-t-md transition-all duration-200 ease-out group-hover:scale-y-105",
+                  point.orders > 0
+                    ? "bg-blue-600 group-hover:bg-blue-400 group-hover:shadow-[0_0_0_1px_rgba(96,165,250,0.25),0_10px_22px_rgba(37,99,235,0.35)]"
+                    : "bg-slate-700 group-hover:bg-slate-600"
+                )}
+                style={{ height: `${height}%` }}
+              />
+              <span
+                className={cn(
+                  "mt-2 text-[10px] font-medium text-slate-500 transition-colors group-hover:text-white",
+                  index % 2 !== 0 && data.length > 12 && "opacity-0"
+                )}
+              >
+                {point.hour}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="relative mt-3 flex items-center justify-between border-t border-slate-800 pt-2 text-[11px] font-medium tabular-nums text-slate-400">
+        <span>{formatNumber(data.reduce((sum, point) => sum + point.orders, 0))} pedido(s)</span>
+        <span>
+          {formatCurrency(data.reduce((sum, point) => sum + point.sales, 0))}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function PaymentDonut({
+  rows,
+  total,
+}: {
+  rows: Array<{
+    key: PaymentGroup
+    label: string
+    amount: number
+    percent: number
+  }>
+  total: number
+}) {
+  const colors: Record<PaymentGroup, string> = {
+    pix: "#2563eb",
+    cash: "#22c55e",
+    card: "#f97316",
+    other: "#64748b",
+  }
+
+  let cursor = 0
+  const segments = rows
+    .filter((row) => row.amount > 0)
+    .map((row) => {
+      const start = cursor
+      const end = cursor + row.percent
+      cursor = end
+
+      return `${colors[row.key]} ${start}% ${end}%`
+    })
+
+  const background =
+    total > 0 && segments.length > 0
+      ? `conic-gradient(${segments.join(", ")})`
+      : "conic-gradient(#334155 0% 100%)"
+
+  return (
+    <div className="grid gap-5 md:grid-cols-[190px_1fr] md:items-center">
+      <div className="relative mx-auto flex h-40 w-40 items-center justify-center rounded-full shadow-[0_18px_45px_rgba(2,6,23,0.32)]">
+        <div
+          className="absolute inset-0 rounded-full transition duration-300 hover:scale-[1.03]"
+          style={{ background }}
+        />
+        <div className="absolute inset-5 rounded-full bg-slate-950 shadow-inner shadow-slate-900" />
+        <div className="relative text-center">
+          <p className="text-sm font-semibold tabular-nums text-white">
+            {formatCurrency(total)}
+          </p>
+          <p className="mt-1 text-[11px] font-medium text-slate-500">Total</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {rows.map((row) => (
+          <div
+            key={row.key}
+            className="group rounded-md px-2 py-1.5 transition hover:bg-slate-800/70"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: colors[row.key] }}
+                />
+                <span className="truncate text-sm font-medium text-slate-200">
+                  {row.label}
+                </span>
+              </div>
+              <span className="text-sm font-semibold tabular-nums text-white transition group-hover:text-emerald-300">
+                {row.percent}%
+              </span>
+            </div>
+            <p className="mt-1 pl-4 text-[11px] font-medium tabular-nums text-slate-500">
+              {formatCurrency(row.amount)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SmallTile({
+  label,
+  value,
+  tone = "slate",
+}: {
+  label: string
+  value: string
+  tone?: "slate" | "green" | "red" | "amber" | "blue"
+}) {
+  const toneClass = {
+    slate: "text-white",
+    green: "text-emerald-300",
+    red: "text-red-300",
+    amber: "text-orange-300",
+    blue: "text-blue-300",
+  }[tone]
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
+        {label}
+      </p>
+      <p className={cn("mt-1 truncate text-sm font-semibold tabular-nums", toneClass)}>{value}</p>
+    </div>
   )
 }
 
@@ -746,7 +1269,7 @@ export default function GestaoPage() {
           .from(tableName)
           .select("*")
           .eq("restaurant_id", resolvedRestaurantId)
-          .limit(2000)
+          .limit(3000)
 
         if (error) {
           console.warn(`Não foi possível carregar ${tableName}:`, error)
@@ -762,12 +1285,55 @@ export default function GestaoPage() {
     [supabase]
   )
 
+  const loadOrderItemsByOrderIds = useCallback(
+    async (orderIds: string[]) => {
+      if (orderIds.length === 0) return [] as OrderItemRow[]
+
+      try {
+        const client = supabase as any
+        const { data: rows, error } = await client
+          .from("order_items")
+          .select("*")
+          .in("order_id", orderIds)
+          .limit(3000)
+
+        if (error) {
+          console.warn("Não foi possível carregar itens dos pedidos:", error)
+          return [] as OrderItemRow[]
+        }
+
+        return (rows ?? []) as OrderItemRow[]
+      } catch (error) {
+        console.warn("Não foi possível carregar itens dos pedidos:", error)
+        return [] as OrderItemRow[]
+      }
+    },
+    [supabase]
+  )
+
   const loadOrdersByRange = useCallback(
     async (resolvedRestaurantId: string, startISO: string, endISO: string) => {
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select(
-          "id, public_order_number, customer_name, total, created_at, status, payment_method, payment_status"
+          [
+            "id",
+            "public_order_number",
+            "customer_name",
+            "customer_phone",
+            "total",
+            "created_at",
+            "status",
+            "payment_method",
+            "payment_status",
+            "order_source",
+            "order_type",
+            "accepted_at",
+            "preparation_started_at",
+            "out_for_delivery_at",
+            "delivered_at",
+            "cancelled_at",
+          ].join(", ")
         )
         .eq("restaurant_id", resolvedRestaurantId)
         .gte("created_at", startISO)
@@ -776,7 +1342,7 @@ export default function GestaoPage() {
 
       if (ordersError) throw ordersError
 
-      return (ordersData ?? []) as OrderRow[]
+      return (ordersData ?? []) as unknown as OrderRow[]
     },
     [supabase]
   )
@@ -787,7 +1353,7 @@ export default function GestaoPage() {
       startISO: string,
       endISO: string,
       orders: OrderRow[]
-    ) => {
+    ): Promise<MetricsSnapshot> => {
       const validOrders = orders.filter(
         (order) => getStatusBucket(order.status) !== "cancelled"
       )
@@ -813,7 +1379,7 @@ export default function GestaoPage() {
         (sum, order) => sum + Number(order.total || 0),
         0
       )
-      const totalReceived = paidOrders.reduce(
+      const paidOrderTotal = paidOrders.reduce(
         (sum, order) => sum + Number(order.total || 0),
         0
       )
@@ -822,20 +1388,68 @@ export default function GestaoPage() {
         0
       )
 
-      const [accountsPayableRows, deliverySettlementRows, staffPaymentRows] =
-        await Promise.all([
-          loadOptionalRows("accounts_payable", resolvedRestaurantId),
-          loadOptionalRows("delivery_settlements", resolvedRestaurantId),
-          loadOptionalRows("staff_payments", resolvedRestaurantId),
-        ])
+      const [
+        accountsPayableRows,
+        supplierPurchaseRows,
+        deliverySettlementRows,
+        staffPaymentRows,
+        financialTransactionRows,
+        productLossRows,
+      ] = await Promise.all([
+        loadOptionalRows("accounts_payable", resolvedRestaurantId),
+        loadOptionalRows("supplier_purchases", resolvedRestaurantId),
+        loadOptionalRows("delivery_settlements", resolvedRestaurantId),
+        loadOptionalRows("staff_payments", resolvedRestaurantId),
+        loadOptionalRows("financial_transactions", resolvedRestaurantId),
+        loadOptionalRows("product_losses", resolvedRestaurantId),
+      ])
+
+      const purchaseIds = new Set(
+        supplierPurchaseRows
+          .map((row) => readString(row, ["id"]))
+          .filter(Boolean)
+          .map(String)
+      )
+      const payableRowsWithoutDuplicatedPurchases = accountsPayableRows.filter(
+        (row) => {
+          const purchaseId = readString(row, ["purchase_id"])
+          return !purchaseId || !purchaseIds.has(purchaseId)
+        }
+      )
+
+      const manualIncomeRows = normalizeManualIncomeRows(
+        financialTransactionRows,
+        startISO,
+        endISO
+      )
+      const manualIncome = manualIncomeRows.reduce(
+        (sum, row) => sum + readNumber(row, ["amount", "value", "total"]),
+        0
+      )
+
+      manualIncomeRows.forEach((row) => {
+        const group = getPaymentGroup(readString(row, ["payment_method"]))
+        paymentBreakdown[group] += readNumber(row, ["amount", "value", "total"])
+      })
 
       const expenses = [
         ...normalizeExpenseRows(
-          accountsPayableRows,
+          payableRowsWithoutDuplicatedPurchases,
           "Contas a pagar",
           "Despesa paga",
           startISO,
           endISO
+        ),
+        ...normalizeExpenseRows(
+          supplierPurchaseRows,
+          "Compras",
+          "Compra de fornecedor",
+          startISO,
+          endISO,
+          {
+            dateFields: ["paid_at", "purchase_date", "updated_at", "created_at"],
+            amountFields: ["total_amount", "amount", "total", "value"],
+          }
         ),
         ...normalizeExpenseRows(
           deliverySettlementRows,
@@ -846,18 +1460,32 @@ export default function GestaoPage() {
         ),
         ...normalizeExpenseRows(
           staffPaymentRows,
-          "Funcionários",
+          "Equipe",
           "Pagamento de funcionário",
           startISO,
           endISO
         ),
+        ...normalizeManualExpenseRows(financialTransactionRows, startISO, endISO),
+        ...normalizeExpenseRows(
+          productLossRows,
+          "Perdas",
+          "Perda registrada",
+          startISO,
+          endISO,
+          {
+            paidOnly: false,
+            dateFields: ["occurred_at", "created_at"],
+            amountFields: ["total_cost", "amount", "value", "total"],
+          }
+        ),
       ].sort((a, b) => {
-        const dateA = a.paidAt ? new Date(a.paidAt).getTime() : 0
-        const dateB = b.paidAt ? new Date(b.paidAt).getTime() : 0
+        const dateA = a.paidAt ? parseLocalAwareDate(a.paidAt)?.getTime() ?? 0 : 0
+        const dateB = b.paidAt ? parseLocalAwareDate(b.paidAt)?.getTime() ?? 0 : 0
         return dateB - dateA
       })
 
       const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0)
+      const totalReceived = paidOrderTotal + manualIncome
 
       return {
         totalOrders: validOrders.length,
@@ -870,6 +1498,7 @@ export default function GestaoPage() {
         totalReceived,
         totalPending,
         totalExpenses,
+        manualIncome,
         estimatedBalance: totalReceived - totalExpenses,
         paymentBreakdown,
         expenses,
@@ -988,10 +1617,10 @@ export default function GestaoPage() {
         })
         .sort((a, b) => {
           const dateA = getClosingClosedAt(a)
-            ? new Date(String(getClosingClosedAt(a))).getTime()
+            ? parseLocalAwareDate(String(getClosingClosedAt(a)))?.getTime() ?? 0
             : 0
           const dateB = getClosingClosedAt(b)
-            ? new Date(String(getClosingClosedAt(b))).getTime()
+            ? parseLocalAwareDate(String(getClosingClosedAt(b)))?.getTime() ?? 0
             : 0
 
           return dateB - dateA
@@ -1003,10 +1632,10 @@ export default function GestaoPage() {
           .slice()
           .sort((a, b) => {
             const dateA = getClosingClosedAt(a)
-              ? new Date(String(getClosingClosedAt(a))).getTime()
+              ? parseLocalAwareDate(String(getClosingClosedAt(a)))?.getTime() ?? 0
               : 0
             const dateB = getClosingClosedAt(b)
-              ? new Date(String(getClosingClosedAt(b))).getTime()
+              ? parseLocalAwareDate(String(getClosingClosedAt(b)))?.getTime() ?? 0
               : 0
 
             return dateB - dateA
@@ -1014,18 +1643,16 @@ export default function GestaoPage() {
 
       const sessionStartISO = getClosingClosedAt(lastClosingToday) || today.startISO
 
-      const orders = await loadOrdersByRange(
-        resolvedRestaurantId,
-        sessionStartISO,
-        today.endISO
-      )
+      const [orders, dayOrders] = await Promise.all([
+        loadOrdersByRange(resolvedRestaurantId, sessionStartISO, today.endISO),
+        loadOrdersByRange(resolvedRestaurantId, today.startISO, today.endISO),
+      ])
 
-      const metrics = await buildMetrics(
-        resolvedRestaurantId,
-        sessionStartISO,
-        today.endISO,
-        orders
-      )
+      const [metrics, dayMetrics, orderItems] = await Promise.all([
+        buildMetrics(resolvedRestaurantId, sessionStartISO, today.endISO, orders),
+        buildMetrics(resolvedRestaurantId, today.startISO, today.endISO, dayOrders),
+        loadOrderItemsByOrderIds(dayOrders.map((order) => order.id)),
+      ])
 
       const todayClosedReceived = closingsToday.reduce(
         (sum, closing) => sum + getClosingReceived(closing),
@@ -1036,25 +1663,58 @@ export default function GestaoPage() {
         0
       )
 
+      const customerKeys = new Set(
+        dayOrders
+          .filter((order) => getStatusBucket(order.status) !== "cancelled")
+          .map(getCustomerKey)
+          .filter(Boolean)
+      )
+      const itemAnalytics = buildItemAnalytics(orderItems)
+
       setData({
         sessionStartISO,
         ...metrics,
-        orders,
         todayClosedReceived,
         todayClosedBalance,
+        dayTotalOrders: dayMetrics.totalOrders,
+        dayPaidOrders: dayMetrics.paidOrders,
+        dayPendingOrders: dayMetrics.pendingOrders,
+        dayCancelledOrders: dayMetrics.cancelledOrders,
+        dayDelayedOrders: dayMetrics.delayedOrders,
+        dayPendingPixOrders: dayMetrics.pendingPixOrders,
+        dayTotalSales: dayMetrics.totalSales,
+        dayTotalReceived: dayMetrics.totalReceived,
+        dayTotalPending: dayMetrics.totalPending,
+        dayTotalExpenses: dayMetrics.totalExpenses,
+        dayManualIncome: dayMetrics.manualIncome,
+        dayEstimatedBalance: dayMetrics.estimatedBalance,
+        dayUniqueCustomers: customerKeys.size,
+        dayAverageTicket:
+          dayMetrics.totalOrders > 0
+            ? dayMetrics.totalSales / dayMetrics.totalOrders
+            : 0,
+        dayPaymentBreakdown: dayMetrics.paymentBreakdown,
+        dayExpenses: dayMetrics.expenses,
+        activityData: buildActivityData(dayOrders),
+        topItems: itemAnalytics.topItems,
+        upsellItems: itemAnalytics.upsellItems,
+        upsellRevenue: itemAnalytics.upsellRevenue,
+        upsellQuantity: itemAnalytics.upsellQuantity,
+        orders,
+        dayOrders,
         closingsToday,
         lastClosingToday,
         lastClosingOverall,
       })
     } catch (error) {
-      console.error("Erro ao carregar caixa do dia:", error)
+      console.error("Erro ao carregar gestão:", error)
 
       toast({
         title: "Erro ao carregar gestão",
         description:
           error instanceof Error
             ? error.message
-            : "Não foi possível carregar o caixa do dia.",
+            : "Não foi possível carregar o resumo do dia.",
         variant: "destructive",
       })
 
@@ -1066,6 +1726,7 @@ export default function GestaoPage() {
     buildMetrics,
     ensurePreviousDayAutoClosing,
     loadOptionalRows,
+    loadOrderItemsByOrderIds,
     loadOrdersByRange,
     resolveRestaurant,
     toast,
@@ -1098,7 +1759,95 @@ export default function GestaoPage() {
   const receivedDifference = countedReceived - data.totalReceived
   const countedBalance = countedReceived - data.totalExpenses
 
-  const filteredOrders = data.orders.filter((order) => {
+  const activeOrders = useMemo(() => {
+    return data.dayOrders
+      .filter(isActiveOrder)
+      .sort((a, b) => getOrderAgeMinutes(b.created_at) - getOrderAgeMinutes(a.created_at))
+  }, [data.dayOrders])
+
+  const averageActiveAge = useMemo(() => {
+    if (activeOrders.length === 0) return 0
+
+    return (
+      activeOrders.reduce((sum, order) => sum + getOrderAgeMinutes(order.created_at), 0) /
+      activeOrders.length
+    )
+  }, [activeOrders])
+
+  const oldestActiveAge = activeOrders[0]
+    ? getOrderAgeMinutes(activeOrders[0].created_at)
+    : 0
+
+  const peakActivity = useMemo(() => {
+    return data.activityData.reduce<ActivityPoint | null>((current, point) => {
+      if (!current) return point
+      return point.orders > current.orders ? point : current
+    }, null)
+  }, [data.activityData])
+
+  const paymentRows = useMemo(() => {
+    const total = Object.values(data.dayPaymentBreakdown).reduce(
+      (sum, value) => sum + value,
+      0
+    )
+
+    return (Object.keys(data.dayPaymentBreakdown) as PaymentGroup[]).map((key) => ({
+      key,
+      label: paymentLabels[key],
+      amount: data.dayPaymentBreakdown[key],
+      percent: total > 0 ? Math.round((data.dayPaymentBreakdown[key] / total) * 100) : 0,
+    }))
+  }, [data.dayPaymentBreakdown])
+
+  const sectorSummary = useMemo(
+    () => [
+      {
+        title: "Financeiro",
+        value: formatCurrency(data.dayEstimatedBalance),
+        detail: `${formatCurrency(data.dayTotalReceived)} recebidos`,
+        tone: data.dayEstimatedBalance >= 0 ? "green" : "red",
+      },
+      {
+        title: "Vendas",
+        value: formatCurrency(data.dayTotalSales),
+        detail: `${data.dayTotalOrders} pedido(s), ticket ${formatCurrency(data.dayAverageTicket)}`,
+        tone: "blue",
+      },
+      {
+        title: "Operação",
+        value: `${data.dayDelayedOrders}`,
+        detail: `${activeOrders.length} pedido(s) ativos`,
+        tone: data.dayDelayedOrders > 0 ? "red" : "slate",
+      },
+      {
+        title: "Compras e saídas",
+        value: formatCurrency(data.dayTotalExpenses),
+        detail: `${data.dayExpenses.length} lançamento(s)`,
+        tone: data.dayTotalExpenses > 0 ? "amber" : "slate",
+      },
+      {
+        title: "Upsell",
+        value: formatCurrency(data.upsellRevenue),
+        detail: `${formatNumber(data.upsellQuantity)} item(ns)`,
+        tone: data.upsellRevenue > 0 ? "green" : "slate",
+      },
+    ],
+    [
+      activeOrders.length,
+      data.dayAverageTicket,
+      data.dayDelayedOrders,
+      data.dayEstimatedBalance,
+      data.dayExpenses.length,
+      data.dayTotalExpenses,
+      data.dayTotalOrders,
+      data.dayTotalReceived,
+      data.dayTotalSales,
+      data.upsellQuantity,
+      data.upsellRevenue,
+    ]
+  )
+
+  const filteredOrders = data.dayOrders.filter((order) => {
     const search = searchTerm.trim().toLowerCase()
 
     if (!search) return true
@@ -1106,6 +1855,7 @@ export default function GestaoPage() {
     return [
       order.public_order_number,
       order.customer_name,
+      order.customer_phone,
       getPaymentMethodLabel(order.payment_method),
       getStatusLabel(order.status),
       getPaymentStatusLabel(order),
@@ -1113,6 +1863,157 @@ export default function GestaoPage() {
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(search))
   })
+
+  const paymentTotal = paymentRows.reduce((sum, row) => sum + row.amount, 0)
+  const pendingPixTotal = data.dayOrders
+    .filter(isPendingPix)
+    .reduce((sum, order) => sum + Number(order.total || 0), 0)
+  const cancelledTotal = data.dayOrders
+    .filter((order) => getStatusBucket(order.status) === "cancelled")
+    .reduce((sum, order) => sum + Number(order.total || 0), 0)
+  const upsellRate =
+    data.dayTotalOrders > 0
+      ? Math.round((data.upsellQuantity / data.dayTotalOrders) * 100)
+      : 0
+  const upsellTicket =
+    data.upsellQuantity > 0 ? data.upsellRevenue / data.upsellQuantity : 0
+  const upsellChampion = data.upsellItems[0]?.name || "-"
+  const longestActiveOrder = activeOrders[0] ?? null
+
+  const movementRows = [
+    {
+      label: "Vendas",
+      value: formatCurrency(data.dayTotalSales),
+      tone: "green",
+    },
+    {
+      label: "Entradas manuais",
+      value: formatCurrency(data.dayManualIncome),
+      tone: "green",
+    },
+    {
+      label: "Saídas / Despesas",
+      value: `-${formatCurrency(data.dayTotalExpenses)}`,
+      tone: "red",
+    },
+    {
+      label: "Cancelamentos",
+      value: `-${formatCurrency(cancelledTotal)}`,
+      tone: "red",
+    },
+    {
+      label: "Pix pendentes",
+      value: formatCurrency(pendingPixTotal),
+      tone: "amber",
+    },
+    {
+      label: "Saldo parcial",
+      value: formatCurrency(data.dayEstimatedBalance),
+      tone: data.dayEstimatedBalance >= 0 ? "green" : "red",
+      strong: true,
+    },
+  ]
+
+  const attentionRows = [
+    {
+      title: `${data.dayDelayedOrders} pedido(s) atrasado(s)`,
+      detail: "Precisam de atenção",
+      value: data.dayDelayedOrders,
+      tone: "red",
+      icon: <Timer className="h-4 w-4" />,
+    },
+    {
+      title: `${data.dayPendingPixOrders} Pix aguardando confirmação`,
+      detail: `Total pendente: ${formatCurrency(pendingPixTotal)}`,
+      value: data.dayPendingPixOrders,
+      tone: "amber",
+      icon: <Clock3 className="h-4 w-4" />,
+    },
+    {
+      title: `${data.dayCancelledOrders} pedido(s) cancelado(s)`,
+      detail: `Total cancelado: ${formatCurrency(cancelledTotal)}`,
+      value: data.dayCancelledOrders,
+      tone: "slate",
+      icon: <X className="h-4 w-4" />,
+    },
+    {
+      title: `${data.dayExpenses.length} saída(s) registrada(s)`,
+      detail: `Total: ${formatCurrency(data.dayTotalExpenses)}`,
+      value: data.dayExpenses.length,
+      tone: "blue",
+      icon: <TrendingDown className="h-4 w-4" />,
+    },
+    {
+      title: longestActiveOrder
+        ? `Pedido mais demorado #${
+            longestActiveOrder.public_order_number ||
+            longestActiveOrder.id.slice(0, 6)
+          }`
+        : "Nenhum pedido ativo",
+      detail: longestActiveOrder
+        ? formatMinutes(getOrderAgeMinutes(longestActiveOrder.created_at))
+        : "Operação sem fila ativa",
+      value: oldestActiveAge,
+      tone: oldestActiveAge >= 50 ? "red" : "slate",
+      icon: <ListChecks className="h-4 w-4" />,
+    },
+  ]
+
+  const closingRows = [
+    {
+      label: "Faturamento bruto",
+      value: formatCurrency(data.dayTotalSales),
+      tone: "white",
+    },
+    {
+      label: "Total recebido",
+      value: formatCurrency(data.dayTotalReceived),
+      tone: "green",
+    },
+    {
+      label: "Total pendente",
+      value: formatCurrency(data.dayTotalPending),
+      tone: "amber",
+    },
+    {
+      label: "Total de saídas",
+      value: formatCurrency(data.dayTotalExpenses),
+      tone: "red",
+    },
+  ]
+
+  const quickActions = [
+    {
+      label: "Ver pedidos",
+      href: "/pedidos",
+      icon: <ShoppingCart className="h-4 w-4" />,
+      tone: "blue",
+    },
+    {
+      label: "Clientes do dia",
+      href: "/clientes",
+      icon: <Users className="h-4 w-4" />,
+      tone: "green",
+    },
+    {
+      label: "Relatório financeiro",
+      href: "/financeiro",
+      icon: <FileBarChart className="h-4 w-4" />,
+      tone: "blue",
+    },
+    {
+      label: "Produtos mais vendidos",
+      href: "/crescimento/ranking-produtos",
+      icon: <BarChart3 className="h-4 w-4" />,
+      tone: "amber",
+    },
+    {
+      label: "Fechamento por setor",
+      href: "#fechamento-setor",
+      icon: <ReceiptText className="h-4 w-4" />,
+      tone: "violet",
+    },
+  ]
 
   const openClosingModal = () => {
     setClosingForm({
@@ -1163,18 +2064,18 @@ export default function GestaoPage() {
       if (error) throw error
 
       toast({
-        title: "Caixa fechado",
+        title: "Dia fechado",
         description:
-          "Fechamento salvo. A tela foi zerada para o próximo movimento.",
+          "Fechamento salvo. A gestão foi atualizada para o próximo movimento.",
       })
 
       setIsClosingModalOpen(false)
       await loadGestao()
     } catch (error) {
-      console.error("Erro ao fechar caixa:", error)
+      console.error("Erro ao fechar dia:", error)
 
       toast({
-        title: "Erro ao fechar caixa",
+        title: "Erro ao fechar dia",
         description:
           error instanceof Error
             ? error.message
@@ -1188,24 +2089,387 @@ export default function GestaoPage() {
 
   return (
     <AdminLayout title="Gestão">
+      <div className="space-y-4 text-slate-100">
+        <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">
+              Gestão do dia
+            </h1>
+            <p className="mt-1 text-sm font-medium text-slate-400">
+              {formatDate(today.start)} - caixa aberto desde{" "}
+              {formatTime(data.sessionStartISO)}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex h-11 items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 px-4 text-sm font-medium tabular-nums text-white">
+              {formatDate(today.start)}
+              <CalendarDays className="h-4 w-4 text-slate-400" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void loadGestao()}
+              className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 text-sm font-medium text-white transition hover:border-blue-500/50 hover:bg-slate-800"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Atualizar
+            </button>
+
+            <button
+              type="button"
+              onClick={openClosingModal}
+              disabled={isLoading}
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-orange-600 px-5 text-sm font-semibold text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Fechar dia
+            </button>
+          </div>
+        </section>
+
+        {isLoading ? (
+          <div className="flex min-h-[520px] items-center justify-center rounded-lg border border-slate-800 bg-slate-900/70">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Carregando gestão...
+            </div>
+          </div>
+        ) : (
+          <>
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+              <MetricCard
+                title="Vendas do dia"
+                value={formatCurrency(data.dayTotalSales)}
+                subtitle={`${data.dayTotalOrders} pedido(s) hoje`}
+                tone="blue"
+                icon={<DollarSign className="h-4 w-4" />}
+              />
+
+              <MetricCard
+                title="Pedidos do dia"
+                value={formatNumber(data.dayTotalOrders)}
+                subtitle={`${data.dayPaidOrders} pago(s)`}
+                tone="blue"
+                icon={<ReceiptText className="h-4 w-4" />}
+              />
+
+              <MetricCard
+                title="Clientes atendidos"
+                value={formatNumber(data.dayUniqueCustomers)}
+                subtitle="Clientes únicos"
+                tone="blue"
+                icon={<Users className="h-4 w-4" />}
+              />
+
+              <MetricCard
+                title="Ticket médio"
+                value={formatCurrency(data.dayAverageTicket)}
+                subtitle="Média por pedido"
+                tone="slate"
+                icon={<CreditCard className="h-4 w-4" />}
+              />
+
+              <MetricCard
+                title="Pendentes"
+                value={`${data.dayPendingOrders} pedido(s)`}
+                subtitle={formatCurrency(data.dayTotalPending)}
+                tone={data.dayPendingOrders > 0 ? "amber" : "slate"}
+                icon={<Clock3 className="h-4 w-4" />}
+              />
+
+              <MetricCard
+                title="Saldo parcial"
+                value={formatCurrency(data.dayEstimatedBalance)}
+                subtitle="Recebido - Saídas"
+                tone={data.dayEstimatedBalance >= 0 ? "green" : "red"}
+                icon={<TrendingUp className="h-4 w-4" />}
+              />
+            </section>
+
+            <section className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                Análise diária
+              </p>
+
+              <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr_0.8fr_0.9fr]">
+                <Panel
+                  title="Atividade por horário"
+                  subtitle="Pedidos e vendas ao longo do dia."
+                  action={
+                    peakActivity && peakActivity.orders > 0 ? (
+                      <div className="rounded-md border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-medium tabular-nums text-blue-300">
+                        Pico {peakActivity.hour}: {peakActivity.orders}
+                      </div>
+                    ) : null
+                  }
+                >
+                  <ActivityChart data={data.activityData} />
+                </Panel>
+
+                <Panel title="Formas de pagamento" subtitle="Distribuição recebida.">
+                  <PaymentDonut rows={paymentRows} total={paymentTotal} />
+                </Panel>
+
+                <Panel title="Tempo dos pedidos" subtitle="Controle da fila.">
+                  <div className="divide-y divide-slate-800">
+                    {[
+                      ["Tempo médio ativo", formatMinutes(averageActiveAge), "green"],
+                      [
+                        "Tempo mais antigo",
+                        formatMinutes(oldestActiveAge),
+                        oldestActiveAge >= 50 ? "red" : "green",
+                      ],
+                      [
+                        "Pedidos atrasados",
+                        `${data.dayDelayedOrders}`,
+                        data.dayDelayedOrders > 0 ? "amber" : "green",
+                      ],
+                      [
+                        "Pedido mais demorado",
+                        longestActiveOrder
+                          ? `#${
+                              longestActiveOrder.public_order_number ||
+                              longestActiveOrder.id.slice(0, 6)
+                            }`
+                          : "-",
+                        oldestActiveAge >= 50 ? "red" : "slate",
+                      ],
+                    ].map(([label, value, tone]) => (
+                      <div
+                        key={label}
+                        className="flex items-center justify-between gap-3 py-3 text-sm"
+                      >
+                        <span className="text-slate-400">{label}</span>
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            tone === "green" && "text-emerald-300",
+                            tone === "amber" && "text-orange-300",
+                            tone === "red" && "text-red-300",
+                            tone === "slate" && "text-white"
+                          )}
+                        >
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+
+                <Panel title="Performance de upsell" subtitle="Adicionais e combos.">
+                  <div className="divide-y divide-slate-800">
+                    {[
+                      ["Pedidos com upsell", `${data.upsellQuantity} (${upsellRate}%)`],
+                      ["Faturamento com upsell", formatCurrency(data.upsellRevenue)],
+                      ["Ticket médio do upsell", formatCurrency(upsellTicket)],
+                      ["Item campeão", upsellChampion],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="flex items-center justify-between gap-3 py-3 text-sm"
+                      >
+                        <span className="text-slate-400">{label}</span>
+                        <span className="text-right font-semibold tabular-nums text-emerald-300">
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            </section>
+
+            <section className="grid gap-3 xl:grid-cols-[1.1fr_1.15fr_1fr]">
+              <Panel title="Movimentação do dia">
+                <div className="overflow-hidden rounded-lg border border-slate-800">
+                  <div className="grid grid-cols-[1fr_auto] border-b border-slate-800 bg-slate-950/40 px-3 py-2 text-xs font-medium text-slate-400">
+                    <span>Descrição</span>
+                    <span>Valor</span>
+                  </div>
+
+                  <div className="divide-y divide-slate-800">
+                    {movementRows.map((row) => (
+                      <div
+                        key={row.label}
+                        className={cn(
+                          "grid grid-cols-[1fr_auto] px-3 py-2.5 text-sm",
+                          row.strong && "bg-slate-950/35"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "text-slate-300",
+                            row.strong && "font-semibold text-white"
+                          )}
+                        >
+                          {row.label}
+                        </span>
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            row.tone === "green" && "text-emerald-300",
+                            row.tone === "red" && "text-red-300",
+                            row.tone === "amber" && "text-orange-300"
+                          )}
+                        >
+                          {row.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Panel>
+
+              <Panel title="Atenções do dia">
+                <div className="divide-y divide-slate-800 rounded-lg border border-slate-800">
+                  {attentionRows.map((item) => (
+                    <div
+                      key={item.title}
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-3 transition hover:bg-slate-800/50"
+                    >
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-md",
+                          item.tone === "red" && "bg-red-500/15 text-red-300",
+                          item.tone === "amber" &&
+                            "bg-orange-500/15 text-orange-300",
+                          item.tone === "blue" && "bg-blue-500/15 text-blue-300",
+                          item.tone === "slate" &&
+                            "bg-slate-700/70 text-slate-300"
+                        )}
+                      >
+                        {item.icon}
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white">
+                          {item.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-slate-400">
+                          {item.detail}
+                        </p>
+                      </div>
+
+                      <div
+                        className={cn(
+                          "flex h-7 min-w-7 items-center justify-center rounded-md px-2 text-sm font-semibold tabular-nums",
+                          item.tone === "red" && "bg-red-500/20 text-red-200",
+                          item.tone === "amber" &&
+                            "bg-orange-500/20 text-orange-200",
+                          item.tone === "blue" && "bg-blue-500/20 text-blue-200",
+                          item.tone === "slate" &&
+                            "bg-slate-700 text-slate-200"
+                        )}
+                      >
+                        {typeof item.value === "number"
+                          ? formatNumber(item.value)
+                          : item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+
+              <Panel title="Resumo para fechamento" id="fechamento-setor">
+                <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
+                  <div className="divide-y divide-slate-800">
+                    {closingRows.map((row) => (
+                      <div
+                        key={row.label}
+                        className="flex items-center justify-between gap-3 py-3 text-sm"
+                      >
+                        <span className="text-slate-400">{row.label}</span>
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            row.tone === "white" && "text-white",
+                            row.tone === "green" && "text-emerald-300",
+                            row.tone === "amber" && "text-orange-300",
+                            row.tone === "red" && "text-red-300"
+                          )}
+                        >
+                          {row.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium text-white">
+                      Saldo para fechamento
+                    </span>
+                    <span className="text-2xl font-semibold tabular-nums text-emerald-300">
+                      {formatCurrency(data.dayEstimatedBalance)}
+                    </span>
+                  </div>
+                </div>
+              </Panel>
+            </section>
+
+            <Panel title="Atalhos rápidos">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {quickActions.map((action) => (
+                  <Link
+                    key={action.label}
+                    href={action.href}
+                    className="group flex h-12 items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-4 text-sm font-medium text-slate-200 transition hover:-translate-y-0.5 hover:border-blue-500/40 hover:bg-slate-800"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-md transition group-hover:scale-105",
+                        action.tone === "blue" && "bg-blue-500/15 text-blue-300",
+                        action.tone === "green" &&
+                          "bg-emerald-500/15 text-emerald-300",
+                        action.tone === "amber" &&
+                          "bg-orange-500/15 text-orange-300",
+                        action.tone === "violet" &&
+                          "bg-violet-500/15 text-violet-300"
+                      )}
+                    >
+                      {action.icon}
+                    </span>
+                    <span className="min-w-0 truncate">{action.label}</span>
+                    <ArrowUpRight className="ml-auto h-4 w-4 text-slate-600 opacity-0 transition group-hover:text-slate-300 group-hover:opacity-100" />
+                  </Link>
+                ))}
+
+                <button
+                  type="button"
+                  className="group flex h-12 items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-4 text-sm font-medium text-slate-200 transition hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-800"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-700/70 text-slate-300 transition group-hover:scale-105">
+                    <Printer className="h-4 w-4" />
+                  </span>
+                  <span>Imprimir resumo</span>
+                </button>
+              </div>
+            </Panel>
+          </>
+        )}
+      </div>
+
+      <div className="hidden">
       <div className="space-y-4">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-blue-600">
-                Caixa do dia
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-blue-600">
+                Gestão diária
               </p>
-              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                Gestão / Caixa
+              <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
+                Caixa, pedidos e movimentação
               </h1>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
+              <p className="mt-1 text-sm font-medium text-slate-500">
                 {formatDate(today.start)} • caixa aberto desde{" "}
                 {formatTime(data.sessionStartISO)}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 text-xs font-black text-emerald-700">
+              <div className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-100 bg-emerald-50 px-3 text-xs font-medium text-emerald-700">
                 <CheckCircle2 className="h-4 w-4" />
                 Caixa aberto
               </div>
@@ -1213,7 +2477,7 @@ export default function GestaoPage() {
               <button
                 type="button"
                 onClick={() => void loadGestao()}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 <RefreshCcw className="h-4 w-4" />
                 Atualizar
@@ -1223,230 +2487,354 @@ export default function GestaoPage() {
                 type="button"
                 onClick={openClosingModal}
                 disabled={isLoading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-4 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <ShieldCheck className="h-4 w-4" />
-                Fechar caixa
+                Fechar dia
               </button>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                Último fechamento
-              </p>
-              <p className="mt-1 text-sm font-black text-slate-950">
-                {data.lastClosingOverall
+          <div className="mt-4 grid gap-2 md:grid-cols-4">
+            <SmallTile
+              label="Último fechamento"
+              value={
+                data.lastClosingOverall
                   ? formatDateTime(getClosingClosedAt(data.lastClosingOverall))
-                  : "Nenhum"}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                Fechamentos hoje
-              </p>
-              <p className="mt-1 text-sm font-black text-slate-950">
-                {data.closingsToday.length}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                Já fechado hoje
-              </p>
-              <p className="mt-1 text-sm font-black text-emerald-700">
-                {formatCurrency(data.todayClosedReceived)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                Saldo fechado hoje
-              </p>
-              <p className="mt-1 text-sm font-black text-slate-950">
-                {formatCurrency(data.todayClosedBalance)}
-              </p>
-            </div>
+                  : "Nenhum"
+              }
+            />
+            <SmallTile
+              label="Fechamentos hoje"
+              value={`${data.closingsToday.length}`}
+            />
+            <SmallTile
+              label="Já fechado hoje"
+              value={formatCurrency(data.todayClosedReceived)}
+              tone="green"
+            />
+            <SmallTile
+              label="Saldo fechado"
+              value={formatCurrency(data.todayClosedBalance)}
+            />
           </div>
         </section>
 
         {isLoading ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex min-h-[420px] items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Carregando caixa...
+              Carregando gestão...
             </div>
           </div>
         ) : (
           <>
-            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
               <MetricCard
-                title="Vendas abertas"
-                value={formatCurrency(data.totalSales)}
-                subtitle={`${data.totalOrders} pedido(s) desde ${formatTime(data.sessionStartISO)}`}
+                title="Vendas"
+                value={formatCurrency(data.dayTotalSales)}
+                subtitle={`${data.dayTotalOrders} pedido(s) hoje`}
                 tone="blue"
-                icon={<ReceiptText className="h-5 w-5" />}
+                icon={<ReceiptText className="h-4 w-4" />}
               />
 
               <MetricCard
-                title="Recebido aberto"
-                value={formatCurrency(data.totalReceived)}
-                subtitle={`${data.paidOrders} pedido(s) pagos`}
+                title="Recebido"
+                value={formatCurrency(data.dayTotalReceived)}
+                subtitle={`${data.dayPaidOrders} pedido(s) pagos`}
                 tone="green"
-                icon={<Wallet className="h-5 w-5" />}
+                icon={<Wallet className="h-4 w-4" />}
               />
 
               <MetricCard
                 title="Pendente"
-                value={formatCurrency(data.totalPending)}
-                subtitle={`${data.pendingOrders} pedido(s) a receber`}
-                tone={data.totalPending > 0 ? "amber" : "slate"}
-                icon={<Clock3 className="h-5 w-5" />}
+                value={formatCurrency(data.dayTotalPending)}
+                subtitle={`${data.dayPendingOrders} a receber`}
+                tone={data.dayTotalPending > 0 ? "amber" : "slate"}
+                icon={<Clock3 className="h-4 w-4" />}
               />
 
               <MetricCard
-                title="Saídas abertas"
-                value={formatCurrency(data.totalExpenses)}
-                subtitle="Despesas após último fechamento"
-                tone={data.totalExpenses > 0 ? "red" : "slate"}
-                icon={<TrendingDown className="h-5 w-5" />}
+                title="Clientes"
+                value={formatNumber(data.dayUniqueCustomers)}
+                subtitle={`Ticket ${formatCurrency(data.dayAverageTicket)}`}
+                tone="slate"
+                icon={<Users className="h-4 w-4" />}
               />
 
               <MetricCard
-                title="Saldo aberto"
-                value={formatCurrency(data.estimatedBalance)}
+                title="Saídas"
+                value={formatCurrency(data.dayTotalExpenses)}
+                subtitle={`${data.dayExpenses.length} lançamento(s)`}
+                tone={data.dayTotalExpenses > 0 ? "red" : "slate"}
+                icon={<TrendingDown className="h-4 w-4" />}
+              />
+
+              <MetricCard
+                title="Saldo"
+                value={formatCurrency(data.dayEstimatedBalance)}
                 subtitle="Recebido - saídas"
-                tone={data.estimatedBalance >= 0 ? "green" : "red"}
-                icon={<DollarSign className="h-5 w-5" />}
+                tone={data.dayEstimatedBalance >= 0 ? "green" : "red"}
+                icon={<DollarSign className="h-4 w-4" />}
               />
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
+            <section className="grid gap-4 xl:grid-cols-[1.4fr_0.8fr]">
               <Panel
-                title="Recebimentos do caixa aberto"
-                subtitle="Valores que ainda não foram fechados."
+                title="Atividade do dia"
+                subtitle="Pedidos por horário com valor vendido no ponto."
+                action={
+                  peakActivity && peakActivity.orders > 0 ? (
+                    <div className="rounded-md bg-blue-50 px-3 py-2 text-xs font-medium tabular-nums text-blue-700">
+                      Pico {peakActivity.hour}: {peakActivity.orders}
+                    </div>
+                  ) : null
+                }
               >
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-center gap-2 text-sm font-black text-slate-700">
-                      <Zap className="h-4 w-4 text-blue-600" />
-                      Pix
-                    </div>
-                    <p className="mt-2 text-xl font-black text-slate-950">
-                      {formatCurrency(data.paymentBreakdown.pix)}
-                    </p>
-                  </div>
+                <ActivityChart data={data.activityData} />
+              </Panel>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-center gap-2 text-sm font-black text-slate-700">
-                      <Banknote className="h-4 w-4 text-emerald-600" />
-                      Dinheiro
-                    </div>
-                    <p className="mt-2 text-xl font-black text-slate-950">
-                      {formatCurrency(data.paymentBreakdown.cash)}
-                    </p>
-                  </div>
+              <Panel
+                title="Tipo de pagamento"
+                subtitle="Recebimentos do dia por forma."
+              >
+                <div className="space-y-3">
+                  {paymentRows.map((payment) => (
+                    <div
+                      key={payment.key}
+                      className="group rounded-md px-2 py-1.5 transition hover:bg-slate-50"
+                    >
+                      <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                        <span className="font-medium text-slate-700 transition-colors group-hover:text-slate-950">
+                          {payment.label}
+                        </span>
+                        <span className="font-semibold tabular-nums text-slate-950 transition-colors group-hover:text-blue-700">
+                          {formatCurrency(payment.amount)}
+                        </span>
+                      </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-center gap-2 text-sm font-black text-slate-700">
-                      <CreditCard className="h-4 w-4 text-orange-600" />
-                      Cartão
+                      <div className="relative h-2 overflow-visible rounded-full bg-slate-100">
+                        <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] right-0 z-20 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium tabular-nums text-slate-600 opacity-0 shadow-lg transition duration-150 group-hover:opacity-100">
+                          {payment.percent}% - {formatCurrency(payment.amount)}
+                        </div>
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-300 ease-out group-hover:scale-y-150 group-hover:shadow-md",
+                            payment.key === "pix" &&
+                              "bg-blue-600 group-hover:bg-blue-500",
+                            payment.key === "cash" &&
+                              "bg-emerald-600 group-hover:bg-emerald-500",
+                            payment.key === "card" &&
+                              "bg-amber-500 group-hover:bg-amber-400",
+                            payment.key === "other" &&
+                              "bg-slate-500 group-hover:bg-slate-600"
+                          )}
+                          style={{ width: `${payment.percent}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[11px] font-medium text-slate-400 transition-colors group-hover:text-slate-600">
+                        {payment.percent}% do recebido
+                      </p>
                     </div>
-                    <p className="mt-2 text-xl font-black text-slate-950">
-                      {formatCurrency(data.paymentBreakdown.card)}
-                    </p>
-                  </div>
+                  ))}
+                </div>
+              </Panel>
+            </section>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-center gap-2 text-sm font-black text-slate-700">
-                      <Wallet className="h-4 w-4 text-slate-600" />
-                      Outros
-                    </div>
-                    <p className="mt-2 text-xl font-black text-slate-950">
-                      {formatCurrency(data.paymentBreakdown.other)}
-                    </p>
-                  </div>
+            <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <Panel
+                title="Tempo dos pedidos"
+                subtitle="Controle dos pedidos em andamento."
+              >
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <SmallTile
+                    label="Ativos"
+                    value={`${activeOrders.length}`}
+                    tone={activeOrders.length > 0 ? "blue" : "slate"}
+                  />
+                  <SmallTile
+                    label="Média ativa"
+                    value={formatMinutes(averageActiveAge)}
+                    tone={averageActiveAge >= 30 ? "amber" : "slate"}
+                  />
+                  <SmallTile
+                    label="Mais antigo"
+                    value={formatMinutes(oldestActiveAge)}
+                    tone={oldestActiveAge >= 50 ? "red" : "slate"}
+                  />
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {activeOrders.length === 0 ? (
+                    <EmptyState message="Nenhum pedido em andamento." />
+                  ) : (
+                    activeOrders.slice(0, 5).map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium tabular-nums text-slate-950">
+                            #{order.public_order_number || order.id.slice(0, 6)}
+                          </p>
+                          <p className="text-xs font-medium text-slate-500">
+                            {getStatusLabel(order.status)} • {formatTime(order.created_at)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs font-medium tabular-nums text-slate-700">
+                          <Timer className="h-4 w-4 text-slate-400" />
+                          {formatMinutes(getOrderAgeMinutes(order.created_at))}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </Panel>
 
               <Panel
-                title="Pendências"
-                subtitle="Coisas que podem travar o fechamento."
+                title="Setores do fechamento"
+                subtitle="Resumo separado para cada área do dia."
               >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-4 text-orange-700">
-                    <div>
-                      <p className="text-sm font-black">Pix pendentes</p>
-                      <p className="text-xs font-semibold opacity-80">
-                        Aguardando confirmação
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  {sectorSummary.map((sector) => (
+                    <div
+                      key={sector.title}
+                      className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                    >
+                      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                        {sector.title}
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-1 truncate text-sm font-semibold tabular-nums",
+                          sector.tone === "green" && "text-emerald-700",
+                          sector.tone === "red" && "text-red-700",
+                          sector.tone === "amber" && "text-amber-700",
+                          sector.tone === "blue" && "text-blue-700",
+                          sector.tone === "slate" && "text-slate-950"
+                        )}
+                      >
+                        {sector.value}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-500">
+                        {sector.detail}
                       </p>
                     </div>
-                    <p className="text-2xl font-black">{data.pendingPixOrders}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-700">
-                    <div>
-                      <p className="text-sm font-black">Pedidos atrasados</p>
-                      <p className="text-xs font-semibold opacity-80">
-                        Precisam de atenção
-                      </p>
-                    </div>
-                    <p className="text-2xl font-black">{data.delayedOrders}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700">
-                    <div>
-                      <p className="text-sm font-black">Cancelados</p>
-                      <p className="text-xs font-semibold opacity-80">
-                        Fora do caixa
-                      </p>
-                    </div>
-                    <p className="text-2xl font-black">{data.cancelledOrders}</p>
-                  </div>
+                  ))}
                 </div>
+              </Panel>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-2">
+              <Panel
+                title="Itens vendidos"
+                subtitle="Ranking de produtos movimentados hoje."
+              >
+                {data.topItems.length === 0 ? (
+                  <EmptyState message="Nenhum item vendido hoje." />
+                ) : (
+                  <div className="space-y-2">
+                    {data.topItems.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-[32px_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-xs font-medium tabular-nums text-slate-500 ring-1 ring-slate-200">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-950">
+                            {item.name}
+                          </p>
+                          <p className="text-xs font-medium text-slate-500">
+                            {formatNumber(item.quantity)} un.
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold tabular-nums text-slate-950">
+                          {formatCurrency(item.revenue)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Panel>
+
+              <Panel
+                title="Upsell"
+                subtitle="Itens vendidos como adicional, combo ou regra de upsell."
+                action={
+                  <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-medium tabular-nums text-emerald-700">
+                    {formatCurrency(data.upsellRevenue)}
+                  </div>
+                }
+              >
+                {data.upsellItems.length === 0 ? (
+                  <EmptyState message="Nenhum item de upsell vendido hoje." />
+                ) : (
+                  <div className="space-y-2">
+                    {data.upsellItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-950">
+                            {item.name}
+                          </p>
+                          <p className="text-xs font-medium text-emerald-700">
+                            {formatNumber(item.quantity)} item(ns)
+                          </p>
+                        </div>
+
+                        <p className="shrink-0 text-sm font-semibold tabular-nums text-emerald-700">
+                          {formatCurrency(item.revenue)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Panel>
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
               <Panel
                 title="Fechamentos de hoje"
-                subtitle="Entradas já consolidadas para o resumo."
+                subtitle="Caixas já consolidados no dia."
               >
                 {data.closingsToday.length === 0 ? (
-                  <EmptyState message="Nenhum caixa fechado hoje." />
+                  <EmptyState message="Nenhum fechamento registrado hoje." />
                 ) : (
                   <div className="space-y-2">
                     {data.closingsToday.map((closing, index) => (
                       <div
                         key={String(readString(closing, ["id"]) || index)}
-                        className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr]"
+                        className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr]"
                       >
                         <div>
-                          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
                             Período
                           </p>
-                          <p className="text-sm font-black text-slate-950">
+                          <p className="text-sm font-semibold tabular-nums text-slate-950">
                             {formatTime(getClosingOpenedAt(closing))} até{" "}
                             {formatTime(getClosingClosedAt(closing))}
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
                             Entrada
                           </p>
-                          <p className="text-sm font-black text-emerald-700">
+                          <p className="text-sm font-semibold tabular-nums text-emerald-700">
                             {formatCurrency(getClosingReceived(closing))}
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
                             Tipo
                           </p>
-                          <p className="text-sm font-black text-slate-950">
+                          <p className="text-sm font-semibold text-slate-950">
                             {getClosingType(closing)}
                           </p>
                         </div>
@@ -1457,28 +2845,28 @@ export default function GestaoPage() {
               </Panel>
 
               <Panel
-                title="Saídas do caixa aberto"
-                subtitle="Despesas pagas depois do último fechamento."
+                title="Saídas e compras"
+                subtitle="Despesas, compras, equipe, entregadores, perdas e lançamentos manuais."
               >
-                {data.expenses.length === 0 ? (
-                  <EmptyState message="Nenhuma saída neste caixa aberto." />
+                {data.dayExpenses.length === 0 ? (
+                  <EmptyState message="Nenhuma saída registrada hoje." />
                 ) : (
                   <div className="space-y-2">
-                    {data.expenses.slice(0, 8).map((expense) => (
+                    {data.dayExpenses.slice(0, 8).map((expense) => (
                       <div
                         key={`${expense.source}-${expense.id}`}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3"
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-slate-950">
+                          <p className="truncate text-sm font-medium text-slate-950">
                             {expense.title}
                           </p>
-                          <p className="text-xs font-semibold text-slate-500">
+                          <p className="text-xs font-medium text-slate-500">
                             {expense.source} • {formatTime(expense.paidAt)}
                           </p>
                         </div>
 
-                        <p className="shrink-0 text-sm font-black text-red-600">
+                        <p className="shrink-0 text-sm font-semibold tabular-nums text-red-600">
                           -{formatCurrency(expense.amount)}
                         </p>
                       </div>
@@ -1489,8 +2877,8 @@ export default function GestaoPage() {
             </section>
 
             <Panel
-              title="Pedidos do caixa aberto"
-              subtitle="Pedidos desde o último fechamento."
+              title="Pedidos do dia"
+              subtitle="Pedidos usados na análise diária."
               action={
                 <div className="relative w-full sm:w-72">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -1498,16 +2886,16 @@ export default function GestaoPage() {
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder="Buscar pedido..."
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   />
                 </div>
               }
             >
               {filteredOrders.length === 0 ? (
-                <EmptyState message="Nenhum pedido neste caixa aberto. Se você acabou de fechar, está certo: o caixa zerou." />
+                <EmptyState message="Nenhum pedido encontrado." />
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-slate-200">
-                  <div className="hidden grid-cols-[120px_1fr_130px_130px_130px_110px] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-slate-400 lg:grid">
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  <div className="hidden grid-cols-[120px_1fr_130px_130px_130px_110px] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400 lg:grid">
                     <span>Pedido</span>
                     <span>Cliente</span>
                     <span>Pagamento</span>
@@ -1523,21 +2911,21 @@ export default function GestaoPage() {
                         className="grid gap-3 px-3 py-3 text-sm lg:grid-cols-[120px_1fr_130px_130px_130px_110px] lg:items-center"
                       >
                         <div>
-                          <p className="font-black text-slate-950">
+                          <p className="font-medium tabular-nums text-slate-950">
                             #{order.public_order_number || order.id.slice(0, 6)}
                           </p>
-                          <p className="text-xs font-semibold text-slate-500">
+                          <p className="text-xs font-medium text-slate-500">
                             {formatTime(order.created_at)}
                           </p>
                         </div>
 
                         <div className="min-w-0">
-                          <p className="truncate font-bold text-slate-800">
+                          <p className="truncate font-medium text-slate-800">
                             {order.customer_name || "Cliente não informado"}
                           </p>
                         </div>
 
-                        <div className="font-bold text-slate-700">
+                        <div className="font-medium text-slate-700">
                           {getPaymentMethodLabel(order.payment_method)}
                         </div>
 
@@ -1549,7 +2937,7 @@ export default function GestaoPage() {
                           <PaymentBadge order={order} />
                         </div>
 
-                        <div className="font-black text-slate-950 lg:text-right">
+                        <div className="font-semibold tabular-nums text-slate-950 lg:text-right">
                           {formatCurrency(Number(order.total || 0))}
                         </div>
                       </div>
@@ -1561,65 +2949,68 @@ export default function GestaoPage() {
           </>
         )}
       </div>
+      </div>
 
       {isClosingModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-4">
               <div>
-                <h2 className="text-xl font-black text-slate-950">
-                  Fechar caixa
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Fechar dia
                 </h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Fechando período de {formatTime(data.sessionStartISO)} até agora.
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Período aberto de {formatTime(data.sessionStartISO)} até agora.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsClosingModalOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+                className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="space-y-4 p-4">
-              <div className="grid gap-3 sm:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Vendas
-                  </p>
-                  <p className="mt-1 text-lg font-black text-slate-950">
-                    {formatCurrency(data.totalSales)}
-                  </p>
-                </div>
+              <div className="grid gap-2 sm:grid-cols-4">
+                <SmallTile label="Vendas abertas" value={formatCurrency(data.totalSales)} />
+                <SmallTile
+                  label="Recebido aberto"
+                  value={formatCurrency(data.totalReceived)}
+                  tone="green"
+                />
+                <SmallTile
+                  label="Saídas abertas"
+                  value={formatCurrency(data.totalExpenses)}
+                  tone={data.totalExpenses > 0 ? "red" : "slate"}
+                />
+                <SmallTile
+                  label="Saldo aberto"
+                  value={formatCurrency(data.estimatedBalance)}
+                  tone={data.estimatedBalance >= 0 ? "green" : "red"}
+                />
+              </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Recebido
-                  </p>
-                  <p className="mt-1 text-lg font-black text-emerald-700">
-                    {formatCurrency(data.totalReceived)}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Saídas
-                  </p>
-                  <p className="mt-1 text-lg font-black text-red-700">
-                    {formatCurrency(data.totalExpenses)}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Saldo
-                  </p>
-                  <p className="mt-1 text-lg font-black text-slate-950">
-                    {formatCurrency(data.estimatedBalance)}
-                  </p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                  Divisão por setor
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  {sectorSummary.map((sector) => (
+                    <div key={sector.title} className="rounded-md bg-white p-3">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                        {sector.title}
+                      </p>
+                      <p className="mt-1 truncate text-sm font-semibold tabular-nums text-slate-950">
+                        {sector.value}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-500">
+                        {sector.detail}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1661,46 +3052,27 @@ export default function GestaoPage() {
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Total conferido
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
-                    {formatCurrency(countedReceived)}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Diferença
-                  </p>
-                  <p
-                    className={cn(
-                      "mt-1 text-2xl font-black",
-                      receivedDifference === 0
-                        ? "text-emerald-700"
-                        : receivedDifference > 0
-                          ? "text-blue-700"
-                          : "text-red-700"
-                    )}
-                  >
-                    {formatCurrency(receivedDifference)}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Saldo final
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
-                    {formatCurrency(countedBalance)}
-                  </p>
-                </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <SmallTile
+                  label="Total conferido"
+                  value={formatCurrency(countedReceived)}
+                />
+                <SmallTile
+                  label="Diferença"
+                  value={formatCurrency(receivedDifference)}
+                  tone={
+                    receivedDifference === 0
+                      ? "green"
+                      : receivedDifference > 0
+                        ? "blue"
+                        : "red"
+                  }
+                />
+                <SmallTile label="Saldo final" value={formatCurrency(countedBalance)} />
               </div>
 
               <label className="block">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">
                   Observação
                 </span>
                 <textarea
@@ -1712,13 +3084,13 @@ export default function GestaoPage() {
                     }))
                   }
                   rows={3}
-                  placeholder="Ex: diferença no dinheiro, maquininha pendente, caixa conferido por..."
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  placeholder="Diferença, conferência ou observação interna"
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </label>
 
               {Math.abs(receivedDifference) > 0 && (
-                <div className="flex gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-4 text-sm font-semibold leading-6 text-orange-800">
+                <div className="flex gap-3 rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   Existe diferença entre o valor esperado e o valor conferido.
                   Se estiver correto, salve com observação.
@@ -1730,7 +3102,7 @@ export default function GestaoPage() {
               <button
                 type="button"
                 onClick={() => setIsClosingModalOpen(false)}
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Cancelar
               </button>
@@ -1739,7 +3111,7 @@ export default function GestaoPage() {
                 type="button"
                 onClick={() => void handleSaveClosing()}
                 disabled={isClosing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isClosing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

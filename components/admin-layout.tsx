@@ -120,6 +120,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     title ||
     breadcrumbMap[pathname] ||
     pathname.replace("/", "").charAt(0).toUpperCase() + pathname.slice(2)
+  const isGestaoDashboard = pathname === "/gestao"
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => !prev)
@@ -298,7 +299,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div
+      className={cn(
+        "min-h-screen",
+        isGestaoDashboard ? "bg-slate-950" : "bg-slate-50",
+      )}
+    >
       <div className="hidden md:block">
         <AdminSidebar
           isCollapsed={isCollapsed}
@@ -326,25 +332,48 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
       <div
         className={cn(
-          "min-h-screen transition-all duration-300",
-          "md:ml-64",
-          isCollapsed && "md:ml-[72px]",
+          "min-h-screen transition-all duration-300 md:ml-64 md:w-[calc(100%-16rem)]",
+          isCollapsed && "md:ml-[72px] md:w-[calc(100%-72px)]",
         )}
       >
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+        <header
+          className={cn(
+            "sticky top-0 z-30 border-b backdrop-blur-xl",
+            isGestaoDashboard
+              ? "border-slate-800 bg-slate-950/95"
+              : "border-slate-200 bg-white/95",
+          )}
+        >
           <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-700 transition hover:border-blue-200 hover:bg-blue-50 md:hidden"
+                  className={cn(
+                    "inline-flex h-10 w-10 items-center justify-center rounded-xl border transition md:hidden",
+                    isGestaoDashboard
+                      ? "border-slate-700 bg-slate-900 text-slate-200 hover:border-blue-500/40 hover:bg-slate-800"
+                      : "border-slate-200 bg-white text-blue-700 hover:border-blue-200 hover:bg-blue-50",
+                  )}
                 aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="hidden items-center gap-4 sm:flex">
-                <div className="flex h-11 items-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3 shadow-sm">
+              <div
+                className={cn(
+                  "hidden items-center gap-4 sm:flex",
+                  isGestaoDashboard && "sm:hidden",
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex h-11 items-center overflow-hidden rounded-xl border px-3 shadow-sm",
+                    isGestaoDashboard
+                      ? "border-slate-800 bg-slate-900"
+                      : "border-slate-200 bg-white",
+                  )}
+                >
                   {!brandLogoFailed ? (
                     <img
                       src={CLICKFOOD_LOGO_URL}
@@ -359,26 +388,51 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   )}
                 </div>
 
-                <div className="hidden h-7 w-px bg-slate-200 lg:block" />
+                <div
+                  className={cn(
+                    "hidden h-7 w-px lg:block",
+                    isGestaoDashboard ? "bg-slate-800" : "bg-slate-200",
+                  )}
+                />
 
                 <div className="hidden min-w-0 items-center gap-2 lg:flex">
                   <Link
                     href="/gestao"
-                    className="text-sm font-medium text-slate-500 transition hover:text-blue-700"
+                    className={cn(
+                      "text-sm font-medium transition",
+                      isGestaoDashboard
+                        ? "text-slate-500 hover:text-slate-200"
+                        : "text-slate-500 hover:text-blue-700",
+                    )}
                   >
                     Gestão
                   </Link>
 
-                  <ChevronRight className="h-4 w-4 text-slate-300" />
+                  <ChevronRight
+                    className={cn(
+                      "h-4 w-4",
+                      isGestaoDashboard ? "text-slate-700" : "text-slate-300",
+                    )}
+                  />
 
-                  <span className="truncate text-sm font-bold text-slate-900">
+                  <span
+                    className={cn(
+                      "truncate text-sm font-bold",
+                      isGestaoDashboard ? "text-white" : "text-slate-900",
+                    )}
+                  >
                     {currentPage}
                   </span>
                 </div>
               </div>
 
               <div className="min-w-0 sm:hidden">
-                <p className="truncate text-base font-bold text-slate-900">
+                <p
+                  className={cn(
+                    "truncate text-base font-bold",
+                    isGestaoDashboard ? "text-white" : "text-slate-900",
+                  )}
+                >
                   {currentPage}
                 </p>
               </div>
@@ -389,7 +443,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <button
                   type="button"
                   onClick={handleEnableAlerts}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100"
+                  className={cn(
+                    "inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-bold transition",
+                    isGestaoDashboard
+                      ? "border-orange-500/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/15"
+                      : "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100",
+                  )}
                 >
                   <Volume2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Ativar alertas</span>
@@ -402,14 +461,24 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   onClick={() => {
                     setProfileOpen((prev) => !prev)
                   }}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 transition hover:border-blue-200 hover:bg-blue-50"
+                  className={cn(
+                    "inline-flex h-10 items-center gap-2 rounded-xl border px-2 transition",
+                    isGestaoDashboard
+                      ? "border-slate-800 bg-slate-900 hover:border-blue-500/40 hover:bg-slate-800"
+                      : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50",
+                  )}
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
                     {userInitials}
                   </div>
 
                   <div className="hidden text-left md:block">
-                    <p className="max-w-[140px] truncate text-sm font-bold leading-none text-slate-800">
+                    <p
+                      className={cn(
+                        "max-w-[140px] truncate text-sm font-bold leading-none",
+                        isGestaoDashboard ? "text-white" : "text-slate-800",
+                      )}
+                    >
                       {userName}
                     </p>
 
@@ -475,8 +544,15 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="p-4 md:p-6">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        <main className={cn("p-4 md:p-6", isGestaoDashboard && "bg-slate-950")}>
+          <div
+            className={cn(
+              "mx-auto w-full",
+              isGestaoDashboard ? "max-w-[1500px]" : "max-w-7xl",
+            )}
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

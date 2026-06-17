@@ -664,6 +664,21 @@ function getPromotionLabel(discount: number) {
   return `${Math.round(discount)}% OFF`
 }
 
+function MenuImagePlaceholder({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-full bg-white text-blue-500 shadow-sm ring-1 ring-blue-100",
+          compact ? "h-10 w-10" : "h-14 w-14"
+        )}
+      >
+        <Utensils className={compact ? "h-5 w-5" : "h-7 w-7"} />
+      </div>
+    </div>
+  )
+}
+
 function FeaturedOfferCard({
   product,
   categoryId,
@@ -679,7 +694,6 @@ function FeaturedOfferCard({
 }) {
   const [isAdding, setIsAdding] = useState(false)
   const { discount, originalPrice } = getProductPromotion(product)
-  const formattedDescription = formatMenuProductDescription(product.description)
 
   const handleQuickAdd = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
@@ -714,9 +728,9 @@ function FeaturedOfferCard({
       tabIndex={0}
       onClick={handleOpenProduct}
       onKeyDown={handleKeyDown}
-      className="group grid min-w-[282px] max-w-[282px] cursor-pointer grid-cols-[102px_1fr] gap-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-2.5 text-left shadow-sm transition-colors hover:border-blue-200 active:scale-[0.99]"
+      className="group min-w-[132px] max-w-[132px] cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white p-2 text-left shadow-sm transition-colors hover:border-blue-200 active:scale-[0.99]"
     >
-      <div className="relative h-[102px] w-[102px] overflow-hidden rounded-lg bg-gray-100">
+      <div className="relative h-[96px] overflow-hidden rounded-lg bg-gray-100">
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
@@ -724,63 +738,53 @@ function FeaturedOfferCard({
             fill
             loading="lazy"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="102px"
+            sizes="132px"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gray-50">
-            <Utensils className="h-8 w-8 text-gray-300" />
-          </div>
+          <MenuImagePlaceholder compact />
         )}
 
-        {discount > 0 && (
-          <div className="absolute left-1.5 top-1.5 rounded-md bg-white px-1.5 py-1 text-[9px] font-black text-emerald-600 shadow-sm ring-1 ring-emerald-100">
-            -{getPromotionLabel(discount)}
-          </div>
-        )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-1.5 pt-7">
+          <span className="inline-flex rounded-md bg-white/95 px-1.5 py-0.5 text-[9px] font-black text-blue-700 shadow-sm">
+            {discount > 0 ? getPromotionLabel(discount) : "Destaque"}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleQuickAdd}
+          className={cn(
+            "absolute right-1.5 top-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition-all",
+            isAdding ? "scale-105 bg-emerald-500" : "active:scale-95"
+          )}
+          style={isAdding ? undefined : { backgroundColor: accentColor }}
+          aria-label={`Adicionar ${product.name}`}
+        >
+          {isAdding ? (
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          ) : (
+            <Plus className="h-4 w-4" strokeWidth={3} />
+          )}
+        </button>
       </div>
 
-      <div className="flex min-w-0 flex-col py-1 pr-1">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
-          Oferta especial
-        </p>
-
-        <h3 className="mt-1 line-clamp-2 text-[14px] font-black leading-tight text-gray-950">
+      <div className="flex min-w-0 flex-col px-1 pb-1 pt-2">
+        <h3 className="line-clamp-2 min-h-[32px] text-[12px] font-black leading-4 text-gray-950">
           {product.name}
         </h3>
 
-        <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-relaxed text-gray-500">
-          {formattedDescription}
-        </p>
-
-        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+        <div className="mt-1 flex items-end justify-between gap-2">
           <div className="min-w-0">
             {originalPrice && (
-              <p className="text-[11px] font-bold text-gray-400 line-through">
+              <p className="text-[10px] font-bold text-gray-400 line-through">
                 {formatPrice(originalPrice)}
               </p>
             )}
 
-            <p className="text-[17px] font-black leading-none text-emerald-600">
-              {formatPrice(product.price)}
+            <p className="text-[12px] font-black leading-none text-blue-700">
+              A partir de {formatPrice(product.price)}
             </p>
           </div>
-
-          <button
-            type="button"
-            onClick={handleQuickAdd}
-            className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition-all",
-              isAdding ? "scale-105 bg-emerald-500" : "active:scale-95"
-            )}
-            style={isAdding ? undefined : { backgroundColor: accentColor }}
-            aria-label={`Adicionar ${product.name}`}
-          >
-            {isAdding ? (
-              <Check className="h-4.5 w-4.5" strokeWidth={3} />
-            ) : (
-              <Plus className="h-5 w-5" strokeWidth={3} />
-            )}
-          </button>
         </div>
       </div>
     </div>
@@ -804,18 +808,12 @@ function FeaturedOffersSection({
   return (
     <section className="mt-5">
       <div className="mb-3 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">
-            Ofertas do dia
-          </p>
+        <h2 className="text-[17px] font-black tracking-tight text-gray-950">
+          Destaques
+        </h2>
 
-          <h2 className="mt-1 text-[19px] font-black tracking-tight text-gray-950">
-            Promoções em destaque
-          </h2>
-        </div>
-
-        <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
-          {items.length} {items.length === 1 ? "oferta" : "ofertas"}
+        <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700 ring-1 ring-blue-100">
+          Ver todos
         </span>
       </div>
 
@@ -878,7 +876,7 @@ function ProductCard({
   return (
     <div
       className={cn(
-        "group relative grid cursor-pointer grid-cols-[1fr_104px] gap-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-all duration-200 hover:border-blue-200 active:scale-[0.99]",
+        "group relative grid cursor-pointer grid-cols-[1fr_98px] gap-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-all duration-200 hover:border-blue-200 active:scale-[0.99]",
         isPressing && "scale-[0.99]"
       )}
       onClick={onSelect}
@@ -904,7 +902,7 @@ function ProductCard({
           {product.name}
         </h4>
 
-        <p className="mt-1.5 line-clamp-2 min-h-[34px] text-[12px] font-medium leading-[17px] text-gray-500">
+        <p className="mt-1.5 line-clamp-2 text-[12px] font-medium leading-[17px] text-gray-500">
           {formattedDescription}
         </p>
 
@@ -923,20 +921,15 @@ function ProductCard({
             )}
 
             {Number(product.price) > 0 && (
-              <span
-                className={cn(
-                  "text-[16px] font-black leading-none tracking-tight",
-                  isPromotional ? "text-emerald-600" : "text-gray-950"
-                )}
-              >
-                {formatPrice(product.price)}
+              <span className="text-[15px] font-black leading-none tracking-tight text-blue-700">
+                A partir de {formatPrice(product.price)}
               </span>
             )}
           </div>
         </div>
       </div>
 
-      <div className="relative h-[104px] w-[104px] overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+      <div className="relative h-[98px] w-[98px] overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
         {product.imageUrl ? (
           <>
             <Image
@@ -945,14 +938,12 @@ function ProductCard({
               fill
               loading="lazy"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="104px"
+              sizes="98px"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
           </>
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gray-50">
-            <Utensils className="h-7 w-7 text-gray-300" />
-          </div>
+          <MenuImagePlaceholder compact />
         )}
 
         <button
@@ -997,14 +988,14 @@ function ModifierGroupComponent({
   const reachedMax = !isRadio && totalSelected >= group.maxSelect
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5 border-t border-gray-100 pt-4 first:border-t-0 first:pt-0">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h4 className="text-sm font-bold text-gray-900">{group.name}</h4>
+          <h4 className="text-sm font-black text-gray-950">{group.name}</h4>
 
           {group.required && (
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-600">
-              Obrigatorio
+            <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
+              Obrigatório
             </span>
           )}
         </div>
@@ -1016,7 +1007,7 @@ function ModifierGroupComponent({
         )}
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {group.options.map((option) => {
           const selectedCount = selected.filter((s) => s.id === option.id).length
           const isSelected = selectedCount > 0
@@ -1029,15 +1020,14 @@ function ModifierGroupComponent({
                 type="button"
                 onClick={() => onIncrease(option)}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition-all",
-                  isSelected ? "ring-2" : "bg-gray-50 hover:bg-gray-100"
+                  "flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-all",
+                  isSelected ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"
                 )}
                 style={
                   isSelected
                     ? {
-                        backgroundColor: `${accentColor}14`,
                         borderColor: accentColor,
-                        boxShadow: `0 0 0 2px ${accentColor}`,
+                        boxShadow: `0 10px 24px -22px ${accentColor}`,
                       }
                     : undefined
                 }
@@ -1067,11 +1057,9 @@ function ModifierGroupComponent({
                   </span>
                 </div>
 
-                {option.price > 0 && (
-                  <span className="text-xs font-bold" style={{ color: accentColor }}>
-                    +{formatPrice(option.price)}
-                  </span>
-                )}
+                <span className="text-xs font-black text-gray-900">
+                  {option.price > 0 ? `+ ${formatPrice(option.price)}` : formatPrice(0)}
+                </span>
               </button>
             )
           }
@@ -1080,19 +1068,18 @@ function ModifierGroupComponent({
             <div
               key={option.id}
               className={cn(
-                "flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-all",
+                "flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition-all",
                 isSelected
-                  ? "ring-2"
+                  ? "border-blue-200 bg-blue-50"
                   : isDisabled
-                    ? "bg-gray-50 opacity-50"
-                    : "bg-gray-50 hover:bg-gray-100"
+                    ? "border-gray-100 bg-gray-50 opacity-50"
+                    : "border-gray-200 bg-white hover:bg-gray-50"
               )}
               style={
                 isSelected
                   ? {
-                      backgroundColor: `${accentColor}14`,
                       borderColor: accentColor,
-                      boxShadow: `0 0 0 2px ${accentColor}`,
+                      boxShadow: `0 10px 24px -22px ${accentColor}`,
                     }
                   : undefined
               }
@@ -1121,16 +1108,14 @@ function ModifierGroupComponent({
                   >
                     {option.name}
                   </p>
-
-                  {option.price > 0 && (
-                    <p className="mt-0.5 text-xs font-bold" style={{ color: accentColor }}>
-                      +{formatPrice(option.price)} cada
-                    </p>
-                  )}
                 </div>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
+                <span className="mr-1 text-xs font-black text-gray-900">
+                  {option.price > 0 ? `+ ${formatPrice(option.price)}` : formatPrice(0)}
+                </span>
+
                 <button
                   type="button"
                   onClick={() => onDecrease(option)}
@@ -1272,80 +1257,78 @@ function ProductModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="fixed inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3 sm:items-center sm:p-6">
+      <div className="fixed inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[32px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300 sm:rounded-[32px]">
+      <div className="relative z-10 flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-lg backdrop-blur-md transition-transform active:scale-95"
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-md ring-1 ring-gray-100 backdrop-blur-md transition-transform active:scale-95"
           aria-label="Fechar produto"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <div className="relative h-[245px] w-full flex-shrink-0 overflow-hidden bg-gray-100">
+        <div className="relative h-[228px] w-full flex-shrink-0 overflow-hidden bg-gray-100">
           {product.imageUrl ? (
             <Image src={product.imageUrl} alt={product.name} fill className="object-cover" sizes="512px" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-50">
-              <Utensils className="h-12 w-12 text-gray-300" />
-            </div>
+            <MenuImagePlaceholder />
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent" />
 
-          <div className="absolute bottom-0 left-0 right-0 p-5 pr-16">
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              {productPromotion.isPromotional && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-lg">
-                  <Percent className="h-3 w-3" />
-                  {getPromotionLabel(productPromotion.discount)}
-                </span>
-              )}
-
-              {isScheduledProduct(product) && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white ring-1 ring-white/20 backdrop-blur-md">
-                  <Timer className="h-3 w-3" />
-                  Disponível hoje
-                </span>
-              )}
-            </div>
-
-            <h3 className="line-clamp-2 text-2xl font-black leading-tight tracking-tight text-white">
-              {product.name}
-            </h3>
-
-            <div className="mt-2 flex items-center gap-2">
-              {productPromotion.isPromotional && productPromotion.originalPrice ? (
-                <p className="text-sm font-bold text-white/55 line-through">
-                  {formatPrice(productPromotion.originalPrice)}
-                </p>
-              ) : null}
-
-              {Number(product.price) > 0 && (
-                <p className="text-lg font-black text-white">
-                  A partir de {formatPrice(product.price)}
-                </p>
-              )}
-            </div>
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-white shadow-sm" />
+            <span className="h-2 w-2 rounded-full bg-white/60" />
+            <span className="h-2 w-2 rounded-full bg-white/60" />
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-5 p-5">
-            <div className="rounded-[22px] border border-gray-100 bg-gray-50 px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
-                Sobre o item
-              </p>
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                {productPromotion.isPromotional && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-2 py-1 text-[10px] font-black text-orange-700 ring-1 ring-orange-100">
+                    <Percent className="h-3 w-3" />
+                    {getPromotionLabel(productPromotion.discount)}
+                  </span>
+                )}
 
-              <p className="mt-1 text-sm font-semibold leading-relaxed text-gray-600">
+                {isScheduledProduct(product) && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
+                    <Timer className="h-3 w-3" />
+                    Disponível hoje
+                  </span>
+                )}
+              </div>
+
+              <h3 className="text-2xl font-black leading-tight tracking-tight text-gray-950">
+                {product.name}
+              </h3>
+
+              <div className="mt-1 flex items-center gap-2">
+                {productPromotion.isPromotional && productPromotion.originalPrice ? (
+                  <p className="text-sm font-bold text-gray-400 line-through">
+                    {formatPrice(productPromotion.originalPrice)}
+                  </p>
+                ) : null}
+
+                {Number(product.price) > 0 && (
+                  <p className="text-base font-black text-blue-700">
+                    A partir de {formatPrice(product.price)}
+                  </p>
+                )}
+              </div>
+
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-600">
                 {formattedDescription}
               </p>
             </div>
 
             {modifierGroups.length > 0 && (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {modifierGroups.map((group) => (
                   <ModifierGroupComponent
                     key={group.id}
@@ -1359,14 +1342,14 @@ function ProductModal({
               </div>
             )}
 
-            <div className="rounded-[22px] border border-gray-100 bg-white p-4 shadow-[0_14px_35px_-32px_rgba(15,23,42,0.75)]">
+            <div className="border-t border-gray-100 pt-4">
               <label className="text-sm font-black text-gray-950">Alguma observação?</label>
 
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ex: sem cebola, molho à parte..."
-                className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/20"
+                className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
                 rows={2}
               />
             </div>
@@ -1374,11 +1357,13 @@ function ProductModal({
         </div>
 
         <div className="flex-shrink-0 border-t border-gray-100 bg-white/95 p-4 backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 items-center overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-sm font-black text-gray-950">Quantidade</span>
+
+            <div className="flex h-10 items-center overflow-hidden rounded-xl border border-gray-200 bg-white">
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="flex h-12 w-12 items-center justify-center text-gray-500 hover:text-gray-700"
+                className="flex h-10 w-11 items-center justify-center text-gray-500 hover:text-gray-700"
                 aria-label="Diminuir quantidade"
               >
                 <Minus className="h-4 w-4" />
@@ -1388,34 +1373,34 @@ function ProductModal({
 
               <button
                 onClick={() => setQuantity(quantity + 1)}
-                className="flex h-12 w-12 items-center justify-center text-gray-500 hover:text-gray-700"
+                className="flex h-10 w-11 items-center justify-center text-gray-500 hover:text-gray-700"
                 aria-label="Aumentar quantidade"
               >
                 <Plus className="h-4 w-4" />
               </button>
             </div>
-
-            <button
-              onClick={handleAddToCart}
-              disabled={!allRequiredSelected}
-              className={cn(
-                "flex h-12 flex-1 items-center justify-center rounded-2xl px-4 text-sm font-black transition-all text-white",
-                allRequiredSelected
-                  ? "shadow-lg hover:opacity-95 active:scale-[0.98]"
-                  : "cursor-not-allowed bg-gray-200 text-gray-400"
-              )}
-              style={
-                allRequiredSelected
-                  ? {
-                      backgroundColor: accentColor,
-                      boxShadow: `0 16px 30px -14px ${accentColor}`,
-                    }
-                  : undefined
-              }
-            >
-              Adicionar • {formatPrice(totalPrice)}
-            </button>
           </div>
+
+          <button
+            onClick={handleAddToCart}
+            disabled={!allRequiredSelected}
+            className={cn(
+              "flex h-12 w-full items-center justify-center rounded-xl px-4 text-sm font-black text-white transition-all",
+              allRequiredSelected
+                ? "shadow-lg hover:opacity-95 active:scale-[0.98]"
+                : "cursor-not-allowed bg-gray-200 text-gray-400"
+            )}
+            style={
+              allRequiredSelected
+                ? {
+                    backgroundColor: accentColor,
+                    boxShadow: `0 16px 30px -14px ${accentColor}`,
+                  }
+                : undefined
+            }
+          >
+            Adicionar ao pedido • {formatPrice(totalPrice)}
+          </button>
 
           {!allRequiredSelected && requiredGroups.length > 0 && (
             <p className="mt-2 text-center text-xs font-black text-red-500">
@@ -3027,6 +3012,42 @@ function formatOrderHistoryDate(value?: string | null) {
   }).format(date)
 }
 
+function getCustomerOrderStatusClasses(order: CustomerVisibleOrder) {
+  const normalizedStatus = normalizeOrderStatus(order.status)
+  const normalizedPaymentStatus = normalizeOrderStatus(order.payment_status)
+  const label = getOrderStatusLabel(order.status, order.order_type, order.customer_received_at)
+  const normalizedLabel = label.toLocaleLowerCase("pt-BR")
+
+  if (
+    order.customer_received_at ||
+    ["delivered", "completed", "finished", "paid", "concluido", "concluida", "finalizado"].includes(normalizedStatus) ||
+    ["paid", "confirmed", "approved", "settled"].includes(normalizedPaymentStatus) ||
+    normalizedLabel.includes("entregue") ||
+    normalizedLabel.includes("finalizado") ||
+    normalizedLabel.includes("pago")
+  ) {
+    return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+  }
+
+  if (
+    ["cancelled", "canceled", "cancelado", "cancelada"].includes(normalizedStatus) ||
+    normalizedLabel.includes("cancel")
+  ) {
+    return "bg-red-50 text-red-700 ring-1 ring-red-100"
+  }
+
+  if (
+    ["waiting_payment", "waiting_customer_payment", "awaiting_payment", "pending_payment", "awaiting_review"].includes(normalizedStatus) ||
+    ["waiting_payment", "waiting_customer_payment", "awaiting_payment", "pending", "awaiting_review"].includes(normalizedPaymentStatus) ||
+    normalizedLabel.includes("pix") ||
+    normalizedLabel.includes("pagamento")
+  ) {
+    return "bg-orange-50 text-orange-700 ring-1 ring-orange-100"
+  }
+
+  return "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+}
+
 function CustomerProfileModal({
   open,
   customer,
@@ -3038,6 +3059,7 @@ function CustomerProfileModal({
   onClose,
   onLogin,
   onLogout,
+  onEdit,
   onRepeatOrder,
 }: {
   open: boolean
@@ -3050,190 +3072,210 @@ function CustomerProfileModal({
   onClose: () => void
   onLogin: () => void
   onLogout: () => void
+  onEdit: () => void
   onRepeatOrder: (order: CustomerVisibleOrder) => void
 }) {
   if (!open) return null
 
+  const firstName = customer?.name?.trim().split(/\s+/)[0] || "cliente"
+  const activeOrderStatusLabel = activeOrder
+    ? getOrderStatusLabel(activeOrder.status, activeOrder.order_type, activeOrder.customer_received_at)
+    : ""
+  const latestOrder = orderHistory[0] ?? null
+  const cashbackBalance = Number(cashbackStatus?.wallet?.balance ?? 0)
+  const loyaltySummary = loyalty?.loyalty_campaigns?.is_active
+    ? loyalty.reward_available
+      ? "Disponível"
+      : `${Math.max(0, loyalty.current_orders)}/${Math.max(1, loyalty.required_orders)}`
+    : "0"
+
   return (
-    <div className="fixed inset-0 z-[65] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+    <div className="fixed inset-0 z-[65] flex items-end justify-center bg-black/55 px-3 pb-3 backdrop-blur-sm sm:items-center sm:p-6">
       <div
         className="absolute inset-0"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+      <div className="relative flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm transition-colors hover:bg-white hover:text-gray-700"
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm ring-1 ring-gray-100 transition-colors hover:bg-white hover:text-gray-900"
           aria-label="Fechar"
         >
           <X className="h-4 w-4" />
         </button>
 
         {!customer ? (
-          <div className="p-5">
-            <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-600 to-orange-500 p-5 text-white">
-              <div className="absolute -right-14 -top-14 h-36 w-36 rounded-full bg-white/20 blur-3xl" />
-              <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-black/20 blur-3xl" />
-
-              <div className="relative pr-8">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
+          <div>
+            <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-5 pb-6 pt-6 text-white">
+              <div className="flex items-center gap-3 pr-10">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-blue-700 shadow-sm">
                   <UserRound className="h-7 w-7" />
                 </div>
 
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
-                  Minha conta
-                </p>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">
+                    Minha conta
+                  </p>
 
-                <h2 className="mt-1 text-2xl font-black leading-tight">
-                  Entre para acompanhar seus pedidos
-                </h2>
+                  <h2 className="mt-1 text-2xl font-black leading-tight">
+                    Entre no restaurante
+                  </h2>
 
-                <p className="mt-2 text-sm font-semibold leading-relaxed text-white/75">
-                  Veja histórico, repita pedidos e acompanhe benefícios do restaurante.
-                </p>
+                  <p className="mt-1 text-sm font-semibold leading-relaxed text-white/80">
+                    Acompanhe pedidos, benefícios e compras anteriores.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="mt-4 grid gap-2">
-              <div className="rounded-[22px] border border-orange-100 bg-orange-50 p-4">
+            <div className="p-5">
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-300 via-orange-400 to-orange-500 text-white shadow-lg">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 shadow-sm ring-1 ring-blue-100">
                     <Sparkles className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <p className="text-sm font-black text-gray-950">Benefícios e fidelidade</p>
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
-                      Seus pedidos podem virar moedas, cashback ou recompensa quando o restaurante ativar campanhas.
+                    <p className="text-sm font-black text-gray-950">Meus benefícios</p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-600">
+                      Seus pedidos podem liberar cashback, fidelidade e recompensas quando disponíveis.
                     </p>
                   </div>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={onLogin}
+                className="mt-5 w-full rounded-xl py-3.5 text-sm font-black text-white shadow-lg active:scale-[0.98]"
+                style={{
+                  backgroundColor: accentColor,
+                  boxShadow: `0 16px 30px -14px ${accentColor}`,
+                }}
+              >
+                Entrar com WhatsApp
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-2 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600"
+              >
+                Continuar vendo o cardápio
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={onLogin}
-              className="mt-5 w-full rounded-2xl py-3.5 text-sm font-black text-white shadow-lg active:scale-[0.98]"
-              style={{
-                backgroundColor: accentColor,
-                boxShadow: `0 16px 30px -14px ${accentColor}`,
-              }}
-            >
-              Entrar com WhatsApp
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-2 w-full rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600"
-            >
-              Continuar vendo o cardápio
-            </button>
           </div>
         ) : (
           <>
-            <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-blue-600 via-blue-600 to-orange-500 p-5 pr-14 text-white">
-              <div className="absolute -right-14 -top-14 h-36 w-36 rounded-full bg-white/20 blur-3xl" />
-              <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-black/20 blur-3xl" />
-
-              <div className="relative flex items-start gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-md">
-                  <UserRound className="h-7 w-7" />
+            <div className="shrink-0 bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 p-5 pr-14 text-white">
+              <div className="flex items-center gap-3">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-blue-700 shadow-sm">
+                  <UserRound className="h-8 w-8" />
                 </div>
 
-                <div className="min-w-0 pt-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/65">
                     Minha conta
                   </p>
 
                   <h2 className="mt-1 truncate text-2xl font-black leading-tight">
-                    Olá, {customer.name.split(" ")[0]}
+                    Olá, {firstName}
                   </h2>
 
-                  <p className="mt-1 text-sm font-semibold text-white/75">
+                  <p className="mt-1 text-sm font-semibold text-white/80">
                     {formatPhonePreview(customer.phone)}
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-black text-white backdrop-blur-sm active:scale-[0.98]"
+                >
+                  Editar
+                </button>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4 scrollbar-hide">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-4 scrollbar-hide">
               {activeOrder && !activeOrder.customer_received_at && (
-                <div className="mb-3 rounded-[24px] border border-blue-100 bg-blue-50 p-4 shadow-[0_18px_42px_-34px_rgba(37,99,235,0.75)]">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="mb-4 rounded-xl border border-blue-100 bg-white p-3.5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                        Pedido em andamento
+                      <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                        Pedido atual
                       </p>
 
                       <p className="mt-1 text-base font-black text-gray-950">
                         #{activeOrder.public_order_number || activeOrder.id.slice(0, 8)}
                       </p>
 
-                      <p className="truncate text-xs font-semibold text-gray-500">
-                        {getOrderStatusLabel(
-                          activeOrder.status,
-                          activeOrder.order_type,
-                          activeOrder.customer_received_at
-                        )}
-                      </p>
+                      <span className={cn("mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-black", getCustomerOrderStatusClasses(activeOrder))}>
+                        {activeOrderStatusLabel}
+                      </span>
                     </div>
 
-                    <p className="shrink-0 text-base font-black text-gray-950">
-                      {formatPrice(Number(activeOrder.total || 0))}
+                    <div className="shrink-0 text-right">
+                      <p className="text-xs font-bold text-gray-400">Total</p>
+                      <p className="mt-1 text-base font-black text-blue-700">
+                        {formatPrice(Number(activeOrder.total || 0))}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-3 w-full rounded-xl border border-blue-100 bg-blue-50 py-2.5 text-xs font-black text-blue-700 active:scale-[0.98]"
+                  >
+                    Ver detalhes
+                  </button>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <h3 className="mb-2 text-sm font-black text-gray-950">Meus benefícios</h3>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <Sparkles className="h-4 w-4 text-blue-600" />
+                    <p className="mt-2 text-[10px] font-bold text-gray-500">Cashback disponível</p>
+                    <p className="mt-0.5 text-sm font-black text-gray-950">
+                      {formatPrice(cashbackBalance)}
                     </p>
                   </div>
-                </div>
-              )}
 
-              {cashbackStatus?.wallet && cashbackStatus.wallet.balance > 0 && (
-                <div className="mb-3 rounded-[24px] border border-emerald-100 bg-emerald-50 p-4 shadow-[0_18px_42px_-34px_rgba(16,185,129,0.75)]">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg">
-                      <Sparkles className="h-5 w-5" />
-                    </div>
+                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <ShoppingBag className="h-4 w-4 text-blue-600" />
+                    <p className="mt-2 text-[10px] font-bold text-gray-500">Pedidos feitos</p>
+                    <p className="mt-0.5 text-sm font-black text-gray-950">{orderHistory.length}</p>
+                  </div>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
-                        Cashback disponível
-                      </p>
+                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <Receipt className="h-4 w-4 text-blue-600" />
+                    <p className="mt-2 text-[10px] font-bold text-gray-500">Último pedido</p>
+                    <p className="mt-0.5 truncate text-sm font-black text-gray-950">
+                      {latestOrder?.created_at ? formatOrderHistoryDate(latestOrder.created_at).slice(0, 10) : "0"}
+                    </p>
+                  </div>
 
-                      <h3 className="mt-1 text-lg font-black text-gray-950">
-                        {formatPrice(cashbackStatus.wallet.balance)} para usar
-                      </h3>
-
-                      <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">
-                        {cashbackStatus.campaign?.redeemMinimumOrderAmount
-                          ? `Use em pedidos acima de ${formatPrice(cashbackStatus.campaign.redeemMinimumOrderAmount)}.`
-                          : "Use no próximo pedido elegível."}
-                      </p>
-                    </div>
+                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <Star className="h-4 w-4 text-blue-600" />
+                    <p className="mt-2 text-[10px] font-bold text-gray-500">Fidelidade</p>
+                    <p className="mt-0.5 truncate text-sm font-black text-gray-950">{loyaltySummary}</p>
                   </div>
                 </div>
-              )}
+              </div>
 
-              {loyalty?.loyalty_campaigns?.is_active && (
-                <ProfileLoyaltyCoins loyalty={loyalty} accentColor={accentColor} />
-              )}
-
-              <div className="mt-5">
+              <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
-                      Histórico
-                    </p>
+                  <h3 className="text-lg font-black text-gray-950">Histórico de pedidos</h3>
 
-                    <h3 className="mt-1 text-lg font-black text-gray-950">
-                      Seus pedidos
-                    </h3>
-                  </div>
-
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-500">
-                    {orderHistory.length}
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-600">
+                    Todos
                   </span>
                 </div>
 
@@ -3247,11 +3289,16 @@ function CustomerProfileModal({
                         .map((item) => item.name || item.product_name)
                         .filter(Boolean)
                         .join(", ")
+                      const statusLabel = getOrderStatusLabel(
+                        order.status,
+                        order.order_type,
+                        order.customer_received_at
+                      )
 
                       return (
                         <div
                           key={order.id}
-                          className="rounded-[22px] border border-gray-100 bg-gray-50 p-3.5"
+                          className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -3273,18 +3320,14 @@ function CustomerProfileModal({
                                 {formatPrice(Number(order.total || 0))}
                               </p>
 
-                              <p className="mt-1 rounded-full bg-white px-2 py-1 text-[10px] font-black text-gray-500 ring-1 ring-gray-200">
-                                {getOrderStatusLabel(
-                                  order.status,
-                                  order.order_type,
-                                  order.customer_received_at
-                                )}
-                              </p>
+                              <span className={cn("mt-1 inline-flex rounded-full px-2 py-1 text-[10px] font-black", getCustomerOrderStatusClasses(order))}>
+                                {statusLabel}
+                              </span>
                             </div>
                           </div>
 
                           {itemsLabel && (
-                            <p className="mt-2 line-clamp-1 text-xs font-semibold text-gray-400">
+                            <p className="mt-2 line-clamp-1 text-xs font-semibold text-gray-500">
                               {itemsLabel}
                               {orderItems.length > 2 ? ` +${orderItems.length - 2} item${orderItems.length - 2 === 1 ? "" : "s"}` : ""}
                             </p>
@@ -3294,7 +3337,7 @@ function CustomerProfileModal({
                             <button
                               type="button"
                               onClick={() => onRepeatOrder(order)}
-                              className="mt-3 w-full rounded-2xl bg-white py-2.5 text-xs font-black text-blue-700 shadow-sm ring-1 ring-blue-100 active:scale-[0.98]"
+                              className="mt-3 w-full rounded-xl border border-blue-100 bg-blue-50 py-2.5 text-xs font-black text-blue-700 active:scale-[0.98]"
                             >
                               Repetir pedido
                             </button>
@@ -3304,7 +3347,7 @@ function CustomerProfileModal({
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-[22px] border border-dashed border-gray-200 bg-gray-50 p-5 text-center">
+                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center">
                     <Receipt className="mx-auto h-8 w-8 text-gray-300" />
 
                     <p className="mt-2 text-sm font-black text-gray-600">
@@ -3321,7 +3364,7 @@ function CustomerProfileModal({
               <button
                 type="button"
                 onClick={onLogout}
-                className="mt-5 w-full rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+                className="mt-5 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
               >
                 Sair da conta
               </button>
@@ -3561,6 +3604,8 @@ useEffect(() => {
         ? selectedNeighborhoodOption?.fee ?? 0
         : restaurant.deliveryFee
       : 0
+  const cartDeliveryPreview = deliveryEnabled ? getStartingDeliveryFee(restaurant) : 0
+  const cartPreviewTotal = subtotal + cartDeliveryPreview
   const cashbackWalletBalance = Number(cashbackStatus?.wallet?.balance ?? 0)
 const cashbackRedeemAmount = Number(cashbackStatus?.campaign?.redeemAmount ?? 0)
 const cashbackRedeemMin = Number(cashbackStatus?.campaign?.redeemMinimumOrderAmount ?? 0)
@@ -4225,10 +4270,10 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3 sm:items-center sm:p-6">
+      <div className="fixed inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300 sm:rounded-3xl">
+      <div className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-3">
             {step === "checkout" && (
@@ -4247,8 +4292,8 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               <ShoppingBag className="h-4 w-4" />
             </div>
 
-            <h3 className="text-lg font-bold text-gray-900">
-              {step === "cart" ? "Seu Pedido" : "Finalizar"}
+            <h3 className="text-lg font-black text-gray-950">
+              {step === "cart" ? "Seu pedido" : "Finalizar pedido"}
             </h3>
 
             {step === "cart" && items.length > 0 && (
@@ -4260,7 +4305,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200"
           >
             <X className="h-4 w-4 text-gray-600" />
           </button>
@@ -4268,72 +4313,89 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
         {step === "cart" ? (
           <>
-            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <ShoppingBag className="mb-3 h-12 w-12 text-gray-200" />
-                  <p className="text-sm font-medium text-gray-400">Carrinho vazio</p>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <ShoppingBag className="h-7 w-7" />
+                  </div>
+                  <p className="mt-3 text-sm font-black text-gray-700">Carrinho vazio</p>
+                  <p className="mt-1 text-xs font-semibold text-gray-400">
+                    Escolha um item do cardápio para começar.
+                  </p>
                 </div>
               ) : (
                 items.map((item) => (
-                  <div key={item.id} className="rounded-xl bg-gray-50 p-3">
+                  <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
                     <div className="flex items-start gap-3">
                       {item.product.imageUrl ? (
-                        <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
+                        <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                           <Image
                             src={item.product.imageUrl}
                             alt={item.product.name}
                             fill
                             className="object-cover"
-                            sizes="56px"
+                            sizes="64px"
                           />
                         </div>
                       ) : (
-                        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-gray-200">
-                          <Utensils className="h-5 w-5 text-gray-400" />
+                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                          <MenuImagePlaceholder compact />
                         </div>
                       )}
 
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-gray-900">
+                        <p className="line-clamp-1 text-sm font-black text-gray-950">
                           {item.product.name}
                         </p>
 
                         {item.modifiers.length > 0 && (
-                          <p className="text-[11px] text-gray-500">
+                          <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-gray-500">
                             {item.modifiers.map((m) => m.option.name).join(", ")}
                           </p>
                         )}
 
-                        <p className="mt-1 text-sm font-bold" style={{ color: accentColor }}>
-                          {formatPrice(item.unitPrice * item.quantity)}
+                        <p className="mt-1 text-[11px] font-semibold text-gray-400">
+                          {item.quantity}x {formatPrice(item.unitPrice)}
                         </p>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onRemove(item.id)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500 ring-1 ring-red-100"
+                        aria-label={`Remover ${item.product.name}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
 
-                    <div className="mt-2 flex items-center justify-end gap-1 border-t border-gray-200/50 pt-2">
-                      <button
-                        onClick={() =>
-                          item.quantity <= 1 ? onRemove(item.id) : onUpdateQuantity(item.id, -1)
-                        }
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white"
-                      >
-                        {item.quantity <= 1 ? (
-                          <X className="h-3.5 w-3.5 text-red-500" />
-                        ) : (
-                          <Minus className="h-3.5 w-3.5 text-gray-500" />
-                        )}
-                      </button>
+                    <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+                      <div className="flex h-9 items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                        <button
+                          onClick={() =>
+                            item.quantity <= 1 ? onRemove(item.id) : onUpdateQuantity(item.id, -1)
+                          }
+                          className="flex h-9 w-9 items-center justify-center text-gray-500"
+                          aria-label="Diminuir item"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
 
-                      <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+                        <span className="w-8 text-center text-sm font-black text-gray-950">{item.quantity}</span>
 
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, 1)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
-                        style={{ backgroundColor: accentColor }}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
+                        <button
+                          onClick={() => onUpdateQuantity(item.id, 1)}
+                          className="flex h-9 w-9 items-center justify-center text-gray-500"
+                          aria-label="Aumentar item"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <p className="text-sm font-black text-gray-950">
+                        {formatPrice(item.unitPrice * item.quantity)}
+                      </p>
                     </div>
                   </div>
                 ))
@@ -4341,19 +4403,24 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
             </div>
 
             {items.length > 0 && (
-              <div className="flex-shrink-0 border-t border-gray-100 bg-white px-5 py-4">
-                <div className="mb-3 space-y-1 text-sm">
+              <div className="flex-shrink-0 border-t border-gray-100 bg-white px-4 py-4">
+                <div className="mb-4 space-y-2 text-sm">
                   <div className="flex justify-between text-gray-500">
                     <span>Subtotal</span>
-                    <span>{formatPrice(subtotal)}</span>
+                    <span className="font-bold text-gray-900">{formatPrice(subtotal)}</span>
                   </div>
 
-                  {serviceFee > 0 && (
-                    <div className="flex justify-between text-gray-500">
-                      <span>Taxa de serviço online</span>
-                      <span>{formatPrice(serviceFee)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-gray-500">
+                    <span>Entrega</span>
+                    <span className="font-bold text-gray-900">
+                      {deliveryEnabled ? formatPrice(cartDeliveryPreview) : "Retirada"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-black">
+                    <span className="text-gray-950">Total</span>
+                    <span className="text-blue-700">{formatPrice(cartPreviewTotal)}</span>
+                  </div>
                 </div>
 
                 <button
@@ -4365,15 +4432,30 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
                     setStep("checkout")
                   }}
-                  className="flex w-full items-center justify-between rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98]"
                   style={{
                     backgroundColor: accentColor,
                     boxShadow: `0 14px 30px -10px ${accentColor}`,
                   }}
                 >
-                  <span className="text-sm font-bold">Continuar</span>
-                  <span className="text-sm font-bold">{formatPrice(subtotal)}</span>
+                  <span className="text-sm font-black">Continuar</span>
+                  <ChevronUp className="h-4 w-4 rotate-90" />
                 </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-2 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 active:scale-[0.98]"
+                >
+                  Adicionar mais itens
+                </button>
+
+                <div className="mt-4 text-center">
+                  <p className="text-xs font-black text-gray-700">Ambiente 100% seguro</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-gray-400">
+                    Seus dados estão protegidos
+                  </p>
+                </div>
               </div>
             )}
           </>
@@ -5497,6 +5579,66 @@ function FloatingCartButton({
   )
 }
 
+function MobileBottomNav({
+  cartCount,
+  activeOrder,
+  onMenu,
+  onSearch,
+  onOrders,
+  onProfile,
+  onCart,
+}: {
+  cartCount: number
+  activeOrder: CustomerVisibleOrder | null
+  onMenu: () => void
+  onSearch: () => void
+  onOrders: () => void
+  onProfile: () => void
+  onCart: () => void
+}) {
+  const items = [
+    { label: "Cardápio", icon: Utensils, onClick: onMenu, active: true },
+    { label: "Buscar", icon: Search, onClick: onSearch, active: false },
+    { label: "Pedidos", icon: Receipt, onClick: onOrders, active: Boolean(activeOrder) },
+    { label: "Conta", icon: UserRound, onClick: onProfile, active: false },
+  ]
+
+  return (
+    <div className="fixed bottom-3 left-3 right-3 z-40 mx-auto max-w-[480px]">
+      <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-2 py-2 shadow-[0_18px_48px_-28px_rgba(15,23,42,0.7)]">
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.onClick}
+            className={cn(
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-black transition-colors",
+              item.active ? "text-blue-700" : "text-gray-500 hover:text-gray-900"
+            )}
+          >
+            <item.icon className="h-4 w-4" />
+            <span className="truncate">{item.label}</span>
+          </button>
+        ))}
+
+        <button
+          type="button"
+          onClick={onCart}
+          className="relative ml-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/25 active:scale-[0.98]"
+          aria-label="Abrir carrinho"
+        >
+          <ShoppingBag className="h-5 w-5" />
+          {cartCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
+              {cartCount}
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function WhatsAppFloatingButton({ whatsapp }: { whatsapp?: string | null }) {
   if (!whatsapp) return null
 
@@ -5509,7 +5651,7 @@ function WhatsAppFloatingButton({ whatsapp }: { whatsapp?: string | null }) {
       href={`https://wa.me/${phone}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="group fixed bottom-6 right-4 z-40"
+      className="group fixed bottom-24 right-4 z-40"
     >
       <span className="absolute inset-0 animate-ping rounded-full bg-green-500/40" />
 
@@ -5557,6 +5699,7 @@ export default function CardapioPublicoPage() {
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
   const categoryNavRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const activeOrderId = activeOrder?.id ?? ""
   const activeOrderPublicNumber = activeOrder?.public_order_number ?? ""
@@ -6097,14 +6240,17 @@ export default function CardapioPublicoPage() {
   }, [visibleCategories, searchQuery])
 
   const featuredProducts = useMemo(() => {
-    return visibleCategories
+    const allProducts = visibleCategories
       .flatMap((category) =>
         category.products.map((product) => ({
           product,
           categoryId: category.id,
         }))
       )
-      .filter(({ product }) => getProductPromotion(product).isPromotional)
+
+    const promotionalProducts = allProducts.filter(({ product }) => getProductPromotion(product).isPromotional)
+
+    return (promotionalProducts.length > 0 ? promotionalProducts : allProducts).slice(0, 8)
   }, [visibleCategories])
 
   const scrollToCategory = useCallback((categoryId: string) => {
@@ -6405,11 +6551,10 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
   return (
     <div className={cn("min-h-screen pb-32", isDarkMode ? "bg-neutral-950" : "bg-gray-50")}>
-      {/* BLOCO: topo premium do restaurante */}
       <div className="mx-auto max-w-[480px] px-3 pt-3">
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="relative h-[224px] overflow-hidden bg-slate-900">
+            <div className="relative h-[178px] overflow-hidden bg-slate-900">
               {restaurant.coverImageUrl ? (
                 <Image
                   src={restaurant.coverImageUrl}
@@ -6430,18 +6575,18 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/15" />
 
               <div className="absolute left-3 top-3 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/35 px-2.5 py-1.5 text-[11px] font-black text-white backdrop-blur-md">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[11px] font-black text-white backdrop-blur-md">
                   <span
                     className={cn(
                       "h-2 w-2 rounded-full",
                       restaurantIsOpen ? "bg-green-400" : "bg-red-400"
                     )}
                   />
-                  {restaurantIsOpen ? "Aberto" : "Fechado"}
+                  {restaurantIsOpen ? "Aberto agora" : "Fechado agora"}
                 </span>
 
                 {tableNumber && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/35 px-2.5 py-1.5 text-[11px] font-black text-white backdrop-blur-md">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[11px] font-black text-white backdrop-blur-md">
                     <Utensils className="h-3.5 w-3.5" />
                     Mesa {tableNumber}
                   </span>
@@ -6451,7 +6596,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               <button
                 type="button"
                 onClick={() => setProfileModalOpen(true)}
-                className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/95 text-gray-950 shadow-sm backdrop-blur-md transition-transform active:scale-95"
+                className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/95 text-gray-950 shadow-sm backdrop-blur-md transition-transform active:scale-95"
                 aria-label="Acessar minha conta"
               >
                 <UserRound className="h-5 w-5" />
@@ -6464,9 +6609,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               </button>
             </div>
 
-            <div className="relative px-4 pb-4">
-              <div className="-mt-9 flex items-end gap-3">
-                <div className="flex h-[78px] w-[78px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-md ring-1 ring-gray-200">
+            <div className="relative px-4 pb-4 text-center">
+              <div className="-mt-10 flex justify-center">
+                <div className="flex h-[86px] w-[86px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-md ring-1 ring-gray-200">
                   {restaurant.logoUrl && !logoFailedToLoad ? (
                     <Image
                       src={restaurant.logoUrl}
@@ -6485,21 +6630,23 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                     </div>
                   )}
                 </div>
-
-                <div className="min-w-0 flex-1 pb-1">
-  <h1 className="truncate text-[23px] font-black leading-tight tracking-tight text-gray-950">
-    {restaurant.name}
-  </h1>
-</div>
               </div>
 
-              <p className="mt-2 line-clamp-2 text-sm font-medium leading-relaxed text-gray-500">
-                {restaurant.description?.trim() || "Faça seu pedido online com rapidez e segurança."}
+              <h1 className="mt-2 truncate text-[24px] font-black leading-tight tracking-tight text-gray-950">
+                {restaurant.name}
+              </h1>
+
+              <p className="mt-1 text-sm font-semibold text-gray-500">
+                {deliveryEnabled ? "Delivery" : pickupEnabled ? "Retirada" : "Cardápio"} •{" "}
+                <span className={restaurantIsOpen ? "text-emerald-600" : "text-red-600"}>
+                  {restaurantIsOpen ? "Aberto agora" : "Fechado agora"}
+                </span>
               </p>
 
               <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-                  <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+                <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2.5 text-left shadow-sm">
+                  <Truck className="h-4 w-4 text-blue-600" />
+                  <p className="mt-1 text-[9px] font-black text-gray-400">
                     Entrega
                   </p>
 
@@ -6508,8 +6655,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-                  <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+                <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2.5 text-left shadow-sm">
+                  <Timer className="h-4 w-4 text-blue-600" />
+                  <p className="mt-1 text-[9px] font-black text-gray-400">
                     Tempo
                   </p>
 
@@ -6518,8 +6666,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-                  <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+                <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2.5 text-left shadow-sm">
+                  <ShoppingBag className="h-4 w-4 text-blue-600" />
+                  <p className="mt-1 text-[9px] font-black text-gray-400">
                     Mínimo
                   </p>
 
@@ -6540,16 +6689,17 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           </div>
         )}
 
-        {/* BLOCO: busca do cardápio */}
         <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150">
           <div className="group relative">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-blue-600" />
 
             <input
+              ref={searchInputRef}
+              id="menu-search"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar prato, bebida ou sobremesa..."
+              placeholder="Buscar no cardápio..."
               className="w-full rounded-xl border border-gray-200 bg-white py-3.5 pl-11 pr-4 text-sm font-semibold text-gray-900 shadow-sm transition-all duration-200 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100"
             />
 
@@ -6564,29 +6714,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           </div>
         </div>
       </div>
-      <div className="mx-auto max-w-[480px] px-3">
-        <FeaturedOffersSection
-          items={featuredProducts}
-          accentColor={themeColor}
-          onSelect={(product, categoryId) => {
-            setSelectedProduct({ product, categoryId })
-          }}
-          onQuickAdd={(product, categoryId) => {
-            handleAddWithUpsell(
-              {
-                product,
-                quantity: 1,
-                notes: "",
-                modifiers: [],
-                unitPrice: product.price,
-              },
-              categoryId
-            )
-          }}
-        />
-      </div>
-
-{/* BLOCO: categorias fixas no topo ao rolar */}
+      {/* BLOCO: categorias fixas no topo ao rolar */}
       {filteredCategories.length > 1 && (
         <div className="sticky top-0 z-30 mt-5 border-y border-gray-100/80 bg-gray-50/85 py-2 backdrop-blur-xl">
           <div className="mx-auto max-w-[480px] px-3">
@@ -6630,6 +6758,28 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           </div>
         </div>
       )}
+
+      <div className="mx-auto max-w-[480px] px-3">
+        <FeaturedOffersSection
+          items={featuredProducts}
+          accentColor={themeColor}
+          onSelect={(product, categoryId) => {
+            setSelectedProduct({ product, categoryId })
+          }}
+          onQuickAdd={(product, categoryId) => {
+            handleAddWithUpsell(
+              {
+                product,
+                quantity: 1,
+                notes: "",
+                modifiers: [],
+                unitPrice: product.price,
+              },
+              categoryId
+            )
+          }}
+        />
+      </div>
 
       {/* BLOCO: lista principal de produtos */}
       <div className="mx-auto mt-5 max-w-[480px] space-y-7 px-3 pb-28">
@@ -6693,13 +6843,20 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         )}
       </div>
 
-      <FloatingCartButton
-        count={cartCount}
-        total={cartTotal}
-        bgColor={floatingCartBgColor}
-        textColor={floatingCartTextColor}
-        numberColor={floatingCartNumberColor}
-        onClick={() => setCartOpen(true)}
+      <MobileBottomNav
+        cartCount={cartCount}
+        activeOrder={activeOrder}
+        onMenu={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        onSearch={() => {
+          document.getElementById("menu-search")?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          })
+          searchInputRef.current?.focus()
+        }}
+        onOrders={() => setProfileModalOpen(true)}
+        onProfile={() => setProfileModalOpen(true)}
+        onCart={() => setCartOpen(true)}
       />
 
       {restaurant && <WhatsAppFloatingButton whatsapp={restaurant.whatsapp} />}
@@ -6758,7 +6915,11 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           openCustomerAccessModal("profile", false)
         }}
         onLogout={logoutPublicCustomer}
-       onRepeatOrder={handleRepeatOrder}
+        onEdit={() => {
+          setProfileModalOpen(false)
+          openCustomerAccessModal("profile", false)
+        }}
+        onRepeatOrder={handleRepeatOrder}
       />
 
       <CustomerStartModal
