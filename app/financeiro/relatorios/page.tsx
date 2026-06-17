@@ -806,8 +806,8 @@ function OwnerInsight({
       <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1", styles[tone])}>
         {icon}
       </div>
-      <p className="min-w-0 text-sm leading-snug text-white/88">
-        <span className="block text-xs font-bold uppercase tracking-wide text-white/55">{label}</span>
+      <p className="min-w-0 text-sm font-semibold leading-snug text-white/90">
+        <span className="block text-xs font-black uppercase tracking-wide text-white/70">{label}</span>
         {value}
       </p>
     </div>
@@ -837,7 +837,7 @@ function DecisionCard({
   return (
     <div className={cn("rounded-2xl border bg-white/[0.03] p-4", styles[tone])}>
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/8">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10">
           {icon}
         </div>
         <div className="min-w-0">
@@ -2108,7 +2108,7 @@ export default function RelatoriosFinanceirosPage() {
               </SectionCard>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid items-start gap-4 xl:grid-cols-[0.95fr_1.05fr]">
               <SectionCard
                 title="Fechamentos de caixa"
                 subtitle="Últimos fechamentos dentro do período selecionado."
@@ -2149,7 +2149,7 @@ export default function RelatoriosFinanceirosPage() {
                 icon={<AlertTriangle className="h-4 w-4" />}
               >
                 {managerAlerts.length > 0 ? (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
                     {managerAlerts.map((alert) => {
                       const styles = {
                         blue: "border-blue-200 bg-blue-50 text-blue-800",
@@ -2159,12 +2159,12 @@ export default function RelatoriosFinanceirosPage() {
                       }[alert.tone]
 
                       return (
-                        <div key={alert.title} className={cn("rounded-2xl border p-4", styles)}>
+                        <div key={alert.title} className={cn("min-w-0 rounded-2xl border p-4", styles)}>
                           <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/70">
                             {alert.icon}
                           </div>
-                          <p className="text-sm font-black leading-tight">{alert.title}</p>
-                          <p className="mt-2 text-xs font-medium leading-relaxed opacity-85">{alert.description}</p>
+                          <p className="break-words text-sm font-black leading-tight">{alert.title}</p>
+                          <p className="mt-2 break-words text-xs font-medium leading-relaxed opacity-80">{alert.description}</p>
                         </div>
                       )
                     })}
