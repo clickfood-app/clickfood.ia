@@ -5,24 +5,24 @@ import type { ReactNode } from "react"
 import {
   Activity,
   AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
+  ArrowRight,
   BarChart3,
   CalendarDays,
+  CheckCircle2,
   CreditCard,
   DollarSign,
   FileText,
+  Info,
   Loader2,
   Package,
   PieChart,
   RefreshCcw,
   ShoppingBag,
   Target,
-  TrendingDown,
   TrendingUp,
   Truck,
-  Users,
   Wallet,
+  XCircle,
 } from "lucide-react"
 import AdminLayout from "@/components/admin-layout"
 import { Button } from "@/components/ui/button"
@@ -102,6 +102,9 @@ type RankingItem = {
   label: string
   value: number
   helper?: string
+  quantity?: number
+  orders?: number
+  count?: number
 }
 
 type CostAreaItem = {
@@ -111,6 +114,11 @@ type CostAreaItem = {
   total: number
   count: number
 }
+
+type AlertTone = "blue" | "orange" | "red" | "violet"
+
+const SALES_CHANNELS = ["Manual / Balcão", "Cardápio online", "WhatsApp / Robô", "Mesa / PDV"]
+const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão", "Outros"]
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10)
@@ -148,6 +156,17 @@ function isInsidePeriod(value: string | null | undefined, startDate: string, end
   return date >= startDate && date <= endDate
 }
 
+function inclusiveDays(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return 0
+  }
+
+  return Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1
+}
+
 function toNumber(value: unknown) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -170,8 +189,25 @@ function formatCurrency(value: number | null | undefined) {
   }).format(Number(value || 0))
 }
 
+function formatCompactCurrency(value: number | null | undefined) {
+  const amount = Number(value || 0)
+  const absolute = Math.abs(amount)
+
+  if (absolute >= 1_000_000) {
+    return `R$ ${(amount / 1_000_000).toFixed(1).replace(".", ",")} mi`
+  }
+
+  if (absolute >= 1_000) {
+    return `R$ ${(amount / 1_000).toFixed(1).replace(".", ",")} mil`
+  }
+
+  return formatCurrency(amount)
+}
+
 function formatPercent(value: number) {
-  return `${value.toFixed(1).replace(".", ",")}%`
+  const fixed = value.toFixed(1)
+  const clean = fixed.endsWith(".0") ? fixed.slice(0, -2) : fixed
+  return `${clean.replace(".", ",")}%`
 }
 
 function formatDate(value: string | null | undefined) {
@@ -181,6 +217,15 @@ function formatDate(value: string | null | undefined) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  }).format(new Date(`${value.slice(0, 10)}T00:00:00`))
+}
+
+function formatShortDate(value: string | null | undefined) {
+  if (!value) return "--/--"
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
   }).format(new Date(`${value.slice(0, 10)}T00:00:00`))
 }
 
@@ -222,41 +267,41 @@ function normalizePaymentMethod(method: string | null) {
 function normalizeSalesChannel(order: Order) {
   const source = (order.order_source || "").toLowerCase()
   const status = (order.status || "").toLowerCase()
+  const text = `${source} ${status}`
 
   if (
-    source.includes("waiter") ||
-    source.includes("garcom") ||
-    source.includes("garçom") ||
-    source.includes("mesa") ||
-    source.includes("table")
+    text.includes("whatsapp") ||
+    text.includes("whats") ||
+    text.includes("robot") ||
+    text.includes("robô") ||
+    text.includes("robo") ||
+    text.includes("bot")
   ) {
-    return "Garçom / Mesas"
+    return "WhatsApp / Robô"
   }
 
   if (
-    source.includes("manual") ||
-    source.includes("admin") ||
-    source.includes("painel") ||
-    source.includes("counter")
+    text.includes("waiter") ||
+    text.includes("garcom") ||
+    text.includes("garçom") ||
+    text.includes("mesa") ||
+    text.includes("table") ||
+    text.includes("pdv")
   ) {
-    return "Manual / Balcão"
+    return "Mesa / PDV"
   }
 
   if (
-    source.includes("public") ||
-    source.includes("cardapio") ||
-    source.includes("cardápio") ||
-    source.includes("online") ||
-    source.includes("site")
+    text.includes("public") ||
+    text.includes("cardapio") ||
+    text.includes("cardápio") ||
+    text.includes("online") ||
+    text.includes("site")
   ) {
     return "Cardápio online"
   }
 
-  if (status.includes("table") || status.includes("mesa")) {
-    return "Garçom / Mesas"
-  }
-
-  return "Não informado"
+  return "Manual / Balcão"
 }
 
 function expenseGroup(expense: AccountPayable) {
@@ -279,7 +324,7 @@ function expenseGroup(expense: AccountPayable) {
     text.includes("diaria") ||
     text.includes("diarista")
   ) {
-    return "Freelancers / Diárias"
+    return "Freelancers / diárias"
   }
 
   if (
@@ -309,6 +354,20 @@ function isPaidStatus(status: string | null | undefined) {
   return value === "paid" || value === "pago" || value === "concluido" || value === "concluído"
 }
 
+function isCanceledStatus(order: Order) {
+  const value = `${order.status || ""} ${order.payment_status || ""}`.toLowerCase()
+
+  return (
+    value.includes("cancel") ||
+    value.includes("cancelado") ||
+    value.includes("cancelada") ||
+    value.includes("canceled") ||
+    value.includes("cancelled") ||
+    value.includes("rejeitado") ||
+    value.includes("rejected")
+  )
+}
+
 function maxValue(items: RankingItem[]) {
   return Math.max(...items.map((item) => item.value), 1)
 }
@@ -318,29 +377,14 @@ function percentage(value: number, total: number) {
   return (value / total) * 100
 }
 
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-      {text}
-    </div>
-  )
+function percentWidth(value: number) {
+  return `${Math.min(Math.max(value, 0), 100)}%`
 }
 
-function ScrollableBox({
-  children,
-  className,
-}: {
-  children: ReactNode
-  className?: string
-}) {
+function EmptyState({ text }: { text: string }) {
   return (
-    <div
-      className={cn(
-        "overflow-y-auto pr-1 [scrollbar-color:theme(colors.slate.300)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400",
-        className,
-      )}
-    >
-      {children}
+    <div className="rounded-xl border border-dashed border-[#cdd9ea] bg-[#f8fbff] px-4 py-6 text-center text-sm text-[#55708f]">
+      {text}
     </div>
   )
 }
@@ -361,18 +405,18 @@ function SectionCard({
   action?: ReactNode
 }) {
   return (
-    <section className={cn("rounded-2xl border border-slate-200 bg-white shadow-sm", className)}>
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <div className="flex min-w-0 items-start gap-3">
+    <section className={cn("rounded-2xl border border-[#dbe5f2] bg-white shadow-sm", className)}>
+      <div className="flex items-start justify-between gap-3 border-b border-[#edf2f8] px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
           {icon ? (
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#eef5ff] text-[#2563eb]">
               {icon}
             </div>
           ) : null}
 
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-slate-950">{title}</h2>
-            {subtitle ? <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{subtitle}</p> : null}
+            <h2 className="text-sm font-bold text-[#07152f]">{title}</h2>
+            {subtitle ? <p className="mt-0.5 text-xs leading-relaxed text-[#55708f]">{subtitle}</p> : null}
           </div>
         </div>
 
@@ -384,132 +428,151 @@ function SectionCard({
   )
 }
 
-function KpiCard({
+function MiniSparkline({
+  values,
+  color = "#2563eb",
+}: {
+  values: number[]
+  color?: string
+}) {
+  const source = values.length > 1 ? values : [0, values[0] || 0]
+  const min = Math.min(...source)
+  const max = Math.max(...source)
+  const range = max - min || 1
+  const width = 160
+  const height = 42
+  const points = source
+    .map((value, index) => {
+      const x = source.length === 1 ? width : (index / (source.length - 1)) * width
+      const y = height - ((value - min) / range) * (height - 8) - 4
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(" ")
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-10 w-full" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {source.map((value, index) => {
+        const x = source.length === 1 ? width : (index / (source.length - 1)) * width
+        const y = height - ((value - min) / range) * (height - 8) - 4
+
+        return <circle key={`${value}-${index}`} cx={x} cy={y} r="2.4" fill={color} />
+      })}
+    </svg>
+  )
+}
+
+function MetricCard({
   title,
   value,
   helper,
   icon,
-  tone = "slate",
+  tone = "blue",
+  sparklineValues,
+  children,
 }: {
   title: string
   value: string
   helper?: string
   icon: ReactNode
-  tone?: "slate" | "emerald" | "violet" | "orange" | "red" | "blue"
+  tone?: "blue" | "green" | "orange" | "red" | "violet" | "slate"
+  sparklineValues?: number[]
+  children?: ReactNode
 }) {
-  const styles = {
-    slate: "border-slate-200 bg-white text-slate-950",
-    emerald: "border-emerald-200 bg-emerald-50/70 text-emerald-900",
-    violet: "border-violet-200 bg-violet-50/70 text-violet-900",
-    orange: "border-orange-200 bg-orange-50/70 text-orange-900",
-    red: "border-red-200 bg-red-50/70 text-red-900",
-    blue: "border-blue-200 bg-blue-50/70 text-blue-900",
-  }
-
-  const iconStyles = {
-    slate: "bg-slate-100 text-slate-700",
-    emerald: "bg-emerald-100 text-emerald-700",
-    violet: "bg-violet-100 text-violet-700",
-    orange: "bg-orange-100 text-orange-700",
-    red: "bg-red-100 text-red-700",
-    blue: "bg-blue-100 text-blue-700",
-  }
+  const toneStyles = {
+    blue: {
+      icon: "bg-blue-100 text-[#2563eb]",
+      value: "text-[#07152f]",
+      line: "#2563eb",
+    },
+    green: {
+      icon: "bg-emerald-100 text-[#059669]",
+      value: "text-[#059669]",
+      line: "#059669",
+    },
+    orange: {
+      icon: "bg-orange-100 text-[#f97316]",
+      value: "text-[#f97316]",
+      line: "#f97316",
+    },
+    red: {
+      icon: "bg-red-100 text-[#dc2626]",
+      value: "text-[#dc2626]",
+      line: "#dc2626",
+    },
+    violet: {
+      icon: "bg-violet-100 text-[#7c3aed]",
+      value: "text-[#07152f]",
+      line: "#7c3aed",
+    },
+    slate: {
+      icon: "bg-slate-100 text-[#55708f]",
+      value: "text-[#07152f]",
+      line: "#55708f",
+    },
+  }[tone]
 
   return (
-    <div className={cn("rounded-2xl border px-3 py-3 shadow-sm", styles[tone])}>
+    <div className="min-h-[150px] rounded-2xl border border-[#dbe5f2] bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            {title}
-          </p>
-          <strong className="mt-1 block truncate text-lg font-bold tracking-tight sm:text-xl">
+          <p className="text-xs font-bold text-[#07152f]">{title}</p>
+          <strong className={cn("mt-1 block truncate text-2xl font-black tracking-tight", toneStyles.value)}>
             {value}
           </strong>
-          {helper ? <p className="mt-1 truncate text-xs text-slate-500">{helper}</p> : null}
+          {helper ? <p className="mt-1 text-xs leading-relaxed text-[#55708f]">{helper}</p> : null}
         </div>
 
-        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconStyles[tone])}>
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", toneStyles.icon)}>
           {icon}
         </div>
       </div>
-    </div>
-  )
-}
 
-function InsightCard({
-  title,
-  value,
-  helper,
-  tone = "slate",
-}: {
-  title: string
-  value: string
-  helper?: string
-  tone?: "slate" | "emerald" | "violet" | "orange"
-}) {
-  const styles = {
-    slate: "border-slate-200 bg-white",
-    emerald: "border-emerald-200 bg-emerald-50/70",
-    violet: "border-violet-200 bg-violet-50/70",
-    orange: "border-orange-200 bg-orange-50/70",
-  }
+      {children ? <div className="mt-3">{children}</div> : null}
 
-  return (
-    <div className={cn("rounded-xl border px-3 py-2.5", styles[tone])}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {title}
-      </p>
-      <strong className="mt-1 block text-sm font-semibold leading-snug text-slate-950">
-        {value}
-      </strong>
-      {helper ? <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{helper}</p> : null}
-    </div>
-  )
-}
-
-function RankingRows({
-  items,
-  emptyText,
-  valueFormatter = formatCurrency,
-  barTone = "bg-slate-900",
-}: {
-  items: RankingItem[]
-  emptyText: string
-  valueFormatter?: (value: number) => string
-  barTone?: string
-}) {
-  const max = maxValue(items)
-
-  if (items.length === 0) {
-    return <EmptyState text={emptyText} />
-  }
-
-  return (
-    <div className="space-y-2">
-      {items.map((item, index) => (
-        <div key={item.label} className="rounded-xl border border-slate-100 bg-white px-3 py-2.5">
-          <div className="mb-2 flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">
-                {index + 1}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{item.label}</p>
-                {item.helper ? <p className="truncate text-xs text-slate-500">{item.helper}</p> : null}
-              </div>
-            </div>
-
-            <strong className="shrink-0 text-sm font-bold text-slate-950">{valueFormatter(item.value)}</strong>
-          </div>
-
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className={cn("h-full rounded-full", barTone)}
-              style={{ width: `${Math.min((item.value / max) * 100, 100)}%` }}
-            />
-          </div>
+      {sparklineValues ? (
+        <div className="mt-3">
+          <MiniSparkline values={sparklineValues} color={toneStyles.line} />
         </div>
-      ))}
+      ) : null}
+    </div>
+  )
+}
+
+function ProgressBar({
+  percent,
+  tone = "blue",
+}: {
+  percent: number
+  tone?: "blue" | "green" | "orange" | "red" | "violet" | "slate"
+}) {
+  const colors = {
+    blue: "bg-[#2563eb]",
+    green: "bg-[#059669]",
+    orange: "bg-[#f97316]",
+    red: "bg-[#dc2626]",
+    violet: "bg-[#7c3aed]",
+    slate: "bg-[#07152f]",
+  }
+
+  return (
+    <div className="h-1.5 w-full min-w-[72px] overflow-hidden rounded-full bg-[#edf2f8]">
+      <div className={cn("h-full rounded-full", colors[tone])} style={{ width: percentWidth(percent) }} />
+    </div>
+  )
+}
+
+function BarWithPercent({
+  percent,
+  tone = "blue",
+}: {
+  percent: number
+  tone?: "blue" | "green" | "orange" | "red" | "violet" | "slate"
+}) {
+  return (
+    <div className="flex min-w-[112px] items-center gap-2">
+      <ProgressBar percent={percent} tone={tone} />
+      <span className="w-10 shrink-0 text-right text-xs font-bold text-[#07152f]">{formatPercent(percent)}</span>
     </div>
   )
 }
@@ -517,65 +580,155 @@ function RankingRows({
 function CompactTable({
   headers,
   rows,
+  footer,
   emptyText,
+  minWidth = "640px",
 }: {
   headers: string[]
   rows: ReactNode[][]
+  footer?: ReactNode[]
   emptyText: string
+  minWidth?: string
 }) {
   if (rows.length === 0) {
     return <EmptyState text={emptyText} />
   }
 
   return (
-    <>
-      <div className="space-y-2 sm:hidden">
-        {rows.map((row, rowIndex) => (
-          <div key={rowIndex} className="rounded-xl border border-slate-200 bg-white p-3">
-            <div className="space-y-2">
-              {row.map((cell, cellIndex) => (
-                <div
-                  key={cellIndex}
-                  className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0"
-                >
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    {headers[cellIndex]}
-                  </span>
-                  <div className="text-right text-sm text-slate-800">{cell}</div>
-                </div>
+    <div className="overflow-hidden rounded-xl border border-[#dbe5f2]">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth }}>
+          <thead className="bg-[#f8fbff] text-left text-[11px] font-bold uppercase tracking-wide text-[#55708f]">
+            <tr>
+              {headers.map((header) => (
+                <th key={header} className="whitespace-nowrap px-3 py-2.5">
+                  {header}
+                </th>
               ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#edf2f8] bg-white">
+            {rows.map((row, rowIndex) => (
+              <tr key={rowIndex} className="hover:bg-[#f8fbff]">
+                {row.map((cell, cellIndex) => (
+                  <td key={cellIndex} className="px-3 py-2.5 align-middle text-[#07152f]">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+          {footer ? (
+            <tfoot className="border-t border-[#dbe5f2] bg-[#fbfdff] font-black text-[#07152f]">
+              <tr>
+                {footer.map((cell, index) => (
+                  <td key={index} className="px-3 py-2.5 align-middle">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function StatusDot({
+  tone,
+}: {
+  tone: "green" | "orange" | "red" | "blue"
+}) {
+  const colors = {
+    green: "bg-[#059669]",
+    orange: "bg-[#f97316]",
+    red: "bg-[#dc2626]",
+    blue: "bg-[#2563eb]",
+  }
+
+  return <span className={cn("h-2 w-2 shrink-0 rounded-full", colors[tone])} />
+}
+
+function StatusPill({
+  children,
+  tone = "green",
+}: {
+  children: ReactNode
+  tone?: "green" | "orange" | "red" | "blue" | "slate"
+}) {
+  const styles = {
+    green: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    orange: "border-orange-200 bg-orange-50 text-orange-700",
+    red: "border-red-200 bg-red-50 text-red-700",
+    blue: "border-blue-200 bg-blue-50 text-blue-700",
+    slate: "border-slate-200 bg-slate-50 text-slate-600",
+  }
+
+  return (
+    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-bold", styles[tone])}>
+      {children}
+    </span>
+  )
+}
+
+function StatusDonut({
+  paid,
+  pending,
+  canceled,
+}: {
+  paid: number
+  pending: number
+  canceled: number
+}) {
+  const total = paid + pending + canceled
+  const paidDegrees = total > 0 ? (paid / total) * 360 : 0
+  const pendingDegrees = total > 0 ? (pending / total) * 360 : 0
+  const gradient =
+    total > 0
+      ? `conic-gradient(#059669 0deg ${paidDegrees}deg, #f97316 ${paidDegrees}deg ${
+          paidDegrees + pendingDegrees
+        }deg, #dc2626 ${paidDegrees + pendingDegrees}deg 360deg)`
+      : "conic-gradient(#dbe5f2 0deg 360deg)"
+
+  const rows = [
+    { label: "Pagos", value: paid, tone: "green" as const },
+    { label: "Pendentes", value: pending, tone: "orange" as const },
+    { label: "Cancelados", value: canceled, tone: "red" as const },
+  ]
+
+  return (
+    <div className="grid gap-5 sm:grid-cols-[160px_1fr] sm:items-center">
+      <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-full p-5" style={{ background: gradient }}>
+        <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center shadow-inner">
+          <strong className="text-3xl font-black text-[#07152f]">{total}</strong>
+          <span className="text-xs font-bold text-[#55708f]">Total</span>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {rows.map((row) => (
+          <div key={row.label} className="grid grid-cols-[1fr_auto] items-center gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-2">
+                <StatusDot tone={row.tone} />
+                <span className="text-sm font-bold text-[#07152f]">{row.label}</span>
+              </div>
+              <ProgressBar percent={percentage(row.value, total)} tone={row.tone} />
+            </div>
+            <div className="text-right">
+              <strong className="block text-sm font-black text-[#07152f]">{row.value}</strong>
+              <span className="text-xs text-[#55708f]">{formatPercent(percentage(row.value, total))}</span>
             </div>
           </div>
         ))}
-      </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-slate-200 sm:block">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-sm">
-            <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
-              <tr>
-                {headers.map((header) => (
-                  <th key={header} className="px-3 py-2.5 font-semibold">
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="hover:bg-slate-50/70">
-                  {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="px-3 py-2.5 align-middle text-slate-700">
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex items-center justify-between border-t border-[#edf2f8] pt-3 text-sm font-black text-[#07152f]">
+          <span>Total</span>
+          <span>{total}</span>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -593,86 +746,105 @@ function RevenueBars({
   }
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-      <div className="flex h-[210px] items-end gap-2 overflow-x-auto pb-2">
-        {items.map((item) => {
-          const barHeight = Math.max((item.value / max) * 100, 8)
+    <div className="rounded-xl border border-[#dbe5f2] bg-white p-3">
+      <div className="relative h-[230px] overflow-hidden">
+        <div className="absolute inset-x-0 top-6 border-t border-[#edf2f8]" />
+        <div className="absolute inset-x-0 top-[72px] border-t border-[#edf2f8]" />
+        <div className="absolute inset-x-0 top-[118px] border-t border-[#edf2f8]" />
+        <div className="absolute inset-x-0 top-[164px] border-t border-[#edf2f8]" />
 
-          return (
-            <div key={item.label} className="flex min-w-[58px] flex-1 flex-col items-center justify-end gap-2">
-              <div className="text-center text-[10px] font-semibold text-slate-600">
-                {formatCurrency(item.value)}
+        <div className="relative flex h-full items-end gap-2 overflow-x-auto pb-1">
+          {items.map((item) => {
+            const barHeight = Math.max((item.value / max) * 150, item.value > 0 ? 10 : 2)
+
+            return (
+              <div
+                key={`${item.label}-${item.value}`}
+                className="flex min-w-[58px] flex-1 flex-col items-center justify-end gap-2"
+                title={`${item.helper || item.label}: ${formatCurrency(item.value)}`}
+              >
+                <span className="text-center text-[11px] font-bold text-[#55708f]">
+                  {formatCompactCurrency(item.value)}
+                </span>
+                <div className="flex h-[150px] w-full items-end justify-center rounded-lg bg-[#f4f7fb] px-1 pb-0.5">
+                  <div
+                    className="w-full rounded-t-md bg-[#2563eb] shadow-sm shadow-blue-200"
+                    style={{ height: `${barHeight}px` }}
+                  />
+                </div>
+                <span className="whitespace-nowrap text-[11px] font-bold text-[#07152f]">{item.label}</span>
               </div>
-              <div className="flex h-[145px] w-full items-end justify-center rounded-lg bg-white px-1 pb-0.5">
-                <div
-                  className="w-full rounded-t-lg bg-slate-900"
-                  style={{ height: `${barHeight}%` }}
-                />
-              </div>
-              <div className="text-center">
-                <p className="text-[11px] font-semibold text-slate-900">{item.label}</p>
-                {item.helper ? <p className="text-[10px] text-slate-500">{item.helper}</p> : null}
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
     </div>
   )
 }
 
-function CostDistribution({
-  items,
-  total,
+function OwnerInsight({
+  icon,
+  label,
+  value,
+  tone = "blue",
 }: {
-  items: CostAreaItem[]
-  total: number
+  icon: ReactNode
+  label: string
+  value: string
+  tone?: AlertTone | "green"
 }) {
-  if (items.length === 0) {
-    return <EmptyState text="Nenhum custo encontrado no período." />
+  const styles = {
+    blue: "bg-blue-500/15 text-blue-200 ring-blue-400/25",
+    green: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/25",
+    orange: "bg-orange-500/15 text-orange-200 ring-orange-400/25",
+    red: "bg-red-500/15 text-red-200 ring-red-400/25",
+    violet: "bg-violet-500/15 text-violet-200 ring-violet-400/25",
   }
 
-  const ordered = [...items].sort((a, b) => b.total - a.total)
-  const biggest = Math.max(...ordered.map((item) => item.total), 1)
+  return (
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
+      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1", styles[tone])}>
+        {icon}
+      </div>
+      <p className="min-w-0 text-sm leading-snug text-white/88">
+        <span className="block text-xs font-bold uppercase tracking-wide text-white/55">{label}</span>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function DecisionCard({
+  title,
+  value,
+  helper,
+  icon,
+  tone,
+}: {
+  title: string
+  value: string
+  helper: string
+  icon: ReactNode
+  tone: "green" | "orange" | "blue" | "red"
+}) {
+  const styles = {
+    green: "border-emerald-400/35 text-emerald-300",
+    orange: "border-orange-400/35 text-orange-300",
+    blue: "border-blue-400/35 text-blue-300",
+    red: "border-red-400/45 text-orange-300",
+  }
 
   return (
-    <div className="space-y-2">
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <InsightCard title="Total dos custos" value={formatCurrency(total)} helper="Principais áreas" />
-        <InsightCard title="Áreas" value={String(ordered.length)} helper="Composição do período" />
-      </div>
-
-      <div className="space-y-2">
-        {ordered.map((item) => (
-          <div key={item.label} className="rounded-xl border border-slate-100 bg-white px-3 py-2.5">
-            <div className="mb-2 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{item.label}</p>
-                <p className="text-xs text-slate-500">
-                  {item.count} registro{item.count === 1 ? "" : "s"} · {formatPercent(percentage(item.total, total))}
-                </p>
-              </div>
-
-              <strong className="shrink-0 text-sm font-bold text-slate-950">{formatCurrency(item.total)}</strong>
-            </div>
-
-            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-slate-900"
-                style={{ width: `${Math.min((item.total / biggest) * 100, 100)}%` }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-lg bg-emerald-50 px-2 py-1.5 text-emerald-700">
-                Pago <strong className="ml-1">{formatCurrency(item.paid)}</strong>
-              </div>
-              <div className="rounded-lg bg-orange-50 px-2 py-1.5 text-orange-700">
-                Pendente <strong className="ml-1">{formatCurrency(item.pending)}</strong>
-              </div>
-            </div>
-          </div>
-        ))}
+    <div className={cn("rounded-2xl border bg-white/[0.03] p-4", styles[tone])}>
+      <div className="flex items-start gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/8">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black">{title}</p>
+          <strong className="mt-1 block text-xl font-black leading-tight text-white">{value}</strong>
+          <p className="mt-2 text-xs leading-relaxed text-white/75">{helper}</p>
+        </div>
       </div>
     </div>
   )
@@ -693,12 +865,17 @@ export default function RelatoriosFinanceirosPage() {
   const [endDate, setEndDate] = useState(todayDate())
 
   const paidOrders = useMemo(
-    () => orders.filter((order) => isPaidStatus(order.payment_status)),
+    () => orders.filter((order) => isPaidStatus(order.payment_status) && !isCanceledStatus(order)),
+    [orders],
+  )
+
+  const canceledOrders = useMemo(
+    () => orders.filter((order) => isCanceledStatus(order)),
     [orders],
   )
 
   const pendingOrders = useMemo(
-    () => orders.filter((order) => !isPaidStatus(order.payment_status)),
+    () => orders.filter((order) => !isPaidStatus(order.payment_status) && !isCanceledStatus(order)),
     [orders],
   )
 
@@ -715,6 +892,7 @@ export default function RelatoriosFinanceirosPage() {
   const totals = useMemo(() => {
     const revenue = paidOrders.reduce((acc, order) => acc + order.total, 0)
     const pendingRevenue = pendingOrders.reduce((acc, order) => acc + order.total, 0)
+    const canceledRevenue = canceledOrders.reduce((acc, order) => acc + order.total, 0)
 
     const paidExpenseTotal = paidExpenses.reduce((acc, expense) => acc + expense.amount, 0)
     const pendingExpenseTotal = pendingExpenses.reduce((acc, expense) => acc + expense.amount, 0)
@@ -723,29 +901,30 @@ export default function RelatoriosFinanceirosPage() {
     const deliveryFeesAllOrders = orders.reduce((acc, order) => acc + order.delivery_fee, 0)
 
     const averageTicket = paidOrders.length > 0 ? revenue / paidOrders.length : 0
-    const balance = revenue - paidExpenseTotal
     const totalCostWithPending = paidExpenseTotal + pendingExpenseTotal
 
     return {
       revenue,
       pendingRevenue,
+      canceledRevenue,
+      grossRevenue: revenue + pendingRevenue,
       paidExpenseTotal,
       pendingExpenseTotal,
       deliveryFees,
       deliveryFeesAllOrders,
       averageTicket,
-      balance,
       totalCostWithPending,
       paidOrdersCount: paidOrders.length,
       pendingOrdersCount: pendingOrders.length,
-      totalOrdersCount: orders.length,
+      canceledOrdersCount: canceledOrders.length,
+      totalOrdersCount: paidOrders.length + pendingOrders.length + canceledOrders.length,
     }
-  }, [orders, paidExpenses, paidOrders, pendingExpenses, pendingOrders])
+  }, [canceledOrders, orders, paidExpenses, paidOrders, pendingExpenses, pendingOrders])
 
   const costsByGroup = useMemo(() => {
     const groups: Record<string, { paid: number; pending: number; count: number }> = {
       "Folha fixa": { paid: 0, pending: 0, count: 0 },
-      "Freelancers / Diárias": { paid: 0, pending: 0, count: 0 },
+      "Freelancers / diárias": { paid: 0, pending: 0, count: 0 },
       Entregadores: { paid: 0, pending: 0, count: 0 },
       Fornecedores: { paid: 0, pending: 0, count: 0 },
       "Outras despesas": { paid: 0, pending: 0, count: 0 },
@@ -779,7 +958,7 @@ export default function RelatoriosFinanceirosPage() {
   )
 
   const freelancerCost = useMemo(
-    () => costsByGroup.find((item) => item.label === "Freelancers / Diárias")?.total || 0,
+    () => costsByGroup.find((item) => item.label === "Freelancers / diárias")?.total || 0,
     [costsByGroup],
   )
 
@@ -818,6 +997,10 @@ export default function RelatoriosFinanceirosPage() {
     return percentage(totalMainCosts, totals.revenue)
   }, [totalMainCosts, totals.revenue])
 
+  const operationalMargin = useMemo(() => {
+    return percentage(operationalResult, totals.revenue)
+  }, [operationalResult, totals.revenue])
+
   const revenueByDay = useMemo(() => {
     const grouped = paidOrders.reduce<Record<string, { total: number; orders: number }>>((acc, order) => {
       const date = order.created_at.slice(0, 10)
@@ -830,9 +1013,12 @@ export default function RelatoriosFinanceirosPage() {
     return Object.entries(grouped)
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
       .map(([date, data]) => ({
-        label: formatDate(date),
+        label: formatShortDate(date),
         value: data.total,
-        helper: `${data.orders} pedido${data.orders === 1 ? "" : "s"} pago${data.orders === 1 ? "" : "s"}`,
+        helper: `${formatDate(date)} · ${data.orders} pedido${data.orders === 1 ? "" : "s"} pago${
+          data.orders === 1 ? "" : "s"
+        }`,
+        orders: data.orders,
       }))
   }, [paidOrders])
 
@@ -853,6 +1039,7 @@ export default function RelatoriosFinanceirosPage() {
       .map(([product, data]) => ({
         label: product,
         value: data.total,
+        quantity: data.quantity,
         helper: `${data.quantity} vendido${data.quantity === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
@@ -860,39 +1047,45 @@ export default function RelatoriosFinanceirosPage() {
   }, [orderItems, paidOrders])
 
   const salesChannels = useMemo(() => {
-    const grouped = paidOrders.reduce<Record<string, { total: number; orders: number }>>((acc, order) => {
-      const channel = normalizeSalesChannel(order)
-      acc[channel] = acc[channel] || { total: 0, orders: 0 }
-      acc[channel].total += order.total
-      acc[channel].orders += 1
+    const grouped = SALES_CHANNELS.reduce<Record<string, { total: number; orders: number }>>((acc, channel) => {
+      acc[channel] = { total: 0, orders: 0 }
       return acc
     }, {})
 
-    return Object.entries(grouped)
-      .map(([channel, data]) => ({
-        label: channel,
-        value: data.total,
-        helper: `${data.orders} pedido${data.orders === 1 ? "" : "s"}`,
-      }))
-      .sort((a, b) => b.value - a.value)
+    paidOrders.forEach((order) => {
+      const channel = normalizeSalesChannel(order)
+      grouped[channel] = grouped[channel] || { total: 0, orders: 0 }
+      grouped[channel].total += order.total
+      grouped[channel].orders += 1
+    })
+
+    return SALES_CHANNELS.map((channel) => ({
+      label: channel,
+      value: grouped[channel]?.total || 0,
+      orders: grouped[channel]?.orders || 0,
+      helper: `${grouped[channel]?.orders || 0} pedido${(grouped[channel]?.orders || 0) === 1 ? "" : "s"}`,
+    }))
   }, [paidOrders])
 
   const paymentMethods = useMemo(() => {
-    const grouped = paidOrders.reduce<Record<string, { total: number; orders: number }>>((acc, order) => {
-      const method = normalizePaymentMethod(order.payment_method)
-      acc[method] = acc[method] || { total: 0, orders: 0 }
-      acc[method].total += order.total
-      acc[method].orders += 1
+    const grouped = PAYMENT_METHODS.reduce<Record<string, { total: number; orders: number }>>((acc, method) => {
+      acc[method] = { total: 0, orders: 0 }
       return acc
     }, {})
 
-    return Object.entries(grouped)
-      .map(([method, data]) => ({
-        label: method,
-        value: data.total,
-        helper: `${data.orders} pedido${data.orders === 1 ? "" : "s"}`,
-      }))
-      .sort((a, b) => b.value - a.value)
+    paidOrders.forEach((order) => {
+      const method = normalizePaymentMethod(order.payment_method)
+      grouped[method] = grouped[method] || { total: 0, orders: 0 }
+      grouped[method].total += order.total
+      grouped[method].orders += 1
+    })
+
+    return PAYMENT_METHODS.map((method) => ({
+      label: method,
+      value: grouped[method]?.total || 0,
+      orders: grouped[method]?.orders || 0,
+      helper: `${grouped[method]?.orders || 0} pedido${(grouped[method]?.orders || 0) === 1 ? "" : "s"}`,
+    }))
   }, [paidOrders])
 
   const suppliersRanking = useMemo(() => {
@@ -919,10 +1112,11 @@ export default function RelatoriosFinanceirosPage() {
       .map(([supplier, data]) => ({
         label: supplier,
         value: data.total,
+        count: data.count,
         helper: `${data.count} registro${data.count === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 8)
+      .slice(0, 6)
   }, [expenses, supplierPurchases])
 
   const deliveryRanking = useMemo(() => {
@@ -938,10 +1132,11 @@ export default function RelatoriosFinanceirosPage() {
       .map(([driver, data]) => ({
         label: driver,
         value: data.total,
+        count: data.count,
         helper: `${data.count} acerto${data.count === 1 ? "" : "s"}`,
       }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 8)
+      .slice(0, 6)
   }, [deliverySettlements])
 
   const displayCostAreas = useMemo<CostAreaItem[]>(() => {
@@ -955,7 +1150,7 @@ export default function RelatoriosFinanceirosPage() {
       }
 
     const folha = getBaseGroup("Folha fixa")
-    const freelancer = getBaseGroup("Freelancers / Diárias")
+    const freelancer = getBaseGroup("Freelancers / diárias")
     const outras = getBaseGroup("Outras despesas")
 
     const supplierBase = getBaseGroup("Fornecedores")
@@ -1020,7 +1215,7 @@ export default function RelatoriosFinanceirosPage() {
         count: folha.count,
       },
       {
-        label: "Freelancers / Diárias",
+        label: "Freelancers / diárias",
         paid: freelancer.paid,
         pending: freelancer.pending,
         total: freelancer.total,
@@ -1040,7 +1235,7 @@ export default function RelatoriosFinanceirosPage() {
 
   const biggestCost = useMemo(() => {
     const ordered = [...displayCostAreas].sort((a, b) => b.total - a.total)
-    return ordered[0] || null
+    return ordered.find((item) => item.total > 0) || null
   }, [displayCostAreas])
 
   const supplierAreaSummary = useMemo(() => {
@@ -1063,92 +1258,132 @@ export default function RelatoriosFinanceirosPage() {
     }
   }, [displayCostAreas])
 
-  const averageDeliveryCost = useMemo(() => {
-    if (totals.paidOrdersCount <= 0) return 0
-    return totals.deliveryFees / totals.paidOrdersCount
-  }, [totals.deliveryFees, totals.paidOrdersCount])
+  const deliveryCount = useMemo(() => {
+    if (deliverySettlements.length > 0) return deliverySettlements.length
+    return paidOrders.filter((order) => order.delivery_fee > 0).length
+  }, [deliverySettlements.length, paidOrders])
 
-  const deliveryShare = useMemo(() => {
-    return percentage(deliveryAreaSummary.total, totals.revenue)
-  }, [deliveryAreaSummary.total, totals.revenue])
+  const averageDeliveryCost = useMemo(() => {
+    if (deliveryCount <= 0) return 0
+    return deliveryAreaSummary.total / deliveryCount
+  }, [deliveryAreaSummary.total, deliveryCount])
 
   const bestProduct = useMemo(() => topProducts[0] || null, [topProducts])
-  const bestChannel = useMemo(() => salesChannels[0] || null, [salesChannels])
-  const bestPaymentMethod = useMemo(() => paymentMethods[0] || null, [paymentMethods])
+  const bestChannel = useMemo(
+    () => [...salesChannels].filter((item) => item.value > 0).sort((a, b) => b.value - a.value)[0] || null,
+    [salesChannels],
+  )
+  const bestPaymentMethod = useMemo(
+    () => [...paymentMethods].filter((item) => item.value > 0).sort((a, b) => b.value - a.value)[0] || null,
+    [paymentMethods],
+  )
+
+  const productLeaderShare = useMemo(() => {
+    return bestProduct ? percentage(bestProduct.value, totals.revenue) : 0
+  }, [bestProduct, totals.revenue])
+
+  const periodIncludesToday = useMemo(() => {
+    const today = todayDate()
+    return startDate <= today && endDate >= today
+  }, [endDate, startDate])
+
+  const hasTodayClosing = useMemo(() => {
+    const today = todayDate()
+    return closings.some((closing) => closing.closing_date?.slice(0, 10) === today)
+  }, [closings])
 
   const priorityText = useMemo(() => {
-    if (totals.pendingRevenue > totals.revenue * 0.35 && totals.pendingRevenue > 0) {
-      return `Confirmar ${formatCurrency(totals.pendingRevenue)} em recebimentos pendentes`
+    if (totals.pendingRevenue > 0) {
+      return `Confirmar ${formatCurrency(totals.pendingRevenue)} em recebimentos pendentes para ter visão real do caixa.`
+    }
+
+    if (totalMainCosts === 0) {
+      return "Registrar custos do período para não superestimar o resultado operacional."
+    }
+
+    if (periodIncludesToday && !hasTodayClosing) {
+      return "Finalizar o fechamento de caixa de hoje para completar a leitura."
+    }
+
+    if (productLeaderShare >= 50 && bestProduct) {
+      return `Acompanhar a concentração do produto líder: ${formatPercent(productLeaderShare)} da receita.`
     }
 
     if (operationalResult < 0) {
-      return "Reduzir custos fixos ou aumentar ticket médio"
+      return "Revisar custos e ticket médio antes de ampliar a operação."
     }
 
-    if (biggestCost && biggestCost.total > totals.revenue * 0.4 && totals.revenue > 0) {
-      return `Revisar ${biggestCost.label.toLowerCase()} antes de escalar`
-    }
+    return "Manter acompanhamento semanal de vendas, custos e recebimentos."
+  }, [
+    bestProduct,
+    hasTodayClosing,
+    operationalResult,
+    periodIncludesToday,
+    productLeaderShare,
+    totalMainCosts,
+    totals.pendingRevenue,
+  ])
 
-    if (totals.revenue <= 0) {
-      return "Gerar vendas pagas para montar um histórico confiável"
-    }
+  const managerAlerts = useMemo(() => {
+    const messages: { title: string; description: string; tone: AlertTone; icon: ReactNode }[] = []
 
-    return "Manter acompanhamento semanal de vendas e custos"
-  }, [biggestCost, operationalResult, totals.pendingRevenue, totals.revenue])
-
-  const alerts = useMemo(() => {
-    const messages: { title: string; description: string; tone: "danger" | "warning" | "success" | "neutral" }[] = []
-
-    if (totals.revenue <= 0) {
+    if (totals.pendingRevenue > 0) {
       messages.push({
-        title: "Sem receita recebida no período",
-        description: "Ainda não existem vendas pagas suficientes para uma leitura financeira consistente.",
-        tone: "warning",
+        title: "Recebimentos pendentes",
+        description: `${formatCurrency(totals.pendingRevenue)} para confirmar.`,
+        tone: "orange",
+        icon: <Wallet className="h-4 w-4" />,
       })
     }
 
-    if (operationalResult < 0) {
+    if (totalMainCosts === 0) {
       messages.push({
-        title: "Resultado operacional negativo",
-        description: `As saídas principais passaram da receita em ${formatCurrency(Math.abs(operationalResult))}.`,
-        tone: "danger",
+        title: "Sem custos registrados",
+        description: "O resultado pode estar superestimado.",
+        tone: "blue",
+        icon: <Info className="h-4 w-4" />,
       })
     }
 
-    if (totals.pendingRevenue > totals.revenue * 0.35 && totals.pendingRevenue > 0) {
+    if (periodIncludesToday && !hasTodayClosing) {
       messages.push({
-        title: "Muito dinheiro pendente",
-        description: `Existem ${formatCurrency(totals.pendingRevenue)} a receber. Isso pode distorcer sua leitura de caixa.`,
-        tone: "warning",
+        title: "Sem fechamento de caixa hoje",
+        description: "Finalize o caixa para visão completa.",
+        tone: "blue",
+        icon: <CalendarDays className="h-4 w-4" />,
       })
     }
 
-    if (costShare > 70) {
+    if (bestProduct && productLeaderShare >= 50) {
       messages.push({
-        title: "Custos altos para a receita atual",
-        description: `Os custos principais equivalem a ${formatPercent(costShare)} da receita recebida.`,
-        tone: "warning",
+        title: "Produto líder concentrado",
+        description: `${bestProduct.label} concentra ${formatPercent(productLeaderShare)} da receita.`,
+        tone: "violet",
+        icon: <BarChart3 className="h-4 w-4" />,
       })
     }
 
-    if (topProducts.length === 0 && totals.revenue > 0) {
+    if (totals.canceledOrdersCount > 0) {
       messages.push({
-        title: "Produtos não encontrados no relatório",
-        description: "Existe receita, mas o ranking de itens não foi montado. Pode ser falta de vínculo com order_items.",
-        tone: "neutral",
-      })
-    }
-
-    if (messages.length === 0) {
-      messages.push({
-        title: "Período saudável",
-        description: "A operação está positiva. Continue monitorando ticket, canal principal e custos semanais.",
-        tone: "success",
+        title: "Pedidos cancelados no período",
+        description: `${totals.canceledOrdersCount} pedido${totals.canceledOrdersCount === 1 ? "" : "s"} cancelado${
+          totals.canceledOrdersCount === 1 ? "" : "s"
+        }.`,
+        tone: "red",
+        icon: <XCircle className="h-4 w-4" />,
       })
     }
 
     return messages
-  }, [costShare, operationalResult, topProducts.length, totals.pendingRevenue, totals.revenue])
+  }, [
+    bestProduct,
+    hasTodayClosing,
+    periodIncludesToday,
+    productLeaderShare,
+    totalMainCosts,
+    totals.canceledOrdersCount,
+    totals.pendingRevenue,
+  ])
 
   async function loadOptionalSupplierPurchases(restaurantId: string) {
     const { data, error } = await supabase
@@ -1378,8 +1613,8 @@ export default function RelatoriosFinanceirosPage() {
       setSupplierPurchases(purchasesData)
       setDeliverySettlements(settlementsData)
     } catch (error: any) {
-      console.error("Erro ao carregar relatório 360:", error)
-      alert(error?.message || "Não foi possível carregar o relatório 360.")
+      console.error("Erro ao carregar relatório operacional:", error)
+      alert(error?.message || "Não foi possível carregar o relatório operacional.")
     } finally {
       setLoading(false)
     }
@@ -1390,71 +1625,135 @@ export default function RelatoriosFinanceirosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate])
 
-  const closingRows = closings.slice(0, 8).map((closing) => [
-    <div key={`${closing.id}-day`} className="space-y-0.5">
-      <span className="font-semibold text-slate-900">{formatWeekday(closing.closing_date)}</span>
-      <span className="block text-xs text-slate-500">Caixa fechado</span>
+  const selectedDays = inclusiveDays(startDate, endDate)
+  const sparklineValues = revenueByDay.length > 0 ? revenueByDay.map((item) => item.value) : [0, totals.revenue]
+
+  const dreRows = [
+    ["Receita recebida", <span key="received" className="font-black text-[#059669]">{formatCurrency(totals.revenue)}</span>],
+    ["Receita pendente", <span key="pending" className="font-black text-[#f97316]">{formatCurrency(totals.pendingRevenue)}</span>],
+    ["Receita bruta total", <span key="gross" className="font-black text-[#07152f]">{formatCurrency(totals.grossRevenue)}</span>],
+    ["Custos com folha fixa", <span key="payroll">{formatCurrency(fixedPayroll)}</span>],
+    ["Custos com freelancers / diárias", <span key="freelancers">{formatCurrency(freelancerCost)}</span>],
+    ["Custos com entregadores", <span key="delivery">{formatCurrency(deliveryCost)}</span>],
+    ["Custos com fornecedores", <span key="suppliers">{formatCurrency(supplierCost)}</span>],
+    ["Outras despesas", <span key="other">{formatCurrency(otherCosts)}</span>],
+    ["Total de custos", <span key="costs" className="font-black">{formatCurrency(totalMainCosts)}</span>],
+  ]
+
+  const productRows = topProducts.map((product, index) => [
+    <span key="position" className="font-black text-[#55708f]">{index + 1}</span>,
+    <div key="product" className="max-w-[220px]">
+      <p className="font-black leading-tight text-[#07152f]">{product.label}</p>
+      <p className="text-xs text-[#55708f]">{product.helper}</p>
     </div>,
-    <span key={`${closing.id}-date`} className="font-medium text-slate-700">
-      {formatDate(closing.closing_date)}
-    </span>,
-    <span
-      key={`${closing.id}-result`}
-      className={cn(
-        "font-bold",
-        closing.estimated_profit >= 0 ? "text-violet-700" : "text-red-600",
-      )}
-    >
+    <span key="quantity" className="font-bold">{product.quantity || 0}</span>,
+    <span key="revenue" className="font-black">{formatCurrency(product.value)}</span>,
+    <BarWithPercent key="share" percent={percentage(product.value, totals.revenue)} tone="blue" />,
+  ])
+
+  const paymentRows = paymentMethods.map((method) => {
+    const isMain = bestPaymentMethod?.label === method.label && method.value > 0
+
+    return [
+      <div key="method" className="flex items-center gap-2">
+        <span className="font-bold text-[#07152f]">{method.label}</span>
+        {isMain ? <StatusPill tone="blue">Principal</StatusPill> : null}
+      </div>,
+      <span key="value" className="font-black">{formatCurrency(method.value)}</span>,
+      <span key="orders" className="font-bold">{method.orders || 0}</span>,
+      <BarWithPercent key="share" percent={percentage(method.value, totals.revenue)} tone={isMain ? "blue" : "slate"} />,
+    ]
+  })
+
+  const channelRows = salesChannels.map((channel) => [
+    <span key="channel" className="font-bold text-[#07152f]">{channel.label}</span>,
+    <span key="value" className="font-black">{formatCurrency(channel.value)}</span>,
+    <span key="orders" className="font-bold">{channel.orders || 0}</span>,
+    <BarWithPercent key="share" percent={percentage(channel.value, totals.revenue)} tone="blue" />,
+  ])
+
+  const costRows = displayCostAreas.map((area) => [
+    <span key="area" className="font-bold text-[#07152f]">{area.label}</span>,
+    <span key="total" className="font-black">{formatCurrency(area.total)}</span>,
+    <span key="paid" className="font-bold text-[#059669]">{formatCurrency(area.paid)}</span>,
+    <span key="pending" className="font-bold text-[#f97316]">{formatCurrency(area.pending)}</span>,
+    <BarWithPercent key="share" percent={percentage(area.total, totalMainCosts)} tone="orange" />,
+  ])
+
+  const supplierRows = suppliersRanking.map((supplier) => [
+    <span key="supplier" className="font-bold text-[#07152f]">{supplier.label}</span>,
+    <span key="total" className="font-black">{formatCurrency(supplier.value)}</span>,
+    <span key="count" className="font-bold">{supplier.count || 0}</span>,
+  ])
+
+  const deliveryRows = deliveryRanking.map((driver) => [
+    <span key="driver" className="font-bold text-[#07152f]">{driver.label}</span>,
+    <span key="total" className="font-black">{formatCurrency(driver.value)}</span>,
+    <span key="count" className="font-bold">{driver.count || 0}</span>,
+  ])
+
+  const closingRows = closings.slice(0, 6).map((closing) => [
+    <span key="day" className="font-bold text-[#07152f]">{formatWeekday(closing.closing_date)}</span>,
+    <span key="date" className="font-bold text-[#55708f]">{formatDate(closing.closing_date)}</span>,
+    <span key="balance" className={cn("font-black", closing.estimated_profit >= 0 ? "text-[#059669]" : "text-[#dc2626]")}>
       {formatCurrency(closing.estimated_profit)}
+    </span>,
+    <StatusPill key="status" tone={closing.closed_at ? "green" : "orange"}>
+      {closing.closed_at ? "Caixa fechado" : "Em aberto"}
+    </StatusPill>,
+    <span key="note" className="text-[#55708f]">
+      {closing.orders_count > 0
+        ? `${closing.orders_count} pedido${closing.orders_count === 1 ? "" : "s"} · ticket ${formatCurrency(closing.average_ticket)}`
+        : "-"}
     </span>,
   ])
 
   return (
     <AdminLayout>
-      <div className="space-y-4 px-0 pb-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="-m-2 space-y-4 bg-[#f4f7fb] p-2 sm:-m-3 sm:p-3 md:-m-4 md:p-4">
+        <header className="rounded-2xl border border-[#dbe5f2] bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
-                  Relatórios financeiros
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-black tracking-tight text-[#07152f] sm:text-3xl">
+                  Relatório operacional
                 </h1>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-[#2563eb]">
                   Gerencial
                 </span>
               </div>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">
-                Uma leitura limpa do período: receita, custos, resultado, produtos, canais e prioridades da operação.
+              <p className="mt-1 text-sm font-medium text-[#55708f]">
+                Leitura completa do período para tomada de decisão.
               </p>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-[160px_160px_auto] sm:items-end">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[160px_160px_auto] xl:items-end">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-600">Data inicial</Label>
+                <Label className="text-xs font-bold text-[#55708f]">Data inicial</Label>
                 <Input
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
-                  className="h-9 rounded-xl"
+                  className="h-10 rounded-xl border-[#dbe5f2] bg-white font-bold text-[#07152f]"
                 />
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-600">Data final</Label>
+                <Label className="text-xs font-bold text-[#55708f]">Data final</Label>
                 <Input
                   type="date"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
-                  className="h-9 rounded-xl"
+                  className="h-10 rounded-xl border-[#dbe5f2] bg-white font-bold text-[#07152f]"
                 />
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-2 sm:col-span-2 xl:col-span-1">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 rounded-xl px-3"
+                  className="h-10 rounded-xl border-[#dbe5f2] bg-white px-3 font-bold text-[#07152f] hover:bg-blue-50 hover:text-[#2563eb]"
                   onClick={() => {
                     setStartDate(todayDate())
                     setEndDate(todayDate())
@@ -1466,7 +1765,7 @@ export default function RelatoriosFinanceirosPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 rounded-xl px-3"
+                  className="h-10 rounded-xl border-[#dbe5f2] bg-white px-3 font-bold text-[#07152f] hover:bg-blue-50 hover:text-[#2563eb]"
                   onClick={() => {
                     setStartDate(monthStart())
                     setEndDate(todayDate())
@@ -1478,7 +1777,7 @@ export default function RelatoriosFinanceirosPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 rounded-xl px-3"
+                  className="h-10 rounded-xl border-[#dbe5f2] bg-white px-3 font-bold text-[#07152f] hover:bg-blue-50 hover:text-[#2563eb]"
                   onClick={() => {
                     setStartDate(lastThirtyDaysStart())
                     setEndDate(todayDate())
@@ -1488,11 +1787,10 @@ export default function RelatoriosFinanceirosPage() {
                 </Button>
                 <Button
                   type="button"
-                  variant="default"
                   size="sm"
                   onClick={loadData}
                   disabled={loading}
-                  className="h-9 rounded-xl px-3"
+                  className="h-10 rounded-xl bg-[#2563eb] px-3 font-bold text-white hover:bg-[#1d4ed8]"
                 >
                   <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
                   <span className="sr-only">Atualizar</span>
@@ -1500,96 +1798,176 @@ export default function RelatoriosFinanceirosPage() {
               </div>
             </div>
           </div>
+        </header>
+
+        <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-white px-4 py-3 text-sm font-bold text-[#07152f] shadow-sm">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+            <CalendarDays className="h-4 w-4" />
+          </div>
+          <span>
+            Período selecionado: {formatDate(startDate)} até {formatDate(endDate)} ({selectedDays}{" "}
+            {selectedDays === 1 ? "dia" : "dias"})
+          </span>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500 shadow-sm">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Carregando relatório financeiro...
+          <div className="flex items-center justify-center rounded-2xl border border-[#dbe5f2] bg-white py-16 text-sm font-bold text-[#55708f] shadow-sm">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#2563eb]" />
+            Carregando relatório operacional...
           </div>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-              <KpiCard
-                title="Receita"
-                value={formatCurrency(totals.revenue)}
-                helper={`${totals.paidOrdersCount} pedidos pagos`}
-                icon={<TrendingUp className="h-4 w-4" />}
-                tone="emerald"
-              />
-              <KpiCard
-                title="Resultado"
-                value={formatCurrency(operationalResult)}
-                helper="Operacional estimado"
-                icon={operationalResult >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                tone={operationalResult >= 0 ? "violet" : "red"}
-              />
-              <KpiCard
-                title="A receber"
-                value={formatCurrency(totals.pendingRevenue)}
-                helper={`${totals.pendingOrdersCount} pendentes`}
-                icon={<Wallet className="h-4 w-4" />}
-                tone="orange"
-              />
-              <KpiCard
-                title="Custos"
-                value={formatCurrency(totalMainCosts)}
-                helper={formatPercent(costShare)}
-                icon={<TrendingDown className="h-4 w-4" />}
-                tone="slate"
-              />
-              <KpiCard
-                title="Ticket médio"
-                value={formatCurrency(totals.averageTicket)}
-                helper="Pedidos pagos"
-                icon={<Target className="h-4 w-4" />}
-                tone="blue"
-              />
-              <KpiCard
-                title="Pedidos"
-                value={String(totals.totalOrdersCount)}
-                helper="Total no período"
-                icon={<ShoppingBag className="h-4 w-4" />}
-                tone="slate"
-              />
-            </div>
+            <section className="space-y-3">
+              <h2 className="text-lg font-black text-[#07152f]">Resumo executivo</h2>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+                <MetricCard
+                  title="Receita recebida"
+                  value={formatCurrency(totals.revenue)}
+                  helper={`${totals.paidOrdersCount} pedido${totals.paidOrdersCount === 1 ? "" : "s"} pago${
+                    totals.paidOrdersCount === 1 ? "" : "s"
+                  }`}
+                  icon={<DollarSign className="h-4 w-4" />}
+                  tone="green"
+                  sparklineValues={sparklineValues}
+                />
+                <MetricCard
+                  title="A receber"
+                  value={formatCurrency(totals.pendingRevenue)}
+                  helper={`${totals.pendingOrdersCount} pedido${totals.pendingOrdersCount === 1 ? "" : "s"} pendente${
+                    totals.pendingOrdersCount === 1 ? "" : "s"
+                  }`}
+                  icon={<Wallet className="h-4 w-4" />}
+                  tone={totals.pendingRevenue > 0 ? "orange" : "slate"}
+                  sparklineValues={[0, totals.pendingRevenue]}
+                />
+                <MetricCard
+                  title="Resultado operacional"
+                  value={formatCurrency(operationalResult)}
+                  helper={`${formatPercent(operationalMargin)} do recebido`}
+                  icon={<TrendingUp className="h-4 w-4" />}
+                  tone={operationalResult >= 0 ? "blue" : "red"}
+                  sparklineValues={sparklineValues.map((value) => Math.max(value - totalMainCosts / Math.max(revenueByDay.length, 1), 0))}
+                />
+                <MetricCard
+                  title="Margem operacional"
+                  value={formatPercent(operationalMargin)}
+                  helper="Sobre receita recebida"
+                  icon={<Activity className="h-4 w-4" />}
+                  tone="violet"
+                  sparklineValues={[0, Math.max(operationalMargin, 0), Math.max(operationalMargin, 0) + 4]}
+                />
+                <MetricCard
+                  title="Ticket médio"
+                  value={formatCurrency(totals.averageTicket)}
+                  helper="Valor médio dos pedidos pagos"
+                  icon={<Target className="h-4 w-4" />}
+                  tone="blue"
+                  sparklineValues={sparklineValues.map((value) => value / Math.max(totals.paidOrdersCount, 1))}
+                />
+                <MetricCard
+                  title="Total de pedidos"
+                  value={String(totals.totalOrdersCount)}
+                  helper="Total no período"
+                  icon={<ShoppingBag className="h-4 w-4" />}
+                  tone="slate"
+                >
+                  <div className="space-y-1.5 text-xs font-bold text-[#55708f]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2"><StatusDot tone="green" /> pagos</span>
+                      <span>{totals.paidOrdersCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2"><StatusDot tone="orange" /> pendentes</span>
+                      <span>{totals.pendingOrdersCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2"><StatusDot tone="red" /> cancelados</span>
+                      <span>{totals.canceledOrdersCount}</span>
+                    </div>
+                  </div>
+                </MetricCard>
+              </div>
+            </section>
 
-            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <section className="rounded-2xl border border-[#07152f] bg-[#07152f] p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-black text-white">Leitura para o dono</h2>
+                <StatusPill tone={totals.pendingRevenue > 0 ? "orange" : "green"}>
+                  {totals.pendingRevenue > 0 ? "Atenção" : "Conferido"}
+                </StatusPill>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <OwnerInsight
+                  icon={<DollarSign className="h-4 w-4" />}
+                  label="Caixa"
+                  value={`Entrou ${formatCurrency(totals.revenue)} no caixa no período.`}
+                  tone="green"
+                />
+                <OwnerInsight
+                  icon={totals.pendingRevenue > 0 ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                  label="Recebimentos"
+                  value={
+                    totals.pendingRevenue > 0
+                      ? `Ainda existem ${formatCurrency(totals.pendingRevenue)} pendentes para confirmar.`
+                      : "Não há recebimentos pendentes no período."
+                  }
+                  tone={totals.pendingRevenue > 0 ? "orange" : "green"}
+                />
+                <OwnerInsight
+                  icon={<Target className="h-4 w-4" />}
+                  label="Ticket médio"
+                  value={`Ticket médio foi de ${formatCurrency(totals.averageTicket)}.`}
+                  tone="blue"
+                />
+                <OwnerInsight
+                  icon={<ShoppingBag className="h-4 w-4" />}
+                  label="Canal principal"
+                  value={bestChannel ? `Principal canal foi ${bestChannel.label}.` : "Ainda não há canal principal com venda paga."}
+                  tone="violet"
+                />
+                <OwnerInsight
+                  icon={<Package className="h-4 w-4" />}
+                  label="Produto líder"
+                  value={bestProduct ? `Produto que mais vendeu foi ${bestProduct.label}.` : "Nenhum produto vendido encontrado no período."}
+                  tone="blue"
+                />
+                <OwnerInsight
+                  icon={<AlertTriangle className="h-4 w-4" />}
+                  label="Ação"
+                  value={
+                    totals.pendingRevenue > 0
+                      ? "Existe valor pendente que pode distorcer o caixa."
+                      : "O caixa recebido não tem pendência financeira registrada."
+                  }
+                  tone={totals.pendingRevenue > 0 ? "orange" : "green"}
+                />
+              </div>
+            </section>
+
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr_1.05fr]">
               <SectionCard
-                title="DRE do período"
-                subtitle="Resumo direto de entradas, saídas principais e resultado operacional."
+                title="DRE operacional do período"
+                subtitle="Receita, custos e margem em leitura direta."
                 icon={<FileText className="h-4 w-4" />}
               >
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <div className="divide-y divide-slate-100 bg-white text-sm">
-                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                      <span className="font-medium text-slate-600">Receita recebida</span>
-                      <strong className="text-emerald-700">{formatCurrency(totals.revenue)}</strong>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                      <span className="text-slate-600">(-) Folha fixa</span>
-                      <strong className="text-slate-950">{formatCurrency(fixedPayroll)}</strong>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                      <span className="text-slate-600">(-) Freelancers / diárias</span>
-                      <strong className="text-slate-950">{formatCurrency(freelancerCost)}</strong>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                      <span className="text-slate-600">(-) Fornecedores</span>
-                      <strong className="text-slate-950">{formatCurrency(supplierCost)}</strong>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                      <span className="text-slate-600">(-) Entregadores</span>
-                      <strong className="text-slate-950">{formatCurrency(deliveryCost)}</strong>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                      <span className="text-slate-600">(-) Outras despesas</span>
-                      <strong className="text-slate-950">{formatCurrency(otherCosts)}</strong>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 bg-slate-950 px-3 py-3 text-white">
-                      <span className="font-semibold">Resultado operacional</span>
+                <div className="overflow-hidden rounded-xl border border-[#dbe5f2]">
+                  <div className="divide-y divide-[#edf2f8] bg-white text-sm">
+                    {dreRows.map(([label, value]) => (
+                      <div key={String(label)} className="flex items-center justify-between gap-4 px-3 py-2.5">
+                        <span className="font-medium text-[#55708f]">{label}</span>
+                        <span className="shrink-0 text-right font-bold text-[#07152f]">{value}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between gap-4 bg-[#07152f] px-3 py-3 text-white">
+                      <span className="font-black">Resultado operacional</span>
                       <strong className={cn("text-base", operationalResult >= 0 ? "text-emerald-300" : "text-red-300")}>
                         {formatCurrency(operationalResult)}
+                      </strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-3 py-3">
+                      <span className="font-black text-[#07152f]">Margem operacional</span>
+                      <strong className={cn(operationalMargin >= 0 ? "text-[#059669]" : "text-[#dc2626]")}>
+                        {formatPercent(operationalMargin)}
                       </strong>
                     </div>
                   </div>
@@ -1597,228 +1975,249 @@ export default function RelatoriosFinanceirosPage() {
               </SectionCard>
 
               <SectionCard
-                title="Leitura gerencial"
-                subtitle="O que merece atenção antes da próxima decisão."
-                icon={<Activity className="h-4 w-4" />}
-              >
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <InsightCard
-                    title="Prioridade agora"
-                    value={priorityText}
-                    helper="Ação sugerida pelo relatório"
-                    tone="violet"
-                  />
-                  <InsightCard
-                    title="Maior custo"
-                    value={biggestCost && biggestCost.total > 0 ? biggestCost.label : "Sem custo relevante"}
-                    helper={biggestCost && biggestCost.total > 0 ? formatCurrency(biggestCost.total) : "Ainda sem leitura"}
-                    tone="orange"
-                  />
-                  <InsightCard
-                    title="Melhor produto"
-                    value={bestProduct ? bestProduct.label : "Sem item suficiente"}
-                    helper={bestProduct ? formatCurrency(bestProduct.value) : "Ranking ainda vazio"}
-                  />
-                  <InsightCard
-                    title="Canal principal"
-                    value={bestChannel ? bestChannel.label : "Sem canal suficiente"}
-                    helper={bestChannel ? formatCurrency(bestChannel.value) : "Sem histórico pago"}
-                  />
-                </div>
-
-                <div className="mt-3 space-y-2">
-                  {alerts.map((alert) => (
-                    <div
-                      key={alert.title}
-                      className={cn(
-                        "rounded-xl border px-3 py-2.5",
-                        alert.tone === "danger" && "border-red-200 bg-red-50 text-red-900",
-                        alert.tone === "warning" && "border-orange-200 bg-orange-50 text-orange-900",
-                        alert.tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-900",
-                        alert.tone === "neutral" && "border-slate-200 bg-slate-50 text-slate-800",
-                      )}
-                    >
-                      <div className="flex gap-2">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                        <div>
-                          <p className="text-sm font-semibold">{alert.title}</p>
-                          <p className="mt-0.5 text-xs leading-relaxed opacity-90">{alert.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </SectionCard>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr] xl:items-start">
-              <SectionCard
-                title="Custos por área"
-                subtitle="Composição enxuta dos principais custos do período."
+                title="Pedidos por status"
+                subtitle="Pagos, pendentes e cancelados."
                 icon={<PieChart className="h-4 w-4" />}
               >
-                <CostDistribution items={displayCostAreas} total={totalMainCosts} />
+                <StatusDonut
+                  paid={totals.paidOrdersCount}
+                  pending={totals.pendingOrdersCount}
+                  canceled={totals.canceledOrdersCount}
+                />
               </SectionCard>
 
               <SectionCard
                 title="Ganhos por dia"
-                subtitle="Dias em que houve receita paga no caixa."
+                subtitle="Barras compactas da receita recebida."
                 icon={<BarChart3 className="h-4 w-4" />}
+                action={<StatusPill tone="blue">R$</StatusPill>}
               >
-                <RevenueBars items={revenueByDay.slice(-10)} emptyText="Nenhuma venda paga no período." />
+                <RevenueBars items={revenueByDay} emptyText="Nenhuma venda paga encontrada no período." />
+              </SectionCard>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <SectionCard
+                title="Produtos mais vendidos"
+                subtitle="Ordenado por faturamento do maior para o menor."
+                icon={<Package className="h-4 w-4" />}
+              >
+                <CompactTable
+                  headers={["#", "Produto", "Qtd", "Faturamento", "%"]}
+                  rows={productRows}
+                  footer={[
+                    "Total",
+                    `${topProducts.length} produto${topProducts.length === 1 ? "" : "s"}`,
+                    topProducts.reduce((acc, product) => acc + (product.quantity || 0), 0),
+                    formatCurrency(topProducts.reduce((acc, product) => acc + product.value, 0)),
+                    formatPercent(percentage(topProducts.reduce((acc, product) => acc + product.value, 0), totals.revenue)),
+                  ]}
+                  emptyText="Nenhum item vendido encontrado no período."
+                  minWidth="720px"
+                />
+              </SectionCard>
+
+              <SectionCard
+                title="Pagamentos recebidos"
+                subtitle="Participação por forma de pagamento."
+                icon={<CreditCard className="h-4 w-4" />}
+              >
+                <CompactTable
+                  headers={["Forma", "Valor", "Pedidos", "%"]}
+                  rows={paymentRows}
+                  footer={["Total", formatCurrency(totals.revenue), totals.paidOrdersCount, formatPercent(totals.revenue > 0 ? 100 : 0)]}
+                  emptyText="Nenhum pagamento recebido no período."
+                  minWidth="620px"
+                />
               </SectionCard>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-3">
               <SectionCard
-                title="Produtos mais vendidos"
-                subtitle="Ranking por faturamento."
-                icon={<Package className="h-4 w-4" />}
-              >
-                <ScrollableBox className="max-h-[360px]">
-                  <RankingRows
-                    items={topProducts}
-                    emptyText="Nenhum item vendido encontrado no período."
-                    barTone="bg-slate-900"
-                  />
-                </ScrollableBox>
-              </SectionCard>
-
-              <SectionCard
-                title="Formas de pagamento"
-                subtitle="Conferência de Pix, cartão, dinheiro e outros."
-                icon={<CreditCard className="h-4 w-4" />}
-              >
-                <RankingRows
-                  items={paymentMethods}
-                  emptyText="Nenhum pagamento recebido no período."
-                  barTone="bg-emerald-600"
-                />
-              </SectionCard>
-
-              <SectionCard
                 title="Canais de venda"
-                subtitle="Origem dos pedidos pagos."
+                subtitle="Origem das vendas pagas no período."
                 icon={<ShoppingBag className="h-4 w-4" />}
               >
-                <RankingRows
-                  items={salesChannels}
+                <CompactTable
+                  headers={["Canal", "Valor", "Pedidos", "%"]}
+                  rows={channelRows}
+                  footer={["Total", formatCurrency(totals.revenue), totals.paidOrdersCount, formatPercent(totals.revenue > 0 ? 100 : 0)]}
                   emptyText="Nenhum canal encontrado no período."
-                  barTone="bg-violet-600"
+                  minWidth="620px"
                 />
               </SectionCard>
-            </div>
 
-            <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
               <SectionCard
-                title="Fechamentos de caixa"
-                subtitle="Dia, data e saldo final dos caixas fechados."
-                icon={<DollarSign className="h-4 w-4" />}
+                title="Custos por área"
+                subtitle="Quanto cada área pesou no período."
+                icon={<Activity className="h-4 w-4" />}
               >
-                <ScrollableBox className="max-h-[300px]">
-                  <CompactTable
-                    headers={["Dia", "Data", "Saldo fechado"]}
-                    rows={closingRows}
-                    emptyText="Nenhum fechamento de caixa encontrado."
-                  />
-                </ScrollableBox>
+                <CompactTable
+                  headers={["Área", "Total", "Pago", "Pendente", "%"]}
+                  rows={costRows}
+                  footer={["Total", formatCurrency(totalMainCosts), formatCurrency(displayCostAreas.reduce((acc, area) => acc + area.paid, 0)), formatCurrency(displayCostAreas.reduce((acc, area) => acc + area.pending, 0)), formatPercent(totalMainCosts > 0 ? 100 : 0)]}
+                  emptyText="Nenhum custo encontrado no período."
+                  minWidth="720px"
+                />
               </SectionCard>
 
               <SectionCard
                 title="Fornecedores e entregas"
-                subtitle="Leitura compacta dos custos operacionais que mais costumam pesar."
+                subtitle="Fornecedores, entregas e acertos individuais."
                 icon={<Truck className="h-4 w-4" />}
               >
-                <div className="grid gap-2 sm:grid-cols-4">
-                  <InsightCard
-                    title="Fornecedores"
-                    value={formatCurrency(supplierAreaSummary.total)}
-                    helper={`${supplierAreaSummary.count} registro${supplierAreaSummary.count === 1 ? "" : "s"}`}
-                    tone="orange"
-                  />
-                  <InsightCard
-                    title="Pago"
-                    value={formatCurrency(supplierAreaSummary.paid)}
-                    helper="Fornecedores quitados"
-                    tone="emerald"
-                  />
-                  <InsightCard
-                    title="Entregas"
-                    value={formatCurrency(deliveryAreaSummary.total)}
-                    helper={formatPercent(deliveryShare)}
-                  />
-                  <InsightCard
-                    title="Média entrega"
-                    value={formatCurrency(averageDeliveryCost)}
-                    helper="Por pedido pago"
-                  />
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-[#dbe5f2] bg-[#f8fbff] p-3">
+                    <p className="text-xs font-bold text-[#55708f]">Fornecedores</p>
+                    <strong className="mt-1 block text-xl font-black text-[#07152f]">{formatCurrency(supplierAreaSummary.total)}</strong>
+                    <p className="text-xs text-[#55708f]">Gasto total</p>
+                  </div>
+                  <div className="rounded-xl border border-[#dbe5f2] bg-[#f8fbff] p-3">
+                    <p className="text-xs font-bold text-[#55708f]">Entregas</p>
+                    <strong className="mt-1 block text-xl font-black text-[#07152f]">{deliveryCount}</strong>
+                    <p className="text-xs text-[#55708f]">Total no período</p>
+                  </div>
+                  <div className="rounded-xl border border-[#dbe5f2] bg-[#f8fbff] p-3">
+                    <p className="text-xs font-bold text-[#55708f]">Média por entrega</p>
+                    <strong className="mt-1 block text-xl font-black text-[#07152f]">{formatCurrency(averageDeliveryCost)}</strong>
+                    <p className="text-xs text-[#55708f]">Por entrega</p>
+                  </div>
                 </div>
 
-                <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <p className="mb-2 text-sm font-semibold text-slate-950">Ranking de fornecedores</p>
-                    <ScrollableBox className="max-h-[250px]">
-                      <RankingRows
-                        items={suppliersRanking}
-                        emptyText="Nenhum gasto com fornecedor encontrado no período."
-                        barTone="bg-orange-600"
-                      />
-                    </ScrollableBox>
+                <div className="mt-4 grid gap-4">
+                  <div>
+                    <p className="mb-2 text-sm font-black text-[#07152f]">Top fornecedores</p>
+                    <CompactTable
+                      headers={["Fornecedor", "Gasto", "Registros"]}
+                      rows={supplierRows}
+                      emptyText="Nenhum fornecedor encontrado no período."
+                      minWidth="480px"
+                    />
                   </div>
 
-                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <p className="mb-2 text-sm font-semibold text-slate-950">Acertos por entregador</p>
-                    <ScrollableBox className="max-h-[250px]">
-                      {deliveryRanking.length > 0 ? (
-                        <RankingRows
-                          items={deliveryRanking}
-                          emptyText="Nenhum acerto de entregador encontrado."
-                          barTone="bg-slate-900"
-                        />
-                      ) : (
-                        <EmptyState text="Sem acerto individual de entregador no período." />
-                      )}
-                    </ScrollableBox>
+                  <div>
+                    <p className="mb-2 text-sm font-black text-[#07152f]">Acertos por entregador</p>
+                    <CompactTable
+                      headers={["Entregador", "Valor", "Acertos"]}
+                      rows={deliveryRows}
+                      emptyText="Sem acerto individual de entregador no período."
+                      minWidth="480px"
+                    />
                   </div>
                 </div>
               </SectionCard>
             </div>
 
-            <SectionCard
-              title="Resumo para decisão"
-              subtitle="Mensagem final em linguagem direta para o dono agir sem precisar interpretar dashboard."
-              icon={<Users className="h-4 w-4" />}
-            >
+            <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+              <SectionCard
+                title="Fechamentos de caixa"
+                subtitle="Últimos fechamentos dentro do período selecionado."
+                icon={<DollarSign className="h-4 w-4" />}
+                action={
+                  closings.length > 6 ? (
+                    <a
+                      href="/financeiro/caixa"
+                      className="inline-flex items-center gap-1 text-xs font-black text-[#2563eb] hover:text-[#1d4ed8]"
+                    >
+                      Ver todos <ArrowRight className="h-3.5 w-3.5" />
+                    </a>
+                  ) : null
+                }
+              >
+                <CompactTable
+                  headers={["Dia", "Data", "Saldo fechado", "Status", "Observação"]}
+                  rows={closingRows}
+                  emptyText="Nenhum fechamento de caixa encontrado no período."
+                  minWidth="760px"
+                />
+
+                {closings.length > 6 ? (
+                  <div className="mt-3 text-center">
+                    <a
+                      href="/financeiro/caixa"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-[#2563eb] hover:bg-blue-100"
+                    >
+                      Ver todos os fechamentos <ArrowRight className="h-4 w-4" />
+                    </a>
+                  </div>
+                ) : null}
+              </SectionCard>
+
+              <SectionCard
+                title="Alertas gerenciais"
+                subtitle="Ações mostradas apenas quando fazem sentido para o período."
+                icon={<AlertTriangle className="h-4 w-4" />}
+              >
+                {managerAlerts.length > 0 ? (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {managerAlerts.map((alert) => {
+                      const styles = {
+                        blue: "border-blue-200 bg-blue-50 text-blue-800",
+                        orange: "border-orange-200 bg-orange-50 text-orange-800",
+                        red: "border-red-200 bg-red-50 text-red-800",
+                        violet: "border-violet-200 bg-violet-50 text-violet-800",
+                      }[alert.tone]
+
+                      return (
+                        <div key={alert.title} className={cn("rounded-2xl border p-4", styles)}>
+                          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/70">
+                            {alert.icon}
+                          </div>
+                          <p className="text-sm font-black leading-tight">{alert.title}</p>
+                          <p className="mt-2 text-xs font-medium leading-relaxed opacity-85">{alert.description}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState text="Nenhum alerta gerencial relevante para o período selecionado." />
+                )}
+              </SectionCard>
+            </div>
+
+            <section className="rounded-2xl border border-[#07152f] bg-[#07152f] p-4 shadow-sm">
+              <div className="mb-4">
+                <h2 className="text-xl font-black text-white">Resumo para decisão</h2>
+              </div>
+
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <InsightCard
+                <DecisionCard
                   title="Entrou"
                   value={formatCurrency(totals.revenue)}
-                  helper={`Ticket médio de ${formatCurrency(totals.averageTicket)}`}
-                  tone="emerald"
+                  helper="Receita recebida no período."
+                  icon={<DollarSign className="h-6 w-6" />}
+                  tone="green"
                 />
-                <InsightCard
-                  title="Mais pesou"
-                  value={biggestCost && biggestCost.total > 0 ? biggestCost.label : "Sem custo relevante"}
-                  helper={biggestCost && biggestCost.total > 0 ? formatCurrency(biggestCost.total) : "Sem dados suficientes"}
+                <DecisionCard
+                  title="Pesou"
+                  value={biggestCost ? formatCurrency(biggestCost.total) : "R$ 0,00"}
+                  helper={biggestCost ? `Maior custo: ${biggestCost.label}.` : "Nenhum custo registrado."}
+                  icon={<Activity className="h-6 w-6" />}
                   tone="orange"
                 />
-                <InsightCard
+                <DecisionCard
                   title="Melhor venda"
-                  value={bestProduct ? bestProduct.label : bestChannel ? bestChannel.label : "Sem destaque"}
-                  helper={bestProduct ? "Produto com maior faturamento" : bestChannel ? "Principal canal" : "Aguardando vendas pagas"}
-                  tone="violet"
+                  value={bestProduct ? bestProduct.label : "Sem destaque"}
+                  helper={bestProduct ? `${formatCurrency(bestProduct.value)} em faturamento.` : "Produto com maior faturamento ainda não identificado."}
+                  icon={<Package className="h-6 w-6" />}
+                  tone="blue"
                 />
-                <InsightCard
+                <DecisionCard
                   title="Atenção"
-                  value={priorityText}
-                  helper={bestPaymentMethod ? `Pagamento principal: ${bestPaymentMethod.label}` : "Sem forma principal ainda"}
+                  value="Ação recomendada"
+                  helper={priorityText}
+                  icon={<AlertTriangle className="h-6 w-6" />}
+                  tone="red"
                 />
               </div>
-            </SectionCard>
+            </section>
+
+            <p className="pb-2 text-center text-xs font-medium text-[#55708f]">
+              Relatório gerencial baseado nos dados reais do período selecionado.
+            </p>
           </>
         )}
       </div>
     </AdminLayout>
   )
-
 }
