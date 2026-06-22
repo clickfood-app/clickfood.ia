@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import {
   AlertTriangle,
   BellRing,
+  Bot,
   CheckCircle2,
   ChefHat,
   Clock3,
@@ -45,7 +46,9 @@ type OrderRow = {
   needs_change?: boolean | null
   change_for?: number | string | null
   notes: string | null
-  created_at: string
+source?: string | null
+order_source?: string | null
+created_at: string
   delivery_person_id: string | null
   accepted_at: string | null
   preparation_started_at: string | null
@@ -151,9 +154,9 @@ const columnStyles = {
     title: "PENDENTES",
     description: "Aguardando confirmação",
     icon: Clock3,
-    header: "bg-amber-500",
-    body: "bg-amber-50/45",
-    border: "border-amber-200",
+    header: "bg-gradient-to-r from-orange-500 to-amber-500",
+    body: "bg-gradient-to-b from-orange-50/70 to-white",
+    border: "border-orange-200",
     badge: "bg-amber-100 text-amber-700",
     button: "bg-emerald-600 hover:bg-emerald-700 text-white",
     progress: "bg-emerald-500",
@@ -162,8 +165,8 @@ const columnStyles = {
     title: "EM PREPARO",
     description: "Na cozinha",
     icon: ChefHat,
-    header: "bg-blue-600",
-    body: "bg-blue-50/40",
+    header: "bg-gradient-to-r from-blue-600 to-blue-500",
+    body: "bg-gradient-to-b from-blue-50/70 to-white",
     border: "border-blue-200",
     badge: "bg-blue-100 text-blue-700",
     button: "bg-blue-600 hover:bg-blue-700 text-white",
@@ -173,8 +176,8 @@ const columnStyles = {
     title: "PRONTOS",
     description: "Cozinha finalizou",
     icon: CheckCircle2,
-    header: "bg-emerald-600",
-    body: "bg-emerald-50/40",
+    header: "bg-gradient-to-r from-emerald-600 to-green-500",
+    body: "bg-gradient-to-b from-emerald-50/70 to-white",
     border: "border-emerald-200",
     badge: "bg-emerald-100 text-emerald-700",
     button: "bg-emerald-600 hover:bg-emerald-700 text-white",
@@ -521,8 +524,38 @@ function getOrderAddress(order: OrderRow) {
   return fullAddress || null
 }
 
+function isWhatsAppAiOrder(order: OrderRow) {
+  const source = String(order.order_source || order.source || "")
+    .trim()
+    .toLowerCase()
+
+  return source === "whatsapp_ai"
+}
+
+function getCleanOrderNote(note: string | null | undefined) {
+  const value = note?.trim()
+
+  if (!value) return null
+
+  const normalized = value.toLowerCase()
+
+  if (
+    normalized.includes("pedido criado pela ia") ||
+    normalized.includes("pedido criado por ia") ||
+    normalized.includes("pedido criado pelo assistente") ||
+    normalized.includes("pedido criado pela ia do whatsapp") ||
+    normalized.includes("ai draft")
+  ) {
+    return "Pedido criado por IA"
+  }
+
+  return value
+}
+
 function buildPrintNotes(order: OrderRow) {
-  return order.notes?.trim() || null
+  if (isWhatsAppAiOrder(order)) return "Pedido criado por IA"
+
+  return getCleanOrderNote(order.notes)
 }
 
 function getAcceptDeadline(order: OrderRow) {
@@ -880,6 +913,7 @@ type OrderCardProps = {
   onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
   onConfirmPixPayment: (order: OrderRow) => void
+  onMarkReady: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
   onPrint: (order: OrderRow, items: OrderItem[], mode: ThermalPrintMode) => void
@@ -900,12 +934,12 @@ function OrderCard({
   onAccept,
   onCancel,
   onConfirmPixPayment,
+  onMarkReady,
   onSendToRoute,
   onFinish,
   onPrint,
   onAssignDeliveryPerson,
 }: OrderCardProps) {
-  const styles = columnStyles[status]
   const isBusy = busyOrderId === order.id
   const isDelivery = isDeliveryOrder(order)
   const isPaid = isPaidOrder(order)
@@ -913,7 +947,7 @@ function OrderCard({
   const isPixReview = isPixAwaitingReview(order)
   const deliveryAddress = getOrderAddress(order)
   const customerCpf = getOrderCpf(order)
-  const [proofModalOpen, setProofModalOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const acceptDeadline = getAcceptDeadline(order)
   const acceptRemainingMs = acceptDeadline.getTime() - nowMs
@@ -941,203 +975,118 @@ function OrderCard({
     (status === "analysis" && acceptRemainingMs <= 0) ||
     (status === "preparation" && preparationRemainingMs <= 0)
 
-  const visibleItems = items.slice(0, 3)
-  const hiddenItemsCount = Math.max(0, items.length - visibleItems.length)
+  const statusLabel =
+    status === "analysis"
+      ? "Pendente"
+      : status === "preparation"
+        ? "Em preparo"
+        : "Pronto"
+
+  const statusClasses =
+    status === "analysis"
+      ? "border-orange-200 bg-orange-50 text-orange-700"
+      : status === "preparation"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+
+  const showCashChange =
+    isCashPaymentMethod(order.payment_method) &&
+    order.needs_change &&
+    getOrderChangeFor(order) > 0
+    const isAiOrder = isWhatsAppAiOrder(order)
+const cleanOrderNote = getCleanOrderNote(order.notes)
 
   return (
-    <article
-      className={[
-       "group rounded-xl border bg-white shadow-sm transition duration-200 hover:shadow-md",
-        isLate ? "border-red-300 ring-1 ring-red-100" : "border-slate-200/80",
-      ].join(" ")}
-    >
-      <div
+    <>
+      <article
         className={[
-          "h-1",
-          isLate
-            ? "bg-red-500"
-            : status === "analysis"
-              ? "bg-amber-500"
-              : status === "preparation"
-                ? "bg-blue-600"
-                : "bg-emerald-600",
+          "overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+          isLate ? "border-red-300 ring-1 ring-red-100" : "border-slate-200",
         ].join(" ")}
-      />
+      >
+        <div
+          className={[
+            "h-1",
+            isLate
+              ? "bg-red-500"
+              : status === "analysis"
+                ? "bg-orange-500"
+                : status === "preparation"
+                  ? "bg-blue-600"
+                  : "bg-emerald-600",
+          ].join(" ")}
+        />
 
-      {isLate && (
-        <div className="border-b border-red-100 bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">
-          <div className="flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Pedido atrasado
-          </div>
-        </div>
-      )}
-
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="text-base font-black leading-none text-slate-950">
+        <div className="p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-lg font-black leading-none text-slate-950">
                 #{getOrderNumber(order)}
               </h3>
 
-              {status === "analysis" && acceptRemainingMs <= 10000 && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700">
-                  Alta
-                </span>
-              )}
+              <p className="mt-2 truncate text-sm font-bold text-slate-800">
+                {getCustomerName(order)}
+              </p>
 
-              {status === "ready" && (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                  Cozinha pronto
-                </span>
-              )}
+              <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                {getCustomerPhone(order)}
+              </p>
             </div>
 
-            <div className="mt-2 flex min-w-0 items-center gap-2 text-xs text-slate-700">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100">
-                <UserRound className="h-3.5 w-3.5 text-slate-500" />
-              </div>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <span
+                className={[
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
+                  getOrderTypeClasses(order),
+                ].join(" ")}
+              >
+                <TypeIcon className="h-3 w-3" />
+                {getOrderTypeLabel(order)}
+              </span>
 
-              <div className="min-w-0">
-                <p className="truncate font-bold text-slate-900">
-                  {getCustomerName(order)}
-                </p>
-                <p className="truncate text-[11px] font-medium text-slate-500">
-                  {getCustomerPhone(order)}
-                </p>
-              </div>
+{isAiOrder && (
+  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-700">
+    <Bot className="h-3 w-3" />
+    Assistente WhatsApp
+  </span>
+)}
+
+              <span
+                className={[
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
+                  statusClasses,
+                ].join(" ")}
+              >
+                {statusLabel}
+              </span>
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <span
-              className={[
-                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                getOrderTypeClasses(order),
-              ].join(" ")}
-            >
-              <TypeIcon className="h-3 w-3" />
-              {getOrderTypeLabel(order)}
-            </span>
-
-            <span
-              className={[
-                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                getPaymentBadgeClasses(order.payment_status),
-              ].join(" ")}
-            >
-              {isPaid ? (
-                <CheckCircle2 className="h-3 w-3" />
-              ) : (
-                <Clock3 className="h-3 w-3" />
-              )}
-              {getPaymentStatusLabel(order.payment_status)}
-            </span>
-          </div>
-        </div>
-
-        {(deliveryAddress || customerCpf) && (
-          <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-2.5 py-2">
-            {deliveryAddress && (
-              <p className="text-[11px] font-bold leading-relaxed text-blue-900">
-                Endereço: {deliveryAddress}
-              </p>
-            )}
-
-            {customerCpf && (
-              <p className="mt-0.5 text-[11px] font-bold leading-relaxed text-blue-900">
-                CPF: {customerCpf}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1.5">
-          <p className="min-w-0 truncate text-[11px] font-semibold text-slate-700">
-            {getOrderFlowHint(order, status)}
-          </p>
-
-          <p className="shrink-0 text-[11px] font-black text-slate-800">
-            {getPaymentLabel(order.payment_method)}
-          </p>
-        </div>
-
-        {isCashPaymentMethod(order.payment_method) && (
-          <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2">
-            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
-              Troco
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2">
+            <p className="text-xs font-bold text-slate-600">
+              {items.length} item(ns) • {getPaymentLabel(order.payment_method)}
             </p>
 
-            {order.needs_change && getOrderChangeFor(order) > 0 ? (
-              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-900">
-                Cliente precisa de troco para{" "}
-                <span className="font-black">{formatBRL(getOrderChangeFor(order))}</span>
-                {" "}• Troco estimado:{" "}
-                <span className="font-black">{formatBRL(getOrderChangeAmount(order))}</span>
-              </p>
-            ) : (
-              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-900">
-                Cliente informou que não precisa de troco.
-              </p>
-            )}
-          </div>
-        )}
-
-        {isPixReview && (
-          <div className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-2">
-            <p className="text-[10px] font-black uppercase tracking-wide text-orange-700">
-              Conferência Pix necessária
-            </p>
-            <p className="mt-0.5 text-xs font-semibold leading-relaxed text-orange-900">
-              Confira data, horário, valor e destinatário do comprovante antes de confirmar.
+            <p className="text-sm font-black text-slate-950">
+              {formatBRL(order.total)}
             </p>
           </div>
-        )}
 
-        <button
-          type="button"
-          onClick={() => onToggleSelected(order.id)}
-          className={[
-            "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg border text-xs font-black transition",
-            isSelected
-              ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "flex h-4 w-4 items-center justify-center rounded border",
-              isSelected
-                ? "border-blue-600 bg-blue-600 text-white"
-                : "border-slate-300 bg-white",
-            ].join(" ")}
-          >
-            {isSelected && <CheckCircle2 className="h-3 w-3" />}
-          </span>
-
-          {isSelected ? "Selecionado para impressão" : "Selecionar para impressão"}
-        </button>
-
-        <div className="mt-2">
           {status === "analysis" && (
-            <>
-              <div className="mb-1 flex items-center justify-between text-[11px]">
+            <div className="mt-3">
+              <div className="mb-1.5 flex items-center justify-between text-[11px]">
                 <span
                   className={[
-                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold",
-                    acceptRemainingMs <= 10000
-                      ? "border-red-200 bg-red-50 text-red-700"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-700",
+                    "font-black",
+                    acceptRemainingMs <= 10000 ? "text-red-600" : "text-slate-600",
                   ].join(" ")}
                 >
-                  <Clock3 className="h-3 w-3" />
                   {acceptRemainingMs > 0
                     ? formatCountdown(acceptRemainingMs)
-                    : "Esgotado"}
+                    : "Tempo esgotado"}
                 </span>
 
-                <span className="text-slate-400">
+                <span className="font-medium text-slate-400">
                   entrou {formatElapsedTime(order.created_at, nowMs)}
                 </span>
               </div>
@@ -1146,33 +1095,30 @@ function OrderCard({
                 <div
                   className={[
                     "h-full rounded-full transition-all",
-                    acceptRemainingMs <= 10000 ? "bg-red-500" : "bg-emerald-500",
+                    acceptRemainingMs <= 10000 ? "bg-red-500" : "bg-orange-500",
                   ].join(" ")}
                   style={{ width: `${acceptProgress}%` }}
                 />
               </div>
-            </>
+            </div>
           )}
 
           {status === "preparation" && (
-            <>
-              <div className="mb-1 flex items-center justify-between text-[11px]">
+            <div className="mt-3">
+              <div className="mb-1.5 flex items-center justify-between text-[11px]">
                 <span
                   className={[
-                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold",
-                    preparationRemainingMs <= 0
-                      ? "border-red-200 bg-red-50 text-red-700"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-700",
+                    "font-black",
+                    preparationRemainingMs <= 0 ? "text-red-600" : "text-slate-600",
                   ].join(" ")}
                 >
-                  <Clock3 className="h-3 w-3" />
                   {preparationRemainingMs > 0
-                    ? `${Math.ceil(preparationRemainingMs / 60000)}min`
+                    ? `${Math.ceil(preparationRemainingMs / 60000)}min restantes`
                     : "Atrasado"}
                 </span>
 
-                <span className="text-slate-400">
-                  {averagePrepTimeMinutes}min estimado
+                <span className="font-medium text-slate-400">
+                  meta {averagePrepTimeMinutes}min
                 </span>
               </div>
 
@@ -1180,292 +1126,81 @@ function OrderCard({
                 <div
                   className={[
                     "h-full rounded-full transition-all",
-                    preparationRemainingMs <= 0 ? "bg-red-500" : String(styles.progress),
+                    preparationRemainingMs <= 0 ? "bg-red-500" : "bg-blue-600",
                   ].join(" ")}
                   style={{ width: `${preparationProgress}%` }}
                 />
               </div>
-            </>
+            </div>
           )}
 
           {status === "ready" && (
-            <>
-              <div className="mb-1 flex items-center justify-between text-[11px]">
-                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Pronto na cozinha
-                </span>
+            <div className="mt-3 flex items-center justify-between text-[11px]">
+              <span className="font-black text-emerald-700">
+                Pronto na cozinha
+              </span>
 
-                <span className="text-slate-400">
-                  finalizar atendimento
-                </span>
-              </div>
-
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full w-full rounded-full bg-emerald-500" />
-              </div>
-            </>
+              <span className="font-medium text-slate-400">
+                aguardando finalização
+              </span>
+            </div>
           )}
 
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(true)}
+              className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+            >
+              Detalhes
+            </button>
 
-        </div>
-
-        <div className="mt-2 rounded-lg border border-slate-100 bg-white p-2 shadow-inner">
-          <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-              Itens
-            </p>
-
-            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-              {items.length} item(ns)
-            </span>
-          </div>
-
-          {visibleItems.length > 0 ? (
-            <div className="space-y-1">
-              {visibleItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-xs"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-slate-600">
-                        {item.quantity}x
-                      </span>
-
-                      <span className="truncate font-semibold text-slate-800">
-                        {item.name}
-                      </span>
-                    </div>
-
-                    {item.total > 0 && (
-                      <span className="shrink-0 text-[11px] font-bold text-slate-600">
-                        {formatBRL(item.total)}
-                      </span>
-                    )}
-                  </div>
-
-                  {getSafeOrderItemModifiers(item).length > 0 && (
-                    <div className="mt-1 space-y-0.5 pl-6">
-                      {getSafeOrderItemModifiers(item).map((modifier, index) => (
-                        <p
-                          key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
-                          className="text-[11px] font-semibold leading-relaxed text-blue-700"
-                        >
-                          • {formatOrderItemModifier(modifier)}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-
-                  {item.notes && (
-                    <p className="mt-1 pl-6 text-[11px] font-semibold leading-relaxed text-amber-700">
-                      Obs: {item.notes}
-                    </p>
-                  )}
-                </div>
-              ))}
-
-              {hiddenItemsCount > 0 && (
-                <p className="text-[11px] font-medium text-slate-500">
-                  +{hiddenItemsCount} item(ns)
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500">
-              Itens do pedido não carregados.
-            </p>
-          )}
-        </div>
-
-        {order.notes && (
-          <div className="mt-2 max-h-14 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
-            <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">
-              Observação
-            </p>
-            <p className="mt-0.5 text-xs text-amber-900">{order.notes}</p>
-          </div>
-        )}
-
-        {isDelivery && (status === "preparation" || status === "ready") && (
-          <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/70 p-2">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <Truck className="h-3.5 w-3.5 text-blue-600" />
-                <p className="text-[10px] font-black uppercase tracking-wide text-blue-700">
-                  Motoboy
-                </p>
-              </div>
-
-              {deliveryPersonName ? (
-                <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  Atribuído
-                </span>
-              ) : (
-                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                  Necessário
-                </span>
-              )}
-            </div>
-
-            {status === "preparation" || status === "ready" ? (
-              <select
-                value={order.delivery_person_id || ""}
-                onChange={(event) =>
-                  onAssignDeliveryPerson(order.id, event.target.value)
+            {status === "analysis" && (
+              <button
+                type="button"
+                onClick={() =>
+                  isPixReview ? setDetailsOpen(true) : onAccept(order)
                 }
-                disabled={isBusy || deliveryPeople.length === 0}
-                className="h-9 w-full rounded-lg border border-blue-100 bg-white px-2.5 text-xs font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isBusy}
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <option value="">
-                  {deliveryPeople.length === 0
-                    ? "Nenhum entregador cadastrado"
-                    : "Selecionar motoboy"}
-                </option>
-
-                {deliveryPeople.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                    {person.phone ? ` • ${person.phone}` : ""}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">
-                  {deliveryPersonName?.charAt(0).toUpperCase() || "M"}
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold text-slate-800">
-                    {deliveryPersonName || "Motoboy não definido"}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Taxa: {formatBRL(order.delivery_fee)}
-                  </p>
-                </div>
-              </div>
+                {isBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
+                {isPixReview ? "Conferir Pix" : "Aceitar"}
+              </button>
             )}
-          </div>
-        )}
 
-        <div className="mt-2 border-t border-slate-100 pt-2">
-          <div className="flex items-end justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                Total
-              </p>
-              <p className="text-lg font-black text-slate-950">
-                {formatBRL(order.total)}
-              </p>
-            </div>
-
-            {isDelivery && Number(order.delivery_fee || 0) > 0 && (
-              <p className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
-                Entrega {formatBRL(order.delivery_fee)}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-2 flex gap-2">
-          <button
-            type="button"
-            onClick={() => onPrint(order, items, "kitchen")}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-orange-700 transition hover:bg-orange-100"
-            title="Imprimir comanda da cozinha"
-          >
-            <ChefHat className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onPrint(order, items, "receipt")}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-            title="Imprimir recibo do cliente"
-          >
-            <Printer className="h-4 w-4" />
-          </button>
-
-          {status === "analysis" && (
-            isPixReview ? (
-              <>
+            {status === "preparation" && (
+              kdsEnabled ? (
+                <div className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700">
+                  KDS
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => setProofModalOpen(true)}
-                  disabled={!order.pix_proof_url}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 shadow-sm transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Search className="h-3.5 w-3.5" />
-                  Ver comprovante
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onConfirmPixPayment(order)}
+                  onClick={() => onMarkReady(order)}
                   disabled={isBusy}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isBusy ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <CheckCircle2 className="h-3.5 w-3.5" />
                   )}
-                  Confirmar Pix
+                  Pronto
                 </button>
+              )
+            )}
 
-                <button
-                  type="button"
-                  onClick={() => onCancel(order)}
-                  disabled={isBusy}
-                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  title="Cancelar pedido"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onAccept(order)}
-                  disabled={isBusy}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isBusy ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  )}
-                  Aceitar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onCancel(order)}
-                  disabled={isBusy}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  Negar
-                </button>
-              </>
-            )
-          )}
-
-          {status === "preparation" && (
-            kdsEnabled ? (
-              <div className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700">
-                Aguardando cozinha
-              </div>
-            ) : (
+            {status === "ready" && (
               <button
                 type="button"
                 onClick={() => (isDelivery ? onSendToRoute(order) : onFinish(order))}
                 disabled={isBusy || (isDelivery && !order.delivery_person_id)}
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isBusy ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1476,131 +1211,385 @@ function OrderCard({
                 )}
                 {isDelivery ? "Enviar" : "Finalizar"}
               </button>
-            )
-          )}
-
-          {status === "ready" && (
-            <button
-              type="button"
-              onClick={() => (isDelivery ? onSendToRoute(order) : onFinish(order))}
-              disabled={isBusy || (isDelivery && !order.delivery_person_id)}
-              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isBusy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : isDelivery ? (
-                <Truck className="h-3.5 w-3.5" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-              {isDelivery ? "Enviar" : "Servido"}
-            </button>
-          )}
-
-
+            )}
+          </div>
         </div>
-      </div>
+      </article>
 
-      {proofModalOpen &&
-  createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div
-            className="absolute inset-0"
-            onClick={() => setProofModalOpen(false)}
-            aria-hidden="true"
-          />
+      {detailsOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div
+              className="absolute inset-0"
+              onClick={() => setDetailsOpen(false)}
+              aria-hidden="true"
+            />
 
-          <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-orange-600">
-                  Comprovante Pix
-                </p>
-                <h3 className="mt-1 text-lg font-black text-slate-950">
-                  Pedido #{getOrderNumber(order)}
-                </h3>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
-                  Confira valor, data, horário e destinatário antes de confirmar.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setProofModalOpen(false)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
-                aria-label="Fechar comprovante"
-              >
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">
-              {order.pix_proof_url ? (
-                <img
-                  src={order.pix_proof_url}
-                  alt={`Comprovante Pix do pedido ${getOrderNumber(order)}`}
-                  className="mx-auto max-h-[68vh] w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
-                />
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-                  <p className="text-sm font-bold text-slate-700">
-                    Comprovante não disponível.
+            <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-blue-600">
+                    Detalhes do pedido
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Atualize a tela ou peça para o cliente reenviar o comprovante.
+
+                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                    Pedido #{getOrderNumber(order)}
+                  </h3>
+
+                  <p className="mt-1 text-sm font-bold text-slate-700">
+                    {getCustomerName(order)}
+                  </p>
+
+                  <p className="text-xs font-medium text-slate-500">
+                    {getCustomerPhone(order)}
                   </p>
                 </div>
-              )}
-            </div>
 
-            <div className="flex flex-col gap-2 border-t border-slate-100 bg-white p-4 sm:flex-row">
-              {order.pix_proof_url && (
-                <a
-                  href={order.pix_proof_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen(false)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                  aria-label="Fechar detalhes"
                 >
-                  Abrir imagem
-                </a>
-              )}
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setProofModalOpen(false)
-                  onCancel(order)
-                }}
-                disabled={isBusy}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <XCircle className="h-4 w-4" />
-                Cancelar pedido
-              </button>
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50 p-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      Tipo
+                    </p>
+                    <p className="mt-1 text-sm font-black text-slate-900">
+                      {getOrderTypeLabel(order)}
+                    </p>
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setProofModalOpen(false)
-                  onConfirmPixPayment(order)
-                }}
-                disabled={isBusy}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      Pagamento
+                    </p>
+                    <p className="mt-1 text-sm font-black text-slate-900">
+                      {getPaymentLabel(order.payment_method)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      Total
+                    </p>
+                    <p className="mt-1 text-sm font-black text-slate-900">
+                      {formatBRL(order.total)}
+                    </p>
+                  </div>
+                </div>
+
+                {(deliveryAddress || customerCpf) && (
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      Cliente e entrega
+                    </p>
+
+                    {deliveryAddress && (
+                      <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">
+                        <span className="font-black text-slate-900">Endereço:</span>{" "}
+                        {deliveryAddress}
+                      </p>
+                    )}
+
+                    {customerCpf && (
+                      <p className="mt-1 text-sm font-semibold text-slate-700">
+                        <span className="font-black text-slate-900">CPF:</span>{" "}
+                        {customerCpf}
+                      </p>
+                    )}
+                  </div>
                 )}
-                Confirmar pagamento
-              </button>
+
+                {showCashChange && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                      Troco
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-900">
+                      Cliente precisa de troco para{" "}
+                      <span className="font-black">
+                        {formatBRL(getOrderChangeFor(order))}
+                      </span>{" "}
+                      • Troco estimado:{" "}
+                      <span className="font-black">
+                        {formatBRL(getOrderChangeAmount(order))}
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {isPixReview && (
+                  <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-orange-700">
+                      Conferência Pix
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-orange-900">
+                      Confira valor, data, horário e destinatário antes de confirmar.
+                    </p>
+
+                    {order.pix_proof_url ? (
+                      <img
+                        src={order.pix_proof_url}
+                        alt={`Comprovante Pix do pedido ${getOrderNumber(order)}`}
+                        className="mt-3 max-h-[420px] w-full rounded-xl border border-orange-100 bg-white object-contain"
+                      />
+                    ) : (
+                      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-orange-800">
+                        Comprovante não disponível.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      Itens
+                    </p>
+                    <span className="text-xs font-black text-slate-500">
+                      {items.length} item(ns)
+                    </span>
+                  </div>
+
+                  {items.length > 0 ? (
+                    <div className="divide-y divide-slate-100">
+                      {items.map((item) => (
+                        <div key={item.id} className="py-2 first:pt-0 last:pb-0">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-slate-800">
+                                {item.quantity}x {item.name}
+                              </p>
+
+                              {getSafeOrderItemModifiers(item).map((modifier, index) => (
+                                <p
+                                  key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
+                                  className="mt-0.5 text-xs font-medium text-slate-500"
+                                >
+                                  • {formatOrderItemModifier(modifier)}
+                                </p>
+                              ))}
+
+                              {item.notes && (
+                                <p className="mt-1 text-xs font-semibold text-orange-700">
+                                  Obs: {item.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            {item.total > 0 && (
+                              <p className="shrink-0 text-sm font-black text-slate-800">
+                                {formatBRL(item.total)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500">
+                      Itens do pedido não carregados.
+                    </p>
+                  )}
+                </div>
+
+                {(cleanOrderNote || isAiOrder) && (
+  <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+      {isAiOrder ? "Origem" : "Observação"}
+    </p>
+
+    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold leading-relaxed text-slate-700">
+      {isAiOrder && <Bot className="h-4 w-4 text-slate-500" />}
+      {isAiOrder ? "Pedido criado por IA" : cleanOrderNote}
+    </p>
+  </div>
+)}
+
+                {isDelivery && (status === "preparation" || status === "ready") && (
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                        Motoboy
+                      </p>
+
+                      {deliveryPersonName ? (
+                        <span className="text-xs font-black text-blue-700">
+                          {deliveryPersonName}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-black text-slate-400">
+                          Necessário
+                        </span>
+                      )}
+                    </div>
+
+                    <select
+                      value={order.delivery_person_id || ""}
+                      onChange={(event) =>
+                        onAssignDeliveryPerson(order.id, event.target.value)
+                      }
+                      disabled={isBusy || deliveryPeople.length === 0}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">
+                        {deliveryPeople.length === 0
+                          ? "Nenhum entregador cadastrado"
+                          : "Selecionar motoboy"}
+                      </option>
+
+                      {deliveryPeople.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.name}
+                          {person.phone ? ` • ${person.phone}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      Total do pedido
+                    </p>
+                    <p className="text-2xl font-black text-slate-950">
+                      {formatBRL(order.total)}
+                    </p>
+                  </div>
+
+                  {isDelivery && Number(order.delivery_fee || 0) > 0 && (
+                    <p className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                      Entrega {formatBRL(order.delivery_fee)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => onPrint(order, items, "kitchen")}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 text-sm font-black text-orange-700 transition hover:bg-orange-100"
+                  >
+                    <ChefHat className="h-4 w-4" />
+                    Cozinha
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onPrint(order, items, "receipt")}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Recibo
+                  </button>
+
+                  {status === "analysis" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetailsOpen(false)
+                          onCancel(order)
+                        }}
+                        disabled={isBusy}
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Negar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isPixReview) {
+                            onConfirmPixPayment(order)
+                            return
+                          }
+
+                          onAccept(order)
+                          setDetailsOpen(false)
+                        }}
+                        disabled={isBusy}
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        {isPixReview ? "Confirmar Pix" : "Aceitar"}
+                      </button>
+                    </>
+                  )}
+
+                  {status === "preparation" && (
+                    kdsEnabled ? (
+                      <div className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-black text-blue-700">
+                        Aguardando cozinha
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onMarkReady(order)
+                          setDetailsOpen(false)
+                        }}
+                        disabled={isBusy}
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        Marcar como pronto
+                      </button>
+                    )
+                  )}
+
+                  {status === "ready" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isDelivery) {
+                          onSendToRoute(order)
+                        } else {
+                          onFinish(order)
+                        }
+
+                        setDetailsOpen(false)
+                      }}
+                      disabled={isBusy || (isDelivery && !order.delivery_person_id)}
+                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : isDelivery ? (
+                        <Truck className="h-4 w-4" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      {isDelivery ? "Enviar" : "Finalizar atendimento"}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-           </div>
-       </div>
-    ,
-    document.body
-  )}
-</article>
+          </div>,
+          document.body
+        )}
+    </>
   )
 }
 
@@ -1618,6 +1607,7 @@ type BoardColumnProps = {
   onAccept: (order: OrderRow) => void
   onCancel: (order: OrderRow) => void
   onConfirmPixPayment: (order: OrderRow) => void
+  onMarkReady: (order: OrderRow) => void
   onSendToRoute: (order: OrderRow) => void
   onFinish: (order: OrderRow) => void
   onPrint: (order: OrderRow, items: OrderItem[], mode: ThermalPrintMode) => void
@@ -1638,6 +1628,7 @@ function BoardColumn({
   onAccept,
   onCancel,
   onConfirmPixPayment,
+  onMarkReady,
   onSendToRoute,
   onFinish,
   onPrint,
@@ -1647,7 +1638,7 @@ function BoardColumn({
   const Icon = styles.icon as typeof Clock3
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100/70">
       <div className={`${styles.header} px-4 py-3 text-white`}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -1669,15 +1660,18 @@ function BoardColumn({
         </div>
       </div>
 
-      <div className={`${styles.body} min-h-[calc(100vh-245px)] space-y-3 p-3`}>
+      <div className={`${styles.body} min-h-[calc(100vh-360px)] space-y-3 p-3`}>
         {orders.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/70 p-6 text-center">
+          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/80 p-6 text-center shadow-inner">
             <div>
-              <p className="text-sm font-bold text-slate-700">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <Icon className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-black text-slate-800">
                 Nenhum pedido aqui
               </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Os pedidos aparecem automaticamente nessa etapa.
+              <p className="mt-1 max-w-[220px] text-xs font-medium leading-relaxed text-slate-500">
+                Assim que o pedido entrar nessa etapa, ele aparece automaticamente aqui.
               </p>
             </div>
           </div>
@@ -1698,6 +1692,7 @@ function BoardColumn({
               onAccept={onAccept}
               onCancel={onCancel}
               onConfirmPixPayment={onConfirmPixPayment}
+              onMarkReady={onMarkReady}
               onSendToRoute={onSendToRoute}
               onFinish={onFinish}
               onPrint={onPrint}
@@ -1707,6 +1702,58 @@ function BoardColumn({
         )}
       </div>
     </section>
+  )
+}
+
+
+type OperationMetricCardProps = {
+  title: string
+  value: string
+  description: string
+  icon: typeof Package
+  tone: "cyan" | "orange" | "blue" | "green" | "purple" | "slate"
+}
+
+const operationMetricStyles = {
+  cyan: "from-cyan-500 to-sky-500 bg-cyan-50 text-cyan-700",
+  orange: "from-orange-500 to-amber-500 bg-orange-50 text-orange-700",
+  blue: "from-blue-600 to-blue-500 bg-blue-50 text-blue-700",
+  green: "from-emerald-600 to-green-500 bg-emerald-50 text-emerald-700",
+  purple: "from-violet-600 to-purple-500 bg-violet-50 text-violet-700",
+  slate: "from-slate-700 to-slate-600 bg-slate-50 text-slate-700",
+} satisfies Record<OperationMetricCardProps["tone"], string>
+
+function OperationMetricCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  tone,
+}: OperationMetricCardProps) {
+  const [gradientClasses, softClasses] = operationMetricStyles[tone]
+    .split(" bg-")
+    .map((part, index) => (index === 0 ? part : `bg-${part}`))
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${gradientClasses} text-white shadow-sm`}
+        >
+          <Icon className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0">
+          <p className="truncate text-xs font-bold text-slate-500">{title}</p>
+          <p className="mt-0.5 text-2xl font-black leading-none text-slate-950">
+            {value}
+          </p>
+          <p className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${softClasses}`}>
+            {description}
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -2317,7 +2364,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
 
   async function updateOrder(
     order: OrderRow,
-    action: "accept" | "cancel" | "route" | "finish"
+    action: "accept" | "cancel" | "ready" | "route" | "finish"
   ) {
     const previousOrders = orders
     const nowIso = new Date().toISOString()
@@ -2340,6 +2387,12 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
         payload = {
           status: "cancelled",
           cancelled_at: nowIso,
+        }
+      }
+
+      if (action === "ready") {
+        payload = {
+          status: "ready",
         }
       }
 
@@ -2779,13 +2832,79 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     [filteredOrders]
   )
 
+  const totalOpenAmount = useMemo(
+    () =>
+      filteredOrders.reduce((sum, order) => {
+        const total = Number(order.total || 0)
+        return sum + (Number.isFinite(total) ? total : 0)
+      }, 0),
+    [filteredOrders]
+  )
+
 
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
-      <div className="flex flex-col gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-4">
-            <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
+      <div className="min-h-[calc(100vh-90px)] rounded-[2rem] bg-gradient-to-br from-slate-50 via-white to-blue-50/60 p-2 sm:p-4">
+        <div className="flex flex-col gap-4">
+          <div className="rounded-[1.75rem] border border-slate-200 bg-white/95 p-4 shadow-sm ring-1 ring-slate-100/70 sm:p-5">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
+                    Central operacional
+                  </p>
+                  <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                    Visão geral da operação
+                  </h1>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    Acompanhe os pedidos desde a entrada até a finalização do atendimento.
+                  </p>
+                </div>
+
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Operação em tempo real
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <OperationMetricCard
+                  title="Pedidos abertos"
+                  value={String(filteredOrders.length)}
+                  description="Em andamento"
+                  icon={Package}
+                  tone="cyan"
+                />
+                <OperationMetricCard
+                  title="Pendentes"
+                  value={String(analysisOrders.length)}
+                  description="Aguardando análise"
+                  icon={Clock3}
+                  tone="orange"
+                />
+                <OperationMetricCard
+                  title="Em preparo"
+                  value={String(preparationOrders.length)}
+                  description="Na cozinha"
+                  icon={ChefHat}
+                  tone="blue"
+                />
+                <OperationMetricCard
+                  title="Prontos"
+                  value={String(readyOrders.length)}
+                  description="Aguardando finalizar"
+                  icon={CheckCircle2}
+                  tone="green"
+                />
+                <OperationMetricCard
+                  title="Faturamento aberto"
+                  value={formatBRL(totalOpenAmount)}
+                  description="Pedidos em aberto"
+                  icon={Settings2}
+                  tone="purple"
+                />
+              </div>
+              <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
               <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
                 <div className="relative min-w-0">
                   <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -3026,7 +3145,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando operação...
@@ -3034,7 +3153,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
           </div>
         ) : (
           <div className="overflow-x-auto pb-2">
-            <div className="grid min-w-[1140px] grid-cols-3 gap-4">
+            <div className="grid min-w-[1140px] grid-cols-3 gap-5">
               <BoardColumn
                 status="analysis"
                 orders={analysisOrders}
@@ -3049,6 +3168,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                onMarkReady={(order) => void updateOrder(order, "ready")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
                 onPrint={handlePrintOrder}
@@ -3071,6 +3191,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                onMarkReady={(order) => void updateOrder(order, "ready")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
                 onPrint={handlePrintOrder}
@@ -3093,6 +3214,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                 onAccept={(order) => void updateOrder(order, "accept")}
                 onCancel={(order) => void updateOrder(order, "cancel")}
                 onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                onMarkReady={(order) => void updateOrder(order, "ready")}
                 onSendToRoute={(order) => void updateOrder(order, "route")}
                 onFinish={(order) => void updateOrder(order, "finish")}
                 onPrint={handlePrintOrder}
@@ -3105,6 +3227,32 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
             </div>
           </div>
         )}
+
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3 font-bold text-slate-700">
+              <span className="text-slate-950">Fluxo do pedido:</span>
+              <span className="inline-flex items-center gap-1.5 text-orange-600">
+                <Clock3 className="h-4 w-4" /> Pendente
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className="inline-flex items-center gap-1.5 text-blue-600">
+                <ChefHat className="h-4 w-4" /> Em preparo
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className="inline-flex items-center gap-1.5 text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" /> Pronto
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className="inline-flex items-center gap-1.5 text-violet-600">
+                <CheckCircle2 className="h-4 w-4" /> Finalizado
+              </span>
+            </div>
+
+            <p className="text-xs font-semibold text-slate-500">
+              Dica: pedidos ficam em <span className="font-black text-slate-800">Prontos</span> até o dono finalizar.
+            </p>
+          </div>
+        </div>
       </div>
     </AdminLayout>
   )

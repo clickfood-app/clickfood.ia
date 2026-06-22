@@ -14,6 +14,7 @@ type CreateOrderBody = {
   payment_status?: string
   notes?: string
   source?: string
+  order_source?: string
   order_type?: string
   table_number?: string
   delivery_address?: string
@@ -148,8 +149,9 @@ export async function GET() {
         payment_method,
         payment_status,
         notes,
-        source,
-        order_type,
+source,
+order_source,
+order_type,
         table_number,
         delivery_address,
         delivery_neighborhood,
@@ -377,8 +379,8 @@ export async function POST(req: Request) {
         coupon_code: couponCode,
       })
       .select(
-        "id, restaurant_id, public_order_number, customer_name, customer_phone, status, subtotal, discount, delivery_fee, total, payment_method, payment_status, notes, source, order_type, table_number, delivery_address, coupon_code, created_at"
-      )
+  "id, restaurant_id, public_order_number, customer_name, customer_phone, status, subtotal, discount, delivery_fee, total, payment_method, payment_status, notes, source, order_source, order_type, table_number, delivery_address, coupon_code, created_at"
+)
       .single()
 
     if (createOrderError || !createdOrder) {
