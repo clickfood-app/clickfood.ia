@@ -35,25 +35,31 @@ const breadcrumbMap: Record<string, string> = {
   "/": "Gestão",
   "/gestao": "Gestão",
 
+  // Operação
   "/pedidos": "Pedidos",
   "/mesas": "Mesas",
   "/entregas": "Entregas",
 
+  // Cardápio e Vendas
   "/clientes": "Clientes",
   "/cupons": "Cupons",
   "/checkout": "Checkout",
 
+  // Campanhas
   "/campanhas": "Campanhas",
   "/campanhas/upsell": "Upsell",
   "/campanhas/fidelidade": "Fidelidade",
   "/campanhas/cashback": "Cashback",
 
+  // Gestão
+  "/funcionarios": "Funcionários",
   "/fornecedores": "Fornecedores",
   "/controle-estoque": "Controle de estoque",
   "/ficha-tecnica": "Ficha técnica",
   "/perdas-desperdicio": "Perdas e desperdício",
   "/metas": "Metas",
 
+  // Financeiro
   "/financeiro": "Finanças",
   "/financeiro/caixa": "Caixa do dia",
   "/financeiro/recebimentos": "Recebimentos",
@@ -61,12 +67,14 @@ const breadcrumbMap: Record<string, string> = {
   "/financeiro/despesas": "Despesas",
   "/financeiro/cmv": "CMV e margem",
 
+  // Crescimento
   "/crescimento": "Crescimento",
   "/crescimento/ranking-produtos": "Ranking de produtos",
   "/crescimento/clientes-sumidos": "Clientes sumidos",
   "/crescimento/radar-bairros": "Radar de bairros",
   "/crescimento/alertas": "Alertas inteligentes",
 
+  // Configurações
   "/configuracoes": "Configurações",
 }
 
@@ -112,7 +120,6 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     title ||
     breadcrumbMap[pathname] ||
     pathname.replace("/", "").charAt(0).toUpperCase() + pathname.slice(2)
-
   const isGestaoDashboard = pathname === "/gestao"
 
   const toggleCollapse = () => {
@@ -292,7 +299,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#07111f] text-slate-100">
+    <div
+      className={cn(
+        "min-h-screen",
+        isGestaoDashboard ? "bg-slate-950" : "bg-slate-50",
+      )}
+    >
       <div className="hidden md:block">
         <AdminSidebar
           isCollapsed={isCollapsed}
@@ -327,7 +339,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         <header
           className={cn(
             "sticky top-0 z-30 border-b backdrop-blur-xl",
-            "border-slate-800 bg-slate-950/95",
+            isGestaoDashboard
+              ? "border-slate-800 bg-slate-950/95"
+              : "border-slate-200 bg-white/95",
           )}
         >
           <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
@@ -335,10 +349,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-xl border transition md:hidden",
-                  "border-slate-700 bg-slate-900 text-slate-200 hover:border-blue-500/40 hover:bg-slate-800",
-                )}
+                  className={cn(
+                    "inline-flex h-10 w-10 items-center justify-center rounded-xl border transition md:hidden",
+                    isGestaoDashboard
+                      ? "border-slate-700 bg-slate-900 text-slate-200 hover:border-blue-500/40 hover:bg-slate-800"
+                      : "border-slate-200 bg-white text-blue-700 hover:border-blue-200 hover:bg-blue-50",
+                  )}
                 aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
@@ -353,7 +369,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <div
                   className={cn(
                     "flex h-11 items-center overflow-hidden rounded-xl border px-3 shadow-sm",
-                    "border-slate-800 bg-slate-900",
+                    isGestaoDashboard
+                      ? "border-slate-800 bg-slate-900"
+                      : "border-slate-200 bg-white",
                   )}
                 >
                   {!brandLogoFailed ? (
@@ -364,7 +382,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                       onError={() => setBrandLogoFailed(true)}
                     />
                   ) : (
-                    <span className="text-sm font-bold text-white">
+                    <span className="text-sm font-bold text-slate-900">
                       ClickFood
                     </span>
                   )}
@@ -373,7 +391,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <div
                   className={cn(
                     "hidden h-7 w-px lg:block",
-                    "bg-slate-800",
+                    isGestaoDashboard ? "bg-slate-800" : "bg-slate-200",
                   )}
                 />
 
@@ -382,7 +400,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                     href="/gestao"
                     className={cn(
                       "text-sm font-medium transition",
-                      "text-slate-400 hover:text-blue-300",
+                      isGestaoDashboard
+                        ? "text-slate-500 hover:text-slate-200"
+                        : "text-slate-500 hover:text-blue-700",
                     )}
                   >
                     Gestão
@@ -391,14 +411,14 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   <ChevronRight
                     className={cn(
                       "h-4 w-4",
-                      "text-slate-700",
+                      isGestaoDashboard ? "text-slate-700" : "text-slate-300",
                     )}
                   />
 
                   <span
                     className={cn(
                       "truncate text-sm font-bold",
-                      "text-white",
+                      isGestaoDashboard ? "text-white" : "text-slate-900",
                     )}
                   >
                     {currentPage}
@@ -410,7 +430,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <p
                   className={cn(
                     "truncate text-base font-bold",
-                    "text-white",
+                    isGestaoDashboard ? "text-white" : "text-slate-900",
                   )}
                 >
                   {currentPage}
@@ -425,7 +445,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   onClick={handleEnableAlerts}
                   className={cn(
                     "inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-bold transition",
-                    "border-orange-500/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/15",
+                    isGestaoDashboard
+                      ? "border-orange-500/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/15"
+                      : "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100",
                   )}
                 >
                   <Volume2 className="h-4 w-4" />
@@ -441,7 +463,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   }}
                   className={cn(
                     "inline-flex h-10 items-center gap-2 rounded-xl border px-2 transition",
-                    "border-slate-800 bg-slate-900 hover:border-blue-500/40 hover:bg-slate-800",
+                    isGestaoDashboard
+                      ? "border-slate-800 bg-slate-900 hover:border-blue-500/40 hover:bg-slate-800"
+                      : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50",
                   )}
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
@@ -452,7 +476,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                     <p
                       className={cn(
                         "max-w-[140px] truncate text-sm font-bold leading-none",
-                        "text-white",
+                        isGestaoDashboard ? "text-white" : "text-slate-800",
                       )}
                     >
                       {userName}
@@ -467,9 +491,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-xl shadow-slate-950/40">
-                    <div className="border-b border-slate-800 px-3 py-3">
-                      <p className="truncate text-sm font-bold text-white">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                    <div className="border-b border-slate-100 px-3 py-3">
+                      <p className="truncate text-sm font-bold text-slate-900">
                         {userName}
                       </p>
 
@@ -484,7 +508,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-blue-500/10 hover:text-blue-300"
+                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
                     >
                       <User className="h-4 w-4" />
                       Perfil
@@ -496,19 +520,19 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-blue-500/10 hover:text-blue-300"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
                     >
                       <Settings className="h-4 w-4" />
                       Configurações
                     </button>
 
-                    <div className="my-2 h-px bg-slate-800" />
+                    <div className="my-2 h-px bg-slate-200" />
 
                     <button
                       type="button"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <LogOut className="h-4 w-4" />
                       {isLoggingOut ? "Saindo..." : "Sair"}
@@ -520,7 +544,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="min-h-[calc(100vh-4rem)] bg-[#07111f] p-4 md:p-6">
+        <main className={cn("p-4 md:p-6", isGestaoDashboard && "bg-slate-950")}>
           <div
             className={cn(
               "mx-auto w-full",

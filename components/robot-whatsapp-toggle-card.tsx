@@ -162,12 +162,12 @@ export function RobotWhatsappToggleCard() {
             <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
               <div>
                 <span className="font-medium text-slate-800">Provedor:</span>{" "}
-                {settings?.provider || "Z-API"}
+                {settings?.provider || "WAHA"}
               </div>
 
               <div>
-                <span className="font-medium text-slate-800">Instância:</span>{" "}
-                {settings?.session_name || "Instância Z-API"}
+                <span className="font-medium text-slate-800">Sessão:</span>{" "}
+                {settings?.session_name || "default"}
               </div>
 
               <div>

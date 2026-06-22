@@ -150,50 +150,35 @@ const columnStyles = {
   analysis: {
     title: "PENDENTES",
     description: "Aguardando confirmação",
-    emptyTitle: "Tudo tranquilo por aqui",
-    emptyDescription: "Nenhum pedido aguardando aceite agora.",
     icon: Clock3,
-    accent: "bg-amber-500",
-    header: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-    body: "bg-slate-950/80",
-    border: "border-amber-500/30",
-    badge: "bg-amber-500/15 text-amber-300",
+    header: "bg-amber-500",
+    body: "bg-amber-50/45",
+    border: "border-amber-200",
+    badge: "bg-amber-100 text-amber-700",
     button: "bg-emerald-600 hover:bg-emerald-700 text-white",
     progress: "bg-emerald-500",
-    iconBox: "bg-amber-500/15 text-amber-300 ring-amber-500/30",
-    counter: "bg-amber-500/15 text-amber-300",
   },
   preparation: {
     title: "EM PREPARO",
     description: "Na cozinha",
-    emptyTitle: "Cozinha sem fila",
-    emptyDescription: "Pedidos aceitos aparecem aqui durante o preparo.",
     icon: ChefHat,
-    accent: "bg-blue-600",
-    header: "border-blue-500/30 bg-blue-500/10 text-blue-300",
-    body: "bg-slate-950/80",
-    border: "border-blue-500/30",
-    badge: "bg-blue-500/15 text-blue-300",
+    header: "bg-blue-600",
+    body: "bg-blue-50/40",
+    border: "border-blue-200",
+    badge: "bg-blue-100 text-blue-700",
     button: "bg-blue-600 hover:bg-blue-700 text-white",
     progress: "bg-blue-500",
-    iconBox: "bg-blue-500/15 text-blue-300 ring-blue-500/30",
-    counter: "bg-blue-500/15 text-blue-300",
   },
   ready: {
     title: "PRONTOS",
     description: "Cozinha finalizou",
-    emptyTitle: "Nada pronto no momento",
-    emptyDescription: "Quando a cozinha finalizar, o pedido aparece aqui.",
     icon: CheckCircle2,
-    accent: "bg-emerald-600",
-    header: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-    body: "bg-slate-950/80",
-    border: "border-emerald-500/30",
-    badge: "bg-emerald-500/15 text-emerald-300",
+    header: "bg-emerald-600",
+    body: "bg-emerald-50/40",
+    border: "border-emerald-200",
+    badge: "bg-emerald-100 text-emerald-700",
     button: "bg-emerald-600 hover:bg-emerald-700 text-white",
     progress: "bg-emerald-500",
-    iconBox: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30",
-    counter: "bg-emerald-500/15 text-emerald-300",
   },
 } satisfies Record<BoardStatus, Record<string, string | typeof Clock3>>
 
@@ -254,8 +239,6 @@ function isPixAwaitingReview(order: Pick<OrderRow, "payment_method" | "payment_s
   return (
     isManualPixMethod(order.payment_method) &&
     (paymentStatus === "awaiting_review" ||
-      paymentStatus === "waiting_customer_payment" ||
-      paymentStatus === "pending" ||
       paymentStatus === "aguardando_conferencia" ||
       paymentStatus === "aguardando conferência" ||
       status === "waiting_pix_confirmation" ||
@@ -275,7 +258,6 @@ function isAnalysisStatus(status: string | null | undefined) {
     value === "em_analise" ||
     value === "analise" ||
     value === "em análise" ||
-    value === "waiting_payment" ||
     value === "waiting_pix_confirmation" ||
     value === "awaiting_pix_review" ||
     value === "aguardando_confirmacao_pix" ||
@@ -331,8 +313,6 @@ function isOrderVisibleOnBoard(order: Partial<OrderRow>) {
     return (
       paymentStatus === "paid" ||
       paymentStatus === "awaiting_review" ||
-      paymentStatus === "waiting_customer_payment" ||
-      paymentStatus === "pending" ||
       status === "waiting_pix_confirmation" ||
       status === "awaiting_pix_review"
     )
@@ -686,18 +666,18 @@ function getPaymentBadgeClasses(paymentStatus: string | null) {
   const normalized = normalizeStatus(paymentStatus)
 
   if (normalized === "paid") {
-    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+    return "border-emerald-200 bg-emerald-50 text-emerald-700"
   }
 
   if (normalized === "awaiting_review" || normalized === "waiting_customer_payment") {
-    return "border-orange-500/30 bg-orange-500/10 text-orange-300"
+    return "border-orange-200 bg-orange-50 text-orange-700"
   }
 
   if (normalized === "failed" || normalized === "cancelled") {
-    return "border-red-500/30 bg-red-500/10 text-red-300"
+    return "border-red-200 bg-red-50 text-red-700"
   }
 
-  return "border-amber-500/30 bg-amber-500/10 text-amber-300"
+  return "border-amber-200 bg-amber-50 text-amber-700"
 }
 
 function getOrderTypeClasses(order: OrderRow) {
@@ -705,14 +685,14 @@ function getOrderTypeClasses(order: OrderRow) {
   const customerName = normalizeStatus(order.customer_name)
 
   if (paymentMethod === "mesa" || customerName.includes("mesa")) {
-    return "border-orange-500/30 bg-orange-500/10 text-orange-300"
+    return "border-orange-200 bg-orange-50 text-orange-700"
   }
 
   if (isDeliveryOrder(order)) {
-    return "border-blue-500/30 bg-blue-500/10 text-blue-300"
+    return "border-blue-200 bg-blue-50 text-blue-700"
   }
 
-  return "border-purple-500/30 bg-purple-500/10 text-purple-300"
+  return "border-purple-200 bg-purple-50 text-purple-700"
 }
 
 function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
@@ -967,8 +947,8 @@ function OrderCard({
   return (
     <article
       className={[
-       "group rounded-xl border bg-slate-950/80 shadow-sm transition duration-200 hover:shadow-md",
-        isLate ? "border-red-500/50 ring-1 ring-red-500/20" : "border-white/10",
+       "group rounded-xl border bg-white shadow-sm transition duration-200 hover:shadow-md",
+        isLate ? "border-red-300 ring-1 ring-red-100" : "border-slate-200/80",
       ].join(" ")}
     >
       <div
@@ -985,7 +965,7 @@ function OrderCard({
       />
 
       {isLate && (
-        <div className="border-b border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300">
+        <div className="border-b border-red-100 bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">
           <div className="flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5" />
             Pedido atrasado
@@ -997,33 +977,33 @@ function OrderCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="text-base font-black leading-none text-white">
+              <h3 className="text-base font-black leading-none text-slate-950">
                 #{getOrderNumber(order)}
               </h3>
 
               {status === "analysis" && acceptRemainingMs <= 10000 && (
-                <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-300">
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700">
                   Alta
                 </span>
               )}
 
               {status === "ready" && (
-                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-300">
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
                   Cozinha pronto
                 </span>
               )}
             </div>
 
-            <div className="mt-2 flex min-w-0 items-center gap-2 text-xs text-slate-200">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800">
-                <UserRound className="h-3.5 w-3.5 text-slate-400" />
+            <div className="mt-2 flex min-w-0 items-center gap-2 text-xs text-slate-700">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100">
+                <UserRound className="h-3.5 w-3.5 text-slate-500" />
               </div>
 
               <div className="min-w-0">
-                <p className="truncate font-bold text-slate-100">
+                <p className="truncate font-bold text-slate-900">
                   {getCustomerName(order)}
                 </p>
-                <p className="truncate text-[11px] font-medium text-slate-400">
+                <p className="truncate text-[11px] font-medium text-slate-500">
                   {getCustomerPhone(order)}
                 </p>
               </div>
@@ -1058,46 +1038,46 @@ function OrderCard({
         </div>
 
         {(deliveryAddress || customerCpf) && (
-          <div className="mt-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-2">
+          <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-2.5 py-2">
             {deliveryAddress && (
-              <p className="text-[11px] font-bold leading-relaxed text-blue-100">
+              <p className="text-[11px] font-bold leading-relaxed text-blue-900">
                 Endereço: {deliveryAddress}
               </p>
             )}
 
             {customerCpf && (
-              <p className="mt-0.5 text-[11px] font-bold leading-relaxed text-blue-100">
+              <p className="mt-0.5 text-[11px] font-bold leading-relaxed text-blue-900">
                 CPF: {customerCpf}
               </p>
             )}
           </div>
         )}
 
-        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-slate-900/70 px-2.5 py-1.5">
-          <p className="min-w-0 truncate text-[11px] font-semibold text-slate-200">
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1.5">
+          <p className="min-w-0 truncate text-[11px] font-semibold text-slate-700">
             {getOrderFlowHint(order, status)}
           </p>
 
-          <p className="shrink-0 text-[11px] font-black text-slate-200">
+          <p className="shrink-0 text-[11px] font-black text-slate-800">
             {getPaymentLabel(order.payment_method)}
           </p>
         </div>
 
         {isCashPaymentMethod(order.payment_method) && (
-          <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2">
-            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-300">
+          <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2">
+            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
               Troco
             </p>
 
             {order.needs_change && getOrderChangeFor(order) > 0 ? (
-              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-100">
+              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-900">
                 Cliente precisa de troco para{" "}
                 <span className="font-black">{formatBRL(getOrderChangeFor(order))}</span>
                 {" "}• Troco estimado:{" "}
                 <span className="font-black">{formatBRL(getOrderChangeAmount(order))}</span>
               </p>
             ) : (
-              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-100">
+              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-900">
                 Cliente informou que não precisa de troco.
               </p>
             )}
@@ -1105,11 +1085,11 @@ function OrderCard({
         )}
 
         {isPixReview && (
-          <div className="mt-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-2.5 py-2">
-            <p className="text-[10px] font-black uppercase tracking-wide text-orange-300">
+          <div className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-2">
+            <p className="text-[10px] font-black uppercase tracking-wide text-orange-700">
               Conferência Pix necessária
             </p>
-            <p className="mt-0.5 text-xs font-semibold leading-relaxed text-orange-100">
+            <p className="mt-0.5 text-xs font-semibold leading-relaxed text-orange-900">
               Confira data, horário, valor e destinatário do comprovante antes de confirmar.
             </p>
           </div>
@@ -1121,8 +1101,8 @@ function OrderCard({
           className={[
             "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg border text-xs font-black transition",
             isSelected
-              ? "border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/15"
-              : "border-white/10 bg-slate-950/80 text-slate-300 hover:bg-slate-900",
+              ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
           ].join(" ")}
         >
           <span
@@ -1130,7 +1110,7 @@ function OrderCard({
               "flex h-4 w-4 items-center justify-center rounded border",
               isSelected
                 ? "border-blue-600 bg-blue-600 text-white"
-                : "border-white/15 bg-slate-950/80",
+                : "border-slate-300 bg-white",
             ].join(" ")}
           >
             {isSelected && <CheckCircle2 className="h-3 w-3" />}
@@ -1147,8 +1127,8 @@ function OrderCard({
                   className={[
                     "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold",
                     acceptRemainingMs <= 10000
-                      ? "border-red-500/30 bg-red-500/10 text-red-300"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-700",
                   ].join(" ")}
                 >
                   <Clock3 className="h-3 w-3" />
@@ -1162,7 +1142,7 @@ function OrderCard({
                 </span>
               </div>
 
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className={[
                     "h-full rounded-full transition-all",
@@ -1181,8 +1161,8 @@ function OrderCard({
                   className={[
                     "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold",
                     preparationRemainingMs <= 0
-                      ? "border-red-500/30 bg-red-500/10 text-red-300"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-700",
                   ].join(" ")}
                 >
                   <Clock3 className="h-3 w-3" />
@@ -1196,7 +1176,7 @@ function OrderCard({
                 </span>
               </div>
 
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className={[
                     "h-full rounded-full transition-all",
@@ -1211,7 +1191,7 @@ function OrderCard({
           {status === "ready" && (
             <>
               <div className="mb-1 flex items-center justify-between text-[11px]">
-                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-bold text-emerald-300">
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700">
                   <CheckCircle2 className="h-3 w-3" />
                   Pronto na cozinha
                 </span>
@@ -1221,7 +1201,7 @@ function OrderCard({
                 </span>
               </div>
 
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                 <div className="h-full w-full rounded-full bg-emerald-500" />
               </div>
             </>
@@ -1230,13 +1210,13 @@ function OrderCard({
 
         </div>
 
-        <div className="mt-2 rounded-lg border border-white/10 bg-slate-950/80 p-2 shadow-inner">
+        <div className="mt-2 rounded-lg border border-slate-100 bg-white p-2 shadow-inner">
           <div className="mb-1.5 flex items-center justify-between">
             <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
               Itens
             </p>
 
-            <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-400">
+            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
               {items.length} item(ns)
             </span>
           </div>
@@ -1246,21 +1226,21 @@ function OrderCard({
               {visibleItems.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-lg border border-white/10 bg-slate-900/70 px-2 py-1.5 text-xs"
+                  className="rounded-lg border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-xs"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-1.5">
-                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-950/80 px-1 text-[10px] font-black text-slate-300">
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-slate-600">
                         {item.quantity}x
                       </span>
 
-                      <span className="truncate font-semibold text-slate-200">
+                      <span className="truncate font-semibold text-slate-800">
                         {item.name}
                       </span>
                     </div>
 
                     {item.total > 0 && (
-                      <span className="shrink-0 text-[11px] font-bold text-slate-300">
+                      <span className="shrink-0 text-[11px] font-bold text-slate-600">
                         {formatBRL(item.total)}
                       </span>
                     )}
@@ -1271,7 +1251,7 @@ function OrderCard({
                       {getSafeOrderItemModifiers(item).map((modifier, index) => (
                         <p
                           key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
-                          className="text-[11px] font-semibold leading-relaxed text-blue-300"
+                          className="text-[11px] font-semibold leading-relaxed text-blue-700"
                         >
                           • {formatOrderItemModifier(modifier)}
                         </p>
@@ -1280,7 +1260,7 @@ function OrderCard({
                   )}
 
                   {item.notes && (
-                    <p className="mt-1 pl-6 text-[11px] font-semibold leading-relaxed text-amber-300">
+                    <p className="mt-1 pl-6 text-[11px] font-semibold leading-relaxed text-amber-700">
                       Obs: {item.notes}
                     </p>
                   )}
@@ -1288,33 +1268,33 @@ function OrderCard({
               ))}
 
               {hiddenItemsCount > 0 && (
-                <p className="text-[11px] font-medium text-slate-400">
+                <p className="text-[11px] font-medium text-slate-500">
                   +{hiddenItemsCount} item(ns)
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Itens do pedido não carregados.
             </p>
           )}
         </div>
 
         {order.notes && (
-          <div className="mt-2 max-h-14 overflow-hidden rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
-            <p className="text-[10px] font-black uppercase tracking-wide text-amber-300">
+          <div className="mt-2 max-h-14 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
+            <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">
               Observação
             </p>
-            <p className="mt-0.5 text-xs text-amber-100">{order.notes}</p>
+            <p className="mt-0.5 text-xs text-amber-900">{order.notes}</p>
           </div>
         )}
 
         {isDelivery && (status === "preparation" || status === "ready") && (
-          <div className="mt-2 rounded-lg border border-blue-500/20 bg-blue-500/10 p-2">
+          <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/70 p-2">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                <Truck className="h-3.5 w-3.5 text-blue-400" />
-                <p className="text-[10px] font-black uppercase tracking-wide text-blue-300">
+                <Truck className="h-3.5 w-3.5 text-blue-600" />
+                <p className="text-[10px] font-black uppercase tracking-wide text-blue-700">
                   Motoboy
                 </p>
               </div>
@@ -1324,7 +1304,7 @@ function OrderCard({
                   Atribuído
                 </span>
               ) : (
-                <span className="rounded-full bg-slate-950/80 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">
+                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
                   Necessário
                 </span>
               )}
@@ -1337,7 +1317,7 @@ function OrderCard({
                   onAssignDeliveryPerson(order.id, event.target.value)
                 }
                 disabled={isBusy || deliveryPeople.length === 0}
-                className="h-9 w-full rounded-lg border border-blue-500/20 bg-slate-950/80 px-2.5 text-xs font-semibold text-slate-200 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-9 w-full rounded-lg border border-blue-100 bg-white px-2.5 text-xs font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="">
                   {deliveryPeople.length === 0
@@ -1359,10 +1339,10 @@ function OrderCard({
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold text-slate-200">
+                  <p className="text-xs font-bold text-slate-800">
                     {deliveryPersonName || "Motoboy não definido"}
                   </p>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-500">
                     Taxa: {formatBRL(order.delivery_fee)}
                   </p>
                 </div>
@@ -1371,19 +1351,19 @@ function OrderCard({
           </div>
         )}
 
-        <div className="mt-2 border-t border-white/10 pt-2">
+        <div className="mt-2 border-t border-slate-100 pt-2">
           <div className="flex items-end justify-between gap-2">
             <div>
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
                 Total
               </p>
-              <p className="text-lg font-black text-white">
+              <p className="text-lg font-black text-slate-950">
                 {formatBRL(order.total)}
               </p>
             </div>
 
             {isDelivery && Number(order.delivery_fee || 0) > 0 && (
-              <p className="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-300">
+              <p className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
                 Entrega {formatBRL(order.delivery_fee)}
               </p>
             )}
@@ -1394,7 +1374,7 @@ function OrderCard({
           <button
             type="button"
             onClick={() => onPrint(order, items, "kitchen")}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10 text-orange-300 transition hover:bg-orange-500/15"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-orange-700 transition hover:bg-orange-100"
             title="Imprimir comanda da cozinha"
           >
             <ChefHat className="h-4 w-4" />
@@ -1403,7 +1383,7 @@ function OrderCard({
           <button
             type="button"
             onClick={() => onPrint(order, items, "receipt")}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-slate-950/80 text-slate-300 transition hover:bg-slate-900"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
             title="Imprimir recibo do cliente"
           >
             <Printer className="h-4 w-4" />
@@ -1416,7 +1396,7 @@ function OrderCard({
                   type="button"
                   onClick={() => setProofModalOpen(true)}
                   disabled={!order.pix_proof_url}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 text-xs font-black text-orange-300 shadow-sm transition hover:bg-orange-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 shadow-sm transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Search className="h-3.5 w-3.5" />
                   Ver comprovante
@@ -1477,7 +1457,7 @@ function OrderCard({
 
           {status === "preparation" && (
             kdsEnabled ? (
-              <div className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 text-xs font-black text-blue-300">
+              <div className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700">
                 Aguardando cozinha
               </div>
             ) : (
@@ -1530,16 +1510,16 @@ function OrderCard({
             aria-hidden="true"
           />
 
-          <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-slate-950/80 shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-orange-400">
+                <p className="text-xs font-black uppercase tracking-wide text-orange-600">
                   Comprovante Pix
                 </p>
-                <h3 className="mt-1 text-lg font-black text-white">
+                <h3 className="mt-1 text-lg font-black text-slate-950">
                   Pedido #{getOrderNumber(order)}
                 </h3>
-                <p className="mt-1 text-xs font-semibold text-slate-400">
+                <p className="mt-1 text-xs font-semibold text-slate-500">
                   Confira valor, data, horário e destinatário antes de confirmar.
                 </p>
               </div>
@@ -1547,39 +1527,39 @@ function OrderCard({
               <button
                 type="button"
                 onClick={() => setProofModalOpen(false)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
                 aria-label="Fechar comprovante"
               >
                 <XCircle className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-900/70 p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">
               {order.pix_proof_url ? (
                 <img
                   src={order.pix_proof_url}
                   alt={`Comprovante Pix do pedido ${getOrderNumber(order)}`}
-                  className="mx-auto max-h-[68vh] w-full rounded-xl border border-white/10 bg-slate-950/80 object-contain shadow-sm"
+                  className="mx-auto max-h-[68vh] w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
                 />
               ) : (
-                <div className="rounded-xl border border-dashed border-white/15 bg-slate-950/80 p-8 text-center">
-                  <p className="text-sm font-bold text-slate-200">
+                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                  <p className="text-sm font-bold text-slate-700">
                     Comprovante não disponível.
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-slate-500">
                     Atualize a tela ou peça para o cliente reenviar o comprovante.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-white/10 bg-slate-950/80 p-4 sm:flex-row">
+            <div className="flex flex-col gap-2 border-t border-slate-100 bg-white p-4 sm:flex-row">
               {order.pix_proof_url && (
                 <a
                   href={order.pix_proof_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm font-black text-slate-200 transition hover:bg-slate-900"
+                  className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
                 >
                   Abrir imagem
                 </a>
@@ -1592,7 +1572,7 @@ function OrderCard({
                   onCancel(order)
                 }}
                 disabled={isBusy}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 text-sm font-black text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <XCircle className="h-4 w-4" />
                 Cancelar pedido
@@ -1667,65 +1647,37 @@ function BoardColumn({
   const Icon = styles.icon as typeof Clock3
 
   return (
-    <section
-      className={[
-        "relative overflow-hidden rounded-2xl border bg-slate-950/80 shadow-sm shadow-black/20 transition hover:shadow-md",
-        String(styles.border),
-      ].join(" ")}
-    >
-      <div className={["h-1.5 w-full", String(styles.accent)].join(" ")} />
-
-      <div className="border-b border-white/10 px-4 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div
-              className={[
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1",
-                String(styles.iconBox),
-              ].join(" ")}
-            >
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className={`${styles.header} px-4 py-3 text-white`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
               <Icon className="h-5 w-5" />
             </div>
 
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-black tracking-wide text-white">
-                {styles.title as string}
-              </h2>
-              <p className="mt-0.5 truncate text-xs font-semibold text-slate-400">
+            <div>
+              <h2 className="text-sm font-black tracking-wide">{styles.title}</h2>
+              <p className="text-xs font-medium text-white/80">
                 {styles.description as string}
               </p>
             </div>
           </div>
 
-          <span
-            className={[
-              "flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-2 text-sm font-black",
-              String(styles.counter),
-            ].join(" ")}
-          >
+          <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/20 px-2 text-sm font-black">
             {orders.length}
           </span>
         </div>
       </div>
 
-      <div className={`${styles.body} min-h-[calc(100vh-305px)] space-y-3 p-3`}>
+      <div className={`${styles.body} min-h-[calc(100vh-245px)] space-y-3 p-3`}>
         {orders.length === 0 ? (
-          <div className="flex min-h-[250px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-slate-900/70 p-6 text-center">
-            <div className="mx-auto max-w-[230px]">
-              <div
-                className={[
-                  "mx-auto flex h-12 w-12 items-center justify-center rounded-2xl ring-1",
-                  String(styles.iconBox),
-                ].join(" ")}
-              >
-                <Icon className="h-6 w-6" />
-              </div>
-
-              <p className="mt-4 text-sm font-black text-slate-100">
-                {styles.emptyTitle as string}
+          <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/70 p-6 text-center">
+            <div>
+              <p className="text-sm font-bold text-slate-700">
+                Nenhum pedido aqui
               </p>
-              <p className="mt-1.5 text-xs font-medium leading-relaxed text-slate-400">
-                {styles.emptyDescription as string}
+              <p className="mt-1 text-xs text-slate-500">
+                Os pedidos aparecem automaticamente nessa etapa.
               </p>
             </div>
           </div>
@@ -2831,85 +2783,26 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
       <div className="flex flex-col gap-4">
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-950/80 shadow-sm shadow-black/20">
-          <div className="border-b border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 px-5 py-5">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/40" />
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                    Operação em tempo real
-                  </p>
-                </div>
-
-                <h1 className="mt-2 text-2xl font-black tracking-[-0.03em] text-white">
-                  Central de pedidos
-                </h1>
-
-                <p className="mt-1 text-sm font-medium text-slate-400">
-                  Acompanhe, aceite, produza e finalize os pedidos do restaurante.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[520px]">
-                <div className="rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-3 shadow-sm">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                    Abertos
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-white">
-                    {openOrders.length}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 shadow-sm">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-amber-300">
-                    Pendentes
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-amber-300">
-                    {analysisOrders.length}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 px-3 py-3 shadow-sm">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-blue-300">
-                    Em preparo
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-blue-300">
-                    {preparationOrders.length}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3 shadow-sm">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-emerald-300">
-                    Prontos
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-emerald-300">
-                    {readyOrders.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4 p-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4">
             <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
-              <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_220px]">
+              <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
                 <div className="relative min-w-0">
                   <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar por cliente, telefone ou número do pedido..."
-                    className="h-11 w-full rounded-2xl border border-white/10 bg-slate-900/70 pl-11 pr-4 text-sm font-semibold text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-500/10"
+                    placeholder="Buscar cliente, telefone ou pedido..."
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
                   />
                 </div>
 
-                <div className="flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-slate-900/70 px-3">
-                  <Settings2 className="h-4 w-4 shrink-0 text-slate-400" />
+                <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
+                  <Settings2 className="h-4 w-4 shrink-0 text-slate-500" />
 
-                  <span className="whitespace-nowrap text-sm font-bold text-slate-200">
-                    Preparo:
+                  <span className="whitespace-nowrap text-sm font-semibold text-slate-700">
+                    Tempo:
                   </span>
 
                   <select
@@ -2918,7 +2811,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                       updateAveragePrepTime(Number(event.target.value))
                     }
                     disabled={savingPrepTime}
-                    className="h-8 flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-2 text-sm font-black text-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                    className="h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                   >
                     <option value={10}>10 min</option>
                     <option value={15}>15 min</option>
@@ -2933,13 +2826,13 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                   </select>
 
                   {savingPrepTime && (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
                   )}
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
-                <p className="inline-flex h-11 items-center rounded-2xl bg-slate-900/70 px-3 text-xs font-bold text-slate-400">
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
                   {lastUpdatedAt
                     ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
                         hour: "2-digit",
@@ -2952,7 +2845,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                 <button
                   type="button"
                   onClick={() => void refreshAll()}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-950/80 px-4 text-sm font-black text-slate-200 transition hover:bg-slate-900"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
                   {refreshing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -2966,10 +2859,10 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                   type="button"
                   onClick={toggleKdsEnabled}
                   className={[
-                    "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-black transition",
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
                     kdsEnabled
-                      ? "border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/15"
-                      : "border-white/15 bg-slate-900 text-white hover:bg-slate-800",
+                      ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      : "border-slate-300 bg-slate-900 text-white hover:bg-slate-800",
                   ].join(" ")}
                   title={
                     kdsEnabled
@@ -2982,28 +2875,29 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                 </button>
 
                 <button
-                  type="button"
-                  onClick={() => void updateAutoAcceptOrders(!autoAcceptOrders)}
-                  disabled={savingAutoAcceptOrders}
-                  className={[
-                    "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60",
-                    autoAcceptOrders
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15"
-                      : "border-white/10 bg-slate-950/80 text-slate-200 hover:bg-slate-900",
-                  ].join(" ")}
-                  title={
-                    autoAcceptOrders
-                      ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
-                      : "Pedidos serão impressos somente depois do aceite manual do restaurante."
-                  }
-                >
-                  {savingAutoAcceptOrders ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" />
-                  )}
-                  {autoAcceptOrders ? "Aceite ligado" : "Aceite manual"}
-                </button>
+  type="button"
+  onClick={() => void updateAutoAcceptOrders(!autoAcceptOrders)}
+  disabled={savingAutoAcceptOrders}
+  className={[
+    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60",
+    autoAcceptOrders
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+  ].join(" ")}
+  title={
+    autoAcceptOrders
+      ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
+      : "Pedidos serão impressos somente depois do aceite manual do restaurante."
+  }
+>
+  {savingAutoAcceptOrders ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : (
+    <CheckCircle2 className="h-4 w-4" />
+  )}
+
+  {autoAcceptOrders ? "Aceite automático ligado" : "Aceitar automaticamente"}
+</button>
 
                 <button
                   type="button"
@@ -3016,10 +2910,10 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                     void enableOrderAlerts()
                   }}
                   className={[
-                    "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-black transition",
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
                     orderAlertsEnabled
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15"
-                      : "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/15",
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
                   ].join(" ")}
                   title={
                     notificationPermission === "denied"
@@ -3038,13 +2932,13 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
             </div>
 
             {filteredOrders.length > 0 && (
-              <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-900/70 p-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-sm font-black text-slate-100">
+                  <p className="text-sm font-black text-slate-900">
                     Impressão em lote
                   </p>
 
-                  <p className="mt-0.5 text-xs font-medium text-slate-400">
+                  <p className="mt-0.5 text-xs font-medium text-slate-500">
                     {selectedVisibleOrders.length > 0
                       ? `${selectedVisibleOrders.length} pedido(s) selecionado(s) de ${filteredOrders.length} visível(is).`
                       : "Selecione os pedidos que deseja imprimir."}
@@ -3055,7 +2949,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                   <button
                     type="button"
                     onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
-                    className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/80 px-3 text-xs font-black text-slate-200 transition hover:bg-slate-900"
+                    className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
                   >
                     Selecionar visíveis
                   </button>
@@ -3064,7 +2958,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                     type="button"
                     onClick={() => handlePrintSelectedOrders("kitchen")}
                     disabled={selectedVisibleOrders.length === 0}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 text-xs font-black text-orange-300 transition hover:bg-orange-500/15 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <ChefHat className="h-4 w-4" />
                     Cozinha ({selectedVisibleOrders.length})
@@ -3074,7 +2968,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                     type="button"
                     onClick={() => handlePrintSelectedOrders("receipt")}
                     disabled={selectedVisibleOrders.length === 0}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 text-xs font-black text-blue-300 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <Printer className="h-4 w-4" />
                     Recibos ({selectedVisibleOrders.length})
@@ -3084,7 +2978,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                     type="button"
                     onClick={clearSelectedOrders}
                     disabled={selectedVisibleOrders.length === 0}
-                    className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/80 px-3 text-xs font-black text-slate-300 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     Limpar
                   </button>
@@ -3093,13 +2987,13 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
             )}
 
             {error && (
-              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {error}
               </div>
             )}
 
             {newOrderAlert && (
-              <div className="overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/10 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
@@ -3107,11 +3001,11 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-emerald-100">
+                      <p className="truncate text-sm font-black text-emerald-900">
                         Novo pedido recebido
                       </p>
 
-                      <p className="truncate text-xs font-bold text-emerald-200">
+                      <p className="truncate text-xs font-bold text-emerald-800">
                         {newOrderAlert.orderNumber} • {newOrderAlert.customerName} • {formatBRL(newOrderAlert.total)}
                       </p>
                     </div>
@@ -3120,7 +3014,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                   <button
                     type="button"
                     onClick={() => setNewOrderAlert(null)}
-                    className="shrink-0 rounded-full p-1 text-emerald-300 transition hover:bg-emerald-500/15"
+                    className="shrink-0 rounded-full p-1 text-emerald-700 transition hover:bg-emerald-100"
                     aria-label="Fechar alerta de novo pedido"
                   >
                     <XCircle className="h-5 w-5" />
@@ -3132,15 +3026,15 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-xl border border-white/10 bg-slate-950/80 py-20 shadow-sm">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-400">
+          <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando operação...
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto pb-2 scrollbar-none">
-  <div className="grid min-w-[980px] grid-cols-3 gap-4">
+          <div className="overflow-x-auto pb-2">
+            <div className="grid min-w-[1140px] grid-cols-3 gap-4">
               <BoardColumn
                 status="analysis"
                 orders={analysisOrders}
@@ -3215,4 +3109,3 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     </AdminLayout>
   )
 }
-

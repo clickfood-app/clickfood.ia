@@ -30,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+      <body className="font-sans antialiased">
         <AuthProvider>
           {children}
           <Toaster position="top-right" richColors closeButton />

@@ -936,7 +936,7 @@ export default function MesasPage() {
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {error}
           </div>
         ) : null}
@@ -951,29 +951,29 @@ export default function MesasPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-300/80">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700/70">
               Livres
             </p>
-            <p className="mt-2 text-2xl font-black text-emerald-300">
+            <p className="mt-2 text-2xl font-black text-emerald-700">
               {loading ? "..." : availableTables}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-amber-300/80">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-700/70">
               Ocupadas
             </p>
-            <p className="mt-2 text-2xl font-black text-amber-300">
+            <p className="mt-2 text-2xl font-black text-amber-700">
               {loading ? "..." : occupiedTables}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-orange-500/30 bg-orange-500/10 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-orange-300/80">
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-orange-700/70">
               Ociosas
             </p>
-            <p className="mt-2 text-2xl font-black text-orange-300">
+            <p className="mt-2 text-2xl font-black text-orange-700">
               {loading ? "..." : idleTables}
             </p>
           </div>
@@ -987,11 +987,11 @@ export default function MesasPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-violet-500/30 bg-violet-500/10 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-violet-300/80">
+          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-violet-700/70">
               A receber
             </p>
-            <p className="mt-2 text-2xl font-black text-violet-300">
+            <p className="mt-2 text-2xl font-black text-violet-700">
               {loading ? "..." : formatCurrency(totalConsumption)}
             </p>
           </div>
@@ -1049,9 +1049,9 @@ export default function MesasPage() {
                       className={`rounded-2xl border p-4 transition ${
                         isOccupied
                           ? table.isIdle
-                            ? "border-orange-500/40 bg-orange-500/10"
-                            : "border-amber-500/40 bg-amber-500/10"
-                          : "border-emerald-400/40 bg-[#0b1728]"
+                            ? "border-orange-200 bg-orange-50/70"
+                            : "border-amber-200 bg-amber-50/60"
+                          : "border-emerald-200 bg-emerald-50/50"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1060,9 +1060,9 @@ export default function MesasPage() {
                             className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
                               isOccupied
                                 ? table.isIdle
-                                  ? "bg-orange-500/15 text-orange-300"
-                                  : "bg-amber-500/15 text-amber-300"
-                                : "bg-emerald-500/15 text-emerald-300"
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-amber-100 text-amber-700"
+                                : "bg-emerald-100 text-emerald-700"
                             }`}
                           >
                             <Armchair className="h-5 w-5" />
@@ -1082,9 +1082,9 @@ export default function MesasPage() {
                           className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
                             isOccupied
                               ? table.isIdle
-                                ? "bg-orange-500/15 text-orange-300"
-                                : "bg-amber-500/15 text-amber-300"
-                              : "bg-emerald-500/15 text-emerald-300"
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-amber-100 text-amber-700"
+                              : "bg-emerald-100 text-emerald-700"
                           }`}
                         >
                           {isOccupied ? (table.isIdle ? "Ociosa" : "Ocupada") : "Livre"}
@@ -1095,7 +1095,7 @@ export default function MesasPage() {
                         <button
                           type="button"
                           onClick={() => openTableEditModal(table)}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-foreground transition hover:bg-white/10"
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-white/70 text-xs font-bold text-foreground transition hover:bg-white"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                           Editar mesa
@@ -1105,7 +1105,7 @@ export default function MesasPage() {
                           <button
                             type="button"
                             onClick={() => openGuestModal(table)}
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-foreground transition hover:bg-white/10"
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-white/70 text-xs font-bold text-foreground transition hover:bg-white"
                           >
                             <Users className="h-3.5 w-3.5" />
                             Pessoas
@@ -1127,7 +1127,7 @@ export default function MesasPage() {
                       {isOccupied ? (
                         <div className="mt-4 space-y-3">
                           {table.isIdle ? (
-                            <div className="flex items-start gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 text-xs text-orange-200">
+                            <div className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-100/70 p-3 text-xs text-orange-800">
                               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                               <div>
                                 <p className="font-black">Possível mesa ociosa</p>
@@ -1139,7 +1139,7 @@ export default function MesasPage() {
                           ) : null}
 
                           <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                 Pessoas
                               </p>
@@ -1148,7 +1148,7 @@ export default function MesasPage() {
                               </p>
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                 Ticket/pessoa
                               </p>
@@ -1159,7 +1159,7 @@ export default function MesasPage() {
                               </p>
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                 Ocupada há
                               </p>
@@ -1168,7 +1168,7 @@ export default function MesasPage() {
                               </p>
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <div className="rounded-xl border border-border bg-white/70 p-3">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                 Total
                               </p>
@@ -1178,7 +1178,7 @@ export default function MesasPage() {
                             </div>
                           </div>
 
-                          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <div className="rounded-xl border border-border bg-white/70 p-3">
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                 Pedidos vinculados
@@ -1231,8 +1231,8 @@ export default function MesasPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="mt-4 rounded-xl border border-emerald-400/30 bg-white/5 p-4 text-center">
-                          <p className="text-sm font-bold text-emerald-300">
+                        <div className="mt-4 rounded-xl border border-emerald-200 bg-white/70 p-4 text-center">
+                          <p className="text-sm font-bold text-emerald-700">
                             Mesa disponível
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -1298,7 +1298,7 @@ export default function MesasPage() {
                 onClick={() => setSelectedPaymentMethod("dinheiro")}
                 className={`rounded-2xl border p-4 text-left transition ${
                   selectedPaymentMethod === "dinheiro"
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                     : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                 }`}
               >
@@ -1311,7 +1311,7 @@ export default function MesasPage() {
                 onClick={() => setSelectedPaymentMethod("pix")}
                 className={`rounded-2xl border p-4 text-left transition ${
                   selectedPaymentMethod === "pix"
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                     : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                 }`}
               >
@@ -1324,7 +1324,7 @@ export default function MesasPage() {
                 onClick={() => setSelectedPaymentMethod("debito")}
                 className={`rounded-2xl border p-4 text-left transition ${
                   selectedPaymentMethod === "debito"
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                     : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                 }`}
               >
@@ -1337,7 +1337,7 @@ export default function MesasPage() {
                 onClick={() => setSelectedPaymentMethod("credito")}
                 className={`rounded-2xl border p-4 text-left transition ${
                   selectedPaymentMethod === "credito"
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                     : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                 }`}
               >
@@ -1493,11 +1493,11 @@ export default function MesasPage() {
                   />
                 </div>
 
-                <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-right">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-violet-300/80">
+                <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-right">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-violet-700/70">
                     Total novo
                   </p>
-                  <p className="text-lg font-black text-violet-300">
+                  <p className="text-lg font-black text-violet-700">
                     {formatCurrency(selectedAddItemsTotal)}
                   </p>
                 </div>
