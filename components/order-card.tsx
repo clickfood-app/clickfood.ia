@@ -4,7 +4,7 @@ import { memo, useState, useEffect, useRef } from "react"
 import {
   Clock, Loader2, Package, User, ChefHat, CreditCard,
   Bike, Store, UtensilsCrossed, AlertTriangle, MapPin,
-  Phone, MessageSquare, ChevronDown, X
+  Phone, MessageSquare, ChevronDown, X, Bot
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -34,6 +34,7 @@ export interface KanbanOrder {
   payment: OrderPayment
   priority: OrderPriority
   observations?: string
+  orderSource?: string | null
   createdAt: number // timestamp
   prepTime?: number
   tableNumber?: number
@@ -115,6 +116,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
 
   const typeConf = TYPE_CONFIG[order.type]
   const TypeIcon = typeConf.icon
+  const isAiOrder = order.orderSource === "whatsapp_ai"
 
   return (
     <div
@@ -151,12 +153,19 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", typeConf.className)}>
-            <TypeIcon className="h-3 w-3" />
-            {typeConf.label}
-            {order.type === "mesa" && order.tableNumber ? ` ${order.tableNumber}` : ""}
-          </span>
-        </div>
+  {isAiOrder && (
+    <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+      <Bot className="h-3 w-3" />
+      IA WhatsApp
+    </span>
+  )}
+
+  <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", typeConf.className)}>
+    <TypeIcon className="h-3 w-3" />
+    {typeConf.label}
+    {order.type === "mesa" && order.tableNumber ? ` ${order.tableNumber}` : ""}
+  </span>
+</div>
       </div>
 
       {/* Customer */}
@@ -213,12 +222,21 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
       </div>
 
       {/* Observations hint */}
-      {order.observations && (
-        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
-          <MessageSquare className="h-3 w-3 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-[11px] text-amber-700 line-clamp-2">{order.observations}</p>
-        </div>
-      )}
+      {order.observations && !isAiOrder && (
+  <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+    <MessageSquare className="h-3 w-3 text-amber-600 mt-0.5 shrink-0" />
+    <p className="text-[11px] text-amber-700 line-clamp-2">{order.observations}</p>
+  </div>
+)}
+
+{isAiOrder && (
+  <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+    <Bot className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+    <p className="text-[11px] font-medium text-slate-600">
+      Pedido criado pelo assistente de WhatsApp
+    </p>
+  </div>
+)}
 
       {/* Delivery Person Section - Only for delivery orders */}
       {order.type === "delivery" && order.status !== "pendente" && (

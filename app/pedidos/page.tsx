@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -133,7 +133,7 @@ const OPEN_ORDER_STATUSES = [
   "in_analysis",
   "em_analise",
   "analise",
-  "em análise",
+  "em anÃ¡lise",
   "accepted",
   "aceito",
   "preparing",
@@ -146,13 +146,13 @@ const OPEN_ORDER_STATUSES = [
   "waiting_pix_confirmation",
   "awaiting_pix_review",
   "aguardando_confirmacao_pix",
-  "aguardando confirmação pix",
+  "aguardando confirmaÃ§Ã£o pix",
 ]
 
 const columnStyles = {
   analysis: {
     title: "PENDENTES",
-    description: "Aguardando confirmação",
+    description: "Aguardando confirmaÃ§Ã£o",
     icon: Clock3,
     header: "bg-gradient-to-r from-orange-500 to-amber-500",
     body: "bg-gradient-to-b from-orange-50/70 to-white",
@@ -212,7 +212,7 @@ function getErrorMessage(error: unknown, fallback: string) {
       maybeError.code,
     ]
       .filter(Boolean)
-      .join(" • ")
+      .join(" â€¢ ")
 
     if (message) return message
   }
@@ -243,11 +243,11 @@ function isPixAwaitingReview(order: Pick<OrderRow, "payment_method" | "payment_s
     isManualPixMethod(order.payment_method) &&
     (paymentStatus === "awaiting_review" ||
       paymentStatus === "aguardando_conferencia" ||
-      paymentStatus === "aguardando conferência" ||
+      paymentStatus === "aguardando conferÃªncia" ||
       status === "waiting_pix_confirmation" ||
       status === "awaiting_pix_review" ||
       status === "aguardando_confirmacao_pix" ||
-      status === "aguardando confirmação pix")
+      status === "aguardando confirmaÃ§Ã£o pix")
   )
 }
 
@@ -260,11 +260,11 @@ function isAnalysisStatus(status: string | null | undefined) {
     value === "in_analysis" ||
     value === "em_analise" ||
     value === "analise" ||
-    value === "em análise" ||
+    value === "em anÃ¡lise" ||
     value === "waiting_pix_confirmation" ||
     value === "awaiting_pix_review" ||
     value === "aguardando_confirmacao_pix" ||
-    value === "aguardando confirmação pix"
+    value === "aguardando confirmaÃ§Ã£o pix"
   )
 }
 
@@ -373,7 +373,7 @@ function normalizeOrderItemModifiers(rawModifiers: unknown): OrderItemModifier[]
         groupId: cleanText(modifier.groupId ?? modifier.group_id) || null,
         optionId: cleanText(modifier.optionId ?? modifier.option_id) || null,
         groupName: groupName || "Complemento",
-        optionName: optionName || "Opção",
+        optionName: optionName || "OpÃ§Ã£o",
         optionPrice: Number.isFinite(optionPrice) ? optionPrice : 0,
       }
     })
@@ -393,7 +393,7 @@ function getSafeOrderItemModifiers(item: OrderItem) {
 
 function getOrderItemPrintName(item: OrderItem) {
   const modifierLines = getSafeOrderItemModifiers(item).map(
-    (modifier) => `  • ${formatOrderItemModifier(modifier)}`
+    (modifier) => `  â€¢ ${formatOrderItemModifier(modifier)}`
   )
 
   const notesLine = item.notes ? [`  Obs: ${item.notes}`] : []
@@ -519,7 +519,7 @@ function getOrderAddress(order: OrderRow) {
   const mainAddress = [street, number].filter(Boolean).join(", ")
   const fullAddress = [mainAddress, neighborhood, complement, city]
     .filter(Boolean)
-    .join(" • ")
+    .join(" â€¢ ")
 
   return fullAddress || null
 }
@@ -593,15 +593,15 @@ function getDeliveryPersonName(
 }
 
 function getPaymentLabel(paymentMethod: string | null) {
-  if (!paymentMethod) return "—"
+  if (!paymentMethod) return "â€”"
 
   const normalized = paymentMethod.toLowerCase()
 
-  if (normalized === "pix") return "Pix automático"
+  if (normalized === "pix") return "Pix automÃ¡tico"
   if (isManualPixMethod(normalized)) return "Pix direto"
   if (normalized === "cash" || normalized === "dinheiro") return "Dinheiro"
-  if (normalized === "credit_card" || normalized === "credito") return "Crédito"
-  if (normalized === "debit_card" || normalized === "debito") return "Débito"
+  if (normalized === "credit_card" || normalized === "credito") return "CrÃ©dito"
+  if (normalized === "debit_card" || normalized === "debito") return "DÃ©bito"
   if (normalized === "mesa") return "Mesa"
 
   return paymentMethod
@@ -645,7 +645,7 @@ function getPaymentStatusLabel(paymentStatus: string | null) {
   if (normalized === "failed") return "Falhou"
   if (normalized === "cancelled") return "Cancelado"
 
-  return paymentStatus || "—"
+  return paymentStatus || "â€”"
 }
 
 function isDeliveryOrder(order: OrderRow) {
@@ -660,7 +660,7 @@ function isDeliveryOrder(order: OrderRow) {
     notes.includes("retirada") ||
     notes.includes("retirar") ||
     notes.includes("balcao") ||
-    notes.includes("balcão") ||
+    notes.includes("balcÃ£o") ||
     notes.includes("pedido local") ||
     notes.includes("mesa") ||
     notes.includes("comanda") ||
@@ -675,7 +675,7 @@ function isDeliveryOrder(order: OrderRow) {
     notes.includes("entrega") ||
     notes.includes("entregar") ||
     notes.includes("endereco") ||
-    notes.includes("endereço") ||
+    notes.includes("endereÃ§o") ||
     notes.includes("bairro") ||
     notes.includes("rua")
 
@@ -737,12 +737,12 @@ function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
       return "Cliente enviou comprovante. Confira antes de aceitar."
     }
 
-    if (isPaid) return "Pedido pago. Pode aceitar com segurança."
+    if (isPaid) return "Pedido pago. Pode aceitar com seguranÃ§a."
     return "Pagamento pendente. Confira a forma de pagamento."
   }
 
   if (status === "preparation") {
-    return "Pedido em produção na cozinha."
+    return "Pedido em produÃ§Ã£o na cozinha."
   }
 
   if (status === "ready") {
@@ -1064,7 +1064,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
 
           <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2">
             <p className="text-xs font-bold text-slate-600">
-              {items.length} item(ns) • {getPaymentLabel(order.payment_method)}
+              {items.length} item(ns) â€¢ {getPaymentLabel(order.payment_method)}
             </p>
 
             <p className="text-sm font-black text-slate-950">
@@ -1141,7 +1141,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
               </span>
 
               <span className="font-medium text-slate-400">
-                aguardando finalização
+                aguardando finalizaÃ§Ã£o
               </span>
             </div>
           )}
@@ -1293,7 +1293,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
 
                     {deliveryAddress && (
                       <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">
-                        <span className="font-black text-slate-900">Endereço:</span>{" "}
+                        <span className="font-black text-slate-900">EndereÃ§o:</span>{" "}
                         {deliveryAddress}
                       </p>
                     )}
@@ -1317,7 +1317,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                       <span className="font-black">
                         {formatBRL(getOrderChangeFor(order))}
                       </span>{" "}
-                      • Troco estimado:{" "}
+                      â€¢ Troco estimado:{" "}
                       <span className="font-black">
                         {formatBRL(getOrderChangeAmount(order))}
                       </span>
@@ -1328,11 +1328,11 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                 {isPixReview && (
                   <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
                     <p className="text-[10px] font-black uppercase tracking-wide text-orange-700">
-                      Conferência Pix
+                      ConferÃªncia Pix
                     </p>
 
                     <p className="mt-1 text-sm font-semibold text-orange-900">
-                      Confira valor, data, horário e destinatário antes de confirmar.
+                      Confira valor, data, horÃ¡rio e destinatÃ¡rio antes de confirmar.
                     </p>
 
                     {order.pix_proof_url ? (
@@ -1343,7 +1343,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                       />
                     ) : (
                       <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-orange-800">
-                        Comprovante não disponível.
+                        Comprovante nÃ£o disponÃ­vel.
                       </p>
                     )}
                   </div>
@@ -1374,7 +1374,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                                   key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
                                   className="mt-0.5 text-xs font-medium text-slate-500"
                                 >
-                                  • {formatOrderItemModifier(modifier)}
+                                  â€¢ {formatOrderItemModifier(modifier)}
                                 </p>
                               ))}
 
@@ -1396,7 +1396,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                     </div>
                   ) : (
                     <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500">
-                      Itens do pedido não carregados.
+                      Itens do pedido nÃ£o carregados.
                     </p>
                   )}
                 </div>
@@ -1404,7 +1404,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                 {(cleanOrderNote || isAiOrder) && (
   <div className="rounded-xl border border-slate-200 bg-white p-4">
     <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-      {isAiOrder ? "Origem" : "Observação"}
+      {isAiOrder ? "Origem" : "ObservaÃ§Ã£o"}
     </p>
 
     <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold leading-relaxed text-slate-700">
@@ -1427,7 +1427,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                         </span>
                       ) : (
                         <span className="text-xs font-black text-slate-400">
-                          Necessário
+                          NecessÃ¡rio
                         </span>
                       )}
                     </div>
@@ -1449,7 +1449,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                       {deliveryPeople.map((person) => (
                         <option key={person.id} value={person.id}>
                           {person.name}
-                          {person.phone ? ` • ${person.phone}` : ""}
+                          {person.phone ? ` â€¢ ${person.phone}` : ""}
                         </option>
                       ))}
                     </select>
@@ -1852,7 +1852,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
       audioUnlockedRef.current = true
       return true
     } catch (err) {
-      console.warn("Não foi possível tocar o alerta sonoro:", err)
+      console.warn("NÃ£o foi possÃ­vel tocar o alerta sonoro:", err)
       audioUnlockedRef.current = false
       return false
     }
@@ -1886,7 +1886,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
     if (!soundWorked) {
       setError(
-        "O alerta visual foi ativado, mas o navegador não liberou o som. Clique novamente em Ativar alertas e confira se a aba não está mutada."
+        "O alerta visual foi ativado, mas o navegador nÃ£o liberou o som. Clique novamente em Ativar alertas e confira se a aba nÃ£o estÃ¡ mutada."
       )
     } else {
       setError(null)
@@ -1953,7 +1953,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
         Notification.permission === "granted"
       ) {
         const notification = new Notification("Novo pedido recebido", {
-          body: `${alert.orderNumber} • ${alert.customerName} • ${formatBRL(alert.total)}`,
+          body: `${alert.orderNumber} â€¢ ${alert.customerName} â€¢ ${formatBRL(alert.total)}`,
           tag: `clickfood-order-${order.id}`,
         })
 
@@ -1979,7 +1979,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
         .in("order_id", orderIds)
 
       if (error) {
-        console.warn("Itens dos pedidos não carregados:", error.message)
+        console.warn("Itens dos pedidos nÃ£o carregados:", error.message)
         setOrderItemsByOrderId({})
         return
       }
@@ -2101,8 +2101,8 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
         address: data.address || null,
       })
     } catch (err) {
-      console.error("Erro ao carregar configurações do restaurante:", err)
-      setError(getErrorMessage(err, "Erro ao carregar configurações do restaurante."))
+      console.error("Erro ao carregar configuraÃ§Ãµes do restaurante:", err)
+      setError(getErrorMessage(err, "Erro ao carregar configuraÃ§Ãµes do restaurante."))
     }
   }
 
@@ -2122,9 +2122,9 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
       if (error) throw error
     } catch (err) {
-      console.error("Erro ao salvar tempo médio:", err)
+      console.error("Erro ao salvar tempo mÃ©dio:", err)
       setAveragePrepTimeMinutes(previousValue)
-      setError(getErrorMessage(err, "Erro ao salvar tempo médio."))
+      setError(getErrorMessage(err, "Erro ao salvar tempo mÃ©dio."))
     } finally {
       setSavingPrepTime(false)
     }
@@ -2147,7 +2147,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   } | null
 
   if (result?.success === false) {
-    throw new Error(result.error || "Erro ao criar job de impressão.")
+    throw new Error(result.error || "Erro ao criar job de impressÃ£o.")
   }
 
   return result
@@ -2170,9 +2170,9 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
 
     if (error) throw error
   } catch (err) {
-    console.error("Erro ao salvar aceite automático:", err)
+    console.error("Erro ao salvar aceite automÃ¡tico:", err)
     setAutoAcceptOrders(previousValue)
-    setError(getErrorMessage(err, "Erro ao salvar aceite automático."))
+    setError(getErrorMessage(err, "Erro ao salvar aceite automÃ¡tico."))
   } finally {
     setSavingAutoAcceptOrders(false)
   }
@@ -2240,7 +2240,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     const session = await ensureSupabaseSession()
 
     if (!session?.access_token) {
-      throw new Error("Sessão expirada. Entre novamente para registrar fidelidade.")
+      throw new Error("SessÃ£o expirada. Entre novamente para registrar fidelidade.")
     }
 
     const response = await fetch("/api/loyalty/register-order", {
@@ -2265,7 +2265,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
 
   async function deductStockForOrder(orderId: string) {
     if (!restaurant?.id) {
-      throw new Error("Restaurante não encontrado para baixar estoque.")
+      throw new Error("Restaurante nÃ£o encontrado para baixar estoque.")
     }
 
     const deductedAt = new Date().toISOString()
@@ -2362,6 +2362,22 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     }
   }
 
+  async function notifyAiOrderStatus(orderId: string, status: string) {
+    try {
+      await fetch("/api/orders/ai-status-notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId,
+          status,
+        }),
+      })
+    } catch (error) {
+      console.error("Erro ao notificar cliente sobre status do pedido IA:", error)
+    }
+  }
   async function updateOrder(
     order: OrderRow,
     action: "accept" | "cancel" | "ready" | "route" | "finish"
@@ -2445,12 +2461,12 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
   try {
     await deductStockForOrder(order.id)
   } catch (stockError) {
-    console.error("Pedido aceito, mas estoque não foi baixado:", stockError)
+    console.error("Pedido aceito, mas estoque nÃ£o foi baixado:", stockError)
 
     setError(
       getErrorMessage(
         stockError,
-        "Pedido aceito, mas não foi possível baixar o estoque automaticamente."
+        "Pedido aceito, mas nÃ£o foi possÃ­vel baixar o estoque automaticamente."
       )
     )
   }
@@ -2458,29 +2474,33 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
   try {
     await createDesktopPrintJob(order.id)
   } catch (printJobError) {
-    console.error("Pedido aceito, mas impressão desktop não foi gerada:", printJobError)
+    console.error("Pedido aceito, mas impressÃ£o desktop nÃ£o foi gerada:", printJobError)
 
     setError(
       getErrorMessage(
         printJobError,
-        "Pedido aceito, mas não foi possível enviar para a fila de impressão desktop."
+        "Pedido aceito, mas nÃ£o foi possÃ­vel enviar para a fila de impressÃ£o desktop."
       )
     )
   }
 }
+      if (payload.status) {
+        void notifyAiOrderStatus(order.id, String(payload.status))
+      }
+
       if (payload.status === "delivered") {
         try {
           await registerLoyaltyOrder(order.id)
         } catch (loyaltyError) {
           console.error(
-            "Pedido finalizado, mas fidelidade não registrada:",
+            "Pedido finalizado, mas fidelidade nÃ£o registrada:",
             loyaltyError
           )
 
           setError(
             getErrorMessage(
               loyaltyError,
-              "Pedido finalizado, mas não foi possível registrar a fidelidade."
+              "Pedido finalizado, mas nÃ£o foi possÃ­vel registrar a fidelidade."
             )
           )
         }
@@ -2543,12 +2563,12 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
       try {
         await deductStockForOrder(order.id)
       } catch (stockError) {
-        console.error("Pix confirmado, mas estoque não foi baixado:", stockError)
+        console.error("Pix confirmado, mas estoque nÃ£o foi baixado:", stockError)
 
         setError(
           getErrorMessage(
             stockError,
-            "Pix confirmado, mas não foi possível baixar o estoque automaticamente."
+            "Pix confirmado, mas nÃ£o foi possÃ­vel baixar o estoque automaticamente."
           )
         )
       }
@@ -2556,12 +2576,12 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
       try {
         await createDesktopPrintJob(order.id)
       } catch (printJobError) {
-        console.error("Pix confirmado, mas impressão desktop não foi gerada:", printJobError)
+        console.error("Pix confirmado, mas impressÃ£o desktop nÃ£o foi gerada:", printJobError)
 
         setError(
           getErrorMessage(
             printJobError,
-            "Pix confirmado, mas não foi possível enviar para a fila de impressão desktop."
+            "Pix confirmado, mas nÃ£o foi possÃ­vel enviar para a fila de impressÃ£o desktop."
           )
         )
       }
@@ -2854,16 +2874,16 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                     Central operacional
                   </p>
                   <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                    Visão geral da operação
+                    VisÃ£o geral da operaÃ§Ã£o
                   </h1>
                   <p className="mt-1 text-sm font-medium text-slate-500">
-                    Acompanhe os pedidos desde a entrada até a finalização do atendimento.
+                    Acompanhe os pedidos desde a entrada atÃ© a finalizaÃ§Ã£o do atendimento.
                   </p>
                 </div>
 
                 <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Operação em tempo real
+                  OperaÃ§Ã£o em tempo real
                 </div>
               </div>
 
@@ -2878,7 +2898,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                 <OperationMetricCard
                   title="Pendentes"
                   value={String(analysisOrders.length)}
-                  description="Aguardando análise"
+                  description="Aguardando anÃ¡lise"
                   icon={Clock3}
                   tone="orange"
                 />
@@ -2953,7 +2973,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
               <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
                 <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
                   {lastUpdatedAt
-                    ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                    ? `Atualizado Ã s ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
                         hour: "2-digit",
                         minute: "2-digit",
                         second: "2-digit",
@@ -2986,7 +3006,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                   title={
                     kdsEnabled
                       ? "KDS ativo: a cozinha controla quando o pedido fica pronto."
-                      : "KDS desativado: a aba Pedidos controla envio/finalização."
+                      : "KDS desativado: a aba Pedidos controla envio/finalizaÃ§Ã£o."
                   }
                 >
                   <ChefHat className="h-4 w-4" />
@@ -3005,8 +3025,8 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
   ].join(" ")}
   title={
     autoAcceptOrders
-      ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
-      : "Pedidos serão impressos somente depois do aceite manual do restaurante."
+      ? "Pedidos confirmados pelo cliente serÃ£o aceitos automaticamente e enviados para impressÃ£o desktop."
+      : "Pedidos serÃ£o impressos somente depois do aceite manual do restaurante."
   }
 >
   {savingAutoAcceptOrders ? (
@@ -3015,7 +3035,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     <CheckCircle2 className="h-4 w-4" />
   )}
 
-  {autoAcceptOrders ? "Aceite automático ligado" : "Aceitar automaticamente"}
+  {autoAcceptOrders ? "Aceite automÃ¡tico ligado" : "Aceitar automaticamente"}
 </button>
 
                 <button
@@ -3036,7 +3056,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                   ].join(" ")}
                   title={
                     notificationPermission === "denied"
-                      ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
+                      ? "O navegador bloqueou notificaÃ§Ãµes de desktop, mas o som do painel pode funcionar."
                       : undefined
                   }
                 >
@@ -3054,12 +3074,12 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
               <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-sm font-black text-slate-900">
-                    Impressão em lote
+                    ImpressÃ£o em lote
                   </p>
 
                   <p className="mt-0.5 text-xs font-medium text-slate-500">
                     {selectedVisibleOrders.length > 0
-                      ? `${selectedVisibleOrders.length} pedido(s) selecionado(s) de ${filteredOrders.length} visível(is).`
+                      ? `${selectedVisibleOrders.length} pedido(s) selecionado(s) de ${filteredOrders.length} visÃ­vel(is).`
                       : "Selecione os pedidos que deseja imprimir."}
                   </p>
                 </div>
@@ -3070,7 +3090,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                     onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
                     className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
                   >
-                    Selecionar visíveis
+                    Selecionar visÃ­veis
                   </button>
 
                   <button
@@ -3125,7 +3145,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
                       </p>
 
                       <p className="truncate text-xs font-bold text-emerald-800">
-                        {newOrderAlert.orderNumber} • {newOrderAlert.customerName} • {formatBRL(newOrderAlert.total)}
+                        {newOrderAlert.orderNumber} â€¢ {newOrderAlert.customerName} â€¢ {formatBRL(newOrderAlert.total)}
                       </p>
                     </div>
                   </div>
@@ -3148,7 +3168,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
           <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Carregando operação...
+              Carregando operaÃ§Ã£o...
             </div>
           </div>
         ) : (
@@ -3234,22 +3254,22 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
               <span className="inline-flex items-center gap-1.5 text-orange-600">
                 <Clock3 className="h-4 w-4" /> Pendente
               </span>
-              <span className="text-slate-300">→</span>
+              <span className="text-slate-300">â†’</span>
               <span className="inline-flex items-center gap-1.5 text-blue-600">
                 <ChefHat className="h-4 w-4" /> Em preparo
               </span>
-              <span className="text-slate-300">→</span>
+              <span className="text-slate-300">â†’</span>
               <span className="inline-flex items-center gap-1.5 text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" /> Pronto
               </span>
-              <span className="text-slate-300">→</span>
+              <span className="text-slate-300">â†’</span>
               <span className="inline-flex items-center gap-1.5 text-violet-600">
                 <CheckCircle2 className="h-4 w-4" /> Finalizado
               </span>
             </div>
 
             <p className="text-xs font-semibold text-slate-500">
-              Dica: pedidos ficam em <span className="font-black text-slate-800">Prontos</span> até o dono finalizar.
+              Dica: pedidos ficam em <span className="font-black text-slate-800">Prontos</span> atÃ© o dono finalizar.
             </p>
           </div>
         </div>
@@ -3257,3 +3277,4 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     </AdminLayout>
   )
 }
+
