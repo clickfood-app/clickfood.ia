@@ -18,7 +18,6 @@ import {
   FileBarChart,
   ListChecks,
   Loader2,
-  PackageOpen,
   Printer,
   ReceiptText,
   RefreshCcw,
@@ -876,24 +875,24 @@ function MetricCard({
   tone: "blue" | "green" | "amber" | "red" | "slate"
 }) {
   const toneClass = {
-    blue: "border-blue-500/20 bg-blue-500/15 text-blue-300",
-    green: "border-emerald-500/20 bg-emerald-500/15 text-emerald-300",
-    amber: "border-orange-500/20 bg-orange-500/15 text-orange-300",
-    red: "border-red-500/20 bg-red-500/15 text-red-300",
-    slate: "border-slate-700 bg-slate-800 text-slate-300",
+    blue: "border-blue-100 bg-blue-50 text-blue-700",
+    green: "border-emerald-100 bg-emerald-50 text-emerald-700",
+    amber: "border-orange-100 bg-orange-50 text-orange-700",
+    red: "border-red-100 bg-red-50 text-red-700",
+    slate: "border-slate-200 bg-slate-50 text-slate-600",
   }[tone]
 
   return (
-    <div className="min-h-[122px] rounded-lg border border-slate-800 bg-slate-900/75 p-4 shadow-[0_18px_45px_rgba(2,6,23,0.22)]">
+    <div className="min-h-[118px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex h-full flex-col justify-between gap-3">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-300">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
             {title}
           </p>
 
           <div
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
               toneClass
             )}
           >
@@ -902,10 +901,10 @@ function MetricCard({
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-2xl font-semibold tabular-nums text-white">
+          <p className="truncate text-2xl font-semibold tabular-nums text-slate-950">
             {value}
           </p>
-          <p className="mt-2 truncate text-xs font-medium text-slate-400">
+          <p className="mt-2 truncate text-xs font-medium text-slate-500">
             {subtitle}
           </p>
         </div>
@@ -933,17 +932,17 @@ function Panel({
     <section
       id={id}
       className={cn(
-        "rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow-[0_18px_45px_rgba(2,6,23,0.18)]",
+        "rounded-xl border border-slate-200 bg-white p-4 shadow-sm",
         className
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight text-white">
+          <h2 className="text-sm font-semibold tracking-tight text-slate-950">
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-1 text-xs font-medium leading-5 text-slate-400">
+            <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
               {subtitle}
             </p>
           )}
@@ -959,7 +958,7 @@ function Panel({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 px-4 py-8 text-center text-sm font-medium text-slate-400">
+    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-medium text-slate-500">
       {message}
     </div>
   )
@@ -977,10 +976,10 @@ function MoneyInput({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="block rounded-lg border border-slate-700 bg-slate-900 p-3">
-      <span className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">
+    <label className="block rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <span className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
         {label}
-        <span className="text-slate-500">
+        <span className="font-semibold text-blue-700">
           Esperado: {formatCurrency(expected)}
         </span>
       </span>
@@ -990,7 +989,7 @@ function MoneyInput({
         onChange={(event) => onChange(event.target.value)}
         inputMode="decimal"
         placeholder="0,00"
-        className="mt-2 h-10 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-sm font-medium tabular-nums text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
+        className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold tabular-nums text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
       />
     </label>
   )
@@ -1000,17 +999,17 @@ function StatusBadge({ order }: { order: OrderRow }) {
   const bucket = getStatusBucket(order.status)
 
   const className = {
-    analysis: "bg-blue-500/15 text-blue-300 ring-blue-500/20",
-    open: "bg-orange-500/15 text-orange-300 ring-orange-500/20",
-    route: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
-    finished: "bg-slate-700/70 text-slate-300 ring-slate-600",
-    cancelled: "bg-red-500/15 text-red-300 ring-red-500/20",
+    analysis: "bg-blue-50 text-blue-700 ring-blue-100",
+    open: "bg-orange-50 text-orange-700 ring-orange-100",
+    route: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    finished: "bg-slate-100 text-slate-600 ring-slate-200",
+    cancelled: "bg-red-50 text-red-700 ring-red-100",
   }[bucket]
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ring-1",
+        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold ring-1",
         className
       )}
     >
@@ -1026,10 +1025,10 @@ function PaymentBadge({ order }: { order: OrderRow }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ring-1",
-        paid && "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
-        pendingPix && "bg-orange-500/15 text-orange-300 ring-orange-500/20",
-        !paid && !pendingPix && "bg-slate-700/70 text-slate-300 ring-slate-600"
+        "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold ring-1",
+        paid && "bg-emerald-50 text-emerald-700 ring-emerald-100",
+        pendingPix && "bg-orange-50 text-orange-700 ring-orange-100",
+        !paid && !pendingPix && "bg-slate-100 text-slate-600 ring-slate-200"
       )}
     >
       {getPaymentStatusLabel(order)}
@@ -1038,68 +1037,106 @@ function PaymentBadge({ order }: { order: OrderRow }) {
 }
 
 function ActivityChart({ data }: { data: ActivityPoint[] }) {
+  const [mode, setMode] = useState<"orders" | "sales">("orders")
   const hasData = data.some((point) => point.orders > 0)
 
   if (!hasData) {
     return <EmptyState message="Nenhum pedido registrado hoje." />
   }
 
-  const maxOrders = Math.max(1, ...data.map((point) => point.orders))
+  const values = data.map((point) => (mode === "orders" ? point.orders : point.sales))
+  const maxValue = Math.max(1, ...values)
+  const totalOrders = data.reduce((sum, point) => sum + point.orders, 0)
+  const totalSales = data.reduce((sum, point) => sum + point.sales, 0)
 
   return (
-    <div className="relative h-[230px] overflow-hidden rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-      <div className="pointer-events-none absolute inset-3 rounded-md bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:36px_28px]" />
-      <div className="relative flex h-[170px] items-end gap-1">
-        {data.map((point, index) => {
-          const height =
-            point.orders === 0
-              ? 4
-              : Math.max(12, Math.round((point.orders / maxOrders) * 100))
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+          Visualização do gráfico
+        </div>
 
-          return (
-            <div
-              key={point.hour}
-              className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-            >
-              <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-20 w-max -translate-x-1/2 rounded-md border border-slate-700 bg-slate-950 px-2.5 py-2 text-left text-[11px] text-slate-400 opacity-0 shadow-xl shadow-slate-950/40 transition duration-150 group-hover:opacity-100">
-                <p className="font-medium tabular-nums text-white">
-                  {point.hour}
-                </p>
-                <p className="mt-0.5 tabular-nums">
-                  {point.orders} pedido(s)
-                </p>
-                <p className="tabular-nums text-emerald-300">
-                  {formatCurrency(point.sales)}
-                </p>
-              </div>
-
-              <div
-                className={cn(
-                  "w-full max-w-8 origin-bottom rounded-t-md transition-all duration-200 ease-out group-hover:scale-y-105",
-                  point.orders > 0
-                    ? "bg-blue-600 group-hover:bg-blue-400 group-hover:shadow-[0_0_0_1px_rgba(96,165,250,0.25),0_10px_22px_rgba(37,99,235,0.35)]"
-                    : "bg-slate-700 group-hover:bg-slate-600"
-                )}
-                style={{ height: `${height}%` }}
-              />
-              <span
-                className={cn(
-                  "mt-2 text-[10px] font-medium text-slate-500 transition-colors group-hover:text-white",
-                  index % 2 !== 0 && data.length > 12 && "opacity-0"
-                )}
-              >
-                {point.hour}
-              </span>
-            </div>
-          )
-        })}
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+          <button
+            type="button"
+            onClick={() => setMode("orders")}
+            className={cn(
+              "h-8 rounded-md px-3 text-xs font-semibold transition",
+              mode === "orders"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-50"
+            )}
+          >
+            Pedidos
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("sales")}
+            className={cn(
+              "h-8 rounded-md px-3 text-xs font-semibold transition",
+              mode === "sales"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-50"
+            )}
+          >
+            Vendas
+          </button>
+        </div>
       </div>
 
-      <div className="relative mt-3 flex items-center justify-between border-t border-slate-800 pt-2 text-[11px] font-medium tabular-nums text-slate-400">
-        <span>{formatNumber(data.reduce((sum, point) => sum + point.orders, 0))} pedido(s)</span>
-        <span>
-          {formatCurrency(data.reduce((sum, point) => sum + point.sales, 0))}
-        </span>
+      <div className="relative h-[230px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3">
+        <div className="pointer-events-none absolute inset-3 rounded-lg bg-[linear-gradient(to_right,rgba(148,163,184,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.18)_1px,transparent_1px)] bg-[size:36px_28px]" />
+        <div className="relative flex h-[170px] items-end gap-1">
+          {data.map((point, index) => {
+            const rawValue = mode === "orders" ? point.orders : point.sales
+            const height =
+              rawValue === 0
+                ? 4
+                : Math.max(12, Math.round((rawValue / maxValue) * 100))
+
+            return (
+              <div
+                key={point.hour}
+                className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+              >
+                <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-20 w-max -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left text-[11px] text-slate-500 opacity-0 shadow-xl transition duration-150 group-hover:opacity-100">
+                  <p className="font-semibold tabular-nums text-slate-950">
+                    {point.hour}
+                  </p>
+                  <p className="mt-0.5 tabular-nums">
+                    {point.orders} pedido(s)
+                  </p>
+                  <p className="tabular-nums font-semibold text-emerald-700">
+                    {formatCurrency(point.sales)}
+                  </p>
+                </div>
+
+                <div
+                  className={cn(
+                    "w-full max-w-8 origin-bottom rounded-t-md transition-all duration-200 ease-out group-hover:scale-y-105",
+                    rawValue > 0
+                      ? "bg-blue-600 group-hover:bg-blue-500 group-hover:shadow-md"
+                      : "bg-slate-200 group-hover:bg-slate-300"
+                  )}
+                  style={{ height: `${height}%` }}
+                />
+                <span
+                  className={cn(
+                    "mt-2 text-[10px] font-semibold text-slate-400 transition-colors group-hover:text-slate-700",
+                    index % 2 !== 0 && data.length > 12 && "opacity-0"
+                  )}
+                >
+                  {point.hour}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="relative mt-3 flex items-center justify-between border-t border-slate-200 pt-2 text-[11px] font-semibold tabular-nums text-slate-500">
+          <span>{formatNumber(totalOrders)} pedido(s)</span>
+          <span>{formatCurrency(totalSales)}</span>
+        </div>
       </div>
     </div>
   )
@@ -1138,18 +1175,18 @@ function PaymentDonut({
   const background =
     total > 0 && segments.length > 0
       ? `conic-gradient(${segments.join(", ")})`
-      : "conic-gradient(#334155 0% 100%)"
+      : "conic-gradient(#e2e8f0 0% 100%)"
 
   return (
     <div className="grid gap-5 md:grid-cols-[190px_1fr] md:items-center">
-      <div className="relative mx-auto flex h-40 w-40 items-center justify-center rounded-full shadow-[0_18px_45px_rgba(2,6,23,0.32)]">
+      <div className="relative mx-auto flex h-40 w-40 items-center justify-center rounded-full shadow-sm">
         <div
           className="absolute inset-0 rounded-full transition duration-300 hover:scale-[1.03]"
           style={{ background }}
         />
-        <div className="absolute inset-5 rounded-full bg-slate-950 shadow-inner shadow-slate-900" />
+        <div className="absolute inset-5 rounded-full bg-white shadow-inner" />
         <div className="relative text-center">
-          <p className="text-sm font-semibold tabular-nums text-white">
+          <p className="text-sm font-semibold tabular-nums text-slate-950">
             {formatCurrency(total)}
           </p>
           <p className="mt-1 text-[11px] font-medium text-slate-500">Total</p>
@@ -1160,7 +1197,7 @@ function PaymentDonut({
         {rows.map((row) => (
           <div
             key={row.key}
-            className="group rounded-md px-2 py-1.5 transition hover:bg-slate-800/70"
+            className="group rounded-lg px-2 py-1.5 transition hover:bg-slate-50"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -1168,15 +1205,15 @@ function PaymentDonut({
                   className="h-2.5 w-2.5 shrink-0 rounded-sm"
                   style={{ backgroundColor: colors[row.key] }}
                 />
-                <span className="truncate text-sm font-medium text-slate-200">
+                <span className="truncate text-sm font-semibold text-slate-700">
                   {row.label}
                 </span>
               </div>
-              <span className="text-sm font-semibold tabular-nums text-white transition group-hover:text-emerald-300">
+              <span className="text-sm font-semibold tabular-nums text-slate-950 transition group-hover:text-emerald-700">
                 {row.percent}%
               </span>
             </div>
-            <p className="mt-1 pl-4 text-[11px] font-medium tabular-nums text-slate-500">
+            <p className="mt-1 pl-4 text-[11px] font-semibold tabular-nums text-slate-500">
               {formatCurrency(row.amount)}
             </p>
           </div>
@@ -1196,16 +1233,16 @@ function SmallTile({
   tone?: "slate" | "green" | "red" | "amber" | "blue"
 }) {
   const toneClass = {
-    slate: "text-white",
-    green: "text-emerald-300",
-    red: "text-red-300",
-    amber: "text-orange-300",
-    blue: "text-blue-300",
+    slate: "text-slate-950",
+    green: "text-emerald-700",
+    red: "text-red-700",
+    amber: "text-orange-700",
+    blue: "text-blue-700",
   }[tone]
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
         {label}
       </p>
       <p className={cn("mt-1 truncate text-sm font-semibold tabular-nums", toneClass)}>{value}</p>
@@ -2089,7 +2126,7 @@ export default function GestaoPage() {
 
   return (
     <AdminLayout title="Gestão">
-      <div className="space-y-4 text-slate-100">
+      <div className="hidden">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-white">
@@ -2451,8 +2488,7 @@ export default function GestaoPage() {
         )}
       </div>
 
-      <div className="hidden">
-      <div className="space-y-4">
+      <div className="space-y-4 rounded-xl bg-white p-4 text-slate-950">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -2485,9 +2521,18 @@ export default function GestaoPage() {
 
               <button
                 type="button"
+                onClick={() => window.print()}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir resumo
+              </button>
+
+              <button
+                type="button"
                 onClick={openClosingModal}
                 disabled={isLoading}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-4 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-4 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Fechar dia
@@ -2529,7 +2574,7 @@ export default function GestaoPage() {
           </div>
         ) : (
           <>
-            <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
               <MetricCard
                 title="Vendas"
                 value={formatCurrency(data.dayTotalSales)}
@@ -2568,14 +2613,6 @@ export default function GestaoPage() {
                 subtitle={`${data.dayExpenses.length} lançamento(s)`}
                 tone={data.dayTotalExpenses > 0 ? "red" : "slate"}
                 icon={<TrendingDown className="h-4 w-4" />}
-              />
-
-              <MetricCard
-                title="Saldo"
-                value={formatCurrency(data.dayEstimatedBalance)}
-                subtitle="Recebido - saídas"
-                tone={data.dayEstimatedBalance >= 0 ? "green" : "red"}
-                icon={<DollarSign className="h-4 w-4" />}
               />
             </section>
 
@@ -2700,7 +2737,7 @@ export default function GestaoPage() {
                   {sectorSummary.map((sector) => (
                     <div
                       key={sector.title}
-                      className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-3"
                     >
                       <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
                         {sector.title}
@@ -2949,11 +2986,10 @@ export default function GestaoPage() {
           </>
         )}
       </div>
-      </div>
 
       {isClosingModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-950">
@@ -2993,13 +3029,13 @@ export default function GestaoPage() {
                 />
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">
                   Divisão por setor
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                   {sectorSummary.map((sector) => (
-                    <div key={sector.title} className="rounded-md bg-white p-3">
+                    <div key={sector.title} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
                       <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
                         {sector.title}
                       </p>
@@ -3111,7 +3147,7 @@ export default function GestaoPage() {
                 type="button"
                 onClick={() => void handleSaveClosing()}
                 disabled={isClosing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isClosing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
