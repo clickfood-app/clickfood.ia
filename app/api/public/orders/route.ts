@@ -1,6 +1,7 @@
-import { randomInt } from "crypto"
+﻿import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { notifyAiPublicOrderCreated } from "@/lib/ai-agent"
 
 const MAX_ITEMS_PER_ORDER = 50
 const MAX_QUANTITY_PER_ITEM = 99
@@ -351,6 +352,29 @@ function jsonError(message: string, status = 400) {
   )
 }
 
+async function notifyAiPublicOrderCreatedSafely(params: {
+  restaurantId: string
+  orderId: string
+}) {
+
+  const aiNotifyResult = await notifyAiPublicOrderCreated({
+    restaurantId: params.restaurantId,
+    orderId: params.orderId,
+    source: "public_menu",
+  })
+
+
+  if (!aiNotifyResult.ok) {
+    console.warn("[AI Agent] Pedido criado, mas resumo IA nao foi enviado:", {
+      restaurantId: params.restaurantId,
+      orderId: params.orderId,
+      result: aiNotifyResult,
+    })
+  }
+
+  return aiNotifyResult
+}
+
 async function createOrderWithRetry(orderPayload: Record<string, unknown>) {
   let lastError: unknown = null
 
@@ -409,7 +433,7 @@ async function getRestaurantAutoAcceptOrders(restaurantId: string) {
     .maybeSingle()
 
   if (error) {
-    console.error("Erro ao buscar aceite automático do restaurante:", {
+    console.error("Erro ao buscar aceite automÃ¡tico do restaurante:", {
       restaurantId,
       message: error.message,
       code: error.code,
@@ -443,7 +467,7 @@ async function createDesktopPrintJobForOrder(orderId: string, forceReprint = fal
   } | null
 
   if (result?.success === false) {
-    throw new Error(result.error || "Erro ao criar job de impressão.")
+    throw new Error(result.error || "Erro ao criar job de impressÃ£o.")
   }
 
   return result
@@ -496,7 +520,7 @@ async function autoAcceptCreatedOrderIfEnabled({
   try {
     await createDesktopPrintJobForOrder(orderId)
   } catch (printJobError) {
-    console.error("Pedido autoaceito, mas job de impressão não foi criado:", {
+    console.error("Pedido autoaceito, mas job de impressÃ£o nÃ£o foi criado:", {
       restaurantId,
       orderId,
       error: printJobError,
@@ -554,7 +578,7 @@ async function createOrderFast({
   })
 
   if (error) {
-    console.error("Erro ao criar pedido via RPC rápida:", {
+    console.error("Erro ao criar pedido via RPC rÃ¡pida:", {
       message: error.message,
       code: error.code,
       details: error.details,
@@ -615,7 +639,7 @@ async function createOrderLegacy({
   )
 
   if (productIds.length === 0) {
-    return jsonError("Nenhum produto válido foi enviado no pedido.", 400)
+    return jsonError("Nenhum produto vÃ¡lido foi enviado no pedido.", 400)
   }
 
   const [
@@ -651,19 +675,19 @@ async function createOrderLegacy({
   const typedRestaurant = restaurant as RestaurantRow | null
 
   if (!typedRestaurant || typedRestaurant.is_active === false) {
-    return jsonError("Restaurante não encontrado ou inativo.", 404)
+    return jsonError("Restaurante nÃ£o encontrado ou inativo.", 404)
   }
 
   if (orderType === "delivery" && typedRestaurant.delivery_enabled === false) {
     return jsonError(
-      "Este restaurante não está aceitando pedidos para entrega.",
+      "Este restaurante nÃ£o estÃ¡ aceitando pedidos para entrega.",
       400
     )
   }
 
   if (orderType === "pickup" && typedRestaurant.pickup_enabled === false) {
     return jsonError(
-      "Este restaurante não está aceitando pedidos para retirada.",
+      "Este restaurante nÃ£o estÃ¡ aceitando pedidos para retirada.",
       400
     )
   }
@@ -686,15 +710,15 @@ async function createOrderLegacy({
     const itemModifiers = normalizeModifiers(item.modifiers)
 
     if (!product) {
-      return jsonError("Um dos produtos do pedido não foi encontrado.", 400)
+      return jsonError("Um dos produtos do pedido nÃ£o foi encontrado.", 400)
     }
 
     if (product.restaurant_id !== restaurantId) {
-      return jsonError("Produto não pertence a este restaurante.", 400)
+      return jsonError("Produto nÃ£o pertence a este restaurante.", 400)
     }
 
     if (product.is_available === false) {
-      return jsonError(`O produto "${product.name}" está indisponível.`, 400)
+      return jsonError(`O produto "${product.name}" estÃ¡ indisponÃ­vel.`, 400)
     }
 
     const basePrice = Math.max(0, normalizeNumber(product.price, 0))
@@ -723,7 +747,7 @@ async function createOrderLegacy({
 
   if (minimumOrder > 0 && subtotal < minimumOrder) {
     return jsonError(
-      `Pedido mínimo de R$ ${minimumOrder.toFixed(2).replace(".", ",")}.`,
+      `Pedido mÃ­nimo de R$ ${minimumOrder.toFixed(2).replace(".", ",")}.`,
       400
     )
   }
@@ -757,7 +781,7 @@ async function createOrderLegacy({
     )
 
     if (deliveryRules.length > 0 && !matchedRule) {
-      return jsonError("Bairro não atendido por este restaurante.", 400)
+      return jsonError("Bairro nÃ£o atendido por este restaurante.", 400)
     }
 
     deliveryFee = matchedRule
@@ -773,7 +797,7 @@ async function createOrderLegacy({
 
   if (requestedCashbackAmount > 0) {
     if (!requestedCashbackWalletId) {
-      return jsonError("Carteira de cashback inválida.", 400)
+      return jsonError("Carteira de cashback invÃ¡lida.", 400)
     }
 
     const { data: walletData, error: walletError } = await supabaseAdmin
@@ -799,11 +823,11 @@ async function createOrderLegacy({
     const wallet = walletData as CashbackWalletRow | null
 
     if (!wallet) {
-      return jsonError("Carteira de cashback não encontrada.", 400)
+      return jsonError("Carteira de cashback nÃ£o encontrada.", 400)
     }
 
     if (normalizePhone(wallet.customer_phone) !== customerPhone) {
-      return jsonError("Cashback não pertence a este cliente.", 400)
+      return jsonError("Cashback nÃ£o pertence a este cliente.", 400)
     }
 
     const walletBalance = roundMoney(
@@ -811,7 +835,7 @@ async function createOrderLegacy({
     )
 
     if (walletBalance <= 0) {
-      return jsonError("Cliente não possui saldo de cashback.", 400)
+      return jsonError("Cliente nÃ£o possui saldo de cashback.", 400)
     }
 
     const campaignQuery = supabaseAdmin
@@ -847,7 +871,7 @@ async function createOrderLegacy({
     ).find(isCampaignInsidePeriod)
 
     if (!activeCampaign) {
-      return jsonError("Campanha de cashback não está ativa.", 400)
+      return jsonError("Campanha de cashback nÃ£o estÃ¡ ativa.", 400)
     }
 
     const rewardConfig = activeCampaign.reward_config || {}
@@ -869,7 +893,7 @@ async function createOrderLegacy({
 
     if (redeemMinimumOrderAmount > 0 && subtotal < redeemMinimumOrderAmount) {
       return jsonError(
-        `Cashback disponível apenas em pedidos acima de R$ ${redeemMinimumOrderAmount
+        `Cashback disponÃ­vel apenas em pedidos acima de R$ ${redeemMinimumOrderAmount
           .toFixed(2)
           .replace(".", ",")}.`,
         400
@@ -883,7 +907,7 @@ async function createOrderLegacy({
     discount = roundMoney(Math.min(requestedCashbackAmount, maxAllowedDiscount))
 
     if (discount <= 0) {
-      return jsonError("Valor de cashback inválido.", 400)
+      return jsonError("Valor de cashback invÃ¡lido.", 400)
     }
 
     cashbackRedeemData = {
@@ -1014,7 +1038,7 @@ const initialStatus = shouldAutoAcceptOrder
         .eq("order_id", createdOrder.id)
       await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
 
-      return jsonError("Não foi possível aplicar o cashback.", 500)
+      return jsonError("NÃ£o foi possÃ­vel aplicar o cashback.", 500)
     }
 
     const { error: cashbackTransactionError } = await supabaseAdmin
@@ -1056,7 +1080,7 @@ const initialStatus = shouldAutoAcceptOrder
         .eq("order_id", createdOrder.id)
       await supabaseAdmin.from("orders").delete().eq("id", createdOrder.id)
 
-      return jsonError("Não foi possível registrar o uso do cashback.", 500)
+      return jsonError("NÃ£o foi possÃ­vel registrar o uso do cashback.", 500)
     }
   }
 
@@ -1064,13 +1088,18 @@ const initialStatus = shouldAutoAcceptOrder
     try {
       await createDesktopPrintJobForOrder(createdOrder.id)
     } catch (printJobError) {
-      console.error("Pedido autoaceito, mas job de impressão não foi criado:", {
+      console.error("Pedido autoaceito, mas job de impressÃ£o nÃ£o foi criado:", {
         restaurantId,
         orderId: createdOrder.id,
         error: printJobError,
       })
     }
   }
+
+  await notifyAiPublicOrderCreatedSafely({
+    restaurantId,
+    orderId: createdOrder.id,
+  })
 
   return NextResponse.json(
     {
@@ -1103,14 +1132,13 @@ const initialStatus = shouldAutoAcceptOrder
   )
 }
 
-export async function POST(request: Request) {
-  try {
+export async function POST(request: Request) {  try {
     let body: CreateOrderBody
 
     try {
       body = (await request.json()) as CreateOrderBody
     } catch {
-      return jsonError("Corpo da requisição inválido.", 400)
+      return jsonError("Corpo da requisiÃ§Ã£o invÃ¡lido.", 400)
     }
 
     const restaurantId = normalizeText(body.restaurantId, 80)
@@ -1151,23 +1179,23 @@ export async function POST(request: Request) {
     const items = Array.isArray(body.items) ? body.items : []
 
     if (!restaurantId) {
-      return jsonError("restaurantId é obrigatório.", 400)
+      return jsonError("restaurantId Ã© obrigatÃ³rio.", 400)
     }
 
     if (!customerName) {
-      return jsonError("Nome do cliente é obrigatório.", 400)
+      return jsonError("Nome do cliente Ã© obrigatÃ³rio.", 400)
     }
 
     if (!customerPhone) {
-      return jsonError("Telefone do cliente é obrigatório.", 400)
+      return jsonError("Telefone do cliente Ã© obrigatÃ³rio.", 400)
     }
 
     if (customerPhone.length < 10) {
-      return jsonError("Telefone do cliente inválido.", 400)
+      return jsonError("Telefone do cliente invÃ¡lido.", 400)
     }
 
     if (!paymentMethod) {
-      return jsonError("Forma de pagamento inválida.", 400)
+      return jsonError("Forma de pagamento invÃ¡lida.", 400)
     }
 
     if (needsChange && (!changeFor || changeFor <= 0)) {
@@ -1175,11 +1203,11 @@ export async function POST(request: Request) {
     }
 
     if (orderType === "delivery" && !customerAddress) {
-      return jsonError("Endereço é obrigatório para entrega.", 400)
+      return jsonError("EndereÃ§o Ã© obrigatÃ³rio para entrega.", 400)
     }
 
     if (orderType === "delivery" && !neighborhood) {
-      return jsonError("Bairro é obrigatório para entrega.", 400)
+      return jsonError("Bairro Ã© obrigatÃ³rio para entrega.", 400)
     }
 
     if (items.length === 0) {
@@ -1188,7 +1216,7 @@ export async function POST(request: Request) {
 
     if (items.length > MAX_ITEMS_PER_ORDER) {
       return jsonError(
-        `O pedido não pode ter mais de ${MAX_ITEMS_PER_ORDER} itens diferentes.`,
+        `O pedido nÃ£o pode ter mais de ${MAX_ITEMS_PER_ORDER} itens diferentes.`,
         400
       )
     }
@@ -1226,7 +1254,7 @@ export async function POST(request: Request) {
       }
 
       if (!response.success) {
-        return jsonError(response.error || "Não foi possível criar o pedido.", 400)
+        return jsonError(response.error || "NÃ£o foi possÃ­vel criar o pedido.", 400)
       }
 
       if (response.order?.id) {
@@ -1239,6 +1267,11 @@ export async function POST(request: Request) {
         if (autoAccepted) {
           response.order.status = "accepted"
         }
+
+        await notifyAiPublicOrderCreatedSafely({
+          restaurantId,
+          orderId: response.order.id,
+        })
       }
 
       return NextResponse.json(response, {
@@ -1271,3 +1304,4 @@ export async function POST(request: Request) {
     return jsonError("Erro inesperado ao criar pedido.", 500)
   }
 }
+
