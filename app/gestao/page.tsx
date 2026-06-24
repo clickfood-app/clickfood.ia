@@ -1,22 +1,16 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
-import Link from "next/link"
 import AdminLayout from "@/components/admin-layout"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import {
   AlertTriangle,
-  ArrowUpRight,
   BarChart3,
   CalendarDays,
   CheckCircle2,
   Clock3,
-  CreditCard,
-  DollarSign,
-  FileBarChart,
-  ListChecks,
   Loader2,
   Printer,
   ReceiptText,
@@ -26,8 +20,6 @@ import {
   ShoppingCart,
   Timer,
   TrendingDown,
-  TrendingUp,
-  Users,
   Wallet,
   X,
 } from "lucide-react"
@@ -1944,7 +1936,7 @@ export default function GestaoPage() {
       tone: "amber",
     },
     {
-      label: "Saldo parcial",
+      label: "Resultado do dia",
       value: formatCurrency(data.dayEstimatedBalance),
       tone: data.dayEstimatedBalance >= 0 ? "green" : "red",
       strong: true,
@@ -1992,7 +1984,7 @@ export default function GestaoPage() {
         : "Operação sem fila ativa",
       value: oldestActiveAge,
       tone: oldestActiveAge >= 50 ? "red" : "slate",
-      icon: <ListChecks className="h-4 w-4" />,
+      icon: <BarChart3 className="h-4 w-4" />,
     },
   ]
 
@@ -2016,39 +2008,6 @@ export default function GestaoPage() {
       label: "Total de saídas",
       value: formatCurrency(data.dayTotalExpenses),
       tone: "red",
-    },
-  ]
-
-  const quickActions = [
-    {
-      label: "Ver pedidos",
-      href: "/pedidos",
-      icon: <ShoppingCart className="h-4 w-4" />,
-      tone: "blue",
-    },
-    {
-      label: "Clientes do dia",
-      href: "/clientes",
-      icon: <Users className="h-4 w-4" />,
-      tone: "green",
-    },
-    {
-      label: "Relatório financeiro",
-      href: "/financeiro",
-      icon: <FileBarChart className="h-4 w-4" />,
-      tone: "blue",
-    },
-    {
-      label: "Produtos mais vendidos",
-      href: "/crescimento/ranking-produtos",
-      icon: <BarChart3 className="h-4 w-4" />,
-      tone: "amber",
-    },
-    {
-      label: "Fechamento por setor",
-      href: "#fechamento-setor",
-      icon: <ReceiptText className="h-4 w-4" />,
-      tone: "violet",
     },
   ]
 
@@ -2126,421 +2085,77 @@ export default function GestaoPage() {
 
   return (
     <AdminLayout title="Gestão">
-      <div className="hidden">
-        <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white">
-              Gestão do dia
-            </h1>
-            <p className="mt-1 text-sm font-medium text-slate-400">
-              {formatDate(today.start)} - caixa aberto desde{" "}
-              {formatTime(data.sessionStartISO)}
-            </p>
-          </div>
+      <div className="space-y-4 text-slate-950">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-gradient-to-br from-white via-white to-slate-50 p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-700">
+                    Gestão diária
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Caixa aberto
+                  </span>
+                </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex h-11 items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 px-4 text-sm font-medium tabular-nums text-white">
-              {formatDate(today.start)}
-              <CalendarDays className="h-4 w-4 text-slate-400" />
-            </div>
+                <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+                  Gestão
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                  Resumo financeiro, pedidos, pagamentos e fechamento do dia em uma visão limpa.
+                </p>
 
-            <button
-              type="button"
-              onClick={() => void loadGestao()}
-              className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 text-sm font-medium text-white transition hover:border-blue-500/50 hover:bg-slate-800"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Atualizar
-            </button>
-
-            <button
-              type="button"
-              onClick={openClosingModal}
-              disabled={isLoading}
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-orange-600 px-5 text-sm font-semibold text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Fechar dia
-            </button>
-          </div>
-        </section>
-
-        {isLoading ? (
-          <div className="flex min-h-[520px] items-center justify-center rounded-lg border border-slate-800 bg-slate-900/70">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-400">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Carregando gestão...
-            </div>
-          </div>
-        ) : (
-          <>
-            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-              <MetricCard
-                title="Vendas do dia"
-                value={formatCurrency(data.dayTotalSales)}
-                subtitle={`${data.dayTotalOrders} pedido(s) hoje`}
-                tone="blue"
-                icon={<DollarSign className="h-4 w-4" />}
-              />
-
-              <MetricCard
-                title="Pedidos do dia"
-                value={formatNumber(data.dayTotalOrders)}
-                subtitle={`${data.dayPaidOrders} pago(s)`}
-                tone="blue"
-                icon={<ReceiptText className="h-4 w-4" />}
-              />
-
-              <MetricCard
-                title="Clientes atendidos"
-                value={formatNumber(data.dayUniqueCustomers)}
-                subtitle="Clientes únicos"
-                tone="blue"
-                icon={<Users className="h-4 w-4" />}
-              />
-
-              <MetricCard
-                title="Ticket médio"
-                value={formatCurrency(data.dayAverageTicket)}
-                subtitle="Média por pedido"
-                tone="slate"
-                icon={<CreditCard className="h-4 w-4" />}
-              />
-
-              <MetricCard
-                title="Pendentes"
-                value={`${data.dayPendingOrders} pedido(s)`}
-                subtitle={formatCurrency(data.dayTotalPending)}
-                tone={data.dayPendingOrders > 0 ? "amber" : "slate"}
-                icon={<Clock3 className="h-4 w-4" />}
-              />
-
-              <MetricCard
-                title="Saldo parcial"
-                value={formatCurrency(data.dayEstimatedBalance)}
-                subtitle="Recebido - Saídas"
-                tone={data.dayEstimatedBalance >= 0 ? "green" : "red"}
-                icon={<TrendingUp className="h-4 w-4" />}
-              />
-            </section>
-
-            <section className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                Análise diária
-              </p>
-
-              <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr_0.8fr_0.9fr]">
-                <Panel
-                  title="Atividade por horário"
-                  subtitle="Pedidos e vendas ao longo do dia."
-                  action={
-                    peakActivity && peakActivity.orders > 0 ? (
-                      <div className="rounded-md border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-medium tabular-nums text-blue-300">
-                        Pico {peakActivity.hour}: {peakActivity.orders}
-                      </div>
-                    ) : null
-                  }
-                >
-                  <ActivityChart data={data.activityData} />
-                </Panel>
-
-                <Panel title="Formas de pagamento" subtitle="Distribuição recebida.">
-                  <PaymentDonut rows={paymentRows} total={paymentTotal} />
-                </Panel>
-
-                <Panel title="Tempo dos pedidos" subtitle="Controle da fila.">
-                  <div className="divide-y divide-slate-800">
-                    {[
-                      ["Tempo médio ativo", formatMinutes(averageActiveAge), "green"],
-                      [
-                        "Tempo mais antigo",
-                        formatMinutes(oldestActiveAge),
-                        oldestActiveAge >= 50 ? "red" : "green",
-                      ],
-                      [
-                        "Pedidos atrasados",
-                        `${data.dayDelayedOrders}`,
-                        data.dayDelayedOrders > 0 ? "amber" : "green",
-                      ],
-                      [
-                        "Pedido mais demorado",
-                        longestActiveOrder
-                          ? `#${
-                              longestActiveOrder.public_order_number ||
-                              longestActiveOrder.id.slice(0, 6)
-                            }`
-                          : "-",
-                        oldestActiveAge >= 50 ? "red" : "slate",
-                      ],
-                    ].map(([label, value, tone]) => (
-                      <div
-                        key={label}
-                        className="flex items-center justify-between gap-3 py-3 text-sm"
-                      >
-                        <span className="text-slate-400">{label}</span>
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            tone === "green" && "text-emerald-300",
-                            tone === "amber" && "text-orange-300",
-                            tone === "red" && "text-red-300",
-                            tone === "slate" && "text-white"
-                          )}
-                        >
-                          {value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </Panel>
-
-                <Panel title="Performance de upsell" subtitle="Adicionais e combos.">
-                  <div className="divide-y divide-slate-800">
-                    {[
-                      ["Pedidos com upsell", `${data.upsellQuantity} (${upsellRate}%)`],
-                      ["Faturamento com upsell", formatCurrency(data.upsellRevenue)],
-                      ["Ticket médio do upsell", formatCurrency(upsellTicket)],
-                      ["Item campeão", upsellChampion],
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="flex items-center justify-between gap-3 py-3 text-sm"
-                      >
-                        <span className="text-slate-400">{label}</span>
-                        <span className="text-right font-semibold tabular-nums text-emerald-300">
-                          {value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </Panel>
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 tabular-nums shadow-sm">
+                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                    {formatDate(today.start)}
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 tabular-nums shadow-sm">
+                    <Clock3 className="h-4 w-4 text-slate-400" />
+                    Aberto desde {formatTime(data.sessionStartISO)}
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 tabular-nums shadow-sm">
+                    <ReceiptText className="h-4 w-4 text-slate-400" />
+                    {data.closingsToday.length} fechamento(s) hoje
+                  </span>
+                </div>
               </div>
-            </section>
 
-            <section className="grid gap-3 xl:grid-cols-[1.1fr_1.15fr_1fr]">
-              <Panel title="Movimentação do dia">
-                <div className="overflow-hidden rounded-lg border border-slate-800">
-                  <div className="grid grid-cols-[1fr_auto] border-b border-slate-800 bg-slate-950/40 px-3 py-2 text-xs font-medium text-slate-400">
-                    <span>Descrição</span>
-                    <span>Valor</span>
-                  </div>
-
-                  <div className="divide-y divide-slate-800">
-                    {movementRows.map((row) => (
-                      <div
-                        key={row.label}
-                        className={cn(
-                          "grid grid-cols-[1fr_auto] px-3 py-2.5 text-sm",
-                          row.strong && "bg-slate-950/35"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "text-slate-300",
-                            row.strong && "font-semibold text-white"
-                          )}
-                        >
-                          {row.label}
-                        </span>
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            row.tone === "green" && "text-emerald-300",
-                            row.tone === "red" && "text-red-300",
-                            row.tone === "amber" && "text-orange-300"
-                          )}
-                        >
-                          {row.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Panel>
-
-              <Panel title="Atenções do dia">
-                <div className="divide-y divide-slate-800 rounded-lg border border-slate-800">
-                  {attentionRows.map((item) => (
-                    <div
-                      key={item.title}
-                      className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-3 transition hover:bg-slate-800/50"
-                    >
-                      <div
-                        className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-md",
-                          item.tone === "red" && "bg-red-500/15 text-red-300",
-                          item.tone === "amber" &&
-                            "bg-orange-500/15 text-orange-300",
-                          item.tone === "blue" && "bg-blue-500/15 text-blue-300",
-                          item.tone === "slate" &&
-                            "bg-slate-700/70 text-slate-300"
-                        )}
-                      >
-                        {item.icon}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-white">
-                          {item.title}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-slate-400">
-                          {item.detail}
-                        </p>
-                      </div>
-
-                      <div
-                        className={cn(
-                          "flex h-7 min-w-7 items-center justify-center rounded-md px-2 text-sm font-semibold tabular-nums",
-                          item.tone === "red" && "bg-red-500/20 text-red-200",
-                          item.tone === "amber" &&
-                            "bg-orange-500/20 text-orange-200",
-                          item.tone === "blue" && "bg-blue-500/20 text-blue-200",
-                          item.tone === "slate" &&
-                            "bg-slate-700 text-slate-200"
-                        )}
-                      >
-                        {typeof item.value === "number"
-                          ? formatNumber(item.value)
-                          : item.value}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-
-              <Panel title="Resumo para fechamento" id="fechamento-setor">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
-                  <div className="divide-y divide-slate-800">
-                    {closingRows.map((row) => (
-                      <div
-                        key={row.label}
-                        className="flex items-center justify-between gap-3 py-3 text-sm"
-                      >
-                        <span className="text-slate-400">{row.label}</span>
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            row.tone === "white" && "text-white",
-                            row.tone === "green" && "text-emerald-300",
-                            row.tone === "amber" && "text-orange-300",
-                            row.tone === "red" && "text-red-300"
-                          )}
-                        >
-                          {row.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-medium text-white">
-                      Saldo para fechamento
-                    </span>
-                    <span className="text-2xl font-semibold tabular-nums text-emerald-300">
-                      {formatCurrency(data.dayEstimatedBalance)}
-                    </span>
-                  </div>
-                </div>
-              </Panel>
-            </section>
-
-            <Panel title="Atalhos rápidos">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {quickActions.map((action) => (
-                  <Link
-                    key={action.label}
-                    href={action.href}
-                    className="group flex h-12 items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-4 text-sm font-medium text-slate-200 transition hover:-translate-y-0.5 hover:border-blue-500/40 hover:bg-slate-800"
-                  >
-                    <span
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-md transition group-hover:scale-105",
-                        action.tone === "blue" && "bg-blue-500/15 text-blue-300",
-                        action.tone === "green" &&
-                          "bg-emerald-500/15 text-emerald-300",
-                        action.tone === "amber" &&
-                          "bg-orange-500/15 text-orange-300",
-                        action.tone === "violet" &&
-                          "bg-violet-500/15 text-violet-300"
-                      )}
-                    >
-                      {action.icon}
-                    </span>
-                    <span className="min-w-0 truncate">{action.label}</span>
-                    <ArrowUpRight className="ml-auto h-4 w-4 text-slate-600 opacity-0 transition group-hover:text-slate-300 group-hover:opacity-100" />
-                  </Link>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void loadGestao()}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  Atualizar
+                </button>
 
                 <button
                   type="button"
-                  className="group flex h-12 items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-4 text-sm font-medium text-slate-200 transition hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-800"
+                  onClick={() => window.print()}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-700/70 text-slate-300 transition group-hover:scale-105">
-                    <Printer className="h-4 w-4" />
-                  </span>
-                  <span>Imprimir resumo</span>
+                  <Printer className="h-4 w-4" />
+                  Imprimir
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openClosingModal}
+                  disabled={isLoading}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Fechar dia
                 </button>
               </div>
-            </Panel>
-          </>
-        )}
-      </div>
-
-      <div className="space-y-4 rounded-xl bg-white p-4 text-slate-950">
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-blue-600">
-                Gestão diária
-              </p>
-              <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
-                Caixa, pedidos e movimentação
-              </h1>
-              <p className="mt-1 text-sm font-medium text-slate-500">
-                {formatDate(today.start)} • caixa aberto desde{" "}
-                {formatTime(data.sessionStartISO)}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-100 bg-emerald-50 px-3 text-xs font-medium text-emerald-700">
-                <CheckCircle2 className="h-4 w-4" />
-                Caixa aberto
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void loadGestao()}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-              >
-                <RefreshCcw className="h-4 w-4" />
-                Atualizar
-              </button>
-
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-              >
-                <Printer className="h-4 w-4" />
-                Imprimir resumo
-              </button>
-
-              <button
-                type="button"
-                onClick={openClosingModal}
-                disabled={isLoading}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-4 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Fechar dia
-              </button>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 md:grid-cols-4">
+          <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-4">
             <SmallTile
               label="Último fechamento"
               value={
@@ -2550,10 +2165,6 @@ export default function GestaoPage() {
               }
             />
             <SmallTile
-              label="Fechamentos hoje"
-              value={`${data.closingsToday.length}`}
-            />
-            <SmallTile
               label="Já fechado hoje"
               value={formatCurrency(data.todayClosedReceived)}
               tone="green"
@@ -2561,22 +2172,28 @@ export default function GestaoPage() {
             <SmallTile
               label="Saldo fechado"
               value={formatCurrency(data.todayClosedBalance)}
+              tone={data.todayClosedBalance >= 0 ? "green" : "red"}
+            />
+            <SmallTile
+              label="Resultado aberto"
+              value={formatCurrency(data.estimatedBalance)}
+              tone={data.estimatedBalance >= 0 ? "green" : "red"}
             />
           </div>
         </section>
 
         {isLoading ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
+          <div className="flex min-h-[520px] items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando gestão...
             </div>
           </div>
         ) : (
           <>
-            <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <MetricCard
-                title="Vendas"
+                title="Faturamento"
                 value={formatCurrency(data.dayTotalSales)}
                 subtitle={`${data.dayTotalOrders} pedido(s) hoje`}
                 tone="blue"
@@ -2592,19 +2209,19 @@ export default function GestaoPage() {
               />
 
               <MetricCard
-                title="Pendente"
+                title="A receber"
                 value={formatCurrency(data.dayTotalPending)}
-                subtitle={`${data.dayPendingOrders} a receber`}
+                subtitle={`${data.dayPendingOrders} pedido(s) pendente(s)`}
                 tone={data.dayTotalPending > 0 ? "amber" : "slate"}
                 icon={<Clock3 className="h-4 w-4" />}
               />
 
               <MetricCard
-                title="Clientes"
-                value={formatNumber(data.dayUniqueCustomers)}
-                subtitle={`Ticket ${formatCurrency(data.dayAverageTicket)}`}
+                title="Pedidos"
+                value={formatNumber(data.dayTotalOrders)}
+                subtitle={`Ticket médio ${formatCurrency(data.dayAverageTicket)}`}
                 tone="slate"
-                icon={<Users className="h-4 w-4" />}
+                icon={<ShoppingCart className="h-4 w-4" />}
               />
 
               <MetricCard
@@ -2616,14 +2233,15 @@ export default function GestaoPage() {
               />
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[1.4fr_0.8fr]">
+            <section className="grid gap-4 xl:grid-cols-[1.45fr_0.9fr]">
               <Panel
-                title="Atividade do dia"
-                subtitle="Pedidos por horário com valor vendido no ponto."
+                title="Vendas por horário"
+                subtitle="Leitura visual do movimento do dia. Alterne entre pedidos e faturamento."
                 action={
                   peakActivity && peakActivity.orders > 0 ? (
-                    <div className="rounded-md bg-blue-50 px-3 py-2 text-xs font-medium tabular-nums text-blue-700">
-                      Pico {peakActivity.hour}: {peakActivity.orders}
+                    <div className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold tabular-nums text-blue-700">
+                      <BarChart3 className="h-4 w-4" />
+                      Pico {peakActivity.hour}: {peakActivity.orders} pedido(s)
                     </div>
                   ) : null
                 }
@@ -2632,56 +2250,17 @@ export default function GestaoPage() {
               </Panel>
 
               <Panel
-                title="Tipo de pagamento"
-                subtitle="Recebimentos do dia por forma."
+                title="Pagamentos"
+                subtitle="Distribuição dos valores recebidos por forma de pagamento."
               >
-                <div className="space-y-3">
-                  {paymentRows.map((payment) => (
-                    <div
-                      key={payment.key}
-                      className="group rounded-md px-2 py-1.5 transition hover:bg-slate-50"
-                    >
-                      <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-                        <span className="font-medium text-slate-700 transition-colors group-hover:text-slate-950">
-                          {payment.label}
-                        </span>
-                        <span className="font-semibold tabular-nums text-slate-950 transition-colors group-hover:text-blue-700">
-                          {formatCurrency(payment.amount)}
-                        </span>
-                      </div>
-
-                      <div className="relative h-2 overflow-visible rounded-full bg-slate-100">
-                        <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] right-0 z-20 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium tabular-nums text-slate-600 opacity-0 shadow-lg transition duration-150 group-hover:opacity-100">
-                          {payment.percent}% - {formatCurrency(payment.amount)}
-                        </div>
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-300 ease-out group-hover:scale-y-150 group-hover:shadow-md",
-                            payment.key === "pix" &&
-                              "bg-blue-600 group-hover:bg-blue-500",
-                            payment.key === "cash" &&
-                              "bg-emerald-600 group-hover:bg-emerald-500",
-                            payment.key === "card" &&
-                              "bg-amber-500 group-hover:bg-amber-400",
-                            payment.key === "other" &&
-                              "bg-slate-500 group-hover:bg-slate-600"
-                          )}
-                          style={{ width: `${payment.percent}%` }}
-                        />
-                      </div>
-                      <p className="mt-1 text-[11px] font-medium text-slate-400 transition-colors group-hover:text-slate-600">
-                        {payment.percent}% do recebido
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <PaymentDonut rows={paymentRows} total={paymentTotal} />
               </Panel>
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+            <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr_1fr]">
               <Panel
-                title="Tempo dos pedidos"
-                subtitle="Controle dos pedidos em andamento."
+                title="Operação em tempo real"
+                subtitle="Fila ativa, tempo médio e pedidos que precisam de atenção."
               >
                 <div className="grid gap-2 sm:grid-cols-3">
                   <SmallTile
@@ -2708,18 +2287,18 @@ export default function GestaoPage() {
                     activeOrders.slice(0, 5).map((order) => (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                        className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 transition hover:bg-white hover:shadow-sm"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium tabular-nums text-slate-950">
+                          <p className="truncate text-sm font-semibold tabular-nums text-slate-950">
                             #{order.public_order_number || order.id.slice(0, 6)}
                           </p>
-                          <p className="text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-slate-500">
                             {getStatusLabel(order.status)} • {formatTime(order.created_at)}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 text-xs font-medium tabular-nums text-slate-700">
+                        <div className="inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200">
                           <Timer className="h-4 w-4 text-slate-400" />
                           {formatMinutes(getOrderAgeMinutes(order.created_at))}
                         </div>
@@ -2730,21 +2309,159 @@ export default function GestaoPage() {
               </Panel>
 
               <Panel
-                title="Setores do fechamento"
-                subtitle="Resumo separado para cada área do dia."
+                title="Alertas do dia"
+                subtitle="Pontos que o dono precisa olhar antes de fechar."
               >
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+                  {attentionRows.map((item) => (
+                    <div
+                      key={item.title}
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-3 bg-white px-3 py-3 transition hover:bg-slate-50"
+                    >
+                      <div
+                        className={cn(
+                          "flex h-9 w-9 items-center justify-center rounded-xl",
+                          item.tone === "red" && "bg-red-50 text-red-700",
+                          item.tone === "amber" && "bg-orange-50 text-orange-700",
+                          item.tone === "blue" && "bg-blue-50 text-blue-700",
+                          item.tone === "slate" && "bg-slate-100 text-slate-600"
+                        )}
+                      >
+                        {item.icon}
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-950">
+                          {item.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                          {item.detail}
+                        </p>
+                      </div>
+
+                      <span
+                        className={cn(
+                          "inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-semibold tabular-nums",
+                          item.tone === "red" && "bg-red-50 text-red-700 ring-1 ring-red-100",
+                          item.tone === "amber" && "bg-orange-50 text-orange-700 ring-1 ring-orange-100",
+                          item.tone === "blue" && "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+                          item.tone === "slate" && "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                        )}
+                      >
+                        {typeof item.value === "number"
+                          ? formatNumber(item.value)
+                          : item.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+
+              <Panel
+                title="Fechamento"
+                subtitle="Resumo limpo para conferir antes de encerrar o dia."
+                id="fechamento-setor"
+              >
+                <div className="space-y-2">
+                  {closingRows.map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
+                    >
+                      <span className="font-semibold text-slate-600">{row.label}</span>
+                      <span
+                        className={cn(
+                          "font-semibold tabular-nums",
+                          row.tone === "white" && "text-slate-950",
+                          row.tone === "green" && "text-emerald-700",
+                          row.tone === "amber" && "text-orange-700",
+                          row.tone === "red" && "text-red-700"
+                        )}
+                      >
+                        {row.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-700">
+                        Resultado do dia
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-emerald-700/80">
+                        Recebido menos saídas
+                      </p>
+                    </div>
+                    <span className="text-xl font-semibold tabular-nums text-emerald-700">
+                      {formatCurrency(data.dayEstimatedBalance)}
+                    </span>
+                  </div>
+                </div>
+              </Panel>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <Panel
+                title="Movimentação financeira"
+                subtitle="Entradas, saídas, pendências e resultado consolidado do dia."
+              >
+                <div className="overflow-hidden rounded-xl border border-slate-200">
+                  <div className="grid grid-cols-[1fr_auto] border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    <span>Descrição</span>
+                    <span>Valor</span>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {movementRows.map((row) => (
+                      <div
+                        key={row.label}
+                        className={cn(
+                          "grid grid-cols-[1fr_auto] gap-3 px-3 py-3 text-sm",
+                          row.strong && "bg-slate-50"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "font-semibold text-slate-600",
+                            row.strong && "text-slate-950"
+                          )}
+                        >
+                          {row.label}
+                        </span>
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums text-slate-950",
+                            row.tone === "green" && "text-emerald-700",
+                            row.tone === "red" && "text-red-700",
+                            row.tone === "amber" && "text-orange-700"
+                          )}
+                        >
+                          {row.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Panel>
+
+              <Panel
+                title="Setores do fechamento"
+                subtitle="Visão separada por financeiro, vendas, operação, saídas e upsell."
+              >
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   {sectorSummary.map((sector) => (
                     <div
                       key={sector.title}
-                      className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
                     >
-                      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                         {sector.title}
                       </p>
                       <p
                         className={cn(
-                          "mt-1 truncate text-sm font-semibold tabular-nums",
+                          "mt-2 truncate text-base font-semibold tabular-nums",
                           sector.tone === "green" && "text-emerald-700",
                           sector.tone === "red" && "text-red-700",
                           sector.tone === "amber" && "text-amber-700",
@@ -2754,7 +2471,7 @@ export default function GestaoPage() {
                       >
                         {sector.value}
                       </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-500">
+                      <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
                         {sector.detail}
                       </p>
                     </div>
@@ -2763,10 +2480,10 @@ export default function GestaoPage() {
               </Panel>
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-2">
+            <section className="grid gap-4 xl:grid-cols-[1fr_0.85fr]">
               <Panel
                 title="Itens vendidos"
-                subtitle="Ranking de produtos movimentados hoje."
+                subtitle="Ranking dos produtos que movimentaram o caixa hoje."
               >
                 {data.topItems.length === 0 ? (
                   <EmptyState message="Nenhum item vendido hoje." />
@@ -2775,16 +2492,16 @@ export default function GestaoPage() {
                     {data.topItems.map((item, index) => (
                       <div
                         key={item.id}
-                        className="grid grid-cols-[32px_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                        className="grid grid-cols-[36px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition hover:bg-white hover:shadow-sm"
                       >
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-xs font-medium tabular-nums text-slate-500 ring-1 ring-slate-200">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-xs font-semibold tabular-nums text-slate-500 ring-1 ring-slate-200">
                           {index + 1}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-950">
+                          <p className="truncate text-sm font-semibold text-slate-950">
                             {item.name}
                           </p>
-                          <p className="text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-slate-500">
                             {formatNumber(item.quantity)} un.
                           </p>
                         </div>
@@ -2799,13 +2516,19 @@ export default function GestaoPage() {
 
               <Panel
                 title="Upsell"
-                subtitle="Itens vendidos como adicional, combo ou regra de upsell."
+                subtitle="Adicionais, combos e itens vendidos por regra de upsell."
                 action={
-                  <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-medium tabular-nums text-emerald-700">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold tabular-nums text-emerald-700">
                     {formatCurrency(data.upsellRevenue)}
                   </div>
                 }
               >
+                <div className="mb-3 grid gap-2 sm:grid-cols-3">
+                  <SmallTile label="Itens" value={formatNumber(data.upsellQuantity)} tone="green" />
+                  <SmallTile label="Taxa" value={`${upsellRate}%`} tone="green" />
+                  <SmallTile label="Ticket" value={formatCurrency(upsellTicket)} tone="green" />
+                </div>
+
                 {data.upsellItems.length === 0 ? (
                   <EmptyState message="Nenhum item de upsell vendido hoje." />
                 ) : (
@@ -2813,13 +2536,13 @@ export default function GestaoPage() {
                     {data.upsellItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-950">
+                          <p className="truncate text-sm font-semibold text-slate-950">
                             {item.name}
                           </p>
-                          <p className="text-xs font-medium text-emerald-700">
+                          <p className="mt-0.5 text-xs font-medium text-emerald-700">
                             {formatNumber(item.quantity)} item(ns)
                           </p>
                         </div>
@@ -2831,13 +2554,17 @@ export default function GestaoPage() {
                     ))}
                   </div>
                 )}
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                  Item campeão: <span className="text-slate-950">{upsellChampion}</span>
+                </div>
               </Panel>
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
               <Panel
                 title="Fechamentos de hoje"
-                subtitle="Caixas já consolidados no dia."
+                subtitle="Caixas já consolidados durante o dia."
               >
                 {data.closingsToday.length === 0 ? (
                   <EmptyState message="Nenhum fechamento registrado hoje." />
@@ -2846,32 +2573,31 @@ export default function GestaoPage() {
                     {data.closingsToday.map((closing, index) => (
                       <div
                         key={String(readString(closing, ["id"]) || index)}
-                        className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr]"
+                        className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr]"
                       >
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                             Período
                           </p>
-                          <p className="text-sm font-semibold tabular-nums text-slate-950">
-                            {formatTime(getClosingOpenedAt(closing))} até{" "}
-                            {formatTime(getClosingClosedAt(closing))}
+                          <p className="mt-1 text-sm font-semibold tabular-nums text-slate-950">
+                            {formatTime(getClosingOpenedAt(closing))} até {formatTime(getClosingClosedAt(closing))}
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                             Entrada
                           </p>
-                          <p className="text-sm font-semibold tabular-nums text-emerald-700">
+                          <p className="mt-1 text-sm font-semibold tabular-nums text-emerald-700">
                             {formatCurrency(getClosingReceived(closing))}
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                             Tipo
                           </p>
-                          <p className="text-sm font-semibold text-slate-950">
+                          <p className="mt-1 text-sm font-semibold text-slate-950">
                             {getClosingType(closing)}
                           </p>
                         </div>
@@ -2892,13 +2618,13 @@ export default function GestaoPage() {
                     {data.dayExpenses.slice(0, 8).map((expense) => (
                       <div
                         key={`${expense.source}-${expense.id}`}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition hover:bg-white hover:shadow-sm"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-950">
+                          <p className="truncate text-sm font-semibold text-slate-950">
                             {expense.title}
                           </p>
-                          <p className="text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-slate-500">
                             {expense.source} • {formatTime(expense.paidAt)}
                           </p>
                         </div>
@@ -2915,7 +2641,7 @@ export default function GestaoPage() {
 
             <Panel
               title="Pedidos do dia"
-              subtitle="Pedidos usados na análise diária."
+              subtitle="Pedidos usados na análise diária da gestão."
               action={
                 <div className="relative w-full sm:w-72">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -2923,7 +2649,7 @@ export default function GestaoPage() {
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder="Buscar pedido..."
-                    className="h-10 w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   />
                 </div>
               }
@@ -2931,8 +2657,8 @@ export default function GestaoPage() {
               {filteredOrders.length === 0 ? (
                 <EmptyState message="Nenhum pedido encontrado." />
               ) : (
-                <div className="overflow-hidden rounded-lg border border-slate-200">
-                  <div className="hidden grid-cols-[120px_1fr_130px_130px_130px_110px] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400 lg:grid">
+                <div className="overflow-hidden rounded-xl border border-slate-200">
+                  <div className="hidden grid-cols-[120px_1fr_130px_130px_130px_110px] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 lg:grid">
                     <span>Pedido</span>
                     <span>Cliente</span>
                     <span>Pagamento</span>
@@ -2945,24 +2671,24 @@ export default function GestaoPage() {
                     {filteredOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="grid gap-3 px-3 py-3 text-sm lg:grid-cols-[120px_1fr_130px_130px_130px_110px] lg:items-center"
+                        className="grid gap-3 bg-white px-3 py-3 text-sm transition hover:bg-slate-50 lg:grid-cols-[120px_1fr_130px_130px_130px_110px] lg:items-center"
                       >
                         <div>
-                          <p className="font-medium tabular-nums text-slate-950">
+                          <p className="font-semibold tabular-nums text-slate-950">
                             #{order.public_order_number || order.id.slice(0, 6)}
                           </p>
-                          <p className="text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-slate-500">
                             {formatTime(order.created_at)}
                           </p>
                         </div>
 
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-slate-800">
+                          <p className="truncate font-semibold text-slate-800">
                             {order.customer_name || "Cliente não informado"}
                           </p>
                         </div>
 
-                        <div className="font-medium text-slate-700">
+                        <div className="font-semibold text-slate-700">
                           {getPaymentMethodLabel(order.payment_method)}
                         </div>
 

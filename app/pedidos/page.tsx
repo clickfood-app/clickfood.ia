@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
-  AlertTriangle,
   BellRing,
   Bot,
   CheckCircle2,
@@ -17,7 +16,6 @@ import {
   Settings2,
   Truck,
   Volume2,
-  UserRound,
   XCircle,
 } from "lucide-react"
 
@@ -133,7 +131,7 @@ const OPEN_ORDER_STATUSES = [
   "in_analysis",
   "em_analise",
   "analise",
-  "em anÃ¡lise",
+  "em análise",
   "accepted",
   "aceito",
   "preparing",
@@ -146,42 +144,36 @@ const OPEN_ORDER_STATUSES = [
   "waiting_pix_confirmation",
   "awaiting_pix_review",
   "aguardando_confirmacao_pix",
-  "aguardando confirmaÃ§Ã£o pix",
+  "aguardando confirmação pix",
 ]
 
 const columnStyles = {
   analysis: {
-    title: "PENDENTES",
-    description: "Aguardando confirmaÃ§Ã£o",
+    title: "Pendentes",
+    description: "Aguardando aceite",
     icon: Clock3,
-    header: "bg-gradient-to-r from-orange-500 to-amber-500",
-    body: "bg-gradient-to-b from-orange-50/70 to-white",
+    accent: "bg-orange-500",
     border: "border-orange-200",
-    badge: "bg-amber-100 text-amber-700",
-    button: "bg-emerald-600 hover:bg-emerald-700 text-white",
-    progress: "bg-emerald-500",
+    badge: "border-orange-200 bg-orange-50 text-orange-700",
+    body: "bg-slate-50",
   },
   preparation: {
-    title: "EM PREPARO",
+    title: "Em preparo",
     description: "Na cozinha",
     icon: ChefHat,
-    header: "bg-gradient-to-r from-blue-600 to-blue-500",
-    body: "bg-gradient-to-b from-blue-50/70 to-white",
+    accent: "bg-blue-600",
     border: "border-blue-200",
-    badge: "bg-blue-100 text-blue-700",
-    button: "bg-blue-600 hover:bg-blue-700 text-white",
-    progress: "bg-blue-500",
+    badge: "border-blue-200 bg-blue-50 text-blue-700",
+    body: "bg-slate-50",
   },
   ready: {
-    title: "PRONTOS",
-    description: "Cozinha finalizou",
+    title: "Prontos",
+    description: "Aguardando finalização",
     icon: CheckCircle2,
-    header: "bg-gradient-to-r from-emerald-600 to-green-500",
-    body: "bg-gradient-to-b from-emerald-50/70 to-white",
+    accent: "bg-emerald-600",
     border: "border-emerald-200",
-    badge: "bg-emerald-100 text-emerald-700",
-    button: "bg-emerald-600 hover:bg-emerald-700 text-white",
-    progress: "bg-emerald-500",
+    badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    body: "bg-slate-50",
   },
 } satisfies Record<BoardStatus, Record<string, string | typeof Clock3>>
 
@@ -212,7 +204,7 @@ function getErrorMessage(error: unknown, fallback: string) {
       maybeError.code,
     ]
       .filter(Boolean)
-      .join(" â€¢ ")
+      .join(" · ")
 
     if (message) return message
   }
@@ -243,11 +235,11 @@ function isPixAwaitingReview(order: Pick<OrderRow, "payment_method" | "payment_s
     isManualPixMethod(order.payment_method) &&
     (paymentStatus === "awaiting_review" ||
       paymentStatus === "aguardando_conferencia" ||
-      paymentStatus === "aguardando conferÃªncia" ||
+      paymentStatus === "aguardando conferência" ||
       status === "waiting_pix_confirmation" ||
       status === "awaiting_pix_review" ||
       status === "aguardando_confirmacao_pix" ||
-      status === "aguardando confirmaÃ§Ã£o pix")
+      status === "aguardando confirmação pix")
   )
 }
 
@@ -260,11 +252,11 @@ function isAnalysisStatus(status: string | null | undefined) {
     value === "in_analysis" ||
     value === "em_analise" ||
     value === "analise" ||
-    value === "em anÃ¡lise" ||
+    value === "em análise" ||
     value === "waiting_pix_confirmation" ||
     value === "awaiting_pix_review" ||
     value === "aguardando_confirmacao_pix" ||
-    value === "aguardando confirmaÃ§Ã£o pix"
+    value === "aguardando confirmação pix"
   )
 }
 
@@ -342,6 +334,10 @@ function formatBRL(value: number | string | null | undefined) {
   }).format(Number(value || 0))
 }
 
+function formatItemCount(count: number) {
+  return `${count} ${count === 1 ? "item" : "itens"}`
+}
+
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
 }
@@ -373,7 +369,7 @@ function normalizeOrderItemModifiers(rawModifiers: unknown): OrderItemModifier[]
         groupId: cleanText(modifier.groupId ?? modifier.group_id) || null,
         optionId: cleanText(modifier.optionId ?? modifier.option_id) || null,
         groupName: groupName || "Complemento",
-        optionName: optionName || "OpÃ§Ã£o",
+        optionName: optionName || "Opção",
         optionPrice: Number.isFinite(optionPrice) ? optionPrice : 0,
       }
     })
@@ -393,7 +389,7 @@ function getSafeOrderItemModifiers(item: OrderItem) {
 
 function getOrderItemPrintName(item: OrderItem) {
   const modifierLines = getSafeOrderItemModifiers(item).map(
-    (modifier) => `  â€¢ ${formatOrderItemModifier(modifier)}`
+    (modifier) => `  · ${formatOrderItemModifier(modifier)}`
   )
 
   const notesLine = item.notes ? [`  Obs: ${item.notes}`] : []
@@ -519,7 +515,7 @@ function getOrderAddress(order: OrderRow) {
   const mainAddress = [street, number].filter(Boolean).join(", ")
   const fullAddress = [mainAddress, neighborhood, complement, city]
     .filter(Boolean)
-    .join(" â€¢ ")
+    .join(" · ")
 
   return fullAddress || null
 }
@@ -593,15 +589,16 @@ function getDeliveryPersonName(
 }
 
 function getPaymentLabel(paymentMethod: string | null) {
-  if (!paymentMethod) return "â€”"
+  if (!paymentMethod) return "Não informado"
 
-  const normalized = paymentMethod.toLowerCase()
+  const normalized = paymentMethod.trim().toLowerCase()
 
-  if (normalized === "pix") return "Pix automÃ¡tico"
+  if (normalized === "pix") return "Pix automático"
   if (isManualPixMethod(normalized)) return "Pix direto"
-  if (normalized === "cash" || normalized === "dinheiro") return "Dinheiro"
-  if (normalized === "credit_card" || normalized === "credito") return "CrÃ©dito"
-  if (normalized === "debit_card" || normalized === "debito") return "DÃ©bito"
+  if (normalized === "cash" || normalized === "dinheiro" || normalized === "cash_on_delivery") return "Dinheiro"
+  if (normalized === "card_on_delivery") return "Cartão na entrega"
+  if (normalized === "credit_card" || normalized === "credito" || normalized === "credit_card_on_delivery") return "Crédito"
+  if (normalized === "debit_card" || normalized === "debito" || normalized === "debit_card_on_delivery") return "Débito"
   if (normalized === "mesa") return "Mesa"
 
   return paymentMethod
@@ -645,7 +642,7 @@ function getPaymentStatusLabel(paymentStatus: string | null) {
   if (normalized === "failed") return "Falhou"
   if (normalized === "cancelled") return "Cancelado"
 
-  return paymentStatus || "â€”"
+  return paymentStatus || "Não informado"
 }
 
 function isDeliveryOrder(order: OrderRow) {
@@ -660,7 +657,7 @@ function isDeliveryOrder(order: OrderRow) {
     notes.includes("retirada") ||
     notes.includes("retirar") ||
     notes.includes("balcao") ||
-    notes.includes("balcÃ£o") ||
+    notes.includes("balcão") ||
     notes.includes("pedido local") ||
     notes.includes("mesa") ||
     notes.includes("comanda") ||
@@ -675,7 +672,7 @@ function isDeliveryOrder(order: OrderRow) {
     notes.includes("entrega") ||
     notes.includes("entregar") ||
     notes.includes("endereco") ||
-    notes.includes("endereÃ§o") ||
+    notes.includes("endereço") ||
     notes.includes("bairro") ||
     notes.includes("rua")
 
@@ -737,12 +734,12 @@ function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
       return "Cliente enviou comprovante. Confira antes de aceitar."
     }
 
-    if (isPaid) return "Pedido pago. Pode aceitar com seguranÃ§a."
+    if (isPaid) return "Pedido pago. Pode aceitar com segurança."
     return "Pagamento pendente. Confira a forma de pagamento."
   }
 
   if (status === "preparation") {
-    return "Pedido em produÃ§Ã£o na cozinha."
+    return "Pedido em produção na cozinha."
   }
 
   if (status === "ready") {
@@ -993,14 +990,14 @@ function OrderCard({
     isCashPaymentMethod(order.payment_method) &&
     order.needs_change &&
     getOrderChangeFor(order) > 0
-    const isAiOrder = isWhatsAppAiOrder(order)
-const cleanOrderNote = getCleanOrderNote(order.notes)
+  const isAiOrder = isWhatsAppAiOrder(order)
+  const cleanOrderNote = getCleanOrderNote(order.notes)
 
   return (
     <>
       <article
         className={[
-          "overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+          "overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md",
           isLate ? "border-red-300 ring-1 ring-red-100" : "border-slate-200",
         ].join(" ")}
       >
@@ -1047,7 +1044,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
 {isAiOrder && (
   <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-700">
     <Bot className="h-3 w-3" />
-    Assistente WhatsApp
+    Pedido criado por IA
   </span>
 )}
 
@@ -1062,9 +1059,9 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2">
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
             <p className="text-xs font-bold text-slate-600">
-              {items.length} item(ns) â€¢ {getPaymentLabel(order.payment_method)}
+              {formatItemCount(items.length)} · {getPaymentLabel(order.payment_method)}
             </p>
 
             <p className="text-sm font-black text-slate-950">
@@ -1141,7 +1138,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
               </span>
 
               <span className="font-medium text-slate-400">
-                aguardando finalizaÃ§Ã£o
+                aguardando finalização
               </span>
             </div>
           )}
@@ -1293,7 +1290,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
 
                     {deliveryAddress && (
                       <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">
-                        <span className="font-black text-slate-900">EndereÃ§o:</span>{" "}
+                        <span className="font-black text-slate-900">Endereço:</span>{" "}
                         {deliveryAddress}
                       </p>
                     )}
@@ -1317,7 +1314,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                       <span className="font-black">
                         {formatBRL(getOrderChangeFor(order))}
                       </span>{" "}
-                      â€¢ Troco estimado:{" "}
+                      · Troco estimado:{" "}
                       <span className="font-black">
                         {formatBRL(getOrderChangeAmount(order))}
                       </span>
@@ -1328,11 +1325,11 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                 {isPixReview && (
                   <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
                     <p className="text-[10px] font-black uppercase tracking-wide text-orange-700">
-                      ConferÃªncia Pix
+                      Conferência Pix
                     </p>
 
                     <p className="mt-1 text-sm font-semibold text-orange-900">
-                      Confira valor, data, horÃ¡rio e destinatÃ¡rio antes de confirmar.
+                      Confira valor, data, horário e destinatário antes de confirmar.
                     </p>
 
                     {order.pix_proof_url ? (
@@ -1343,7 +1340,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                       />
                     ) : (
                       <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-orange-800">
-                        Comprovante nÃ£o disponÃ­vel.
+                        Comprovante não disponível.
                       </p>
                     )}
                   </div>
@@ -1355,7 +1352,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                       Itens
                     </p>
                     <span className="text-xs font-black text-slate-500">
-                      {items.length} item(ns)
+                      {formatItemCount(items.length)}
                     </span>
                   </div>
 
@@ -1374,7 +1371,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                                   key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
                                   className="mt-0.5 text-xs font-medium text-slate-500"
                                 >
-                                  â€¢ {formatOrderItemModifier(modifier)}
+                                  · {formatOrderItemModifier(modifier)}
                                 </p>
                               ))}
 
@@ -1396,7 +1393,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                     </div>
                   ) : (
                     <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500">
-                      Itens do pedido nÃ£o carregados.
+                      Itens do pedido não carregados.
                     </p>
                   )}
                 </div>
@@ -1404,7 +1401,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                 {(cleanOrderNote || isAiOrder) && (
   <div className="rounded-xl border border-slate-200 bg-white p-4">
     <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-      {isAiOrder ? "Origem" : "ObservaÃ§Ã£o"}
+      {isAiOrder ? "Origem" : "Observação"}
     </p>
 
     <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold leading-relaxed text-slate-700">
@@ -1427,7 +1424,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                         </span>
                       ) : (
                         <span className="text-xs font-black text-slate-400">
-                          NecessÃ¡rio
+                          Necessário
                         </span>
                       )}
                     </div>
@@ -1449,7 +1446,7 @@ const cleanOrderNote = getCleanOrderNote(order.notes)
                       {deliveryPeople.map((person) => (
                         <option key={person.id} value={person.id}>
                           {person.name}
-                          {person.phone ? ` â€¢ ${person.phone}` : ""}
+                          {person.phone ? ` · ${person.phone}` : ""}
                         </option>
                       ))}
                     </select>
@@ -1639,39 +1636,39 @@ function BoardColumn({
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100/70">
-      <div className={`${styles.header} px-4 py-3 text-white`}>
+      <div className="border-b border-slate-100 bg-white px-4 py-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
-              <Icon className="h-5 w-5" />
-            </div>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${styles.accent}`} />
 
-            <div>
-              <h2 className="text-sm font-black tracking-wide">{styles.title}</h2>
-              <p className="text-xs font-medium text-white/80">
+            <div className="min-w-0">
+              <h2 className="text-sm font-black tracking-tight text-slate-950">
+                {styles.title as string}
+              </h2>
+              <p className="truncate text-xs font-medium text-slate-500">
                 {styles.description as string}
               </p>
             </div>
           </div>
 
-          <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/20 px-2 text-sm font-black">
+          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-black text-slate-700">
             {orders.length}
           </span>
         </div>
       </div>
 
-      <div className={`${styles.body} min-h-[calc(100vh-360px)] space-y-3 p-3`}>
+      <div className={`${styles.body} min-h-[calc(100vh-340px)] space-y-3 p-3`}>
         {orders.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/80 p-6 text-center shadow-inner">
+          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
             <div>
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                <Icon className="h-6 w-6" />
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
+                <Icon className="h-5 w-5" />
               </div>
               <p className="text-sm font-black text-slate-800">
-                Nenhum pedido aqui
+                Nenhum pedido
               </p>
               <p className="mt-1 max-w-[220px] text-xs font-medium leading-relaxed text-slate-500">
-                Assim que o pedido entrar nessa etapa, ele aparece automaticamente aqui.
+                Os pedidos dessa etapa aparecem aqui automaticamente.
               </p>
             </div>
           </div>
@@ -1735,10 +1732,10 @@ function OperationMetricCard({
     .map((part, index) => (index === 0 ? part : `bg-${part}`))
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
       <div className="flex items-center gap-3">
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${gradientClasses} text-white shadow-sm`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradientClasses} text-white shadow-sm`}
         >
           <Icon className="h-5 w-5" />
         </div>
@@ -1852,7 +1849,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
       audioUnlockedRef.current = true
       return true
     } catch (err) {
-      console.warn("NÃ£o foi possÃ­vel tocar o alerta sonoro:", err)
+      console.warn("Não foi possível tocar o alerta sonoro:", err)
       audioUnlockedRef.current = false
       return false
     }
@@ -1886,7 +1883,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
     if (!soundWorked) {
       setError(
-        "O alerta visual foi ativado, mas o navegador nÃ£o liberou o som. Clique novamente em Ativar alertas e confira se a aba nÃ£o estÃ¡ mutada."
+        "O alerta visual foi ativado, mas o navegador não liberou o som. Clique novamente em Ativar alertas e confira se a aba não está mutada."
       )
     } else {
       setError(null)
@@ -1953,7 +1950,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
         Notification.permission === "granted"
       ) {
         const notification = new Notification("Novo pedido recebido", {
-          body: `${alert.orderNumber} â€¢ ${alert.customerName} â€¢ ${formatBRL(alert.total)}`,
+          body: `${alert.orderNumber} · ${alert.customerName} · ${formatBRL(alert.total)}`,
           tag: `clickfood-order-${order.id}`,
         })
 
@@ -1979,7 +1976,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
         .in("order_id", orderIds)
 
       if (error) {
-        console.warn("Itens dos pedidos nÃ£o carregados:", error.message)
+        console.warn("Itens dos pedidos não carregados:", error.message)
         setOrderItemsByOrderId({})
         return
       }
@@ -2101,8 +2098,8 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
         address: data.address || null,
       })
     } catch (err) {
-      console.error("Erro ao carregar configuraÃ§Ãµes do restaurante:", err)
-      setError(getErrorMessage(err, "Erro ao carregar configuraÃ§Ãµes do restaurante."))
+      console.error("Erro ao carregar configurações do restaurante:", err)
+      setError(getErrorMessage(err, "Erro ao carregar configurações do restaurante."))
     }
   }
 
@@ -2122,9 +2119,9 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
       if (error) throw error
     } catch (err) {
-      console.error("Erro ao salvar tempo mÃ©dio:", err)
+      console.error("Erro ao salvar tempo médio:", err)
       setAveragePrepTimeMinutes(previousValue)
-      setError(getErrorMessage(err, "Erro ao salvar tempo mÃ©dio."))
+      setError(getErrorMessage(err, "Erro ao salvar tempo médio."))
     } finally {
       setSavingPrepTime(false)
     }
@@ -2147,7 +2144,7 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   } | null
 
   if (result?.success === false) {
-    throw new Error(result.error || "Erro ao criar job de impressÃ£o.")
+    throw new Error(result.error || "Erro ao criar job de impressão.")
   }
 
   return result
@@ -2170,9 +2167,9 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
 
     if (error) throw error
   } catch (err) {
-    console.error("Erro ao salvar aceite automÃ¡tico:", err)
+    console.error("Erro ao salvar aceite automático:", err)
     setAutoAcceptOrders(previousValue)
-    setError(getErrorMessage(err, "Erro ao salvar aceite automÃ¡tico."))
+    setError(getErrorMessage(err, "Erro ao salvar aceite automático."))
   } finally {
     setSavingAutoAcceptOrders(false)
   }
@@ -2240,7 +2237,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     const session = await ensureSupabaseSession()
 
     if (!session?.access_token) {
-      throw new Error("SessÃ£o expirada. Entre novamente para registrar fidelidade.")
+      throw new Error("Sessão expirada. Entre novamente para registrar fidelidade.")
     }
 
     const response = await fetch("/api/loyalty/register-order", {
@@ -2265,7 +2262,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
 
   async function deductStockForOrder(orderId: string) {
     if (!restaurant?.id) {
-      throw new Error("Restaurante nÃ£o encontrado para baixar estoque.")
+      throw new Error("Restaurante não encontrado para baixar estoque.")
     }
 
     const deductedAt = new Date().toISOString()
@@ -2465,12 +2462,12 @@ if (action === "accept") {
   try {
     await deductStockForOrder(order.id)
   } catch (stockError) {
-    console.error("Pedido aceito, mas estoque nÃ£o foi baixado:", stockError)
+    console.error("Pedido aceito, mas estoque não foi baixado:", stockError)
 
     setError(
       getErrorMessage(
         stockError,
-        "Pedido aceito, mas nÃ£o foi possÃ­vel baixar o estoque automaticamente."
+        "Pedido aceito, mas não foi possível baixar o estoque automaticamente."
       )
     )
   }
@@ -2478,12 +2475,12 @@ if (action === "accept") {
   try {
     await createDesktopPrintJob(order.id)
   } catch (printJobError) {
-    console.error("Pedido aceito, mas impressÃ£o desktop nÃ£o foi gerada:", printJobError)
+    console.error("Pedido aceito, mas impressão desktop não foi gerada:", printJobError)
 
     setError(
       getErrorMessage(
         printJobError,
-        "Pedido aceito, mas nÃ£o foi possÃ­vel enviar para a fila de impressÃ£o desktop."
+        "Pedido aceito, mas não foi possível enviar para a fila de impressão desktop."
       )
     )
   }
@@ -2497,14 +2494,14 @@ if (action === "accept") {
           await registerLoyaltyOrder(order.id)
         } catch (loyaltyError) {
           console.error(
-            "Pedido finalizado, mas fidelidade nÃ£o registrada:",
+            "Pedido finalizado, mas fidelidade não registrada:",
             loyaltyError
           )
 
           setError(
             getErrorMessage(
               loyaltyError,
-              "Pedido finalizado, mas nÃ£o foi possÃ­vel registrar a fidelidade."
+              "Pedido finalizado, mas não foi possível registrar a fidelidade."
             )
           )
         }
@@ -2571,12 +2568,12 @@ if (shouldAcceptAutomatically) {
       try {
         await deductStockForOrder(order.id)
       } catch (stockError) {
-        console.error("Pix confirmado, mas estoque nÃ£o foi baixado:", stockError)
+        console.error("Pix confirmado, mas estoque não foi baixado:", stockError)
 
         setError(
           getErrorMessage(
             stockError,
-            "Pix confirmado, mas nÃ£o foi possÃ­vel baixar o estoque automaticamente."
+            "Pix confirmado, mas não foi possível baixar o estoque automaticamente."
           )
         )
       }
@@ -2584,12 +2581,12 @@ if (shouldAcceptAutomatically) {
       try {
         await createDesktopPrintJob(order.id)
       } catch (printJobError) {
-        console.error("Pix confirmado, mas impressÃ£o desktop nÃ£o foi gerada:", printJobError)
+        console.error("Pix confirmado, mas impressão desktop não foi gerada:", printJobError)
 
         setError(
           getErrorMessage(
             printJobError,
-            "Pix confirmado, mas nÃ£o foi possÃ­vel enviar para a fila de impressÃ£o desktop."
+            "Pix confirmado, mas não foi possível enviar para a fila de impressão desktop."
           )
         )
       }
@@ -2872,9 +2869,9 @@ if (shouldAcceptAutomatically) {
 
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
-      <div className="min-h-[calc(100vh-90px)] rounded-[2rem] bg-gradient-to-br from-slate-50 via-white to-blue-50/60 p-2 sm:p-4">
+      <div className="min-h-[calc(100vh-90px)] rounded-[2rem] bg-slate-50 p-2 sm:p-4">
         <div className="flex flex-col gap-4">
-          <div className="rounded-[1.75rem] border border-slate-200 bg-white/95 p-4 shadow-sm ring-1 ring-slate-100/70 sm:p-5">
+          <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-100/70 sm:p-5">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -2882,20 +2879,20 @@ if (shouldAcceptAutomatically) {
                     Central operacional
                   </p>
                   <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                    VisÃ£o geral da operaÃ§Ã£o
+                    Pedidos
                   </h1>
                   <p className="mt-1 text-sm font-medium text-slate-500">
-                    Acompanhe os pedidos desde a entrada atÃ© a finalizaÃ§Ã£o do atendimento.
+                    Controle os pedidos em tempo real, sem poluir a operação.
                   </p>
                 </div>
 
                 <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  OperaÃ§Ã£o em tempo real
+                  Operação em tempo real
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <OperationMetricCard
                   title="Pedidos abertos"
                   value={String(filteredOrders.length)}
@@ -2906,7 +2903,7 @@ if (shouldAcceptAutomatically) {
                 <OperationMetricCard
                   title="Pendentes"
                   value={String(analysisOrders.length)}
-                  description="Aguardando anÃ¡lise"
+                  description="Aguardando análise"
                   icon={Clock3}
                   tone="orange"
                 />
@@ -2923,13 +2920,6 @@ if (shouldAcceptAutomatically) {
                   description="Aguardando finalizar"
                   icon={CheckCircle2}
                   tone="green"
-                />
-                <OperationMetricCard
-                  title="Faturamento aberto"
-                  value={formatBRL(totalOpenAmount)}
-                  description="Pedidos em aberto"
-                  icon={Settings2}
-                  tone="purple"
                 />
               </div>
               <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
@@ -2981,7 +2971,7 @@ if (shouldAcceptAutomatically) {
               <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
                 <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
                   {lastUpdatedAt
-                    ? `Atualizado Ã s ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                    ? `Atualizado í s ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
                         hour: "2-digit",
                         minute: "2-digit",
                         second: "2-digit",
@@ -3014,7 +3004,7 @@ if (shouldAcceptAutomatically) {
                   title={
                     kdsEnabled
                       ? "KDS ativo: a cozinha controla quando o pedido fica pronto."
-                      : "KDS desativado: a aba Pedidos controla envio/finalizaÃ§Ã£o."
+                      : "KDS desativado: a aba Pedidos controla envio/finalização."
                   }
                 >
                   <ChefHat className="h-4 w-4" />
@@ -3033,8 +3023,8 @@ if (shouldAcceptAutomatically) {
   ].join(" ")}
   title={
     autoAcceptOrders
-      ? "Pedidos confirmados pelo cliente serÃ£o aceitos automaticamente e enviados para impressÃ£o desktop."
-      : "Pedidos serÃ£o impressos somente depois do aceite manual do restaurante."
+      ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
+      : "Pedidos serão impressos somente depois do aceite manual do restaurante."
   }
 >
   {savingAutoAcceptOrders ? (
@@ -3043,7 +3033,7 @@ if (shouldAcceptAutomatically) {
     <CheckCircle2 className="h-4 w-4" />
   )}
 
-  {autoAcceptOrders ? "Aceite automÃ¡tico ligado" : "Aceitar automaticamente"}
+  {autoAcceptOrders ? "Aceite automático ligado" : "Aceitar automaticamente"}
 </button>
 
                 <button
@@ -3064,7 +3054,7 @@ if (shouldAcceptAutomatically) {
                   ].join(" ")}
                   title={
                     notificationPermission === "denied"
-                      ? "O navegador bloqueou notificaÃ§Ãµes de desktop, mas o som do painel pode funcionar."
+                      ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
                       : undefined
                   }
                 >
@@ -3082,12 +3072,12 @@ if (shouldAcceptAutomatically) {
               <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-sm font-black text-slate-900">
-                    ImpressÃ£o em lote
+                    Impressão
                   </p>
 
                   <p className="mt-0.5 text-xs font-medium text-slate-500">
                     {selectedVisibleOrders.length > 0
-                      ? `${selectedVisibleOrders.length} pedido(s) selecionado(s) de ${filteredOrders.length} visÃ­vel(is).`
+                      ? `${selectedVisibleOrders.length} ${selectedVisibleOrders.length === 1 ? "pedido selecionado" : "pedidos selecionados"} de ${filteredOrders.length} ${filteredOrders.length === 1 ? "visível" : "visíveis"}.`
                       : "Selecione os pedidos que deseja imprimir."}
                   </p>
                 </div>
@@ -3098,7 +3088,7 @@ if (shouldAcceptAutomatically) {
                     onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
                     className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
                   >
-                    Selecionar visÃ­veis
+                    Selecionar pedidos
                   </button>
 
                   <button
@@ -3153,7 +3143,7 @@ if (shouldAcceptAutomatically) {
                       </p>
 
                       <p className="truncate text-xs font-bold text-emerald-800">
-                        {newOrderAlert.orderNumber} â€¢ {newOrderAlert.customerName} â€¢ {formatBRL(newOrderAlert.total)}
+                        {newOrderAlert.orderNumber} · {newOrderAlert.customerName} · {formatBRL(newOrderAlert.total)}
                       </p>
                     </div>
                   </div>
@@ -3176,7 +3166,7 @@ if (shouldAcceptAutomatically) {
           <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Carregando operaÃ§Ã£o...
+              Carregando operação...
             </div>
           </div>
         ) : (
@@ -3262,22 +3252,22 @@ if (shouldAcceptAutomatically) {
               <span className="inline-flex items-center gap-1.5 text-orange-600">
                 <Clock3 className="h-4 w-4" /> Pendente
               </span>
-              <span className="text-slate-300">â†’</span>
+              <span className="text-slate-300">→</span>
               <span className="inline-flex items-center gap-1.5 text-blue-600">
                 <ChefHat className="h-4 w-4" /> Em preparo
               </span>
-              <span className="text-slate-300">â†’</span>
+              <span className="text-slate-300">→</span>
               <span className="inline-flex items-center gap-1.5 text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" /> Pronto
               </span>
-              <span className="text-slate-300">â†’</span>
+              <span className="text-slate-300">→</span>
               <span className="inline-flex items-center gap-1.5 text-violet-600">
                 <CheckCircle2 className="h-4 w-4" /> Finalizado
               </span>
             </div>
 
             <p className="text-xs font-semibold text-slate-500">
-              Dica: pedidos ficam em <span className="font-black text-slate-800">Prontos</span> atÃ© o dono finalizar.
+              Dica: pedidos ficam em <span className="font-black text-slate-800">Prontos</span> até o dono finalizar.
             </p>
           </div>
         </div>
