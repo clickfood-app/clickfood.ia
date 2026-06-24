@@ -2450,14 +2450,18 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
       )
 
       const { error } = await supabase
-        .from("orders")
-        .update(payload)
-        .eq("id", order.id)
-        .eq("restaurant_id", restaurant?.id)
+  .from("orders")
+  .update(payload)
+  .eq("id", order.id)
+  .eq("restaurant_id", restaurant?.id)
 
-      if (error) throw error
+if (error) throw error
 
-      if (action === "accept") {
+if (typeof payload.status === "string" && payload.status.trim()) {
+  await notifyAiOrderStatus(order.id, payload.status)
+}
+
+if (action === "accept") {
   try {
     await deductStockForOrder(order.id)
   } catch (stockError) {
@@ -2552,14 +2556,18 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
     )
 
     const { error } = await supabase
-      .from("orders")
-      .update(payload)
-      .eq("id", order.id)
-      .eq("restaurant_id", restaurant?.id)
+  .from("orders")
+  .update(payload)
+  .eq("id", order.id)
+  .eq("restaurant_id", restaurant?.id)
 
-    if (error) throw error
+if (error) throw error
 
-    if (shouldAcceptAutomatically) {
+if (typeof payload.status === "string" && payload.status.trim()) {
+  await notifyAiOrderStatus(order.id, payload.status)
+}
+
+if (shouldAcceptAutomatically) {
       try {
         await deductStockForOrder(order.id)
       } catch (stockError) {

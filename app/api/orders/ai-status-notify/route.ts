@@ -1,11 +1,32 @@
 ﻿import { NextResponse } from "next/server"
 
+function normalizeStatusForAi(status: string) {
+  const normalized = String(status || "").trim().toLowerCase()
+
+  const map: Record<string, string> = {
+    em_preparo: "preparing",
+    preparando: "preparing",
+    preparo: "preparing",
+    pronto: "ready",
+    concluido: "completed",
+    concluído: "completed",
+    entregue: "delivered",
+    entrega: "out_for_delivery",
+    saiu_para_entrega: "out_for_delivery",
+    em_rota: "out_for_delivery",
+    cancelado: "cancelled",
+    canceled: "cancelled",
+  }
+
+  return map[normalized] || normalized
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
 
     const orderId = String(body?.orderId || "").trim()
-    const status = String(body?.status || "").trim()
+    const status = normalizeStatusForAi(String(body?.status || "").trim())
 
     if (!orderId || !status) {
       return NextResponse.json(
@@ -39,6 +60,15 @@ export async function POST(request: Request) {
     )
 
     const data = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      console.error("AI status notify failed:", {
+        orderId,
+        status,
+        responseStatus: response.status,
+        data,
+      })
+    }
 
     return NextResponse.json(
       {
