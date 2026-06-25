@@ -116,7 +116,7 @@ export default function PaymentPanel({ total = 0 }: PaymentPanelProps) {
                 onClick={handleConfirmPayment}
                 className={`px-8 py-3 font-bold text-white rounded-xl transition shadow-md ${
                   selectedMethod 
-                    ? 'bg-emerald-500 hover:bg-emerald-500/80' 
+                    ? 'bg-emerald-500 hover:bg-emerald-500/80'
                     : 'bg-[#111111] cursor-not-allowed'
                 }`}
               >
