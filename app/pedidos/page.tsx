@@ -44,9 +44,9 @@ type OrderRow = {
   needs_change?: boolean | null
   change_for?: number | string | null
   notes: string | null
-source?: string | null
-order_source?: string | null
-created_at: string
+  source?: string | null
+  order_source?: string | null
+  created_at: string
   delivery_person_id: string | null
   accepted_at: string | null
   preparation_started_at: string | null
@@ -152,28 +152,28 @@ const columnStyles = {
     title: "Pendentes",
     description: "Aguardando aceite",
     icon: Clock3,
-    accent: "bg-orange-500",
-    border: "border-orange-200",
-    badge: "border-orange-200 bg-orange-50 text-orange-700",
-    body: "bg-slate-50",
+    accent: "bg-yellow-400",
+    border: "border-yellow-500/30",
+    badge: "border-yellow-500/30 bg-yellow-400/10 text-yellow-300",
+    body: "bg-[#050505]",
   },
   preparation: {
     title: "Em preparo",
     description: "Na cozinha",
     icon: ChefHat,
-    accent: "bg-blue-600",
-    border: "border-blue-200",
-    badge: "border-blue-200 bg-blue-50 text-blue-700",
-    body: "bg-slate-50",
+    accent: "bg-yellow-400",
+    border: "border-yellow-500/30",
+    badge: "border-yellow-500/30 bg-yellow-400/10 text-yellow-300",
+    body: "bg-[#050505]",
   },
   ready: {
     title: "Prontos",
     description: "Aguardando finalização",
     icon: CheckCircle2,
-    accent: "bg-emerald-600",
-    border: "border-emerald-200",
-    badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    body: "bg-slate-50",
+    accent: "bg-yellow-400",
+    border: "border-yellow-500/30",
+    badge: "border-yellow-500/30 bg-yellow-400/10 text-yellow-300",
+    body: "bg-[#050505]",
   },
 } satisfies Record<BoardStatus, Record<string, string | typeof Clock3>>
 
@@ -591,17 +591,22 @@ function getDeliveryPersonName(
 function getPaymentLabel(paymentMethod: string | null) {
   if (!paymentMethod) return "Não informado"
 
-  const normalized = paymentMethod.trim().toLowerCase()
+  const normalized = normalizeStatus(paymentMethod)
 
   if (normalized === "pix") return "Pix automático"
+  if (normalized === "efi_pix") return "Pix automático"
   if (isManualPixMethod(normalized)) return "Pix direto"
   if (normalized === "cash" || normalized === "dinheiro" || normalized === "cash_on_delivery") return "Dinheiro"
+  if (normalized === "dinheiro_na_entrega") return "Dinheiro"
   if (normalized === "card_on_delivery") return "Cartão na entrega"
   if (normalized === "credit_card" || normalized === "credito" || normalized === "credit_card_on_delivery") return "Crédito"
   if (normalized === "debit_card" || normalized === "debito" || normalized === "debit_card_on_delivery") return "Débito"
   if (normalized === "mesa") return "Mesa"
+  if (normalized === "pending" || normalized === "pendente") return "A confirmar"
+  if (normalized === "waiting_payment" || normalized === "awaiting_payment") return "Aguardando pagamento"
+  if (normalized === "waiting_customer_payment") return "Aguardando pagamento"
 
-  return paymentMethod
+  return "Não informado"
 }
 
 function isCashPaymentMethod(paymentMethod: string | null | undefined) {
@@ -633,16 +638,45 @@ function getOrderChangeAmount(order: OrderRow) {
 }
 
 function getPaymentStatusLabel(paymentStatus: string | null) {
-  const normalized = String(paymentStatus || "").toLowerCase()
+  const normalized = normalizeStatus(paymentStatus)
 
-  if (normalized === "paid") return "Pago"
-  if (normalized === "awaiting_review") return "Conferir Pix"
-  if (normalized === "waiting_customer_payment") return "Aguardando Pix"
-  if (normalized === "pending") return "Pendente"
-  if (normalized === "failed") return "Falhou"
-  if (normalized === "cancelled") return "Cancelado"
+  if (!normalized) return "Não informado"
 
-  return paymentStatus || "Não informado"
+  if (normalized === "paid" || normalized === "pago" || normalized === "approved" || normalized === "confirmed") {
+    return "Pago"
+  }
+
+  if (
+    normalized === "awaiting_review" ||
+    normalized === "aguardando_conferencia" ||
+    normalized === "aguardando conferência" ||
+    normalized === "waiting_pix_confirmation" ||
+    normalized === "awaiting_pix_review" ||
+    normalized === "aguardando_confirmacao_pix" ||
+    normalized === "aguardando confirmação pix"
+  ) {
+    return "Conferir Pix"
+  }
+
+  if (
+    normalized === "waiting_customer_payment" ||
+    normalized === "waiting_payment" ||
+    normalized === "awaiting_payment" ||
+    normalized === "aguardando_pagamento" ||
+    normalized === "aguardando pagamento"
+  ) {
+    return "Aguardando pagamento"
+  }
+
+  if (normalized === "pending" || normalized === "pendente" || normalized === "open" || normalized === "created") {
+    return "Pendente"
+  }
+
+  if (normalized === "failed" || normalized === "falhou" || normalized === "erro") return "Falhou"
+  if (normalized === "cancelled" || normalized === "canceled" || normalized === "cancelado") return "Cancelado"
+  if (normalized === "refunded" || normalized === "reembolsado") return "Reembolsado"
+
+  return "Não informado"
 }
 
 function isDeliveryOrder(order: OrderRow) {
@@ -926,8 +960,6 @@ function OrderCard({
   nowMs,
   busyOrderId,
   kdsEnabled,
-  isSelected,
-  onToggleSelected,
   onAccept,
   onCancel,
   onConfirmPixPayment,
@@ -939,12 +971,12 @@ function OrderCard({
 }: OrderCardProps) {
   const isBusy = busyOrderId === order.id
   const isDelivery = isDeliveryOrder(order)
-  const isPaid = isPaidOrder(order)
   const TypeIcon = isDelivery ? Truck : Package
   const isPixReview = isPixAwaitingReview(order)
   const deliveryAddress = getOrderAddress(order)
   const customerCpf = getOrderCpf(order)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [proofOpen, setProofOpen] = useState(false)
 
   const acceptDeadline = getAcceptDeadline(order)
   const acceptRemainingMs = acceptDeadline.getTime() - nowMs
@@ -979,12 +1011,16 @@ function OrderCard({
         ? "Em preparo"
         : "Pronto"
 
-  const statusClasses =
+  const primaryActionLabel =
     status === "analysis"
-      ? "border-orange-200 bg-orange-50 text-orange-700"
+      ? isPixReview
+        ? "Conferir Pix"
+        : "Aceitar"
       : status === "preparation"
-        ? "border-blue-200 bg-blue-50 text-blue-700"
-        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+        ? "Pronto"
+        : isDelivery
+          ? "Enviar"
+          : "Finalizar"
 
   const showCashChange =
     isCashPaymentMethod(order.payment_method) &&
@@ -993,78 +1029,91 @@ function OrderCard({
   const isAiOrder = isWhatsAppAiOrder(order)
   const cleanOrderNote = getCleanOrderNote(order.notes)
 
+  const handlePrimaryAction = () => {
+    if (status === "analysis") {
+      if (isPixReview) {
+        setDetailsOpen(true)
+        return
+      }
+
+      onAccept(order)
+      return
+    }
+
+    if (status === "preparation") {
+      onMarkReady(order)
+      return
+    }
+
+    if (isDelivery) {
+      onSendToRoute(order)
+      return
+    }
+
+    onFinish(order)
+  }
+
+  const primaryActionDisabled =
+    isBusy ||
+    (status === "preparation" && kdsEnabled) ||
+    (status === "ready" && isDelivery && !order.delivery_person_id)
+
   return (
     <>
       <article
         className={[
-          "overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md",
-          isLate ? "border-red-300 ring-1 ring-red-100" : "border-slate-200",
+          "overflow-hidden rounded-xl border bg-[#0d0d0d] shadow-sm transition hover:border-yellow-400/40",
+          isLate ? "border-red-500/60 ring-1 ring-red-500/15" : "border-zinc-800",
         ].join(" ")}
       >
-        <div
-          className={[
-            "h-1",
-            isLate
-              ? "bg-red-500"
-              : status === "analysis"
-                ? "bg-orange-500"
-                : status === "preparation"
-                  ? "bg-blue-600"
-                  : "bg-emerald-600",
-          ].join(" ")}
-        />
+        <div className={isLate ? "h-px bg-red-500" : "h-px bg-yellow-400/70"} />
 
         <div className="p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-lg font-black leading-none text-slate-950">
+              <h3 className="text-base font-black leading-none text-white">
                 #{getOrderNumber(order)}
               </h3>
 
-              <p className="mt-2 truncate text-sm font-bold text-slate-800">
+              <p className="mt-1.5 truncate text-sm font-black text-white">
                 {getCustomerName(order)}
               </p>
 
-              <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+              <p className="mt-0.5 truncate text-xs font-semibold text-zinc-400">
                 {getCustomerPhone(order)}
               </p>
             </div>
 
             <div className="flex shrink-0 flex-col items-end gap-1.5">
-              <span
-                className={[
-                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                  getOrderTypeClasses(order),
-                ].join(" ")}
-              >
+              <span className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-zinc-200">
                 <TypeIcon className="h-3 w-3" />
                 {getOrderTypeLabel(order)}
               </span>
 
-{isAiOrder && (
-  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-700">
-    <Bot className="h-3 w-3" />
-    Pedido criado por IA
-  </span>
-)}
-
-              <span
-                className={[
-                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                  statusClasses,
-                ].join(" ")}
-              >
+              <span className="inline-flex rounded-full border border-zinc-800 bg-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-zinc-400">
                 {statusLabel}
               </span>
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
-            <p className="text-xs font-bold text-slate-600">
-              {formatItemCount(items.length)} · {getPaymentLabel(order.payment_method)}
-            </p>
+          {isAiOrder && (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-zinc-300">
+              <Bot className="h-3 w-3 text-yellow-300" />
+              Pedido criado por IA
+            </div>
+          )}
 
-            <p className="text-sm font-black text-slate-950">
+          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-zinc-800 bg-black px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-zinc-300">
+                {formatItemCount(items.length)} · {getPaymentLabel(order.payment_method)}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-zinc-500">
+                Status: {getPaymentStatusLabel(order.payment_status)}
+              </p>
+            </div>
+
+            <p className="text-sm font-black text-white">
               {formatBRL(order.total)}
             </p>
           </div>
@@ -1075,7 +1124,7 @@ function OrderCard({
                 <span
                   className={[
                     "font-black",
-                    acceptRemainingMs <= 10000 ? "text-red-600" : "text-slate-600",
+                    acceptRemainingMs <= 10000 ? "text-red-400" : "text-yellow-300",
                   ].join(" ")}
                 >
                   {acceptRemainingMs > 0
@@ -1083,16 +1132,16 @@ function OrderCard({
                     : "Tempo esgotado"}
                 </span>
 
-                <span className="font-medium text-slate-400">
+                <span className="font-semibold text-zinc-500">
                   entrou {formatElapsedTime(order.created_at, nowMs)}
                 </span>
               </div>
 
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-900">
                 <div
                   className={[
                     "h-full rounded-full transition-all",
-                    acceptRemainingMs <= 10000 ? "bg-red-500" : "bg-orange-500",
+                    acceptRemainingMs <= 10000 ? "bg-red-500" : "bg-yellow-400",
                   ].join(" ")}
                   style={{ width: `${acceptProgress}%` }}
                 />
@@ -1106,7 +1155,7 @@ function OrderCard({
                 <span
                   className={[
                     "font-black",
-                    preparationRemainingMs <= 0 ? "text-red-600" : "text-slate-600",
+                    preparationRemainingMs <= 0 ? "text-red-400" : "text-yellow-300",
                   ].join(" ")}
                 >
                   {preparationRemainingMs > 0
@@ -1114,16 +1163,16 @@ function OrderCard({
                     : "Atrasado"}
                 </span>
 
-                <span className="font-medium text-slate-400">
+                <span className="font-semibold text-zinc-500">
                   meta {averagePrepTimeMinutes}min
                 </span>
               </div>
 
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-900">
                 <div
                   className={[
                     "h-full rounded-full transition-all",
-                    preparationRemainingMs <= 0 ? "bg-red-500" : "bg-blue-600",
+                    preparationRemainingMs <= 0 ? "bg-red-500" : "bg-yellow-400",
                   ].join(" ")}
                   style={{ width: `${preparationProgress}%` }}
                 />
@@ -1133,171 +1182,129 @@ function OrderCard({
 
           {status === "ready" && (
             <div className="mt-3 flex items-center justify-between text-[11px]">
-              <span className="font-black text-emerald-700">
+              <span className="font-black text-yellow-300">
                 Pronto na cozinha
               </span>
 
-              <span className="font-medium text-slate-400">
+              <span className="font-semibold text-zinc-500">
                 aguardando finalização
               </span>
             </div>
           )}
 
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setDetailsOpen(true)}
-              className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-zinc-800 bg-black px-3 text-xs font-black text-zinc-200 transition hover:border-yellow-400/40 hover:bg-zinc-950"
             >
               Detalhes
             </button>
 
-            {status === "analysis" && (
-              <button
-                type="button"
-                onClick={() =>
-                  isPixReview ? setDetailsOpen(true) : onAccept(order)
-                }
-                disabled={isBusy}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                )}
-                {isPixReview ? "Conferir Pix" : "Aceitar"}
-              </button>
-            )}
-
-            {status === "preparation" && (
-              kdsEnabled ? (
-                <div className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700">
-                  KDS
-                </div>
+            <button
+              type="button"
+              onClick={handlePrimaryAction}
+              disabled={primaryActionDisabled}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : status === "ready" && isDelivery ? (
+                <Truck className="h-3.5 w-3.5" />
               ) : (
-                <button
-                  type="button"
-                  onClick={() => onMarkReady(order)}
-                  disabled={isBusy}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isBusy ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  )}
-                  Pronto
-                </button>
-              )
-            )}
-
-            {status === "ready" && (
-              <button
-                type="button"
-                onClick={() => (isDelivery ? onSendToRoute(order) : onFinish(order))}
-                disabled={isBusy || (isDelivery && !order.delivery_person_id)}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : isDelivery ? (
-                  <Truck className="h-3.5 w-3.5" />
-                ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                )}
-                {isDelivery ? "Enviar" : "Finalizar"}
-              </button>
-            )}
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              {primaryActionLabel}
+            </button>
           </div>
         </div>
       </article>
 
       {detailsOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm">
             <div
               className="absolute inset-0"
               onClick={() => setDetailsOpen(false)}
               aria-hidden="true"
             />
 
-            <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-blue-600">
+            <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#0b0b0b] shadow-2xl">
+              <div className="flex items-start justify-between gap-3 border-b border-zinc-800 bg-[#0d0d0d] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">
                     Detalhes do pedido
                   </p>
 
-                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                  <h3 className="mt-1 text-lg font-black text-white">
                     Pedido #{getOrderNumber(order)}
                   </h3>
 
-                  <p className="mt-1 text-sm font-bold text-slate-700">
-                    {getCustomerName(order)}
-                  </p>
-
-                  <p className="text-xs font-medium text-slate-500">
-                    {getCustomerPhone(order)}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-zinc-400">
+                    <span className="font-bold text-zinc-200">{getCustomerName(order)}</span>
+                    <span>{getCustomerPhone(order)}</span>
+                  </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setDetailsOpen(false)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 transition hover:border-yellow-400/50 hover:text-white"
                   aria-label="Fechar detalhes"
                 >
-                  <XCircle className="h-5 w-5" />
+                  <XCircle className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50 p-5">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-slate-200 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#0b0b0b] p-4">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-zinc-800 bg-black p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                       Tipo
                     </p>
-                    <p className="mt-1 text-sm font-black text-slate-900">
+                    <p className="mt-1 text-sm font-black text-white">
                       {getOrderTypeLabel(order)}
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  <div className="rounded-xl border border-zinc-800 bg-black p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                       Pagamento
                     </p>
-                    <p className="mt-1 text-sm font-black text-slate-900">
+                    <p className="mt-1 text-sm font-black text-white">
                       {getPaymentLabel(order.payment_method)}
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                      {getPaymentStatusLabel(order.payment_status)}
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  <div className="rounded-xl border border-zinc-800 bg-black p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                       Total
                     </p>
-                    <p className="mt-1 text-sm font-black text-slate-900">
+                    <p className="mt-1 text-sm font-black text-yellow-300">
                       {formatBRL(order.total)}
                     </p>
                   </div>
                 </div>
 
                 {(deliveryAddress || customerCpf) && (
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  <div className="rounded-xl border border-zinc-800 bg-black p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                       Cliente e entrega
                     </p>
 
                     {deliveryAddress && (
-                      <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">
-                        <span className="font-black text-slate-900">Endereço:</span>{" "}
+                      <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-300">
+                        <span className="font-black text-white">Endereço:</span>{" "}
                         {deliveryAddress}
                       </p>
                     )}
 
                     {customerCpf && (
-                      <p className="mt-1 text-sm font-semibold text-slate-700">
-                        <span className="font-black text-slate-900">CPF:</span>{" "}
+                      <p className="mt-1 text-sm font-semibold text-zinc-300">
+                        <span className="font-black text-white">CPF:</span>{" "}
                         {customerCpf}
                       </p>
                     )}
@@ -1305,11 +1312,11 @@ function OrderCard({
                 )}
 
                 {showCashChange && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                  <div className="rounded-xl border border-yellow-500/25 bg-yellow-400/10 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-yellow-300">
                       Troco
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-emerald-900">
+                    <p className="mt-1 text-sm font-semibold text-zinc-100">
                       Cliente precisa de troco para{" "}
                       <span className="font-black">
                         {formatBRL(getOrderChangeFor(order))}
@@ -1323,67 +1330,87 @@ function OrderCard({
                 )}
 
                 {isPixReview && (
-                  <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-orange-700">
-                      Conferência Pix
-                    </p>
+                  <div className="rounded-xl border border-yellow-500/30 bg-yellow-400/10 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wide text-yellow-300">
+                          Conferência Pix
+                        </p>
 
-                    <p className="mt-1 text-sm font-semibold text-orange-900">
-                      Confira valor, data, horário e destinatário antes de confirmar.
-                    </p>
+                        <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-200">
+                          Confira valor, data, horário e destinatário antes de confirmar.
+                        </p>
+                      </div>
+
+                      {order.pix_proof_url && (
+                        <button
+                          type="button"
+                          onClick={() => setProofOpen(true)}
+                          className="shrink-0 rounded-lg bg-yellow-400 px-3 py-2 text-xs font-black text-black transition hover:bg-yellow-300"
+                        >
+                          Ver comprovante
+                        </button>
+                      )}
+                    </div>
 
                     {order.pix_proof_url ? (
-                      <img
-                        src={order.pix_proof_url}
-                        alt={`Comprovante Pix do pedido ${getOrderNumber(order)}`}
-                        className="mt-3 max-h-[420px] w-full rounded-xl border border-orange-100 bg-white object-contain"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setProofOpen(true)}
+                        className="mt-3 block w-full overflow-hidden rounded-xl border border-yellow-500/20 bg-black"
+                      >
+                        <img
+                          src={order.pix_proof_url}
+                          alt={`Comprovante Pix do pedido ${getOrderNumber(order)}`}
+                          className="max-h-44 w-full object-contain"
+                        />
+                      </button>
                     ) : (
-                      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-orange-800">
+                      <p className="mt-3 rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm font-semibold text-zinc-300">
                         Comprovante não disponível.
                       </p>
                     )}
                   </div>
                 )}
 
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                <div className="rounded-xl border border-zinc-800 bg-black p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                       Itens
                     </p>
-                    <span className="text-xs font-black text-slate-500">
+                    <span className="text-xs font-black text-zinc-400">
                       {formatItemCount(items.length)}
                     </span>
                   </div>
 
                   {items.length > 0 ? (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-zinc-900">
                       {items.map((item) => (
                         <div key={item.id} className="py-2 first:pt-0 last:pb-0">
-                          <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-slate-800">
+                              <p className="text-sm font-black text-white">
                                 {item.quantity}x {item.name}
                               </p>
 
                               {getSafeOrderItemModifiers(item).map((modifier, index) => (
                                 <p
                                   key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
-                                  className="mt-0.5 text-xs font-medium text-slate-500"
+                                  className="mt-0.5 text-xs font-semibold text-zinc-400"
                                 >
                                   · {formatOrderItemModifier(modifier)}
                                 </p>
                               ))}
 
                               {item.notes && (
-                                <p className="mt-1 text-xs font-semibold text-orange-700">
+                                <p className="mt-1 text-xs font-semibold text-yellow-300">
                                   Obs: {item.notes}
                                 </p>
                               )}
                             </div>
 
                             {item.total > 0 && (
-                              <p className="shrink-0 text-sm font-black text-slate-800">
+                              <p className="shrink-0 text-sm font-black text-white">
                                 {formatBRL(item.total)}
                               </p>
                             )}
@@ -1392,38 +1419,38 @@ function OrderCard({
                       ))}
                     </div>
                   ) : (
-                    <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500">
+                    <p className="rounded-lg border border-dashed border-zinc-800 p-3 text-sm text-zinc-500">
                       Itens do pedido não carregados.
                     </p>
                   )}
                 </div>
 
                 {(cleanOrderNote || isAiOrder) && (
-  <div className="rounded-xl border border-slate-200 bg-white p-4">
-    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-      {isAiOrder ? "Origem" : "Observação"}
-    </p>
+                  <div className="rounded-xl border border-zinc-800 bg-black p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                      {isAiOrder ? "Origem" : "Observação"}
+                    </p>
 
-    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold leading-relaxed text-slate-700">
-      {isAiOrder && <Bot className="h-4 w-4 text-slate-500" />}
-      {isAiOrder ? "Pedido criado por IA" : cleanOrderNote}
-    </p>
-  </div>
-)}
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold leading-relaxed text-zinc-300">
+                      {isAiOrder && <Bot className="h-4 w-4 text-yellow-300" />}
+                      {isAiOrder ? "Pedido criado por IA" : cleanOrderNote}
+                    </p>
+                  </div>
+                )}
 
                 {isDelivery && (status === "preparation" || status === "ready") && (
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="rounded-xl border border-zinc-800 bg-black p-3">
                     <div className="mb-2 flex items-center justify-between">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                         Motoboy
                       </p>
 
                       {deliveryPersonName ? (
-                        <span className="text-xs font-black text-blue-700">
+                        <span className="text-xs font-black text-yellow-300">
                           {deliveryPersonName}
                         </span>
                       ) : (
-                        <span className="text-xs font-black text-slate-400">
+                        <span className="text-xs font-black text-zinc-500">
                           Necessário
                         </span>
                       )}
@@ -1435,7 +1462,7 @@ function OrderCard({
                         onAssignDeliveryPerson(order.id, event.target.value)
                       }
                       disabled={isBusy || deliveryPeople.length === 0}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-9 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <option value="">
                         {deliveryPeople.length === 0
@@ -1454,29 +1481,29 @@ function OrderCard({
                 )}
               </div>
 
-              <div className="border-t border-slate-100 bg-white p-4">
+              <div className="border-t border-zinc-800 bg-[#0d0d0d] p-3">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                       Total do pedido
                     </p>
-                    <p className="text-2xl font-black text-slate-950">
+                    <p className="text-xl font-black text-white">
                       {formatBRL(order.total)}
                     </p>
                   </div>
 
                   {isDelivery && Number(order.delivery_fee || 0) > 0 && (
-                    <p className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                    <p className="rounded-full border border-yellow-500/25 bg-yellow-400/10 px-3 py-1 text-xs font-bold text-yellow-300">
                       Entrega {formatBRL(order.delivery_fee)}
                     </p>
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="grid grid-cols-2 gap-2 sm:flex">
                   <button
                     type="button"
                     onClick={() => onPrint(order, items, "kitchen")}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 text-sm font-black text-orange-700 transition hover:bg-orange-100"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-yellow-500/25 bg-yellow-400/10 px-3 text-xs font-black text-yellow-300 transition hover:bg-yellow-400/15"
                   >
                     <ChefHat className="h-4 w-4" />
                     Cozinha
@@ -1485,7 +1512,7 @@ function OrderCard({
                   <button
                     type="button"
                     onClick={() => onPrint(order, items, "receipt")}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-xs font-black text-zinc-100 transition hover:bg-zinc-900"
                   >
                     <Printer className="h-4 w-4" />
                     Recibo
@@ -1500,7 +1527,7 @@ function OrderCard({
                           onCancel(order)
                         }}
                         disabled={isBusy}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 text-xs font-black text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <XCircle className="h-4 w-4" />
                         Negar
@@ -1518,7 +1545,7 @@ function OrderCard({
                           setDetailsOpen(false)
                         }}
                         disabled={isBusy}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isBusy ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -1532,8 +1559,8 @@ function OrderCard({
 
                   {status === "preparation" && (
                     kdsEnabled ? (
-                      <div className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-black text-blue-700">
-                        Aguardando cozinha
+                      <div className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-xs font-black text-zinc-300">
+                        KDS controlando
                       </div>
                     ) : (
                       <button
@@ -1543,14 +1570,14 @@ function OrderCard({
                           setDetailsOpen(false)
                         }}
                         disabled={isBusy}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isBusy ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <CheckCircle2 className="h-4 w-4" />
                         )}
-                        Marcar como pronto
+                        Marcar pronto
                       </button>
                     )
                   )}
@@ -1568,7 +1595,7 @@ function OrderCard({
                         setDetailsOpen(false)
                       }}
                       disabled={isBusy || (isDelivery && !order.delivery_person_id)}
-                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isBusy ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1577,12 +1604,33 @@ function OrderCard({
                       ) : (
                         <CheckCircle2 className="h-4 w-4" />
                       )}
-                      {isDelivery ? "Enviar" : "Finalizar atendimento"}
+                      {isDelivery ? "Enviar" : "Finalizar"}
                     </button>
                   )}
                 </div>
               </div>
             </div>
+          </div>,
+          document.body
+        )}
+
+      {proofOpen && order.pix_proof_url &&
+        createPortal(
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 p-4">
+            <button
+              type="button"
+              onClick={() => setProofOpen(false)}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/20"
+              aria-label="Fechar comprovante"
+            >
+              <XCircle className="h-5 w-5" />
+            </button>
+
+            <img
+              src={order.pix_proof_url}
+              alt={`Comprovante Pix do pedido ${getOrderNumber(order)}`}
+              className="max-h-[92vh] max-w-[96vw] rounded-2xl object-contain"
+            />
           </div>,
           document.body
         )}
@@ -1635,39 +1683,39 @@ function BoardColumn({
   const Icon = styles.icon as typeof Clock3
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100/70">
-      <div className="border-b border-slate-100 bg-white px-4 py-3">
+    <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-[#0b0b0b] shadow-sm">
+      <div className="border-b border-zinc-800 bg-[#0d0d0d] px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${styles.accent}`} />
 
             <div className="min-w-0">
-              <h2 className="text-sm font-black tracking-tight text-slate-950">
+              <h2 className="text-sm font-black tracking-tight text-white">
                 {styles.title as string}
               </h2>
-              <p className="truncate text-xs font-medium text-slate-500">
+              <p className="truncate text-xs font-semibold text-zinc-500">
                 {styles.description as string}
               </p>
             </div>
           </div>
 
-          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-black text-slate-700">
+          <span className="flex h-7 min-w-7 items-center justify-center rounded-full border border-yellow-500/25 bg-yellow-400/10 px-2 text-xs font-black text-yellow-300">
             {orders.length}
           </span>
         </div>
       </div>
 
-      <div className={`${styles.body} min-h-[calc(100vh-340px)] space-y-3 p-3`}>
+      <div className={`${styles.body} min-h-[calc(100vh-305px)] space-y-3 p-3`}>
         {orders.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
+          <div className="flex min-h-[155px] items-center justify-center rounded-xl border border-dashed border-zinc-800 bg-black p-5 text-center">
             <div>
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-950 text-zinc-500">
                 <Icon className="h-5 w-5" />
               </div>
-              <p className="text-sm font-black text-slate-800">
+              <p className="text-sm font-black text-white">
                 Nenhum pedido
               </p>
-              <p className="mt-1 max-w-[220px] text-xs font-medium leading-relaxed text-slate-500">
+              <p className="mt-1 max-w-[220px] text-xs font-semibold leading-relaxed text-zinc-500">
                 Os pedidos dessa etapa aparecem aqui automaticamente.
               </p>
             </div>
@@ -1703,56 +1751,6 @@ function BoardColumn({
 }
 
 
-type OperationMetricCardProps = {
-  title: string
-  value: string
-  description: string
-  icon: typeof Package
-  tone: "cyan" | "orange" | "blue" | "green" | "purple" | "slate"
-}
-
-const operationMetricStyles = {
-  cyan: "from-cyan-500 to-sky-500 bg-cyan-50 text-cyan-700",
-  orange: "from-orange-500 to-amber-500 bg-orange-50 text-orange-700",
-  blue: "from-blue-600 to-blue-500 bg-blue-50 text-blue-700",
-  green: "from-emerald-600 to-green-500 bg-emerald-50 text-emerald-700",
-  purple: "from-violet-600 to-purple-500 bg-violet-50 text-violet-700",
-  slate: "from-slate-700 to-slate-600 bg-slate-50 text-slate-700",
-} satisfies Record<OperationMetricCardProps["tone"], string>
-
-function OperationMetricCard({
-  title,
-  value,
-  description,
-  icon: Icon,
-  tone,
-}: OperationMetricCardProps) {
-  const [gradientClasses, softClasses] = operationMetricStyles[tone]
-    .split(" bg-")
-    .map((part, index) => (index === 0 ? part : `bg-${part}`))
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradientClasses} text-white shadow-sm`}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-
-        <div className="min-w-0">
-          <p className="truncate text-xs font-bold text-slate-500">{title}</p>
-          <p className="mt-0.5 text-2xl font-black leading-none text-slate-950">
-            {value}
-          </p>
-          <p className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${softClasses}`}>
-            {description}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function PedidosPage() {
   const { restaurant, user, isLoading: authLoading } = useAuth()
@@ -2857,419 +2855,355 @@ if (shouldAcceptAutomatically) {
     [filteredOrders]
   )
 
-  const totalOpenAmount = useMemo(
-    () =>
-      filteredOrders.reduce((sum, order) => {
-        const total = Number(order.total || 0)
-        return sum + (Number.isFinite(total) ? total : 0)
-      }, 0),
-    [filteredOrders]
-  )
+
 
 
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
-      <div className="min-h-[calc(100vh-90px)] rounded-[2rem] bg-slate-50 p-2 sm:p-4">
+      <div className="min-h-[calc(100vh-90px)] rounded-[2rem] bg-black p-2 sm:p-4">
         <div className="flex flex-col gap-4">
-          <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-100/70 sm:p-5">
+          <div className="rounded-[1.5rem] border border-zinc-800 bg-[#0b0b0b] p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-yellow-300">
                     Central operacional
                   </p>
-                  <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                  <h1 className="mt-1 text-2xl font-black tracking-tight text-white">
                     Pedidos
                   </h1>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
-                    Controle os pedidos em tempo real, sem poluir a operação.
+                  <p className="mt-1 text-sm font-semibold text-zinc-400">
+                    Recebimento limpo, rápido e focado na ação do restaurante.
                   </p>
                 </div>
 
-                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-zinc-800 bg-black px-3 py-1.5 text-xs font-black text-zinc-300">
+                  <span className="h-2 w-2 rounded-full bg-yellow-400" />
                   Operação em tempo real
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <OperationMetricCard
-                  title="Pedidos abertos"
-                  value={String(filteredOrders.length)}
-                  description="Em andamento"
-                  icon={Package}
-                  tone="cyan"
-                />
-                <OperationMetricCard
-                  title="Pendentes"
-                  value={String(analysisOrders.length)}
-                  description="Aguardando análise"
-                  icon={Clock3}
-                  tone="orange"
-                />
-                <OperationMetricCard
-                  title="Em preparo"
-                  value={String(preparationOrders.length)}
-                  description="Na cozinha"
-                  icon={ChefHat}
-                  tone="blue"
-                />
-                <OperationMetricCard
-                  title="Prontos"
-                  value={String(readyOrders.length)}
-                  description="Aguardando finalizar"
-                  icon={CheckCircle2}
-                  tone="green"
-                />
-              </div>
               <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
-              <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
-                <div className="relative min-w-0">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
+                  <div className="relative min-w-0">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
 
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar cliente, telefone ou pedido..."
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-                  />
-                </div>
-
-                <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
-                  <Settings2 className="h-4 w-4 shrink-0 text-slate-500" />
-
-                  <span className="whitespace-nowrap text-sm font-semibold text-slate-700">
-                    Tempo:
-                  </span>
-
-                  <select
-                    value={averagePrepTimeMinutes}
-                    onChange={(event) =>
-                      updateAveragePrepTime(Number(event.target.value))
-                    }
-                    disabled={savingPrepTime}
-                    className="h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                  >
-                    <option value={10}>10 min</option>
-                    <option value={15}>15 min</option>
-                    <option value={20}>20 min</option>
-                    <option value={25}>25 min</option>
-                    <option value={30}>30 min</option>
-                    <option value={35}>35 min</option>
-                    <option value={40}>40 min</option>
-                    <option value={45}>45 min</option>
-                    <option value={50}>50 min</option>
-                    <option value={60}>60 min</option>
-                  </select>
-
-                  {savingPrepTime && (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
-                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-                  {lastUpdatedAt
-                    ? `Atualizado í s ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}`
-                    : "Aguardando dados..."}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => void refreshAll()}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                >
-                  {refreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                  Atualizar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={toggleKdsEnabled}
-                  className={[
-                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
-                    kdsEnabled
-                      ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                      : "border-slate-300 bg-slate-900 text-white hover:bg-slate-800",
-                  ].join(" ")}
-                  title={
-                    kdsEnabled
-                      ? "KDS ativo: a cozinha controla quando o pedido fica pronto."
-                      : "KDS desativado: a aba Pedidos controla envio/finalização."
-                  }
-                >
-                  <ChefHat className="h-4 w-4" />
-                  {kdsEnabled ? "KDS ativo" : "KDS desativado"}
-                </button>
-
-                <button
-  type="button"
-  onClick={() => void updateAutoAcceptOrders(!autoAcceptOrders)}
-  disabled={savingAutoAcceptOrders}
-  className={[
-    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60",
-    autoAcceptOrders
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-  ].join(" ")}
-  title={
-    autoAcceptOrders
-      ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
-      : "Pedidos serão impressos somente depois do aceite manual do restaurante."
-  }
->
-  {savingAutoAcceptOrders ? (
-    <Loader2 className="h-4 w-4 animate-spin" />
-  ) : (
-    <CheckCircle2 className="h-4 w-4" />
-  )}
-
-  {autoAcceptOrders ? "Aceite automático ligado" : "Aceitar automaticamente"}
-</button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (orderAlertsEnabled) {
-                      disableOrderAlerts()
-                      return
-                    }
-
-                    void enableOrderAlerts()
-                  }}
-                  className={[
-                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition",
-                    orderAlertsEnabled
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
-                  ].join(" ")}
-                  title={
-                    notificationPermission === "denied"
-                      ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
-                      : undefined
-                  }
-                >
-                  {orderAlertsEnabled ? (
-                    <Volume2 className="h-4 w-4" />
-                  ) : (
-                    <BellRing className="h-4 w-4" />
-                  )}
-                  {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
-                </button>
-              </div>
-            </div>
-
-            {filteredOrders.length > 0 && (
-              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-black text-slate-900">
-                    Impressão
-                  </p>
-
-                  <p className="mt-0.5 text-xs font-medium text-slate-500">
-                    {selectedVisibleOrders.length > 0
-                      ? `${selectedVisibleOrders.length} ${selectedVisibleOrders.length === 1 ? "pedido selecionado" : "pedidos selecionados"} de ${filteredOrders.length} ${filteredOrders.length === 1 ? "visível" : "visíveis"}.`
-                      : "Selecione os pedidos que deseja imprimir."}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
-                    className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Selecionar pedidos
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePrintSelectedOrders("kitchen")}
-                    disabled={selectedVisibleOrders.length === 0}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    <ChefHat className="h-4 w-4" />
-                    Cozinha ({selectedVisibleOrders.length})
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePrintSelectedOrders("receipt")}
-                    disabled={selectedVisibleOrders.length === 0}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Recibos ({selectedVisibleOrders.length})
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={clearSelectedOrders}
-                    disabled={selectedVisibleOrders.length === 0}
-                    className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    Limpar
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                {error}
-              </div>
-            )}
-
-            {newOrderAlert && (
-              <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="flex items-center justify-between gap-3 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                      <BellRing className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-emerald-900">
-                        Novo pedido recebido
-                      </p>
-
-                      <p className="truncate text-xs font-bold text-emerald-800">
-                        {newOrderAlert.orderNumber} · {newOrderAlert.customerName} · {formatBRL(newOrderAlert.total)}
-                      </p>
-                    </div>
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Buscar cliente, telefone ou pedido..."
+                      className="h-10 w-full rounded-xl border border-zinc-800 bg-black pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+                    />
                   </div>
 
+                  <div className="flex h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-black px-3">
+                    <Settings2 className="h-4 w-4 shrink-0 text-yellow-300" />
+
+                    <span className="whitespace-nowrap text-sm font-semibold text-zinc-300">
+                      Tempo:
+                    </span>
+
+                    <select
+                      value={averagePrepTimeMinutes}
+                      onChange={(event) =>
+                        updateAveragePrepTime(Number(event.target.value))
+                      }
+                      disabled={savingPrepTime}
+                      className="h-8 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm font-black text-white outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+                    >
+                      <option value={10}>10 min</option>
+                      <option value={15}>15 min</option>
+                      <option value={20}>20 min</option>
+                      <option value={25}>25 min</option>
+                      <option value={30}>30 min</option>
+                      <option value={35}>35 min</option>
+                      <option value={40}>40 min</option>
+                      <option value={45}>45 min</option>
+                      <option value={50}>50 min</option>
+                      <option value={60}>60 min</option>
+                    </select>
+
+                    {savingPrepTime && (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-yellow-300" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
+                  <p className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-xs font-semibold text-zinc-500">
+                    {lastUpdatedAt
+                      ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}`
+                      : "Aguardando dados..."}
+                  </p>
+
                   <button
                     type="button"
-                    onClick={() => setNewOrderAlert(null)}
-                    className="shrink-0 rounded-full p-1 text-emerald-700 transition hover:bg-emerald-100"
-                    aria-label="Fechar alerta de novo pedido"
+                    onClick={() => void refreshAll()}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-black px-4 text-sm font-black text-white transition hover:border-yellow-400/50 hover:bg-zinc-950"
                   >
-                    <XCircle className="h-5 w-5" />
+                    {refreshing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCcw className="h-4 w-4" />
+                    )}
+                    Atualizar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={toggleKdsEnabled}
+                    className={[
+                      "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition",
+                      kdsEnabled
+                        ? "border-yellow-500/30 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-400/15"
+                        : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-yellow-400/50",
+                    ].join(" ")}
+                    title={
+                      kdsEnabled
+                        ? "KDS ativo: a cozinha controla quando o pedido fica pronto."
+                        : "KDS desativado: a aba Pedidos controla envio/finalização."
+                    }
+                  >
+                    <ChefHat className="h-4 w-4" />
+                    {kdsEnabled ? "KDS ativo" : "KDS desativado"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void updateAutoAcceptOrders(!autoAcceptOrders)}
+                    disabled={savingAutoAcceptOrders}
+                    className={[
+                      "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60",
+                      autoAcceptOrders
+                        ? "border-yellow-500/30 bg-yellow-400 text-black hover:bg-yellow-300"
+                        : "border-zinc-800 bg-black text-white hover:border-yellow-400/50 hover:bg-zinc-950",
+                    ].join(" ")}
+                    title={
+                      autoAcceptOrders
+                        ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
+                        : "Pedidos serão impressos somente depois do aceite manual do restaurante."
+                    }
+                  >
+                    {savingAutoAcceptOrders ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" />
+                    )}
+
+                    {autoAcceptOrders ? "Aceite ligado" : "Aceite automático"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (orderAlertsEnabled) {
+                        disableOrderAlerts()
+                        return
+                      }
+
+                      void enableOrderAlerts()
+                    }}
+                    className={[
+                      "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition",
+                      orderAlertsEnabled
+                        ? "border-yellow-500/30 bg-yellow-400 text-black hover:bg-yellow-300"
+                        : "border-yellow-500/30 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-400/15",
+                    ].join(" ")}
+                    title={
+                      notificationPermission === "denied"
+                        ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
+                        : undefined
+                    }
+                  >
+                    {orderAlertsEnabled ? (
+                      <Volume2 className="h-4 w-4" />
+                    ) : (
+                      <BellRing className="h-4 w-4" />
+                    )}
+                    {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
                   </button>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Carregando operação...
+              {filteredOrders.length > 0 && (
+                <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-black p-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-white">
+                      Impressão
+                    </p>
+
+                    <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                      {selectedVisibleOrders.length > 0
+                        ? `${selectedVisibleOrders.length} ${selectedVisibleOrders.length === 1 ? "pedido selecionado" : "pedidos selecionados"} de ${filteredOrders.length} ${filteredOrders.length === 1 ? "visível" : "visíveis"}.`
+                        : "Selecione os pedidos que deseja imprimir."}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50"
+                    >
+                      Selecionar pedidos
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePrintSelectedOrders("kitchen")}
+                      disabled={selectedVisibleOrders.length === 0}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-yellow-500/25 bg-yellow-400/10 px-3 text-xs font-black text-yellow-300 transition hover:bg-yellow-400/15 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <ChefHat className="h-4 w-4" />
+                      Cozinha ({selectedVisibleOrders.length})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePrintSelectedOrders("receipt")}
+                      disabled={selectedVisibleOrders.length === 0}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <Printer className="h-4 w-4" />
+                      Recibos ({selectedVisibleOrders.length})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={clearSelectedOrders}
+                      disabled={selectedVisibleOrders.length === 0}
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-xs font-black text-zinc-400 transition hover:border-yellow-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
+                  {error}
+                </div>
+              )}
+
+              {newOrderAlert && (
+                <div className="overflow-hidden rounded-xl border border-yellow-500/30 bg-yellow-400/10 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-yellow-400 text-black shadow-sm">
+                        <BellRing className="h-4 w-4" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">
+                          Novo pedido recebido
+                        </p>
+
+                        <p className="truncate text-xs font-bold text-yellow-200">
+                          {newOrderAlert.orderNumber} · {newOrderAlert.customerName} · {formatBRL(newOrderAlert.total)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setNewOrderAlert(null)}
+                      className="shrink-0 rounded-full p-1 text-yellow-300 transition hover:bg-yellow-400/10"
+                      aria-label="Fechar alerta de novo pedido"
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto pb-2">
-            <div className="grid min-w-[1140px] grid-cols-3 gap-5">
-              <BoardColumn
-                status="analysis"
-                orders={analysisOrders}
-                orderItemsByOrderId={orderItemsByOrderId}
-                deliveryPeople={deliveryPeople}
-                averagePrepTimeMinutes={averagePrepTimeMinutes}
-                nowMs={nowMs}
-                busyOrderId={busyOrderId}
-                kdsEnabled={kdsEnabled}
-                selectedOrderIds={selectedOrderIdSet}
-                onToggleSelected={toggleOrderSelection}
-                onAccept={(order) => void updateOrder(order, "accept")}
-                onCancel={(order) => void updateOrder(order, "cancel")}
-                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
-                onMarkReady={(order) => void updateOrder(order, "ready")}
-                onSendToRoute={(order) => void updateOrder(order, "route")}
-                onFinish={(order) => void updateOrder(order, "finish")}
-                onPrint={handlePrintOrder}
-                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                  void assignDeliveryPerson(orderId, deliveryPersonId)
-                }
-              />
 
-              <BoardColumn
-                status="preparation"
-                orders={preparationOrders}
-                orderItemsByOrderId={orderItemsByOrderId}
-                deliveryPeople={deliveryPeople}
-                averagePrepTimeMinutes={averagePrepTimeMinutes}
-                nowMs={nowMs}
-                busyOrderId={busyOrderId}
-                kdsEnabled={kdsEnabled}
-                selectedOrderIds={selectedOrderIdSet}
-                onToggleSelected={toggleOrderSelection}
-                onAccept={(order) => void updateOrder(order, "accept")}
-                onCancel={(order) => void updateOrder(order, "cancel")}
-                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
-                onMarkReady={(order) => void updateOrder(order, "ready")}
-                onSendToRoute={(order) => void updateOrder(order, "route")}
-                onFinish={(order) => void updateOrder(order, "finish")}
-                onPrint={handlePrintOrder}
-                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                  void assignDeliveryPerson(orderId, deliveryPersonId)
-                }
-              />
-
-              <BoardColumn
-                status="ready"
-                orders={readyOrders}
-                orderItemsByOrderId={orderItemsByOrderId}
-                deliveryPeople={deliveryPeople}
-                averagePrepTimeMinutes={averagePrepTimeMinutes}
-                nowMs={nowMs}
-                busyOrderId={busyOrderId}
-                kdsEnabled={kdsEnabled}
-                selectedOrderIds={selectedOrderIdSet}
-                onToggleSelected={toggleOrderSelection}
-                onAccept={(order) => void updateOrder(order, "accept")}
-                onCancel={(order) => void updateOrder(order, "cancel")}
-                onConfirmPixPayment={(order) => void confirmPixPayment(order)}
-                onMarkReady={(order) => void updateOrder(order, "ready")}
-                onSendToRoute={(order) => void updateOrder(order, "route")}
-                onFinish={(order) => void updateOrder(order, "finish")}
-                onPrint={handlePrintOrder}
-                onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                  void assignDeliveryPerson(orderId, deliveryPersonId)
-                }
-              />
-
-
+          {loading ? (
+            <div className="flex items-center justify-center rounded-2xl border border-zinc-800 bg-[#0b0b0b] py-20 shadow-sm">
+              <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-400">
+                <Loader2 className="h-4 w-4 animate-spin text-yellow-300" />
+                Carregando operação...
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="overflow-x-auto pb-2">
+              <div className="grid min-w-[1080px] grid-cols-3 gap-4">
+                <BoardColumn
+                  status="analysis"
+                  orders={analysisOrders}
+                  orderItemsByOrderId={orderItemsByOrderId}
+                  deliveryPeople={deliveryPeople}
+                  averagePrepTimeMinutes={averagePrepTimeMinutes}
+                  nowMs={nowMs}
+                  busyOrderId={busyOrderId}
+                  kdsEnabled={kdsEnabled}
+                  selectedOrderIds={selectedOrderIdSet}
+                  onToggleSelected={toggleOrderSelection}
+                  onAccept={(order) => void updateOrder(order, "accept")}
+                  onCancel={(order) => void updateOrder(order, "cancel")}
+                  onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                  onMarkReady={(order) => void updateOrder(order, "ready")}
+                  onSendToRoute={(order) => void updateOrder(order, "route")}
+                  onFinish={(order) => void updateOrder(order, "finish")}
+                  onPrint={handlePrintOrder}
+                  onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                    void assignDeliveryPerson(orderId, deliveryPersonId)
+                  }
+                />
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-3 font-bold text-slate-700">
-              <span className="text-slate-950">Fluxo do pedido:</span>
-              <span className="inline-flex items-center gap-1.5 text-orange-600">
-                <Clock3 className="h-4 w-4" /> Pendente
-              </span>
-              <span className="text-slate-300">→</span>
-              <span className="inline-flex items-center gap-1.5 text-blue-600">
-                <ChefHat className="h-4 w-4" /> Em preparo
-              </span>
-              <span className="text-slate-300">→</span>
-              <span className="inline-flex items-center gap-1.5 text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" /> Pronto
-              </span>
-              <span className="text-slate-300">→</span>
-              <span className="inline-flex items-center gap-1.5 text-violet-600">
-                <CheckCircle2 className="h-4 w-4" /> Finalizado
-              </span>
+                <BoardColumn
+                  status="preparation"
+                  orders={preparationOrders}
+                  orderItemsByOrderId={orderItemsByOrderId}
+                  deliveryPeople={deliveryPeople}
+                  averagePrepTimeMinutes={averagePrepTimeMinutes}
+                  nowMs={nowMs}
+                  busyOrderId={busyOrderId}
+                  kdsEnabled={kdsEnabled}
+                  selectedOrderIds={selectedOrderIdSet}
+                  onToggleSelected={toggleOrderSelection}
+                  onAccept={(order) => void updateOrder(order, "accept")}
+                  onCancel={(order) => void updateOrder(order, "cancel")}
+                  onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                  onMarkReady={(order) => void updateOrder(order, "ready")}
+                  onSendToRoute={(order) => void updateOrder(order, "route")}
+                  onFinish={(order) => void updateOrder(order, "finish")}
+                  onPrint={handlePrintOrder}
+                  onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                    void assignDeliveryPerson(orderId, deliveryPersonId)
+                  }
+                />
+
+                <BoardColumn
+                  status="ready"
+                  orders={readyOrders}
+                  orderItemsByOrderId={orderItemsByOrderId}
+                  deliveryPeople={deliveryPeople}
+                  averagePrepTimeMinutes={averagePrepTimeMinutes}
+                  nowMs={nowMs}
+                  busyOrderId={busyOrderId}
+                  kdsEnabled={kdsEnabled}
+                  selectedOrderIds={selectedOrderIdSet}
+                  onToggleSelected={toggleOrderSelection}
+                  onAccept={(order) => void updateOrder(order, "accept")}
+                  onCancel={(order) => void updateOrder(order, "cancel")}
+                  onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                  onMarkReady={(order) => void updateOrder(order, "ready")}
+                  onSendToRoute={(order) => void updateOrder(order, "route")}
+                  onFinish={(order) => void updateOrder(order, "finish")}
+                  onPrint={handlePrintOrder}
+                  onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                    void assignDeliveryPerson(orderId, deliveryPersonId)
+                  }
+                />
+              </div>
             </div>
-
-            <p className="text-xs font-semibold text-slate-500">
-              Dica: pedidos ficam em <span className="font-black text-slate-800">Prontos</span> até o dono finalizar.
-            </p>
-          </div>
+          )}
         </div>
       </div>
     </AdminLayout>

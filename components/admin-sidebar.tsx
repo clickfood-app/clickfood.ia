@@ -4,10 +4,7 @@ import React, { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Banknote,
-  BarChart3,
   BookOpen,
-  Calculator,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -15,19 +12,15 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   Coins,
-  CreditCard,
   FileBarChart,
   Gift,
   Globe,
-  MapPinned,
   Megaphone,
   MonitorCheck,
-  PackageCheck,
   PackageOpen,
   PlusCircle,
   ReceiptText,
   Settings,
-  ShoppingBag,
   ShoppingCart,
   Store,
   Target,
@@ -71,11 +64,6 @@ type AdminSidebarProps = {
 
 const navItems: NavItem[] = [
   {
-    label: "Gestão",
-    icon: <BarChart3 className="h-5 w-5" />,
-    href: "/gestao",
-  },
-  {
     label: "Novo Pedido",
     icon: <PlusCircle className="h-5 w-5" />,
     href: "/novo-pedido",
@@ -84,11 +72,6 @@ const navItems: NavItem[] = [
     label: "Pedidos",
     icon: <ShoppingCart className="h-5 w-5" />,
     href: "/pedidos",
-  },
-  {
-    label: "Mesas",
-    icon: <Users className="h-5 w-5" />,
-    href: "/mesas",
   },
   {
     label: "KDS",
@@ -108,22 +91,12 @@ const navItems: NavItem[] = [
   {
     label: "Gestão interna",
     icon: <Store className="h-5 w-5" />,
-    href: "/funcionarios",
+    href: "/fornecedores",
     children: [
-      {
-        label: "Funcionários",
-        icon: <Users className="h-4 w-4" />,
-        href: "/funcionarios",
-      },
       {
         label: "Fornecedores",
         icon: <Store className="h-4 w-4" />,
         href: "/fornecedores",
-      },
-      {
-        label: "Compras",
-        icon: <ShoppingBag className="h-4 w-4" />,
-        href: "/compras-fornecedores",
       },
       {
         label: "Estoque",
@@ -158,16 +131,6 @@ const navItems: NavItem[] = [
         href: "/financeiro",
       },
       {
-        label: "Caixa do dia",
-        icon: <Banknote className="h-4 w-4" />,
-        href: "/financeiro/caixa",
-      },
-      {
-        label: "Recebimentos",
-        icon: <CreditCard className="h-4 w-4" />,
-        href: "/financeiro/recebimentos",
-      },
-      {
         label: "Contas a pagar",
         icon: <ReceiptText className="h-4 w-4" />,
         href: "/financeiro/contas-a-pagar",
@@ -176,11 +139,6 @@ const navItems: NavItem[] = [
         label: "Despesas",
         icon: <CircleAlert className="h-4 w-4" />,
         href: "/financeiro/despesas",
-      },
-      {
-        label: "CMV e margem",
-        icon: <Calculator className="h-4 w-4" />,
-        href: "/financeiro/cmv",
       },
       {
         label: "Relatórios",
@@ -232,33 +190,6 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    label: "Crescimento",
-    icon: <TrendingUp className="h-5 w-5" />,
-    href: "/crescimento",
-    children: [
-      {
-        label: "Ranking de produtos",
-        icon: <PackageCheck className="h-4 w-4" />,
-        href: "/crescimento/ranking-produtos",
-      },
-      {
-        label: "Clientes sumidos",
-        icon: <Users className="h-4 w-4" />,
-        href: "/crescimento/clientes-sumidos",
-      },
-      {
-        label: "Radar de bairros",
-        icon: <MapPinned className="h-4 w-4" />,
-        href: "/crescimento/radar-bairros",
-      },
-      {
-        label: "Alertas inteligentes",
-        icon: <CircleAlert className="h-4 w-4" />,
-        href: "/crescimento/alertas",
-      },
-    ],
-  },
-  {
     label: "Configurações",
     icon: <Settings className="h-5 w-5" />,
     href: "/configuracoes",
@@ -269,9 +200,7 @@ const navGroups = [
   {
     title: "Operação",
     items: navItems.filter((item) =>
-      ["Gestão", "Novo Pedido", "Pedidos", "Mesas", "KDS"].includes(
-        item.label,
-      ),
+      ["Novo Pedido", "Pedidos", "KDS"].includes(item.label),
     ),
   },
   {
@@ -290,7 +219,6 @@ const navGroups = [
         "Clientes",
         "Cupons",
         "Campanhas",
-        "Crescimento",
         "Configurações",
       ].includes(item.label),
     ),
@@ -453,7 +381,7 @@ export default function AdminSidebar({
   const supabase = useMemo(() => createClient(), [])
 
   const [brand, setBrand] = useState<RestaurantBrand>({
-    name: "ClickFood",
+    name: "Sistema",
     logoUrl: null,
     openTime: null,
     closeTime: null,
@@ -494,7 +422,7 @@ export default function AdminSidebar({
       if (!isMounted || !data) return
 
       setBrand({
-        name: data.name || "ClickFood",
+        name: data.name || "Sistema",
         logoUrl: data.logo_url || null,
         openTime: data.open_time || null,
         closeTime: data.close_time || null,
@@ -553,7 +481,7 @@ export default function AdminSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-slate-200 bg-white text-slate-900 shadow-xl shadow-slate-950/5 transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-yellow-400/20 bg-[#080808] text-white shadow-2xl shadow-black/30 transition-all duration-300",
         isCollapsed ? "w-[72px]" : "w-64",
       )}
     >
@@ -561,7 +489,7 @@ export default function AdminSidebar({
         type="button"
         onClick={onToggleCollapse}
         className={cn(
-          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 md:flex",
+          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-yellow-400/30 bg-[#111111] text-yellow-300 shadow-lg shadow-black/30 transition hover:border-yellow-300 hover:bg-yellow-400 hover:text-black md:flex",
           isCollapsed && "right-[-14px]",
         )}
         aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
@@ -575,7 +503,7 @@ export default function AdminSidebar({
 
       <div
         className={cn(
-          "border-b border-slate-200 bg-white p-3",
+          "border-b border-yellow-400/15 bg-[#080808] p-3",
           isCollapsed && "flex h-16 items-center justify-center px-0 py-0",
         )}
       >
@@ -586,13 +514,13 @@ export default function AdminSidebar({
           )}
         >
           <Link
-            href="/gestao"
+            href="/pedidos"
             className={cn(
               "group flex min-w-0 items-center gap-3 overflow-hidden",
               isCollapsed && "justify-center",
             )}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-blue-700 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-yellow-400/40 bg-yellow-400 text-sm font-black text-black shadow-sm shadow-yellow-950/20">
               {brand.logoUrl && !logoFailed ? (
                 <img
                   src={brand.logoUrl}
@@ -607,7 +535,7 @@ export default function AdminSidebar({
 
             {!isCollapsed && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold leading-tight text-slate-950">
+                <p className="truncate text-sm font-black leading-tight text-white">
                   {brand.name}
                 </p>
               </div>
@@ -618,7 +546,7 @@ export default function AdminSidebar({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-blue-700 transition hover:border-blue-200 hover:bg-blue-50 md:hidden"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-yellow-400/30 bg-[#111111] text-yellow-300 transition hover:bg-yellow-400 hover:text-black md:hidden"
               aria-label="Fechar menu"
             >
               <X className="h-4 w-4" />
@@ -631,15 +559,15 @@ export default function AdminSidebar({
             className={cn(
               "mt-3 rounded-2xl border px-3 py-2.5",
               operationStatus.isOpen
-                ? "border-emerald-200 bg-emerald-50"
-                : "border-orange-200 bg-orange-50",
+                ? "border-emerald-400/30 bg-emerald-400/10"
+                : "border-yellow-400/30 bg-yellow-400/10",
             )}
           >
             <div className="flex items-center gap-2">
               <span
                 className={cn(
                   "h-2.5 w-2.5 shrink-0 rounded-full",
-                  operationStatus.isOpen ? "bg-emerald-500" : "bg-orange-500",
+                  operationStatus.isOpen ? "bg-emerald-500" : "bg-yellow-400",
                 )}
               />
 
@@ -648,8 +576,8 @@ export default function AdminSidebar({
                   className={cn(
                     "truncate text-xs font-black uppercase tracking-[0.12em]",
                     operationStatus.isOpen
-                      ? "text-emerald-700"
-                      : "text-orange-700",
+                      ? "text-emerald-300"
+                      : "text-yellow-300",
                   )}
                 >
                   {operationStatus.label}
@@ -659,8 +587,8 @@ export default function AdminSidebar({
                   className={cn(
                     "mt-0.5 truncate text-xs font-semibold",
                     operationStatus.isOpen
-                      ? "text-emerald-800"
-                      : "text-orange-800",
+                      ? "text-emerald-100"
+                      : "text-yellow-100",
                   )}
                 >
                   {operationStatus.description}
@@ -671,12 +599,12 @@ export default function AdminSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:thin] [scrollbar-color:#facc15_transparent]">
         <div className="flex flex-col gap-4">
           {navGroups.map((group) => (
             <div key={group.title}>
               {!isCollapsed && (
-                <p className="mb-1.5 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                <p className="mb-1.5 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-yellow-400/70">
                   {group.title}
                 </p>
               )}
@@ -699,8 +627,8 @@ export default function AdminSidebar({
                           className={cn(
                             "group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm font-bold transition",
                             active
-                              ? "border-blue-100 bg-blue-50 text-blue-700"
-                              : "text-slate-600 hover:bg-slate-50 hover:text-blue-700",
+                              ? "border-yellow-400 bg-yellow-400 text-black shadow-sm shadow-yellow-950/20"
+                              : "text-zinc-300 hover:bg-white/[0.07] hover:text-yellow-300",
                             isCollapsed && "justify-center px-0",
                           )}
                           title={isCollapsed ? item.label : undefined}
@@ -709,8 +637,8 @@ export default function AdminSidebar({
                             className={cn(
                               "flex shrink-0 items-center justify-center transition",
                               active
-                                ? "text-blue-700"
-                                : "text-slate-500 group-hover:text-blue-700",
+                                ? "text-black"
+                                : "text-zinc-400 group-hover:text-yellow-300",
                               isCollapsed && "h-10 w-10 rounded-xl",
                             )}
                           >
@@ -725,8 +653,10 @@ export default function AdminSidebar({
 
                               <ChevronDown
                                 className={cn(
-                                  "h-4 w-4 shrink-0 text-slate-400 transition",
-                                  isOpen && "rotate-180 text-blue-700",
+                                  "h-4 w-4 shrink-0 transition",
+                                  active ? "text-black" : "text-zinc-500",
+                                  isOpen && "rotate-180",
+                                  isOpen && !active && "text-yellow-300",
                                 )}
                               />
                             </>
@@ -734,7 +664,7 @@ export default function AdminSidebar({
                         </button>
 
                         {!isCollapsed && isOpen && (
-                          <div className="ml-4 mt-1 border-l border-slate-200 pl-2">
+                          <div className="ml-4 mt-1 border-l border-yellow-400/20 pl-2">
                             <div className="flex flex-col gap-1">
                               {item.children?.map((child) => {
                                 const childActive = isSubHrefActive(
@@ -749,16 +679,16 @@ export default function AdminSidebar({
                                     className={cn(
                                       "group flex items-center gap-2.5 rounded-lg border border-transparent px-3 py-2 text-sm font-semibold transition",
                                       childActive
-                                        ? "border-blue-100 bg-blue-50 text-blue-700"
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-blue-700",
+                                        ? "border-yellow-400 bg-yellow-400 text-black shadow-sm shadow-yellow-950/20"
+                                        : "text-zinc-400 hover:bg-white/[0.07] hover:text-yellow-300",
                                     )}
                                   >
                                     <span
                                       className={cn(
                                         "shrink-0 transition",
                                         childActive
-                                          ? "text-blue-700"
-                                          : "text-slate-400 group-hover:text-blue-700",
+                                          ? "text-black"
+                                          : "text-zinc-500 group-hover:text-yellow-300",
                                       )}
                                     >
                                       {child.icon}
@@ -784,8 +714,8 @@ export default function AdminSidebar({
                       className={cn(
                         "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-bold transition",
                         active
-                          ? "border-blue-100 bg-blue-50 text-blue-700"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-blue-700",
+                          ? "border-yellow-400 bg-yellow-400 text-black shadow-sm shadow-yellow-950/20"
+                          : "text-zinc-300 hover:bg-white/[0.07] hover:text-yellow-300",
                         isCollapsed && "justify-center px-0",
                       )}
                       title={isCollapsed ? item.label : undefined}
@@ -794,8 +724,8 @@ export default function AdminSidebar({
                         className={cn(
                           "flex shrink-0 items-center justify-center transition",
                           active
-                            ? "text-blue-700"
-                            : "text-slate-500 group-hover:text-blue-700",
+                            ? "text-black"
+                            : "text-zinc-400 group-hover:text-yellow-300",
                           isCollapsed && "h-10 w-10 rounded-xl",
                         )}
                       >
@@ -817,16 +747,16 @@ export default function AdminSidebar({
       </nav>
 
       {!isCollapsed && (
-        <div className="border-t border-slate-200 bg-white p-3">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <span className="h-2 w-2 rounded-full bg-blue-600" />
+        <div className="border-t border-yellow-400/15 bg-[#080808] p-3">
+          <div className="flex items-center gap-2 rounded-xl border border-yellow-400/20 bg-white/5 px-3 py-2.5">
+            <span className="h-2 w-2 rounded-full bg-yellow-400" />
 
             <div className="min-w-0">
-              <p className="truncate text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                ClickFood
+              <p className="truncate text-xs font-black uppercase tracking-[0.14em] text-yellow-400/80">
+                Sistema
               </p>
 
-              <p className="truncate text-xs font-semibold text-slate-700">
+              <p className="truncate text-xs font-semibold text-zinc-300">
                 Sistema online
               </p>
             </div>
@@ -835,8 +765,8 @@ export default function AdminSidebar({
       )}
 
       {isCollapsed && (
-        <div className="border-t border-slate-200 p-3">
-          <div className="mx-auto h-1.5 w-8 rounded-full bg-blue-200" />
+        <div className="border-t border-yellow-400/15 p-3">
+          <div className="mx-auto h-1.5 w-8 rounded-full bg-yellow-400/70" />
         </div>
       )}
     </aside>

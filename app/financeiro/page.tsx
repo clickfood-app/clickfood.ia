@@ -639,15 +639,15 @@ function ProgressBar({
   const width = max <= 0 ? 0 : Math.min(100, (value / max) * 100)
 
   const toneClass = {
-    blue: "bg-blue-600",
-    green: "bg-emerald-600",
+    blue: "bg-yellow-400",
+    green: "bg-yellow-400",
     red: "bg-red-500",
-    amber: "bg-amber-500",
-    slate: "bg-slate-900",
+    amber: "bg-yellow-400",
+    slate: "bg-yellow-400",
   }[tone]
 
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+    <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
       <div
         className={cn(
           "h-full rounded-full transition-all duration-700 ease-out",
@@ -675,25 +675,25 @@ function MetricCard({
   delay?: number
 }) {
   const toneClass = {
-    blue: "bg-blue-50 text-blue-600 ring-blue-100",
-    green: "bg-emerald-50 text-emerald-600 ring-emerald-100",
-    red: "bg-red-50 text-red-600 ring-red-100",
-    amber: "bg-amber-50 text-amber-600 ring-amber-100",
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+    blue: "bg-yellow-400 text-black ring-yellow-300/40",
+    green: "bg-yellow-400 text-black ring-yellow-300/40",
+    red: "bg-red-500/10 text-red-500 ring-red-500/20",
+    amber: "bg-yellow-400 text-black ring-yellow-300/40",
+    slate: "bg-zinc-900 text-zinc-200 ring-yellow-500/20",
   }[tone]
 
   return (
     <div
-      className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
+      className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-yellow-500/25 bg-zinc-950 p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-yellow-400/70 hover:bg-zinc-900 sm:p-5"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-500">{title}</p>
-          <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
+          <p className="text-sm font-semibold text-zinc-400">{title}</p>
+          <p className="mt-2 truncate text-2xl font-black tracking-tight text-white">
             {value}
           </p>
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+          <p className="mt-2 text-xs font-medium leading-5 text-zinc-400">
             {subtitle}
           </p>
         </div>
@@ -727,23 +727,23 @@ function FinanceCard({
   return (
     <section
       className={cn(
-        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5",
+        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-yellow-500/25 bg-zinc-950 p-4 shadow-sm sm:p-5",
         className
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-black tracking-tight text-slate-950">
+          <h2 className="text-base font-black tracking-tight text-white">
             {title}
           </h2>
 
           {subtitle && (
-            <p className="mt-1 text-sm leading-5 text-slate-500">{subtitle}</p>
+            <p className="mt-1 text-sm leading-5 text-zinc-400">{subtitle}</p>
           )}
         </div>
 
         {icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400 text-black">
             {icon}
           </div>
         )}
@@ -778,38 +778,38 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
-          <p className="text-[9px] font-black uppercase tracking-wide text-emerald-700 sm:text-[10px]">
+        <div className="rounded-2xl border border-yellow-500/30 bg-zinc-900 px-3 py-2.5">
+          <p className="text-[9px] font-black uppercase tracking-wide text-yellow-300 sm:text-[10px]">
             Entradas
           </p>
-          <p className="mt-0.5 text-sm font-black text-emerald-700 sm:text-base">
+          <p className="mt-0.5 text-sm font-black text-white sm:text-base">
             {formatCurrency(totalIncome)}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5">
-          <p className="text-[9px] font-black uppercase tracking-wide text-red-700 sm:text-[10px]">
+        <div className="rounded-2xl border border-red-500/25 bg-zinc-900 px-3 py-2.5">
+          <p className="text-[9px] font-black uppercase tracking-wide text-red-400 sm:text-[10px]">
             Saídas
           </p>
-          <p className="mt-0.5 text-sm font-black text-red-700 sm:text-base">
+          <p className="mt-0.5 text-sm font-black text-red-400 sm:text-base">
             {formatCurrency(totalExpense)}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2.5">
-          <p className="text-[9px] font-black uppercase tracking-wide text-blue-700 sm:text-[10px]">
+        <div className="rounded-2xl border border-yellow-500/25 bg-zinc-900 px-3 py-2.5">
+          <p className="text-[9px] font-black uppercase tracking-wide text-yellow-300 sm:text-[10px]">
             Resultado
           </p>
-          <p className="mt-0.5 text-sm font-black text-blue-700 sm:text-base">
+          <p className="mt-0.5 text-sm font-black text-white sm:text-base">
             {formatCurrency(totalResult)}
           </p>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
-        <div className="mb-3 flex flex-wrap items-center gap-3 text-[11px] font-bold text-slate-600">
+      <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-3 text-[11px] font-bold text-zinc-300">
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="h-2 w-2 rounded-full bg-yellow-400" />
             Entradas
           </div>
 
@@ -819,7 +819,7 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            <span className="h-2 w-2 rounded-full bg-yellow-400" />
             Resultado
           </div>
         </div>
@@ -828,13 +828,13 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
           className="max-h-[330px] space-y-2 overflow-y-auto pr-1 sm:max-h-[390px]
           [&::-webkit-scrollbar]:w-2
           [&::-webkit-scrollbar-track]:rounded-full
-          [&::-webkit-scrollbar-track]:bg-slate-100
+          [&::-webkit-scrollbar-track]:bg-zinc-900
           [&::-webkit-scrollbar-thumb]:rounded-full
-          [&::-webkit-scrollbar-thumb]:bg-slate-300
-          [&::-webkit-scrollbar-thumb:hover]:bg-slate-400"
+          [&::-webkit-scrollbar-thumb]:bg-yellow-500/60
+          [&::-webkit-scrollbar-thumb:hover]:bg-yellow-400"
           style={{
             scrollbarWidth: "thin",
-            scrollbarColor: "#cbd5e1 #f1f5f9",
+            scrollbarColor: "#facc15 #18181b",
           }}
         >
           {listData.map((item) => {
@@ -845,26 +845,26 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
             return (
               <div
                 key={item.date}
-                className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm"
+                className="rounded-2xl border border-yellow-500/20 bg-zinc-900 px-3 py-2.5 shadow-sm"
               >
                 <div className="mb-2 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-black text-slate-950 sm:text-sm">
+                    <p className="text-xs font-black text-white sm:text-sm">
                       {item.label}
                     </p>
-                    <p className="text-[10px] font-medium text-slate-400">
+                    <p className="text-[10px] font-medium text-zinc-500">
                       {hasMovement ? "Movimentação do dia" : "Sem movimentação"}
                     </p>
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="text-[9px] font-bold uppercase text-slate-400">
+                    <p className="text-[9px] font-bold uppercase text-zinc-500">
                       Saldo
                     </p>
                     <p
                       className={cn(
                         "text-xs font-black sm:text-sm",
-                        item.result >= 0 ? "text-blue-700" : "text-red-600"
+                        item.result >= 0 ? "text-yellow-300" : "text-red-500"
                       )}
                     >
                       {formatCurrency(item.result)}
@@ -874,47 +874,47 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
 
                 <div className="space-y-1.5">
                   <div className="grid grid-cols-[58px_1fr_78px] items-center gap-2 sm:grid-cols-[76px_1fr_105px]">
-                    <span className="text-[10px] font-black text-emerald-700 sm:text-xs">
+                    <span className="text-[10px] font-black text-zinc-200 sm:text-xs">
                       Entrada
                     </span>
 
-                    <div className="h-2 overflow-hidden rounded-full bg-emerald-50">
+                    <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
                       <div
-                        className="h-full rounded-full bg-emerald-500"
+                        className="h-full rounded-full bg-yellow-400"
                         style={{ width: getBarWidth(item.income) }}
                       />
                     </div>
 
-                    <span className="text-right text-[10px] font-black text-emerald-700 sm:text-xs">
+                    <span className="text-right text-[10px] font-black text-zinc-200 sm:text-xs">
                       {formatCurrency(item.income)}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-[58px_1fr_78px] items-center gap-2 sm:grid-cols-[76px_1fr_105px]">
-                    <span className="text-[10px] font-black text-red-700 sm:text-xs">
+                    <span className="text-[10px] font-black text-red-400 sm:text-xs">
                       Saída
                     </span>
 
-                    <div className="h-2 overflow-hidden rounded-full bg-red-50">
+                    <div className="h-2 overflow-hidden rounded-full bg-red-500/10">
                       <div
                         className="h-full rounded-full bg-red-500"
                         style={{ width: getBarWidth(item.expense) }}
                       />
                     </div>
 
-                    <span className="text-right text-[10px] font-black text-red-700 sm:text-xs">
+                    <span className="text-right text-[10px] font-black text-red-400 sm:text-xs">
                       {formatCurrency(item.expense)}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-[58px_1fr_78px] items-center gap-2 sm:grid-cols-[76px_1fr_105px]">
-                    <span className="text-[10px] font-black text-blue-700 sm:text-xs">
+                    <span className="text-[10px] font-black text-zinc-200 sm:text-xs">
                       Resultado
                     </span>
 
-                    <div className="h-2 overflow-hidden rounded-full bg-blue-50">
+                    <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
                       <div
-                        className="h-full rounded-full bg-blue-500"
+                        className="h-full rounded-full bg-yellow-400"
                         style={{ width: getBarWidth(resultValue) }}
                       />
                     </div>
@@ -922,7 +922,7 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
                     <span
                       className={cn(
                         "text-right text-[10px] font-black sm:text-xs",
-                        item.result >= 0 ? "text-blue-700" : "text-red-600"
+                        item.result >= 0 ? "text-yellow-300" : "text-red-500"
                       )}
                     >
                       {formatCurrency(item.result)}
@@ -935,7 +935,7 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
         </div>
       </div>
 
-      <p className="text-[11px] font-medium text-slate-400">
+      <p className="text-[11px] font-medium text-zinc-500">
         Histórico automático com entradas, saídas e resultado do período selecionado.
       </p>
     </div>
@@ -944,7 +944,7 @@ function CashflowChart({ data }: { data: CashflowPoint[] }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-medium text-slate-500">
+    <div className="rounded-xl border border-dashed border-yellow-500/25 bg-zinc-900 px-4 py-8 text-center text-sm font-medium text-zinc-400">
       {message}
     </div>
   )
@@ -960,15 +960,15 @@ function ReportLine({
   tone?: "default" | "green" | "red" | "blue"
 }) {
   const toneClass = {
-    default: "text-slate-950",
-    green: "text-emerald-600",
-    red: "text-red-600",
-    blue: "text-blue-700",
+    default: "text-white",
+    green: "text-yellow-300",
+    red: "text-red-500",
+    blue: "text-yellow-300",
   }[tone]
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-b-0">
-      <p className="text-sm font-medium text-slate-500">{label}</p>
+    <div className="flex items-center justify-between gap-3 border-b border-yellow-500/10 py-2.5 last:border-b-0">
+      <p className="text-sm font-medium text-zinc-400">{label}</p>
       <p className={cn("text-sm font-black", toneClass)}>{value}</p>
     </div>
   )
@@ -1531,14 +1531,14 @@ export default function FinanceiroPage() {
 
   return (
     <AdminLayout title="Finanças">
-      <div className="space-y-5">
+      <div className="space-y-5 text-white">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-950">
+            <h1 className="text-2xl font-black tracking-tight text-white">
               Resumo financeiro
             </h1>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-zinc-400">
               Entradas, saídas, CMV, lucro estimado e saúde financeira.
             </p>
           </div>
@@ -1552,8 +1552,8 @@ export default function FinanceiroPage() {
                 className={cn(
                   "h-10 rounded-xl px-3 text-sm font-bold transition sm:px-4",
                   period === option.key
-                    ? "bg-slate-950 text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    ? "bg-yellow-400 text-black shadow-sm shadow-yellow-500/20"
+                    : "border border-zinc-800 bg-zinc-950 text-zinc-200 hover:border-yellow-400 hover:bg-zinc-900 hover:text-yellow-300"
                 )}
               >
                 {option.label}
@@ -1563,7 +1563,7 @@ export default function FinanceiroPage() {
             <button
               type="button"
               onClick={() => void loadFinanceiro()}
-              className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 sm:col-span-1"
+              className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-4 text-sm font-bold text-zinc-200 transition hover:border-yellow-400 hover:bg-zinc-900 hover:text-yellow-300 sm:col-span-1"
             >
               <RefreshCcw className="h-4 w-4" />
               Atualizar
@@ -1572,8 +1572,8 @@ export default function FinanceiroPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-950">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-300">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando finanças...
             </div>
@@ -1662,15 +1662,15 @@ export default function FinanceiroPage() {
                       <div key={payment.label}>
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-sm font-black text-slate-800">
+                            <p className="text-sm font-black text-white">
                               {payment.label}
                             </p>
-                            <p className="text-xs font-medium text-slate-500">
+                            <p className="text-xs font-medium text-zinc-400">
                               {payment.count} pedido(s)
                             </p>
                           </div>
 
-                          <p className="text-sm font-black text-slate-950">
+                          <p className="text-sm font-black text-yellow-300">
                             {formatCurrency(payment.total)}
                           </p>
                         </div>
@@ -1706,15 +1706,15 @@ export default function FinanceiroPage() {
                       <div key={expense.label}>
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-sm font-black text-slate-800">
+                            <p className="text-sm font-black text-white">
                               {expense.label}
                             </p>
-                            <p className="text-xs font-medium text-slate-500">
+                            <p className="text-xs font-medium text-zinc-400">
                               {expense.count} lançamento(s)
                             </p>
                           </div>
 
-                          <p className="text-sm font-black text-red-600">
+                          <p className="text-sm font-black text-red-500">
                             {formatCurrency(expense.total)}
                           </p>
                         </div>
@@ -1732,7 +1732,7 @@ export default function FinanceiroPage() {
                 icon={<Banknote className="h-5 w-5" />}
                 className="xl:col-span-1"
               >
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-yellow-500/20 bg-zinc-900 p-4">
                   <ReportLine
                     label="Faturamento bruto"
                     value={formatCurrency(data.grossRevenue)}
@@ -1786,20 +1786,20 @@ export default function FinanceiroPage() {
                   {insightItems.map((item, index) => (
                     <div
                       key={item}
-                      className="flex gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3"
+                      className="flex gap-3 rounded-xl border border-yellow-500/20 bg-zinc-900 px-3 py-3"
                     >
                       <div
                         className={cn(
                           "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
                           index === 0
-                            ? "bg-blue-50 text-blue-600"
+                            ? "bg-yellow-400 text-black"
                             : index === 1
-                              ? "bg-emerald-50 text-emerald-600"
+                              ? "bg-yellow-400 text-black"
                               : index === 2
-                                ? "bg-amber-50 text-amber-600"
+                                ? "bg-yellow-400 text-black"
                                 : index === 3
-                                  ? "bg-red-50 text-red-600"
-                                  : "bg-slate-100 text-slate-700"
+                                  ? "bg-red-500/10 text-red-500"
+                                  : "bg-yellow-400 text-black"
                         )}
                       >
                         {index === 0 ? (
@@ -1815,7 +1815,7 @@ export default function FinanceiroPage() {
                         )}
                       </div>
 
-                      <p className="text-sm font-medium leading-5 text-slate-600">
+                      <p className="text-sm font-medium leading-5 text-zinc-300">
                         {item}
                       </p>
                     </div>
@@ -1837,14 +1837,14 @@ export default function FinanceiroPage() {
                     data.recentMovements.slice(0, 8).map((movement) => (
                       <div
                         key={`${movement.type}-${movement.id}`}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-yellow-500/20 bg-zinc-900 px-3 py-3"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-slate-800">
+                          <p className="truncate text-sm font-black text-white">
                             {movement.title}
                           </p>
 
-                          <p className="mt-1 truncate text-xs font-medium text-slate-500">
+                          <p className="mt-1 truncate text-xs font-medium text-zinc-400">
                             {movement.category} • {formatDateTime(movement.occurred_at)}
                           </p>
                         </div>
@@ -1853,8 +1853,8 @@ export default function FinanceiroPage() {
                           className={cn(
                             "shrink-0 text-sm font-black",
                             movement.type === "income"
-                              ? "text-emerald-600"
-                              : "text-red-600"
+                              ? "text-yellow-300"
+                              : "text-red-500"
                           )}
                         >
                           {movement.type === "income" ? "+" : "-"}
@@ -1872,48 +1872,48 @@ export default function FinanceiroPage() {
                 icon={<ArrowUpRight className="h-5 w-5" />}
               >
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl bg-emerald-50 p-4">
-                    <div className="flex items-center gap-2 text-emerald-700">
+                  <div className="rounded-xl border border-yellow-500/25 bg-zinc-900 p-4">
+                    <div className="flex items-center gap-2 text-yellow-300">
                       <ArrowUpRight className="h-4 w-4" />
                       <p className="text-xs font-black uppercase tracking-wide">
                         Entradas
                       </p>
                     </div>
 
-                    <p className="mt-3 text-xl font-black text-emerald-700">
+                    <p className="mt-3 text-xl font-black text-white">
                       {formatCurrency(totalIncome)}
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-red-50 p-4">
-                    <div className="flex items-center gap-2 text-red-700">
+                  <div className="rounded-xl border border-red-500/25 bg-zinc-900 p-4">
+                    <div className="flex items-center gap-2 text-red-400">
                       <ArrowDownLeft className="h-4 w-4" />
                       <p className="text-xs font-black uppercase tracking-wide">
                         Saídas
                       </p>
                     </div>
 
-                    <p className="mt-3 text-xl font-black text-red-700">
+                    <p className="mt-3 text-xl font-black text-red-400">
                       {formatCurrency(totalOutflow)}
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-blue-50 p-4">
-                    <div className="flex items-center gap-2 text-blue-700">
+                  <div className="rounded-xl border border-yellow-500/25 bg-zinc-900 p-4">
+                    <div className="flex items-center gap-2 text-yellow-300">
                       <Wallet className="h-4 w-4" />
                       <p className="text-xs font-black uppercase tracking-wide">
                         Resultado
                       </p>
                     </div>
 
-                    <p className="mt-3 text-xl font-black text-blue-700">
+                    <p className="mt-3 text-xl font-black text-white">
                       {formatCurrency(cashBalance)}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm font-bold leading-6 text-slate-600">
+                <div className="mt-4 rounded-xl border border-yellow-500/20 bg-zinc-900 p-4">
+                  <p className="text-sm font-bold leading-6 text-zinc-300">
                     Esta aba soma automaticamente pedidos pagos, entradas manuais,
                     contas a pagar, folha/equipe, entregadores, perdas e o custo dos
                     produtos vendidos. Fechamento de caixa fica fora daqui.

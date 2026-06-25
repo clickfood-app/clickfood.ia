@@ -10,6 +10,7 @@ import {
   Minus,
   X,
   ChevronUp,
+  ChevronDown,
   Truck,
   Store,
   MessageCircle,
@@ -499,7 +500,7 @@ function MenuSkeleton() {
         }
       `}</style>
 
-      <div className="relative h-44 bg-gradient-to-br from-blue-500 to-indigo-600" />
+      <div className="relative h-44 bg-gradient-to-br from-black to-yellow-500" />
 
       <div className="mx-auto max-w-[480px] px-3 -mt-14 relative z-10">
         <div className="flex gap-4 items-end">
@@ -556,7 +557,7 @@ function ProductBadge({
     <div
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide",
-        badge.type === "popular" && "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+        badge.type === "popular" && "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-100",
         badge.type === "promo" && "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
         badge.type === "new" && "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
       )}
@@ -666,10 +667,10 @@ function getPromotionLabel(discount: number) {
 
 function MenuImagePlaceholder({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50">
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-yellow-50 via-white to-neutral-50">
       <div
         className={cn(
-          "flex items-center justify-center rounded-full bg-white text-blue-500 shadow-sm ring-1 ring-blue-100",
+          "flex items-center justify-center rounded-full bg-white text-yellow-500 shadow-sm ring-1 ring-yellow-100",
           compact ? "h-10 w-10" : "h-14 w-14"
         )}
       >
@@ -728,7 +729,7 @@ function FeaturedOfferCard({
       tabIndex={0}
       onClick={handleOpenProduct}
       onKeyDown={handleKeyDown}
-      className="group min-w-[132px] max-w-[132px] cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white p-2 text-left shadow-sm transition-colors hover:border-blue-200 active:scale-[0.99]"
+      className="group min-w-[132px] max-w-[132px] cursor-pointer overflow-hidden rounded-xl border border-yellow-400/20 bg-[#101010] p-2 text-left shadow-sm transition-colors hover:border-yellow-400/50 active:scale-[0.99]"
     >
       <div className="relative h-[96px] overflow-hidden rounded-lg bg-gray-100">
         {product.imageUrl ? (
@@ -745,7 +746,7 @@ function FeaturedOfferCard({
         )}
 
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-1.5 pt-7">
-          <span className="inline-flex rounded-md bg-white/95 px-1.5 py-0.5 text-[9px] font-black text-blue-700 shadow-sm">
+          <span className="inline-flex rounded-md bg-white/95 px-1.5 py-0.5 text-[9px] font-black text-yellow-700 shadow-sm">
             {discount > 0 ? getPromotionLabel(discount) : "Destaque"}
           </span>
         </div>
@@ -769,7 +770,7 @@ function FeaturedOfferCard({
       </div>
 
       <div className="flex min-w-0 flex-col px-1 pb-1 pt-2">
-        <h3 className="line-clamp-2 min-h-[32px] text-[12px] font-black leading-4 text-gray-950">
+        <h3 className="line-clamp-2 min-h-[32px] text-[12px] font-black leading-4 text-white">
           {product.name}
         </h3>
 
@@ -781,7 +782,7 @@ function FeaturedOfferCard({
               </p>
             )}
 
-            <p className="text-[12px] font-black leading-none text-blue-700">
+            <p className="text-[12px] font-black leading-none text-yellow-300">
               A partir de {formatPrice(product.price)}
             </p>
           </div>
@@ -808,11 +809,11 @@ function FeaturedOffersSection({
   return (
     <section className="mt-5">
       <div className="mb-3 flex items-end justify-between gap-3">
-        <h2 className="text-[17px] font-black tracking-tight text-gray-950">
+        <h2 className="text-[17px] font-black tracking-tight text-white">
           Destaques
         </h2>
 
-        <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700 ring-1 ring-blue-100">
+        <span className="rounded-lg border border-yellow-400/20 bg-yellow-400/10 px-2.5 py-1 text-[11px] font-black text-yellow-300 ring-1 ring-yellow-400/20">
           Ver todos
         </span>
       </div>
@@ -876,7 +877,7 @@ function ProductCard({
   return (
     <div
       className={cn(
-        "group relative grid cursor-pointer grid-cols-[1fr_98px] gap-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-all duration-200 hover:border-blue-200 active:scale-[0.99]",
+        "group relative grid cursor-pointer grid-cols-[1fr_88px] gap-3 overflow-hidden rounded-xl border border-yellow-400/20 bg-[#101010] p-3 shadow-sm transition-all duration-200 hover:border-yellow-400/50 active:scale-[0.99]",
         isPressing && "scale-[0.99]"
       )}
       onClick={onSelect}
@@ -891,22 +892,22 @@ function ProductCard({
           {badge && <ProductBadge badge={badge} />}
 
           {isScheduledProduct(product) && (
-            <div className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
+            <div className="inline-flex items-center gap-1 rounded-md bg-yellow-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-yellow-700 ring-1 ring-yellow-100">
               <Timer className="h-3 w-3" />
               Hoje
             </div>
           )}
         </div>
 
-        <h4 className="mt-2 line-clamp-2 text-[15px] font-black leading-[18px] tracking-tight text-gray-950">
+        <h4 className="mt-2 line-clamp-2 text-[14px] font-black leading-[17px] tracking-tight text-white">
           {product.name}
         </h4>
 
-        <p className="mt-1.5 line-clamp-2 text-[12px] font-medium leading-[17px] text-gray-500">
+        <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-[17px] text-neutral-400">
           {formattedDescription}
         </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
           {isPromotional && (
             <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
               -{getPromotionLabel(discount)}
@@ -921,7 +922,7 @@ function ProductCard({
             )}
 
             {Number(product.price) > 0 && (
-              <span className="text-[15px] font-black leading-none tracking-tight text-blue-700">
+              <span className="text-[15px] font-black leading-none tracking-tight text-yellow-300">
                 A partir de {formatPrice(product.price)}
               </span>
             )}
@@ -929,7 +930,7 @@ function ProductCard({
         </div>
       </div>
 
-      <div className="relative h-[98px] w-[98px] overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+      <div className="relative h-[88px] w-[88px] overflow-hidden rounded-lg border border-yellow-400/20 bg-neutral-900">
         {product.imageUrl ? (
           <>
             <Image
@@ -938,7 +939,7 @@ function ProductCard({
               fill
               loading="lazy"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="98px"
+              sizes="88px"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
           </>
@@ -994,7 +995,7 @@ function ModifierGroupComponent({
           <h4 className="text-sm font-black text-gray-950">{group.name}</h4>
 
           {group.required && (
-            <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
+            <span className="rounded-md bg-yellow-50 px-2 py-0.5 text-[10px] font-black text-black ring-1 ring-yellow-100">
               Obrigatório
             </span>
           )}
@@ -1021,7 +1022,7 @@ function ModifierGroupComponent({
                 onClick={() => onIncrease(option)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-all",
-                  isSelected ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                  isSelected ? "border-yellow-200 bg-yellow-50" : "border-gray-200 bg-white hover:bg-gray-50"
                 )}
                 style={
                   isSelected
@@ -1070,7 +1071,7 @@ function ModifierGroupComponent({
               className={cn(
                 "flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition-all",
                 isSelected
-                  ? "border-blue-200 bg-blue-50"
+                  ? "border-yellow-200 bg-yellow-50"
                   : isDisabled
                     ? "border-gray-100 bg-gray-50 opacity-50"
                     : "border-gray-200 bg-white hover:bg-gray-50"
@@ -1297,7 +1298,7 @@ function ProductModal({
                 )}
 
                 {isScheduledProduct(product) && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-yellow-50 px-2 py-1 text-[10px] font-black text-black ring-1 ring-yellow-100">
                     <Timer className="h-3 w-3" />
                     Disponível hoje
                   </span>
@@ -1316,7 +1317,7 @@ function ProductModal({
                 ) : null}
 
                 {Number(product.price) > 0 && (
-                  <p className="text-base font-black text-blue-700">
+                  <p className="text-base font-black text-yellow-700">
                     A partir de {formatPrice(product.price)}
                   </p>
                 )}
@@ -1349,7 +1350,7 @@ function ProductModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ex: sem cebola, molho à parte..."
-                className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
                 rows={2}
               />
             </div>
@@ -1464,7 +1465,7 @@ function UpsellModal({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
 
           <div className="absolute bottom-0 left-0 right-0 p-5 pr-14">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 shadow-lg">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-700 shadow-lg">
               <Sparkles className="h-3.5 w-3.5" />
               Sugestão da casa
             </span>
@@ -1523,7 +1524,7 @@ function UpsellModal({
                     {product.name}
                   </span>
 
-                  <span className="text-xs font-black text-blue-700">
+                  <span className="text-xs font-black text-yellow-700">
                     + {formatPrice(product.price)}
                   </span>
                 </button>
@@ -2194,7 +2195,7 @@ function LoyaltyProgressCard({
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-orange-300/30 bg-[#111827] text-white shadow-[0_24px_70px_-35px_rgba(0,0,0,0.75)]">
       <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-orange-500/25 blur-3xl" />
-      <div className="absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-blue-600/20 blur-3xl" />
+      <div className="absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-black/20 blur-3xl" />
 
       <div className="relative p-5">
         <div className="flex items-start justify-between gap-4">
@@ -2434,7 +2435,7 @@ function OrderTrackingCard({
 
   return (
     <div className="mx-auto mt-3 max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="overflow-hidden rounded-[24px] border border-blue-100 bg-white shadow-[0_20px_55px_-38px_rgba(15,23,42,0.85)]">
+      <div className="overflow-hidden rounded-[24px] border border-yellow-100 bg-white shadow-[0_20px_55px_-38px_rgba(15,23,42,0.85)]">
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
@@ -2442,7 +2443,7 @@ function OrderTrackingCard({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-600">
                 Pedido #{orderNumber}
               </p>
 
@@ -2493,7 +2494,7 @@ function OrderTrackingCard({
                       <span
                         className={cn(
                           "h-3 w-3 rounded-full transition-all",
-                          isCurrent && "animate-pulse ring-4 ring-blue-100"
+                          isCurrent && "animate-pulse ring-4 ring-yellow-100"
                         )}
                         style={{ backgroundColor: isDone ? accentColor : "#d1d5db" }}
                       />
@@ -2740,7 +2741,7 @@ function CustomerStartModal({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-slate-950 p-5 pr-14 text-white">
+        <div className="relative bg-gradient-to-br from-black via-neutral-950 to-yellow-500 p-5 pr-14 text-white">
           <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 h-44 w-44 rounded-full bg-emerald-400/15 blur-3xl" />
 
@@ -2789,7 +2790,7 @@ function CustomerStartModal({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Seu nome"
-                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
               />
             </div>
 
@@ -2802,7 +2803,7 @@ function CustomerStartModal({
                 onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
-                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
               />
             </div>
 
@@ -2823,7 +2824,7 @@ function CustomerStartModal({
                 onChange={(event) => setDocument(formatCpfPreview(event.target.value))}
                 placeholder="000.000.000-00"
                 maxLength={14}
-                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
               />
             </div>
 
@@ -2890,9 +2891,9 @@ function ProfileLoyaltyCoins({
   const hiddenCoins = Math.max(requiredOrders - visibleCoins, 0)
 
   return (
-    <div className="relative overflow-hidden rounded-[22px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-blue-50 p-4 shadow-[0_18px_50px_-36px_rgba(249,115,22,0.75)]">
+    <div className="relative overflow-hidden rounded-[22px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-yellow-50 p-4 shadow-[0_18px_50px_-36px_rgba(249,115,22,0.75)]">
       <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-orange-300/25 blur-3xl" />
-      <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-blue-400/15 blur-3xl" />
+      <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-yellow-400/15 blur-3xl" />
 
       <div className="relative">
         <div className="flex items-start justify-between gap-3">
@@ -3045,7 +3046,7 @@ function getCustomerOrderStatusClasses(order: CustomerVisibleOrder) {
     return "bg-orange-50 text-orange-700 ring-1 ring-orange-100"
   }
 
-  return "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+  return "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-100"
 }
 
 function CustomerProfileModal({
@@ -3109,9 +3110,9 @@ function CustomerProfileModal({
 
         {!customer ? (
           <div>
-            <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-5 pb-6 pt-6 text-white">
+            <div className="bg-gradient-to-br from-black via-neutral-950 to-yellow-500 px-5 pb-6 pt-6 text-white">
               <div className="flex items-center gap-3 pr-10">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-blue-700 shadow-sm">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-yellow-700 shadow-sm">
                   <UserRound className="h-7 w-7" />
                 </div>
 
@@ -3132,9 +3133,9 @@ function CustomerProfileModal({
             </div>
 
             <div className="p-5">
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <div className="rounded-xl border border-yellow-100 bg-yellow-50 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 shadow-sm ring-1 ring-blue-100">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-yellow-700 shadow-sm ring-1 ring-yellow-100">
                     <Sparkles className="h-5 w-5" />
                   </div>
 
@@ -3170,9 +3171,9 @@ function CustomerProfileModal({
           </div>
         ) : (
           <>
-            <div className="shrink-0 bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 p-5 pr-14 text-white">
+            <div className="shrink-0 bg-gradient-to-br from-black via-neutral-950 to-yellow-500 p-5 pr-14 text-white">
               <div className="flex items-center gap-3">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-blue-700 shadow-sm">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-yellow-700 shadow-sm">
                   <UserRound className="h-8 w-8" />
                 </div>
 
@@ -3202,7 +3203,7 @@ function CustomerProfileModal({
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-4 scrollbar-hide">
               {activeOrder && !activeOrder.customer_received_at && (
-                <div className="mb-4 rounded-xl border border-blue-100 bg-white p-3.5 shadow-sm">
+                <div className="mb-4 rounded-xl border border-yellow-100 bg-white p-3.5 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
@@ -3220,7 +3221,7 @@ function CustomerProfileModal({
 
                     <div className="shrink-0 text-right">
                       <p className="text-xs font-bold text-gray-400">Total</p>
-                      <p className="mt-1 text-base font-black text-blue-700">
+                      <p className="mt-1 text-base font-black text-yellow-700">
                         {formatPrice(Number(activeOrder.total || 0))}
                       </p>
                     </div>
@@ -3229,7 +3230,7 @@ function CustomerProfileModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="mt-3 w-full rounded-xl border border-blue-100 bg-blue-50 py-2.5 text-xs font-black text-blue-700 active:scale-[0.98]"
+                    className="mt-3 w-full rounded-xl border border-yellow-100 bg-yellow-50 py-2.5 text-xs font-black text-yellow-700 active:scale-[0.98]"
                   >
                     Ver detalhes
                   </button>
@@ -3241,7 +3242,7 @@ function CustomerProfileModal({
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                    <Sparkles className="h-4 w-4 text-blue-600" />
+                    <Sparkles className="h-4 w-4 text-yellow-600" />
                     <p className="mt-2 text-[10px] font-bold text-gray-500">Cashback disponível</p>
                     <p className="mt-0.5 text-sm font-black text-gray-950">
                       {formatPrice(cashbackBalance)}
@@ -3249,13 +3250,13 @@ function CustomerProfileModal({
                   </div>
 
                   <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                    <ShoppingBag className="h-4 w-4 text-blue-600" />
+                    <ShoppingBag className="h-4 w-4 text-yellow-600" />
                     <p className="mt-2 text-[10px] font-bold text-gray-500">Pedidos feitos</p>
                     <p className="mt-0.5 text-sm font-black text-gray-950">{orderHistory.length}</p>
                   </div>
 
                   <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                    <Receipt className="h-4 w-4 text-blue-600" />
+                    <Receipt className="h-4 w-4 text-yellow-600" />
                     <p className="mt-2 text-[10px] font-bold text-gray-500">Último pedido</p>
                     <p className="mt-0.5 truncate text-sm font-black text-gray-950">
                       {latestOrder?.created_at ? formatOrderHistoryDate(latestOrder.created_at).slice(0, 10) : "0"}
@@ -3263,7 +3264,7 @@ function CustomerProfileModal({
                   </div>
 
                   <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                    <Star className="h-4 w-4 text-blue-600" />
+                    <Star className="h-4 w-4 text-yellow-600" />
                     <p className="mt-2 text-[10px] font-bold text-gray-500">Fidelidade</p>
                     <p className="mt-0.5 truncate text-sm font-black text-gray-950">{loyaltySummary}</p>
                   </div>
@@ -3337,7 +3338,7 @@ function CustomerProfileModal({
                             <button
                               type="button"
                               onClick={() => onRepeatOrder(order)}
-                              className="mt-3 w-full rounded-xl border border-blue-100 bg-blue-50 py-2.5 text-xs font-black text-blue-700 active:scale-[0.98]"
+                              className="mt-3 w-full rounded-xl border border-yellow-100 bg-yellow-50 py-2.5 text-xs font-black text-yellow-700 active:scale-[0.98]"
                             >
                               Repetir pedido
                             </button>
@@ -3386,6 +3387,7 @@ function CartSheet({
   onClearCart,
   restaurant,
   accentColor,
+  restaurantIsOpen,
   deliveryEnabled,
   pickupEnabled,
   tableNumber,
@@ -3402,6 +3404,7 @@ function CartSheet({
   onClearCart: () => void
   restaurant: PublicRestaurant
   accentColor: string
+  restaurantIsOpen: boolean
   deliveryEnabled: boolean
   pickupEnabled: boolean
   tableNumber?: string | null
@@ -3834,6 +3837,11 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 ])
 
   const validateForm = () => {
+    if (!restaurantIsOpen) {
+      alert(restaurant.closedMessage?.trim() || "Restaurante fechado no momento. Você pode ver o cardápio, mas o pedido só pode ser feito quando a loja estiver aberta.")
+      return false
+    }
+
     if (!customer?.name?.trim()) {
       alert("Cadastre seu nome antes de finalizar.")
       onEditCustomer()
@@ -4286,7 +4294,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
             )}
 
             <div
-              className="flex h-8 w-8 items-center justify-center rounded-full text-white"
+              className="cf-yellow-action flex h-8 w-8 items-center justify-center rounded-full"
               style={{ backgroundColor: accentColor }}
             >
               <ShoppingBag className="h-4 w-4" />
@@ -4297,7 +4305,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
             </h3>
 
             {step === "cart" && items.length > 0 && (
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
+              <span className="cf-count-pill rounded-full px-2 py-0.5 text-xs font-bold">
                 {items.reduce((s, i) => s + i.quantity, 0)}
               </span>
             )}
@@ -4316,7 +4324,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
             <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-yellow-50 text-yellow-600">
                     <ShoppingBag className="h-7 w-7" />
                   </div>
                   <p className="mt-3 text-sm font-black text-gray-700">Carrinho vazio</p>
@@ -4419,12 +4427,23 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
                   <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-black">
                     <span className="text-gray-950">Total</span>
-                    <span className="text-blue-700">{formatPrice(cartPreviewTotal)}</span>
+                    <span className="text-yellow-700">{formatPrice(cartPreviewTotal)}</span>
                   </div>
                 </div>
 
+                {!restaurantIsOpen && (
+                  <div className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs font-black text-yellow-800">
+                    Restaurante fechado agora. Você pode montar o carrinho, mas só consegue finalizar quando abrir.
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
+                    if (!restaurantIsOpen) {
+                      alert(restaurant.closedMessage?.trim() || "Restaurante fechado no momento. Tente novamente no horário de funcionamento.")
+                      return
+                    }
+
                     if (!customer?.name || !isValidBrazilianMobilePhone(customer.phone)) {
                       onEditCustomer()
                       return
@@ -4432,13 +4451,14 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
                     setStep("checkout")
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98]"
-                  style={{
+                  disabled={!restaurantIsOpen}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
+                  style={restaurantIsOpen ? {
                     backgroundColor: accentColor,
                     boxShadow: `0 14px 30px -10px ${accentColor}`,
-                  }}
+                  } : undefined}
                 >
-                  <span className="text-sm font-black">Continuar</span>
+                  <span className="text-sm font-black">{restaurantIsOpen ? "Continuar" : "Restaurante fechado"}</span>
                   <ChevronUp className="h-4 w-4 rotate-90" />
                 </button>
 
@@ -4476,6 +4496,15 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                   </div>
                 </div>
               </div>
+
+              {!restaurantIsOpen && (
+                <div className="rounded-[22px] border border-yellow-200 bg-yellow-50 p-4">
+                  <p className="text-sm font-black text-yellow-900">Restaurante fechado agora</p>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-yellow-800">
+                    O cardápio continua disponível para consulta, mas a finalização do pedido está bloqueada até a loja abrir.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-black uppercase tracking-wide text-gray-500">
@@ -4540,7 +4569,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                   <button
                     type="button"
                     onClick={onEditCustomer}
-                    className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 shadow-sm active:scale-[0.98]"
+                    className="rounded-xl border border-yellow-100 bg-yellow-50 px-3 py-2 text-xs font-black text-yellow-700 shadow-sm active:scale-[0.98]"
                   >
                     Alterar
                   </button>
@@ -4692,7 +4721,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                         <select
                           value={selectedNeighborhoodKey}
                           onChange={(e) => setSelectedNeighborhoodKey(e.target.value)}
-                          className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                          className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
                         >
                           <option value="">Selecione seu bairro</option>
 
@@ -4728,7 +4757,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             : "Rua, número, bairro..."
                         }
                         rows={2}
-                        className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                        className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
                       />
 
                       <p className="mt-2 text-[11px] font-semibold text-gray-400">
@@ -4827,7 +4856,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                           isSelected
                             ? isPixMethod
                               ? "border-emerald-200 bg-emerald-50 shadow-sm"
-                              : "border-blue-200 bg-blue-50 shadow-sm"
+                              : "border-yellow-200 bg-yellow-50 shadow-sm"
                             : "border-gray-200 bg-gray-50 hover:bg-white"
                         )}
                       >
@@ -5031,6 +5060,11 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
               <button
                 onClick={() => {
+  if (!restaurantIsOpen) {
+    alert(restaurant.closedMessage?.trim() || "Restaurante fechado no momento. Tente novamente no horário de funcionamento.")
+    return
+  }
+
   if (isPixPayment) {
     setPixCardOpen(true)
     return
@@ -5043,12 +5077,12 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
   void createManualPaymentOrder()
 }}
-                disabled={isProcessing}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
-                style={{
+                disabled={isProcessing || !restaurantIsOpen}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:opacity-100"
+                style={restaurantIsOpen ? {
                   backgroundColor: checkoutActionColor,
                   boxShadow: `0 16px 30px -14px ${checkoutActionColor}`,
-                }}
+                } : undefined}
               >
                 {isProcessing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -5058,7 +5092,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                   <Check className="h-4 w-4" />
                 )}
 
-                {isProcessing ? "Processando..." : primaryButtonLabel}
+                {!restaurantIsOpen ? "Restaurante fechado no momento" : isProcessing ? "Processando..." : primaryButtonLabel}
               </button>
             </div>
           </>
@@ -5100,7 +5134,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
       )}
     >
       <div className="absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-300/25 blur-3xl" />
-      <div className="absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-blue-300/15 blur-3xl" />
+      <div className="absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-yellow-300/15 blur-3xl" />
 
       <div className="relative pr-10">
         <div
@@ -5605,7 +5639,7 @@ function MobileBottomNav({
 
   return (
     <div className="fixed bottom-3 left-3 right-3 z-40 mx-auto max-w-[480px]">
-      <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-2 py-2 shadow-[0_18px_48px_-28px_rgba(15,23,42,0.7)]">
+      <div className="flex items-center justify-between rounded-2xl border border-yellow-400/20 bg-[#101010] px-2 py-2 shadow-[0_18px_48px_-28px_rgba(250,204,21,0.45)]">
         {items.map((item) => (
           <button
             key={item.label}
@@ -5613,7 +5647,7 @@ function MobileBottomNav({
             onClick={item.onClick}
             className={cn(
               "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-black transition-colors",
-              item.active ? "text-blue-700" : "text-gray-500 hover:text-gray-900"
+              item.active ? "text-yellow-300" : "text-neutral-400 hover:text-yellow-300"
             )}
           >
             <item.icon className="h-4 w-4" />
@@ -5624,12 +5658,12 @@ function MobileBottomNav({
         <button
           type="button"
           onClick={onCart}
-          className="relative ml-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/25 active:scale-[0.98]"
+          className="relative ml-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black text-white shadow-lg shadow-yellow-500/20 active:scale-[0.98]"
           aria-label="Abrir carrinho"
         >
           <ShoppingBag className="h-5 w-5" />
           {cartCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
+            <span className="cf-cart-badge absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-black ring-1 ring-yellow-200">
               {cartCount}
             </span>
           )}
@@ -5679,6 +5713,8 @@ export default function CardapioPublicoPage() {
   const [cartOpen, setCartOpen] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [categorySelectorOpen, setCategorySelectorOpen] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(false)
   const [upsellProducts, setUpsellProducts] = useState<MenuProduct[] | null>(null)
   const [menuCampaigns, setMenuCampaigns] = useState<PublicMenuCampaigns>({
     upsellRules: [],
@@ -6325,20 +6361,27 @@ export default function CardapioPublicoPage() {
     )
   }
 
-  const CLICKFOOD_BLUE = "#2563eb"
+  const CARDAPIO_BLACK = "#050505"
+  const CARDAPIO_YELLOW = "#facc15"
 
-  const themeColor = CLICKFOOD_BLUE
-const accentColor = CLICKFOOD_BLUE
-const isDarkMode = false
+  const themeColor = CARDAPIO_YELLOW
+const accentColor = CARDAPIO_YELLOW
 const minimumOrder = restaurant.minimumOrder ?? 0
 const estimatedDeliveryTime = formatPrepTimeLabel(restaurant)
 const deliveryEnabled = restaurant.deliveryEnabled ?? true
 const pickupEnabled = restaurant.pickupEnabled ?? true
 const startingDeliveryFee = getStartingDeliveryFee(restaurant)
-const floatingCartBgColor = accentColor
-const floatingCartTextColor = "#ffffff"
-const floatingCartNumberColor = "#ffffff"
+const floatingCartBgColor = CARDAPIO_YELLOW
+const floatingCartTextColor = CARDAPIO_BLACK
+const floatingCartNumberColor = CARDAPIO_BLACK
 const restaurantIsOpen = isOpenNow(restaurant)
+const operatingHoursLabel = restaurant.openTime && restaurant.closeTime
+  ? `${restaurant.openTime.slice(0, 5)} às ${restaurant.closeTime.slice(0, 5)}`
+  : "Horário não informado"
+const selectedCategoryName =
+  filteredCategories.find((category) => category.id === activeCategory)?.name ??
+  filteredCategories[0]?.name ??
+  "Lista de categorias"
 
 
 const openCustomerAccessModal = (
@@ -6550,11 +6593,143 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 }
 
   return (
-    <div className={cn("min-h-screen pb-32", isDarkMode ? "bg-neutral-950" : "bg-gray-50")}>
+    <div className="clickfood-public-menu min-h-screen bg-[#080808] pb-32">
+      <style jsx global>{`
+        .clickfood-public-menu {
+          color: #f8fafc;
+          background: #070707;
+        }
+
+        .clickfood-public-menu .bg-white,
+        .clickfood-public-menu .bg-white\/95,
+        .clickfood-public-menu .bg-white\/90,
+        .clickfood-public-menu .bg-gray-50,
+        .clickfood-public-menu .bg-gray-100 {
+          background-color: #111111 !important;
+        }
+
+        .clickfood-public-menu .bg-gray-200,
+        .clickfood-public-menu .bg-gray-300 {
+          background-color: #262626 !important;
+        }
+
+        .clickfood-public-menu .border-gray-100,
+        .clickfood-public-menu .border-gray-200,
+        .clickfood-public-menu .border-gray-300 {
+          border-color: rgba(250, 204, 21, 0.18) !important;
+        }
+
+        .clickfood-public-menu .ring-gray-100,
+        .clickfood-public-menu .ring-gray-200 {
+          --tw-ring-color: rgba(250, 204, 21, 0.18) !important;
+        }
+
+        .clickfood-public-menu .text-gray-950,
+        .clickfood-public-menu .text-gray-900,
+        .clickfood-public-menu .text-gray-800,
+        .clickfood-public-menu .text-gray-700,
+        .clickfood-public-menu .text-gray-600 {
+          color: #f8fafc !important;
+        }
+
+        .clickfood-public-menu .text-gray-500,
+        .clickfood-public-menu .text-gray-400,
+        .clickfood-public-menu .text-neutral-400,
+        .clickfood-public-menu .text-neutral-500 {
+          color: #a3a3a3 !important;
+        }
+
+        .clickfood-public-menu .text-blue-700,
+        .clickfood-public-menu .text-blue-600,
+        .clickfood-public-menu .text-orange-700,
+        .clickfood-public-menu .text-yellow-700,
+        .clickfood-public-menu .text-yellow-600 {
+          color: #facc15 !important;
+        }
+
+        .clickfood-public-menu input,
+        .clickfood-public-menu textarea,
+        .clickfood-public-menu select {
+          background-color: #171717 !important;
+          border-color: rgba(250, 204, 21, 0.24) !important;
+          color: #f8fafc !important;
+        }
+
+        .clickfood-public-menu input::placeholder,
+        .clickfood-public-menu textarea::placeholder {
+          color: #737373 !important;
+        }
+
+        .clickfood-public-menu button[style*="250, 204, 21"],
+        .clickfood-public-menu a[style*="250, 204, 21"],
+        .clickfood-public-menu button[style*="facc15"],
+        .clickfood-public-menu a[style*="facc15"],
+        .clickfood-public-menu button[style*="250, 204, 21"] *,
+        .clickfood-public-menu a[style*="250, 204, 21"] *,
+        .clickfood-public-menu button[style*="facc15"] *,
+        .clickfood-public-menu a[style*="facc15"] *,
+        .clickfood-public-menu .cf-yellow-action,
+        .clickfood-public-menu .cf-yellow-action *,
+        .clickfood-public-menu .cf-cart-badge,
+        .clickfood-public-menu .cf-cart-badge *,
+        .clickfood-public-menu .cf-count-pill,
+        .clickfood-public-menu .cf-count-pill * {
+          color: #050505 !important;
+        }
+
+        .clickfood-public-menu .cf-yellow-action,
+        .clickfood-public-menu .cf-cart-badge,
+        .clickfood-public-menu .cf-count-pill {
+          background-color: #facc15 !important;
+          border-color: #facc15 !important;
+        }
+
+        .clickfood-public-menu .cf-dark-card {
+          background-color: #111111 !important;
+          border-color: rgba(250, 204, 21, 0.18) !important;
+        }
+
+        .clickfood-public-menu .cf-soft-card {
+          background-color: #151515 !important;
+          border-color: rgba(250, 204, 21, 0.14) !important;
+        }
+
+        .clickfood-public-menu .cf-logo-shell,
+        .clickfood-public-menu .cf-profile-button {
+          background-color: #ffffff !important;
+          border-color: #ffffff !important;
+          color: #111827 !important;
+        }
+
+        .clickfood-public-menu .cf-profile-button svg {
+          color: #111827 !important;
+        }
+
+        .clickfood-public-menu .bg-yellow-50,
+        .clickfood-public-menu .bg-yellow-100,
+        .clickfood-public-menu .bg-blue-50,
+        .clickfood-public-menu .bg-blue-100 {
+          background-color: rgba(250, 204, 21, 0.12) !important;
+        }
+
+        .clickfood-public-menu .bg-emerald-50,
+        .clickfood-public-menu .bg-orange-50,
+        .clickfood-public-menu .bg-red-50,
+        .clickfood-public-menu .bg-amber-50 {
+          background-color: rgba(23, 23, 23, 0.95) !important;
+        }
+
+        .clickfood-public-menu .shadow-sm,
+        .clickfood-public-menu .shadow-md,
+        .clickfood-public-menu .shadow-lg,
+        .clickfood-public-menu .shadow-2xl {
+          box-shadow: 0 18px 55px -38px rgba(250, 204, 21, 0.8) !important;
+        }
+      `}</style>
       <div className="mx-auto max-w-[480px] px-3 pt-3">
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="relative h-[178px] overflow-hidden bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-[#101010] shadow-[0_24px_70px_-45px_rgba(250,204,21,0.75)]">
+            <div className="relative h-[156px] overflow-hidden bg-black">
               {restaurant.coverImageUrl ? (
                 <Image
                   src={restaurant.coverImageUrl}
@@ -6596,7 +6771,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               <button
                 type="button"
                 onClick={() => setProfileModalOpen(true)}
-                className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/95 text-gray-950 shadow-sm backdrop-blur-md transition-transform active:scale-95"
+                className="cf-profile-button absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition-transform active:scale-95"
                 aria-label="Acessar minha conta"
               >
                 <UserRound className="h-5 w-5" />
@@ -6611,7 +6786,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
             <div className="relative px-4 pb-4 text-center">
               <div className="-mt-10 flex justify-center">
-                <div className="flex h-[86px] w-[86px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-md ring-1 ring-gray-200">
+                <div className="cf-logo-shell flex h-[86px] w-[86px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 shadow-md ring-1 ring-gray-200">
                   {restaurant.logoUrl && !logoFailedToLoad ? (
                     <Image
                       src={restaurant.logoUrl}
@@ -6632,11 +6807,11 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 </div>
               </div>
 
-              <h1 className="mt-2 truncate text-[24px] font-black leading-tight tracking-tight text-gray-950">
+              <h1 className="mt-2 truncate text-[24px] font-black leading-tight tracking-tight text-white">
                 {restaurant.name}
               </h1>
 
-              <p className="mt-1 text-sm font-semibold text-gray-500">
+              <p className="mt-1 text-sm font-semibold text-neutral-400">
                 {deliveryEnabled ? "Delivery" : pickupEnabled ? "Retirada" : "Cardápio"} •{" "}
                 <span className={restaurantIsOpen ? "text-emerald-600" : "text-red-600"}>
                   {restaurantIsOpen ? "Aberto agora" : "Fechado agora"}
@@ -6644,35 +6819,35 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               </p>
 
               <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2.5 text-left shadow-sm">
-                  <Truck className="h-4 w-4 text-blue-600" />
-                  <p className="mt-1 text-[9px] font-black text-gray-400">
+                <div className="rounded-xl border border-yellow-400/20 bg-[#080808] px-2.5 py-2.5 text-left shadow-sm">
+                  <Truck className="h-4 w-4 text-yellow-600" />
+                  <p className="mt-1 text-[9px] font-black text-neutral-500">
                     Entrega
                   </p>
 
-                  <p className="mt-1 truncate text-sm font-black text-gray-950">
+                  <p className="mt-1 truncate text-sm font-black text-white">
                     {deliveryEnabled ? formatPrice(startingDeliveryFee) : "No local"}
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2.5 text-left shadow-sm">
-                  <Timer className="h-4 w-4 text-blue-600" />
-                  <p className="mt-1 text-[9px] font-black text-gray-400">
+                <div className="rounded-xl border border-yellow-400/20 bg-[#080808] px-2.5 py-2.5 text-left shadow-sm">
+                  <Timer className="h-4 w-4 text-yellow-600" />
+                  <p className="mt-1 text-[9px] font-black text-neutral-500">
                     Tempo
                   </p>
 
-                  <p className="mt-1 truncate text-sm font-black text-gray-950">
+                  <p className="mt-1 truncate text-sm font-black text-white">
                     {estimatedDeliveryTime}
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2.5 text-left shadow-sm">
-                  <ShoppingBag className="h-4 w-4 text-blue-600" />
-                  <p className="mt-1 text-[9px] font-black text-gray-400">
+                <div className="rounded-xl border border-yellow-400/20 bg-[#080808] px-2.5 py-2.5 text-left shadow-sm">
+                  <ShoppingBag className="h-4 w-4 text-yellow-600" />
+                  <p className="mt-1 text-[9px] font-black text-neutral-500">
                     Mínimo
                   </p>
 
-                  <p className="mt-1 truncate text-sm font-black text-gray-950">
+                  <p className="mt-1 truncate text-sm font-black text-white">
                     {formatPrice(minimumOrder)}
                   </p>
                 </div>
@@ -6682,83 +6857,155 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         </div>
 
         {!restaurantIsOpen && (
-          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {restaurant.closedMessage?.trim()
-              ? restaurant.closedMessage
-              : "Estamos fechados no momento. Voltamos em breve!"}
+          <div className="mt-3 rounded-2xl border border-yellow-300/30 bg-yellow-300/10 px-4 py-3 text-sm font-semibold text-yellow-100 shadow-[0_18px_45px_-35px_rgba(250,204,21,0.9)]">
+            <p className="font-black text-yellow-300">Restaurante fechado no momento</p>
+            <p className="mt-1 text-xs leading-relaxed text-white/70">
+              {restaurant.closedMessage?.trim()
+                ? restaurant.closedMessage
+                : `Você pode consultar o cardápio, mas os pedidos só ficam liberados no horário de funcionamento: ${operatingHoursLabel}.`}
+            </p>
           </div>
         )}
 
         <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150">
-          <div className="group relative">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-blue-600" />
+          <div className="grid grid-cols-[1fr_58px] gap-3">
+            <button
+              type="button"
+              onClick={() => setCategorySelectorOpen((current) => !current)}
+              className="flex h-[58px] items-center justify-between rounded-2xl border border-yellow-400/20 bg-[#111111] px-4 text-left shadow-[0_18px_45px_-38px_rgba(250,204,21,0.8)] active:scale-[0.99]"
+            >
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-yellow-400">
+                  Categorias
+                </p>
+                <p className="mt-0.5 truncate text-sm font-black text-white">
+                  {selectedCategoryName}
+                </p>
+              </div>
 
-            <input
-              ref={searchInputRef}
-              id="menu-search"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar no cardápio..."
-              className="w-full rounded-xl border border-gray-200 bg-white py-3.5 pl-11 pr-4 text-sm font-semibold text-gray-900 shadow-sm transition-all duration-200 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100"
-            />
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 shrink-0 text-yellow-300 transition-transform",
+                  categorySelectorOpen && "rotate-180"
+                )}
+              />
+            </button>
 
-            {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchExpanded((current) => !current)
+                window.setTimeout(() => searchInputRef.current?.focus(), 80)
+              }}
+              className="flex h-[58px] items-center justify-center rounded-2xl border border-yellow-400/20 bg-[#111111] text-yellow-300 shadow-[0_18px_45px_-38px_rgba(250,204,21,0.8)] active:scale-[0.99]"
+              aria-label="Buscar no cardápio"
+            >
+              <Search className="h-6 w-6" />
+            </button>
+          </div>
+
+          {categorySelectorOpen && filteredCategories.length > 0 && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-yellow-400/20 bg-[#111111] p-2 shadow-[0_20px_55px_-40px_rgba(250,204,21,0.85)] animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="max-h-[280px] overflow-y-auto pr-1 scrollbar-hide">
+                {filteredCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveCategory(cat.id)
+                      setCategorySelectorOpen(false)
+                      scrollToCategory(cat.id)
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-all active:scale-[0.99]",
+                      activeCategory === cat.id
+                        ? "cf-yellow-action shadow-[0_14px_30px_-22px_rgba(250,204,21,0.9)]"
+                        : "text-neutral-300 hover:bg-white/5 hover:text-yellow-300"
+                    )}
+                  >
+                    <span className="truncate text-sm font-black">{cat.name}</span>
+                    <span
+                      className={cn(
+                        "cf-count-pill rounded-full px-2 py-0.5 text-[10px] font-black",
+                        activeCategory === cat.id
+                          ? ""
+                          : "!bg-white/10 !text-yellow-300"
+                      )}
+                    >
+                      {cat.products.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(searchExpanded || searchQuery) && (
+            <div className="group relative mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-yellow-400" />
+
+              <input
+                ref={searchInputRef}
+                id="menu-search"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar item no cardápio..."
+                className="w-full rounded-2xl border border-yellow-400/20 bg-[#111111] py-4 pl-11 pr-12 text-sm font-semibold text-white shadow-sm transition-all duration-200 placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-4 focus:ring-yellow-400/10"
+              />
+
               <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 transition-colors hover:bg-gray-100"
+                type="button"
+                onClick={() => {
+                  if (searchQuery) {
+                    setSearchQuery("")
+                    return
+                  }
+
+                  setSearchExpanded(false)
+                }}
+                className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl border border-yellow-400/15 bg-black text-neutral-300 transition-colors hover:text-yellow-300"
+                aria-label="Fechar busca"
               >
-                <X className="h-4 w-4 text-gray-400" />
+                <X className="h-4 w-4" />
               </button>
+            </div>
+          )}
+
+          <div className="mt-3 grid gap-3">
+            <div className="flex items-center justify-between rounded-2xl border border-yellow-400/15 bg-[#111111] px-4 py-4 shadow-[0_18px_45px_-40px_rgba(250,204,21,0.75)]">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-300 ring-1 ring-yellow-400/20">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">Calcular taxa e tempo de entrega</p>
+                  <p className="mt-0.5 text-xs font-semibold text-neutral-400">
+                    A partir de {formatPrice(startingDeliveryFee)} • {estimatedDeliveryTime}
+                  </p>
+                </div>
+              </div>
+              <ChevronUp className="h-5 w-5 rotate-90 text-yellow-300" />
+            </div>
+
+            {customerLoyalty?.loyalty_campaigns?.is_active && (
+              <div className="rounded-2xl border border-yellow-400/15 bg-[#111111] p-4 shadow-[0_18px_45px_-40px_rgba(250,204,21,0.75)]">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-300 ring-1 ring-yellow-400/20">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">Troque pontos por recompensas</p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-neutral-400">
+                      Continue comprando para acumular selos e liberar benefícios neste restaurante.
+                    </p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
       </div>
-      {/* BLOCO: categorias fixas no topo ao rolar */}
-      {filteredCategories.length > 1 && (
-        <div className="sticky top-0 z-30 mt-5 border-y border-gray-100/80 bg-gray-50/85 py-2 backdrop-blur-xl">
-          <div className="mx-auto max-w-[480px] px-3">
-            <div
-              ref={categoryNavRef}
-              className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
-            >
-              {filteredCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  id={`tab-${cat.id}`}
-                  onClick={() => scrollToCategory(cat.id)}
-                  className={cn(
-                    "group flex shrink-0 items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-black transition-all duration-200 active:scale-[0.98]",
-                    activeCategory === cat.id
-                      ? "border-transparent text-white shadow-[0_14px_30px_-18px_rgba(37,99,235,0.95)]"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-950"
-                  )}
-                  style={
-                    activeCategory === cat.id
-                      ? {
-                          backgroundColor: themeColor,
-                        }
-                      : undefined
-                  }
-                >
-                  <span>{cat.name}</span>
-                  <span
-                    className={cn(
-                      "rounded-md px-2 py-0.5 text-[10px] font-black",
-                      activeCategory === cat.id
-                        ? "bg-white/20 text-white"
-                        : "bg-gray-100 text-gray-400 group-hover:text-gray-600"
-                    )}
-                  >
-                    {cat.products.length}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="mx-auto max-w-[480px] px-3">
         <FeaturedOffersSection
           items={featuredProducts}
@@ -6794,16 +7041,16 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           >
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-500">
                   Categoria
                 </p>
 
-                <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">
+                <h2 className="mt-1 text-xl font-black tracking-tight text-white">
                   {category.name}
                 </h2>
               </div>
 
-              <span className="shrink-0 rounded-lg bg-white px-3 py-1 text-xs font-black text-gray-500 ring-1 ring-gray-200">
+              <span className="shrink-0 rounded-lg bg-white/10 px-3 py-1 text-xs font-black text-yellow-300 ring-1 ring-white/10">
                 {category.products.length}{" "}
                 {category.products.length === 1 ? "item" : "itens"}
               </span>
@@ -6848,11 +7095,14 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         activeOrder={activeOrder}
         onMenu={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         onSearch={() => {
-          document.getElementById("menu-search")?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          })
-          searchInputRef.current?.focus()
+          setSearchExpanded(true)
+          window.setTimeout(() => {
+            document.getElementById("menu-search")?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            })
+            searchInputRef.current?.focus()
+          }, 80)
         }}
         onOrders={() => setProfileModalOpen(true)}
         onProfile={() => setProfileModalOpen(true)}
@@ -6942,6 +7192,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         onClearCart={() => setCart([])}
         restaurant={restaurant}
         accentColor={themeColor}
+        restaurantIsOpen={restaurantIsOpen}
         deliveryEnabled={deliveryEnabled}
         pickupEnabled={pickupEnabled}
         tableNumber={tableNumber}

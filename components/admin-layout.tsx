@@ -27,20 +27,25 @@ interface AdminLayoutProps {
 
 type RestaurantContext = {
   id?: string | null
+  name?: string | null
+  restaurant_name?: string | null
+  logo_url?: string | null
+  logoUrl?: string | null
 }
 
-const CLICKFOOD_LOGO_URL = "/logo.png"
-
 const breadcrumbMap: Record<string, string> = {
-  "/": "Gestão",
-  "/gestao": "Gestão",
+  "/": "Pedidos",
+  "/gestao": "Painel",
 
   // Operação
+  "/novo-pedido": "Novo pedido",
   "/pedidos": "Pedidos",
-  "/mesas": "Mesas",
   "/entregas": "Entregas",
+  "/kds": "KDS",
 
-  // Cardápio e Vendas
+  // Cardápio e vendas
+  "/divulgar-cardapio": "Cardápio",
+  "/produtos": "Produtos",
   "/clientes": "Clientes",
   "/cupons": "Cupons",
   "/checkout": "Checkout",
@@ -51,9 +56,9 @@ const breadcrumbMap: Record<string, string> = {
   "/campanhas/fidelidade": "Fidelidade",
   "/campanhas/cashback": "Cashback",
 
-  // Gestão
-  "/funcionarios": "Funcionários",
+  // Gestão interna
   "/fornecedores": "Fornecedores",
+  "/financeiro/controle-estoque": "Estoque",
   "/controle-estoque": "Controle de estoque",
   "/ficha-tecnica": "Ficha técnica",
   "/perdas-desperdicio": "Perdas e desperdício",
@@ -61,21 +66,25 @@ const breadcrumbMap: Record<string, string> = {
 
   // Financeiro
   "/financeiro": "Finanças",
-  "/financeiro/caixa": "Caixa do dia",
-  "/financeiro/recebimentos": "Recebimentos",
   "/financeiro/contas-a-pagar": "Contas a pagar",
   "/financeiro/despesas": "Despesas",
-  "/financeiro/cmv": "CMV e margem",
-
-  // Crescimento
-  "/crescimento": "Crescimento",
-  "/crescimento/ranking-produtos": "Ranking de produtos",
-  "/crescimento/clientes-sumidos": "Clientes sumidos",
-  "/crescimento/radar-bairros": "Radar de bairros",
-  "/crescimento/alertas": "Alertas inteligentes",
+  "/financeiro/relatorios": "Relatórios",
 
   // Configurações
+  "/entregadores": "Entregadores",
   "/configuracoes": "Configurações",
+}
+
+function getInitials(name: string) {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (words.length === 0) return "AD"
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase()
 }
 
 export default function AdminLayout({ children, title }: AdminLayoutProps) {
@@ -106,21 +115,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     "Administrador"
 
   const userEmail = user?.email || "admin@empresa.com"
+  const userInitials = getInitials(userName)
 
-  const userInitials =
-    userName
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((word: string) => word[0])
-      .join("")
-      .toUpperCase() || "AD"
+  const brandName =
+    restaurantFromAuth?.name ||
+    restaurantFromAuth?.restaurant_name ||
+    "Sistema do restaurante"
+
+  const brandLogoUrl = restaurantFromAuth?.logo_url || restaurantFromAuth?.logoUrl || null
+  const brandInitials = getInitials(brandName)
 
   const currentPage =
     title ||
     breadcrumbMap[pathname] ||
     pathname.replace("/", "").charAt(0).toUpperCase() + pathname.slice(2)
-  const isGestaoDashboard = pathname === "/gestao"
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => !prev)
@@ -157,8 +165,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     }
 
     toast.success("Som de pedidos ativado", {
-      description:
-        "Agora a ClickFood vai tocar um sino quando chegar pedido novo.",
+      description: "O sistema vai tocar um alerta quando chegar pedido novo.",
     })
   }, [playOrderBellSound])
 
@@ -192,7 +199,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
   useEffect(() => {
     setBrandLogoFailed(false)
-  }, [])
+  }, [brandLogoUrl])
 
   useEffect(() => {
     soundAlertsEnabledRef.current = soundAlertsEnabled
@@ -299,12 +306,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   }, [])
 
   return (
-    <div
-      className={cn(
-        "min-h-screen",
-        isGestaoDashboard ? "bg-slate-950" : "bg-slate-50",
-      )}
-    >
+    <div className="restaurant-admin-theme min-h-screen bg-black text-white">
       <div className="hidden md:block">
         <AdminSidebar
           isCollapsed={isCollapsed}
@@ -316,7 +318,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         {isMobileOpen && (
           <>
             <div
-              className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm"
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
               onClick={closeMobileSidebar}
             />
 
@@ -336,103 +338,66 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           isCollapsed && "md:ml-[72px] md:w-[calc(100%-72px)]",
         )}
       >
-        <header
-          className={cn(
-            "sticky top-0 z-30 border-b backdrop-blur-xl",
-            isGestaoDashboard
-              ? "border-slate-800 bg-slate-950/95"
-              : "border-slate-200 bg-white/95",
-          )}
-        >
+        <header className="sticky top-0 z-30 border-b border-zinc-800 bg-black/95 shadow-sm shadow-black/30 backdrop-blur-xl">
           <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                  className={cn(
-                    "inline-flex h-10 w-10 items-center justify-center rounded-xl border transition md:hidden",
-                    isGestaoDashboard
-                      ? "border-slate-700 bg-slate-900 text-slate-200 hover:border-blue-500/40 hover:bg-slate-800"
-                      : "border-slate-200 bg-white text-blue-700 hover:border-blue-200 hover:bg-blue-50",
-                  )}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950 text-white transition hover:border-yellow-400 hover:bg-yellow-400 hover:text-black md:hidden"
                 aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div
-                className={cn(
-                  "hidden items-center gap-4 sm:flex",
-                  isGestaoDashboard && "sm:hidden",
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-11 items-center overflow-hidden rounded-xl border px-3 shadow-sm",
-                    isGestaoDashboard
-                      ? "border-slate-800 bg-slate-900"
-                      : "border-slate-200 bg-white",
-                  )}
+              <div className="hidden min-w-0 items-center gap-4 sm:flex">
+                <Link
+                  href="/pedidos"
+                  className="flex min-w-0 items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-2 shadow-sm shadow-black/20 transition hover:border-yellow-400 hover:bg-zinc-900"
                 >
-                  {!brandLogoFailed ? (
-                    <img
-                      src={CLICKFOOD_LOGO_URL}
-                      alt="ClickFood"
-                      className="h-8 w-auto object-contain"
-                      onError={() => setBrandLogoFailed(true)}
-                    />
-                  ) : (
-                    <span className="text-sm font-bold text-slate-900">
-                      ClickFood
-                    </span>
-                  )}
-                </div>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-yellow-400/40 bg-yellow-400 text-xs font-black text-black">
+                    {brandLogoUrl && !brandLogoFailed ? (
+                      <img
+                        src={brandLogoUrl}
+                        alt={brandName}
+                        className="h-full w-full object-cover"
+                        onError={() => setBrandLogoFailed(true)}
+                      />
+                    ) : (
+                      <span>{brandInitials}</span>
+                    )}
+                  </div>
 
-                <div
-                  className={cn(
-                    "hidden h-7 w-px lg:block",
-                    isGestaoDashboard ? "bg-slate-800" : "bg-slate-200",
-                  )}
-                />
+                  <div className="hidden min-w-0 lg:block">
+                    <p className="truncate text-sm font-black leading-none text-white">
+                      {brandName}
+                    </p>
+                    <p className="mt-1 truncate text-xs font-semibold leading-none text-zinc-400">
+                      Sistema operacional
+                    </p>
+                  </div>
+                </Link>
+
+                <div className="hidden h-7 w-px bg-zinc-800 lg:block" />
 
                 <div className="hidden min-w-0 items-center gap-2 lg:flex">
                   <Link
-                    href="/gestao"
-                    className={cn(
-                      "text-sm font-medium transition",
-                      isGestaoDashboard
-                        ? "text-slate-500 hover:text-slate-200"
-                        : "text-slate-500 hover:text-blue-700",
-                    )}
+                    href="/pedidos"
+                    className="text-sm font-bold text-zinc-400 transition hover:text-yellow-300"
                   >
-                    Gestão
+                    Painel
                   </Link>
 
-                  <ChevronRight
-                    className={cn(
-                      "h-4 w-4",
-                      isGestaoDashboard ? "text-slate-700" : "text-slate-300",
-                    )}
-                  />
+                  <ChevronRight className="h-4 w-4 text-zinc-700" />
 
-                  <span
-                    className={cn(
-                      "truncate text-sm font-bold",
-                      isGestaoDashboard ? "text-white" : "text-slate-900",
-                    )}
-                  >
+                  <span className="truncate text-sm font-black text-white">
                     {currentPage}
                   </span>
                 </div>
               </div>
 
               <div className="min-w-0 sm:hidden">
-                <p
-                  className={cn(
-                    "truncate text-base font-bold",
-                    isGestaoDashboard ? "text-white" : "text-slate-900",
-                  )}
-                >
+                <p className="truncate text-base font-black text-white">
                   {currentPage}
                 </p>
               </div>
@@ -443,12 +408,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <button
                   type="button"
                   onClick={handleEnableAlerts}
-                  className={cn(
-                    "inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-bold transition",
-                    isGestaoDashboard
-                      ? "border-orange-500/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/15"
-                      : "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100",
-                  )}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-yellow-400/50 bg-yellow-400 px-3 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300"
                 >
                   <Volume2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Ativar alertas</span>
@@ -461,43 +421,33 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   onClick={() => {
                     setProfileOpen((prev) => !prev)
                   }}
-                  className={cn(
-                    "inline-flex h-10 items-center gap-2 rounded-xl border px-2 transition",
-                    isGestaoDashboard
-                      ? "border-slate-800 bg-slate-900 hover:border-blue-500/40 hover:bg-slate-800"
-                      : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50",
-                  )}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-2 transition hover:border-yellow-400 hover:bg-zinc-900"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-black">
                     {userInitials}
                   </div>
 
                   <div className="hidden text-left md:block">
-                    <p
-                      className={cn(
-                        "max-w-[140px] truncate text-sm font-bold leading-none",
-                        isGestaoDashboard ? "text-white" : "text-slate-800",
-                      )}
-                    >
+                    <p className="max-w-[140px] truncate text-sm font-black leading-none text-white">
                       {userName}
                     </p>
 
-                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-slate-500">
+                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-zinc-400">
                       {userEmail}
                     </p>
                   </div>
 
-                  <ChevronDown className="hidden h-4 w-4 text-slate-400 md:block" />
+                  <ChevronDown className="hidden h-4 w-4 text-zinc-500 md:block" />
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
-                    <div className="border-b border-slate-100 px-3 py-3">
-                      <p className="truncate text-sm font-bold text-slate-900">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-xl shadow-black/30">
+                    <div className="border-b border-zinc-800 px-3 py-3">
+                      <p className="truncate text-sm font-black text-white">
                         {userName}
                       </p>
 
-                      <p className="mt-1 truncate text-xs text-slate-500">
+                      <p className="mt-1 truncate text-xs text-zinc-400">
                         {userEmail}
                       </p>
                     </div>
@@ -508,7 +458,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-300 transition hover:bg-yellow-400 hover:text-black"
                     >
                       <User className="h-4 w-4" />
                       Perfil
@@ -520,19 +470,19 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-300 transition hover:bg-yellow-400 hover:text-black"
                     >
                       <Settings className="h-4 w-4" />
                       Configurações
                     </button>
 
-                    <div className="my-2 h-px bg-slate-200" />
+                    <div className="my-2 h-px bg-zinc-800" />
 
                     <button
                       type="button"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-400 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <LogOut className="h-4 w-4" />
                       {isLoggingOut ? "Saindo..." : "Sair"}
@@ -544,15 +494,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className={cn("p-4 md:p-6", isGestaoDashboard && "bg-slate-950")}>
-          <div
-            className={cn(
-              "mx-auto w-full",
-              isGestaoDashboard ? "max-w-[1500px]" : "max-w-7xl",
-            )}
-          >
-            {children}
-          </div>
+        <main className="bg-black p-4 md:p-6">
+          <div className="mx-auto w-full max-w-[1500px]">{children}</div>
         </main>
       </div>
     </div>
