@@ -709,29 +709,29 @@ const mergedCampaign = {
   return (
     <AdminLayout>
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
               <WalletCards className="h-5 w-5" />
             </div>
 
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold text-slate-950">
+                <h1 className="text-lg font-semibold text-white">
                   Cashback
                 </h1>
                 <span
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-semibold",
                     campaignForm.enabled
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-slate-100 text-slate-600",
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-[#111111] text-zinc-500",
                   )}
                 >
                   {campaignForm.enabled ? "Ativo" : "Pausado"}
                 </span>
               </div>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-zinc-500">
                 Configure cashback para trazer o cliente de volta sem complicar o checkout.
               </p>
             </div>
@@ -770,19 +770,19 @@ const mergedCampaign = {
 
         <form
           onSubmit={handleSaveCampaign}
-          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm"
         >
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#111111] text-zinc-500">
                 <SlidersHorizontal className="h-4 w-4" />
               </div>
 
               <div>
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="font-semibold text-white">
                   Regras da campanha
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   O cliente usa o cashback inteiro ou não usa. Sem valor parcial.
                 </p>
               </div>
@@ -799,29 +799,29 @@ const mergedCampaign = {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-lg border border-white/10 bg-[#111111] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Regra atual
               </p>
 
-              <p className="mt-2 text-sm leading-6 text-slate-700">
-                Compra acima de <strong className="text-slate-950">{formatCurrency(campaignNumbers.earnMinimumOrder)}</strong> ganha <strong className="text-emerald-700">{formatCurrency(campaignNumbers.cashbackAmount)}</strong>. Para usar, o próximo pedido precisa ser acima de <strong className="text-slate-950">{formatCurrency(campaignNumbers.redeemMinimumOrder)}</strong>.
+              <p className="mt-2 text-sm leading-6 text-zinc-500">
+                Compra acima de <strong className="text-white">{formatCurrency(campaignNumbers.earnMinimumOrder)}</strong> ganha <strong className="text-emerald-400">{formatCurrency(campaignNumbers.cashbackAmount)}</strong>. Para usar, o próximo pedido precisa ser acima de <strong className="text-white">{formatCurrency(campaignNumbers.redeemMinimumOrder)}</strong>.
               </p>
 
               <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-md border border-slate-200 bg-white p-2">
-                  <p className="text-[11px] text-slate-500">Uso</p>
-                  <strong className="text-xs text-slate-950">Tudo ou nada</strong>
+                <div className="rounded-md border border-white/10 bg-[#0A0A0A] p-2">
+                  <p className="text-[11px] text-zinc-500">Uso</p>
+                  <strong className="text-xs text-white">Tudo ou nada</strong>
                 </div>
 
-                <div className="rounded-md border border-slate-200 bg-white p-2">
-                  <p className="text-[11px] text-slate-500">Limite</p>
-                  <strong className="text-xs text-slate-950">1x por cliente</strong>
+                <div className="rounded-md border border-white/10 bg-[#0A0A0A] p-2">
+                  <p className="text-[11px] text-zinc-500">Limite</p>
+                  <strong className="text-xs text-white">1x por cliente</strong>
                 </div>
 
-                <div className="rounded-md border border-slate-200 bg-white p-2">
-                  <p className="text-[11px] text-slate-500">Retorno</p>
-                  <strong className="text-xs text-slate-950">
+                <div className="rounded-md border border-white/10 bg-[#0A0A0A] p-2">
+                  <p className="text-[11px] text-zinc-500">Retorno</p>
+                  <strong className="text-xs text-white">
                     {averageCashbackRate.toFixed(1).replace(".", ",")}%
                   </strong>
                 </div>
@@ -898,7 +898,7 @@ const mergedCampaign = {
                 />
               </div>
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 md:col-span-2">
+              <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-3 text-sm text-yellow-400 md:col-span-2">
                 <strong>Regra fixa:</strong> se o cliente usar cashback no pedido, ele não escolhe valor parcial.
               </div>
             </div>
@@ -906,49 +906,49 @@ const mergedCampaign = {
         </form>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
               <WalletCards className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm text-slate-500">Saldo disponível</p>
-              <strong className="text-xl font-semibold text-slate-950">
+              <p className="text-sm text-zinc-500">Saldo disponível</p>
+              <strong className="text-xl font-semibold text-white">
                 {formatCurrency(totals.balance)}
               </strong>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm text-slate-500">Clientes com saldo</p>
-              <strong className="text-xl font-semibold text-slate-950">
+              <p className="text-sm text-zinc-500">Clientes com saldo</p>
+              <strong className="text-xl font-semibold text-white">
                 {totals.activeWallets}
               </strong>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
               <Gift className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm text-slate-500">Total gerado</p>
-              <strong className="text-xl font-semibold text-emerald-600">
+              <p className="text-sm text-zinc-500">Total gerado</p>
+              <strong className="text-xl font-semibold text-emerald-400">
                 {formatCurrency(totals.totalEarned)}
               </strong>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 text-orange-700">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
               <Target className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm text-slate-500">Total utilizado</p>
-              <strong className="text-xl font-semibold text-orange-600">
+              <p className="text-sm text-zinc-500">Total utilizado</p>
+              <strong className="text-xl font-semibold text-yellow-400">
                 {formatCurrency(totals.totalRedeemed)}
               </strong>
             </div>
@@ -957,19 +957,19 @@ const mergedCampaign = {
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="font-semibold text-slate-950">
+                  <h2 className="font-semibold text-white">
                     Carteiras de clientes
                   </h2>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     Clientes com saldo disponível para próximas compras.
                   </p>
                 </div>
 
                 <div className="relative w-full md:max-w-xs">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                   <Input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
@@ -980,23 +980,23 @@ const mergedCampaign = {
               </div>
 
               {loading ? (
-                <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+                <div className="flex items-center justify-center py-10 text-sm text-zinc-500">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Carregando cashback...
                 </div>
               ) : filteredWallets.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center">
-                  <WalletCards className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-2 font-medium text-slate-800">
+                <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
+                  <WalletCards className="mx-auto h-8 w-8 text-zinc-500" />
+                  <p className="mt-2 font-medium text-white">
                     Nenhuma carteira encontrada
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     Quando um cliente ganhar cashback, ele aparecerá aqui.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <div className="hidden rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 md:grid md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_120px] md:items-center md:gap-3">
+                  <div className="hidden rounded-lg bg-[#111111] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_120px] md:items-center md:gap-3">
                     <span>Cliente</span>
                     <span>Saldo</span>
                     <span>Gerado</span>
@@ -1007,34 +1007,34 @@ const mergedCampaign = {
                   {filteredWallets.map((wallet) => (
                     <div
                       key={wallet.id}
-                      className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm transition hover:bg-slate-50 md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_120px] md:items-center"
+                      className="grid gap-3 rounded-lg border border-white/10 bg-[#0A0A0A] p-3 text-sm transition hover:bg-[#111111] md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_120px] md:items-center"
                     >
                       <div>
-                        <p className="font-semibold text-slate-950">
+                        <p className="font-semibold text-white">
                           {wallet.customer_name || "Cliente sem nome"}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-zinc-500">
                           {wallet.customer_phone} • atualizado {formatDate(wallet.updated_at)}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-slate-500 md:hidden">Saldo</p>
-                        <strong className="text-emerald-600">
+                        <p className="text-xs text-zinc-500 md:hidden">Saldo</p>
+                        <strong className="text-emerald-400">
                           {formatCurrency(wallet.balance)}
                         </strong>
                       </div>
 
                       <div>
-                        <p className="text-xs text-slate-500 md:hidden">Gerado</p>
-                        <span className="text-slate-700">
+                        <p className="text-xs text-zinc-500 md:hidden">Gerado</p>
+                        <span className="text-zinc-500">
                           {formatCurrency(wallet.total_earned)}
                         </span>
                       </div>
 
                       <div>
-                        <p className="text-xs text-slate-500 md:hidden">Usado</p>
-                        <span className="text-slate-700">
+                        <p className="text-xs text-zinc-500 md:hidden">Usado</p>
+                        <span className="text-zinc-500">
                           {formatCurrency(wallet.total_redeemed)}
                         </span>
                       </div>
@@ -1055,23 +1055,23 @@ const mergedCampaign = {
               )}
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4">
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="font-semibold text-white">
                   Histórico recente
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Entradas, usos e expirações de cashback.
                 </p>
               </div>
 
               {transactions.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center">
-                  <CalendarClock className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-2 font-medium text-slate-800">
+                <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
+                  <CalendarClock className="mx-auto h-8 w-8 text-zinc-500" />
+                  <p className="mt-2 font-medium text-white">
                     Nenhuma movimentação ainda
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     O histórico aparecerá após o primeiro crédito, uso ou expiração.
                   </p>
                 </div>
@@ -1084,15 +1084,15 @@ const mergedCampaign = {
                     return (
                       <div
                         key={transaction.id}
-                        className="flex flex-col gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3 md:flex-row md:items-center md:justify-between"
+                        className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111111] p-3 md:flex-row md:items-center md:justify-between"
                       >
                         <div className="flex items-start gap-3">
                           <div
                             className={cn(
                               "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
                               isCredit
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-orange-100 text-orange-700",
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-yellow-400/10 text-yellow-400",
                             )}
                           >
                             {isCredit ? (
@@ -1103,13 +1103,13 @@ const mergedCampaign = {
                           </div>
 
                           <div>
-                            <p className="font-medium text-slate-950">
+                            <p className="font-medium text-white">
                               {wallet?.customer_name || "Cliente sem nome"}
                             </p>
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-zinc-500">
                               {transaction.description || "Movimentação de cashback"}
                             </p>
-                            <p className="mt-1 text-xs text-slate-400">
+                            <p className="mt-1 text-xs text-zinc-500">
                               {formatDate(transaction.created_at)}
                               {transaction.expires_at
                                 ? ` • Expira em ${formatDate(transaction.expires_at)}`
@@ -1122,13 +1122,13 @@ const mergedCampaign = {
                           <p
                             className={cn(
                               "font-semibold",
-                              isCredit ? "text-emerald-600" : "text-orange-600",
+                              isCredit ? "text-emerald-400" : "text-yellow-400",
                             )}
                           >
                             {isCredit ? "+" : "-"}
                             {formatCurrency(transaction.amount)}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-zinc-500">
                             {transaction.type === "credit"
                               ? "Crédito"
                               : transaction.type === "expired"
@@ -1145,17 +1145,17 @@ const mergedCampaign = {
           </div>
 
           <div className="min-w-0">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-4">
+            <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm xl:sticky xl:top-4">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#111111] text-zinc-500">
                   <Plus className="h-4 w-4" />
                 </div>
 
                 <div>
-                  <h2 className="font-semibold text-slate-950">
+                  <h2 className="font-semibold text-white">
                     Ajuste manual
                   </h2>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     Use apenas para correções.
                   </p>
                 </div>
@@ -1201,7 +1201,7 @@ const mergedCampaign = {
                       <button
                         type="button"
                         onClick={() => setAmount(String(toNumber(selectedWallet.balance)))}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                        className="text-xs font-medium text-yellow-400 hover:text-yellow-400"
                       >
                         Usar saldo todo
                       </button>

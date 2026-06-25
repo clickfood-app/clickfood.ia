@@ -49,9 +49,9 @@ export default function TopProductsResumo({ data }: TopProductsResumoProps) {
               index === 0
                 ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
                 : index === 1
-                  ? "bg-blue-100 text-blue-700"
+                  ? "bg-yellow-400/10 text-yellow-400"
                   : index === 2
-                    ? "bg-blue-50 text-blue-600"
+                    ? "bg-yellow-400/10 text-yellow-400"
                     : "bg-muted text-muted-foreground"
             )}>
               {index + 1}
@@ -62,7 +62,7 @@ export default function TopProductsResumo({ data }: TopProductsResumoProps) {
                   {product.name}
                 </p>
                 {index === 0 && (
-                  <Medal className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                  <Medal className="h-3.5 w-3.5 flex-shrink-0 text-yellow-400" />
                 )}
               </div>
               <p className="text-xs text-muted-foreground">

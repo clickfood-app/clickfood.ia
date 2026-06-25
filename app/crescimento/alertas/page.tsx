@@ -932,21 +932,21 @@ export default function AlertasInteligentesPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-[#111111] px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-5">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <BellRing className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <h1 className="text-xl font-bold text-slate-950">
+                    <h1 className="text-xl font-bold text-white">
                       Alertas Inteligentes
                     </h1>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-zinc-500">
                       Sinais automáticos para agir antes do problema virar
                       prejuízo.
                     </p>
@@ -954,7 +954,7 @@ export default function AlertasInteligentesPage() {
                 </div>
 
                 {restaurant?.name ? (
-                  <p className="text-xs font-medium text-slate-400">
+                  <p className="text-xs font-medium text-zinc-500">
                     Restaurante: {restaurant.name}
                   </p>
                 ) : null}
@@ -965,7 +965,7 @@ export default function AlertasInteligentesPage() {
                   <button
                     type="button"
                     onClick={() => setDismissedAlerts([])}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111]"
                   >
                     Restaurar ocultos
                   </button>
@@ -975,7 +975,7 @@ export default function AlertasInteligentesPage() {
                   type="button"
                   onClick={() => loadData(true)}
                   disabled={refreshing}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {refreshing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -995,8 +995,8 @@ export default function AlertasInteligentesPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-slate-200 bg-white">
-              <div className="flex flex-col items-center gap-3 text-slate-500">
+            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-white/10 bg-[#0A0A0A]">
+              <div className="flex flex-col items-center gap-3 text-zinc-500">
                 <Loader2 className="h-7 w-7 animate-spin" />
                 <p className="text-sm font-medium">
                   Carregando alertas inteligentes...
@@ -1006,28 +1006,28 @@ export default function AlertasInteligentesPage() {
           ) : (
             <>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                       <BellRing className="h-5 w-5" />
                     </div>
-                    <span className="rounded-full bg-purple-50 px-2.5 py-1 text-xs font-black text-purple-700">
+                    <span className="rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-black text-yellow-400">
                       Ativos
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Alertas ativos
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {summary.active}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                     <AlertTriangle className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Críticos
                   </p>
                   <p className="mt-1 text-2xl font-black text-red-600">
@@ -1035,39 +1035,39 @@ export default function AlertasInteligentesPage() {
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Target className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Alta prioridade
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {summary.high}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Ocultados na sessão
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {summary.hidden}
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-5">
+              <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                <div className="border-b border-white/10 p-5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-base font-bold text-slate-950">
+                      <h2 className="text-base font-bold text-white">
                         Central de alertas
                       </h2>
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-zinc-500">
                         Priorize os alertas críticos e depois resolva os de
                         maior impacto.
                       </p>
@@ -1075,14 +1075,14 @@ export default function AlertasInteligentesPage() {
 
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                         <input
                           value={searchTerm}
                           onChange={(event) =>
                             setSearchTerm(event.target.value)
                           }
                           placeholder="Buscar alerta..."
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-100 sm:w-64"
+                          className="h-10 w-full rounded-xl border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20 sm:w-64"
                         />
                       </div>
 
@@ -1091,7 +1091,7 @@ export default function AlertasInteligentesPage() {
                         onChange={(event) =>
                           setCategoryFilter(event.target.value as CategoryFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                       >
                         {categoryOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -1105,7 +1105,7 @@ export default function AlertasInteligentesPage() {
                         onChange={(event) =>
                           setPriorityFilter(event.target.value as PriorityFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                       >
                         {priorityOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -1126,15 +1126,15 @@ export default function AlertasInteligentesPage() {
                         <div
                           key={alert.id}
                           className={cn(
-                            "rounded-3xl border bg-white p-4 shadow-sm transition hover:shadow-md",
+                            "rounded-3xl border bg-[#0A0A0A] p-4 shadow-sm transition hover:shadow-md",
                             alert.priority === "critical" &&
                               "border-red-200 bg-red-50/30",
                             alert.priority === "high" &&
-                              "border-orange-200 bg-orange-50/30",
+                              "border-yellow-400/30 bg-yellow-400/10",
                             alert.priority === "medium" &&
-                              "border-amber-200 bg-amber-50/20",
+                              "border-yellow-400/30 bg-yellow-400/10",
                             alert.priority === "low" &&
-                              "border-slate-200 bg-white",
+                              "border-white/10 bg-[#0A0A0A]",
                           )}
                         >
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -1145,11 +1145,11 @@ export default function AlertasInteligentesPage() {
                                   alert.priority === "critical" &&
                                     "bg-red-100 text-red-600",
                                   alert.priority === "high" &&
-                                    "bg-orange-100 text-orange-600",
+                                    "bg-yellow-400/10 text-yellow-400",
                                   alert.priority === "medium" &&
-                                    "bg-amber-100 text-amber-600",
+                                    "bg-yellow-400/10 text-yellow-400",
                                   alert.priority === "low" &&
-                                    "bg-slate-100 text-slate-600",
+                                    "bg-[#111111] text-zinc-500",
                                 )}
                               >
                                 <Icon className="h-5 w-5" />
@@ -1163,42 +1163,42 @@ export default function AlertasInteligentesPage() {
                                       alert.priority === "critical" &&
                                         "bg-red-100 text-red-700",
                                       alert.priority === "high" &&
-                                        "bg-orange-100 text-orange-700",
+                                        "bg-yellow-400/10 text-yellow-400",
                                       alert.priority === "medium" &&
-                                        "bg-amber-100 text-amber-700",
+                                        "bg-yellow-400/10 text-yellow-400",
                                       alert.priority === "low" &&
-                                        "bg-slate-100 text-slate-600",
+                                        "bg-[#111111] text-zinc-500",
                                     )}
                                   >
                                     {getPriorityLabel(alert.priority)}
                                   </span>
 
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">
+                                  <span className="rounded-full bg-[#0A0A0A] px-2.5 py-1 text-xs font-black text-zinc-500 ring-1 ring-yellow-400/20">
                                     {getCategoryLabel(alert.category)}
                                   </span>
                                 </div>
 
-                                <h3 className="text-base font-black text-slate-950">
+                                <h3 className="text-base font-black text-white">
                                   {alert.title}
                                 </h3>
 
-                                <p className="mt-1 text-sm font-medium leading-relaxed text-slate-600">
+                                <p className="mt-1 text-sm font-medium leading-relaxed text-zinc-500">
                                   {alert.description}
                                 </p>
                               </div>
                             </div>
 
-                            <div className="shrink-0 rounded-2xl bg-white px-3 py-2 text-right ring-1 ring-slate-200">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            <div className="shrink-0 rounded-2xl bg-[#0A0A0A] px-3 py-2 text-right ring-1 ring-yellow-400/20">
+                              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                                 Impacto
                               </p>
-                              <p className="text-sm font-black text-slate-950">
+                              <p className="text-sm font-black text-white">
                                 {alert.metric}
                               </p>
                             </div>
                           </div>
 
-                          <div className="mt-4 flex flex-col gap-2 border-t border-slate-200/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                             <a
                               href={alert.actionHref}
                               className={cn(
@@ -1206,11 +1206,11 @@ export default function AlertasInteligentesPage() {
                                 alert.priority === "critical" &&
                                   "bg-red-600 hover:bg-red-700",
                                 alert.priority === "high" &&
-                                  "bg-orange-600 hover:bg-orange-700",
+                                  "bg-yellow-400 hover:bg-yellow-300",
                                 alert.priority === "medium" &&
-                                  "bg-amber-600 hover:bg-amber-700",
+                                  "bg-yellow-400 hover:bg-yellow-300",
                                 alert.priority === "low" &&
-                                  "bg-slate-700 hover:bg-slate-800",
+                                  "bg-[#111111] hover:bg-[#111111]",
                               )}
                             >
                               {alert.actionLabel}
@@ -1219,7 +1219,7 @@ export default function AlertasInteligentesPage() {
                             <button
                               type="button"
                               onClick={() => handleDismissAlert(alert.id)}
-                              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111]"
                             >
                               <EyeOff className="h-4 w-4" />
                               Ocultar
@@ -1229,12 +1229,12 @@ export default function AlertasInteligentesPage() {
                       )
                     })
                   ) : (
-                    <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+                    <div className="col-span-full rounded-3xl border border-dashed border-white/10 bg-[#111111] p-10 text-center">
                       <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-500" />
-                      <p className="mt-3 text-sm font-bold text-slate-700">
+                      <p className="mt-3 text-sm font-bold text-zinc-500">
                         Nenhum alerta encontrado
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm text-zinc-500">
                         Ajuste os filtros ou restaure os alertas ocultados.
                       </p>
                     </div>
@@ -1243,46 +1243,46 @@ export default function AlertasInteligentesPage() {
               </div>
 
               <div className="grid gap-4 lg:grid-cols-3">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <ShoppingBag className="h-5 w-5" />
                   </div>
-                  <p className="font-black text-slate-950">
+                  <p className="font-black text-white">
                     Pedidos monitorados
                   </p>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
+                  <p className="mt-1 text-sm font-medium text-zinc-500">
                     A aba lê pedidos, pagamentos pendentes e variação de vendas.
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Package className="h-5 w-5" />
                   </div>
-                  <p className="font-black text-slate-950">
+                  <p className="font-black text-white">
                     Estoque e ficha técnica
                   </p>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
+                  <p className="mt-1 text-sm font-medium text-zinc-500">
                     Mostra insumo zerado, estoque baixo, produto sem ficha e
                     custo ausente.
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                     <CalendarClock className="h-5 w-5" />
                   </div>
-                  <p className="font-black text-slate-950">
+                  <p className="font-black text-white">
                     Financeiro preventivo
                   </p>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
+                  <p className="mt-1 text-sm font-medium text-zinc-500">
                     Contas vencidas e vencendo aparecem antes de bagunçar o
                     caixa.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-purple-200 bg-purple-50 p-4 text-sm text-purple-800">
+              <div className="rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-sm text-yellow-400">
                 <div className="flex gap-3">
                   <Percent className="mt-0.5 h-5 w-5 flex-none" />
                   <div>
@@ -1298,7 +1298,7 @@ export default function AlertasInteligentesPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <div className="rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-sm text-yellow-400">
                 <div className="flex gap-3">
                   <Clock className="mt-0.5 h-5 w-5 flex-none" />
                   <div>

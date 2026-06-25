@@ -728,9 +728,9 @@ export default function ClientesSumidosPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-[#111111] px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-5">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-2">
@@ -739,10 +739,10 @@ export default function ClientesSumidosPage() {
                   </div>
 
                   <div>
-                    <h1 className="text-xl font-bold text-slate-950">
+                    <h1 className="text-xl font-bold text-white">
                       Clientes Sumidos
                     </h1>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-zinc-500">
                       Clientes com mais de 5 dias sem comprar, prontos para
                       recuperação por WhatsApp e futura IA.
                     </p>
@@ -750,7 +750,7 @@ export default function ClientesSumidosPage() {
                 </div>
 
                 {restaurant?.name ? (
-                  <p className="text-xs font-medium text-slate-400">
+                  <p className="text-xs font-medium text-zinc-500">
                     Restaurante: {restaurant.name}
                   </p>
                 ) : null}
@@ -762,7 +762,7 @@ export default function ClientesSumidosPage() {
                   onChange={(event) =>
                     setInactiveFilter(event.target.value as InactiveFilter)
                   }
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                  className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
                 >
                   {inactiveOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -775,7 +775,7 @@ export default function ClientesSumidosPage() {
                   type="button"
                   onClick={() => loadData(true)}
                   disabled={refreshing}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {refreshing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -795,8 +795,8 @@ export default function ClientesSumidosPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-slate-200 bg-white">
-              <div className="flex flex-col items-center gap-3 text-slate-500">
+            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-white/10 bg-[#0A0A0A]">
+              <div className="flex flex-col items-center gap-3 text-zinc-500">
                 <Loader2 className="h-7 w-7 animate-spin" />
                 <p className="text-sm font-medium">
                   Carregando clientes sumidos...
@@ -806,28 +806,28 @@ export default function ClientesSumidosPage() {
           ) : (
             <>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#111111] text-zinc-500">
                       <Users className="h-5 w-5" />
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
+                    <span className="rounded-full bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500">
                       Base
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Clientes identificados
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {summary.totalCustomers}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                     <TrendingDown className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Clientes no filtro
                   </p>
                   <p className="mt-1 text-2xl font-black text-red-600">
@@ -835,46 +835,46 @@ export default function ClientesSumidosPage() {
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                     <BadgeDollarSign className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Receita recuperável
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {formatMoney(summary.potentialRevenue)}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Target className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Prioridade alta
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {summary.highPriority}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-slate-700" />
-                    <h2 className="text-base font-bold text-slate-950">
+                    <Clock className="h-5 w-5 text-zinc-500" />
+                    <h2 className="text-base font-bold text-white">
                       Mapa de inatividade
                     </h2>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-amber-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-amber-600/80">
+                    <div className="rounded-2xl bg-yellow-400/10 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-yellow-400">
                         +5 dias
                       </p>
-                      <p className="mt-1 text-lg font-black text-amber-700">
+                      <p className="mt-1 text-lg font-black text-yellow-400">
                         {summary.risk}
                       </p>
                     </div>
@@ -888,24 +888,24 @@ export default function ClientesSumidosPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-100 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="rounded-2xl bg-[#111111] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         +60 dias
                       </p>
-                      <p className="mt-1 text-lg font-black text-slate-950">
+                      <p className="mt-1 text-lg font-black text-white">
                         {summary.critical}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-bold text-slate-950">
+                      <p className="text-sm font-bold text-white">
                         Melhor oportunidade
                       </p>
-                      <p className="text-xs font-medium text-slate-500">
+                      <p className="text-xs font-medium text-zinc-500">
                         Cliente com maior chance de retorno financeiro.
                       </p>
                     </div>
@@ -938,21 +938,21 @@ export default function ClientesSumidosPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-500">
+                    <div className="rounded-2xl bg-[#111111] p-4 text-sm font-medium text-zinc-500">
                       Nenhum cliente encontrado no filtro atual.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-5">
+              <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                <div className="border-b border-white/10 p-5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-base font-bold text-slate-950">
+                      <h2 className="text-base font-bold text-white">
                         Lista de clientes para recuperar
                       </h2>
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-zinc-500">
                         Use o botão do WhatsApp para chamar o cliente com uma
                         mensagem pronta.
                       </p>
@@ -960,14 +960,14 @@ export default function ClientesSumidosPage() {
 
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                         <input
                           value={searchTerm}
                           onChange={(event) =>
                             setSearchTerm(event.target.value)
                           }
                           placeholder="Buscar cliente..."
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 sm:w-64"
+                          className="h-10 w-full rounded-xl border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-zinc-500 focus:border-red-400 focus:ring-4 focus:ring-red-100 sm:w-64"
                         />
                       </div>
 
@@ -976,7 +976,7 @@ export default function ClientesSumidosPage() {
                         onChange={(event) =>
                           setPaymentFilter(event.target.value as PaymentFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
                       >
                         {paymentOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -990,7 +990,7 @@ export default function ClientesSumidosPage() {
                         onChange={(event) =>
                           setSortFilter(event.target.value as SortFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
                       >
                         {sortOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -1007,12 +1007,12 @@ export default function ClientesSumidosPage() {
                     filteredCustomers.map((customer) => (
                       <div
                         key={customer.key}
-                        className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-red-200 hover:bg-red-50/20"
+                        className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm transition hover:border-red-200 hover:bg-red-50/20"
                       >
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <div className="mb-2 flex flex-wrap items-center gap-2">
-                              <h3 className="line-clamp-1 text-base font-black text-slate-950">
+                              <h3 className="line-clamp-1 text-base font-black text-white">
                                 {customer.name}
                               </h3>
 
@@ -1020,13 +1020,13 @@ export default function ClientesSumidosPage() {
                                 className={cn(
                                   "rounded-full px-2.5 py-1 text-xs font-black",
                                   customer.status === "attention" &&
-                                    "bg-amber-100 text-amber-700",
+                                    "bg-yellow-400/10 text-yellow-400",
                                   customer.status === "risk" &&
-                                    "bg-orange-100 text-orange-700",
+                                    "bg-yellow-400/10 text-yellow-400",
                                   customer.status === "lost" &&
                                     "bg-red-100 text-red-700",
                                   customer.status === "critical" &&
-                                    "bg-slate-200 text-slate-800",
+                                    "bg-[#111111] text-white",
                                 )}
                               >
                                 {customer.statusLabel}
@@ -1036,27 +1036,27 @@ export default function ClientesSumidosPage() {
                                 className={cn(
                                   "rounded-full px-2.5 py-1 text-xs font-black",
                                   customer.recoveryPriority === "Alta" &&
-                                    "bg-emerald-100 text-emerald-700",
+                                    "bg-emerald-500/10 text-emerald-400",
                                   customer.recoveryPriority === "Média" &&
-                                    "bg-blue-100 text-blue-700",
+                                    "bg-yellow-400/10 text-yellow-400",
                                   customer.recoveryPriority === "Baixa" &&
-                                    "bg-slate-100 text-slate-600",
+                                    "bg-[#111111] text-zinc-500",
                                 )}
                               >
                                 Prioridade {customer.recoveryPriority}
                               </span>
                             </div>
 
-                            <div className="grid gap-2 text-sm text-slate-500">
+                            <div className="grid gap-2 text-sm text-zinc-500">
                               <div className="flex items-center gap-2">
-                                <MessageCircle className="h-4 w-4 text-slate-400" />
+                                <MessageCircle className="h-4 w-4 text-zinc-500" />
                                 <span className="font-semibold">
                                   {formatPhone(customer.phone)}
                                 </span>
                               </div>
 
                               <div className="flex items-center gap-2">
-                                <CalendarDays className="h-4 w-4 text-slate-400" />
+                                <CalendarDays className="h-4 w-4 text-zinc-500" />
                                 <span className="font-semibold">
                                   Último pedido em{" "}
                                   {formatDate(customer.lastOrderDate)} • há{" "}
@@ -1066,7 +1066,7 @@ export default function ClientesSumidosPage() {
 
                               {customer.neighborhood ? (
                                 <div className="flex items-center gap-2">
-                                  <MapPin className="h-4 w-4 text-slate-400" />
+                                  <MapPin className="h-4 w-4 text-zinc-500" />
                                   <span className="font-semibold">
                                     {customer.neighborhood}
                                   </span>
@@ -1074,18 +1074,18 @@ export default function ClientesSumidosPage() {
                               ) : null}
 
                               <div className="flex items-center gap-2">
-                                <ShoppingBag className="h-4 w-4 text-slate-400" />
+                                <ShoppingBag className="h-4 w-4 text-zinc-500" />
                                 <span className="font-semibold">
                                   Preferência: {customer.favoriteProduct}
                                 </span>
                               </div>
                             </div>
 
-                            <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
-                              <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                            <div className="mt-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-3">
+                              <p className="text-xs font-black uppercase tracking-wide text-yellow-400">
                                 Sugestão para IA
                               </p>
-                              <p className="mt-1 text-sm font-semibold leading-relaxed text-blue-950">
+                              <p className="mt-1 text-sm font-semibold leading-relaxed text-yellow-400">
                                 {customer.suggestedOffer}
                               </p>
                             </div>
@@ -1095,7 +1095,7 @@ export default function ClientesSumidosPage() {
                             type="button"
                             onClick={() => handleOpenWhatsApp(customer)}
                             disabled={!customer.phone}
-                            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-[#111111]"
                           >
                             <MessageCircle className="h-4 w-4" />
                             Chamar
@@ -1103,29 +1103,29 @@ export default function ClientesSumidosPage() {
                         </div>
 
                         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                          <div className="rounded-2xl bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          <div className="rounded-2xl bg-[#111111] p-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                               Pedidos
                             </p>
-                            <p className="mt-1 text-base font-black text-slate-950">
+                            <p className="mt-1 text-base font-black text-white">
                               {customer.ordersCount}
                             </p>
                           </div>
 
-                          <div className="rounded-2xl bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          <div className="rounded-2xl bg-[#111111] p-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                               Gasto total
                             </p>
-                            <p className="mt-1 text-base font-black text-slate-950">
+                            <p className="mt-1 text-base font-black text-white">
                               {formatMoney(customer.totalSpent)}
                             </p>
                           </div>
 
-                          <div className="rounded-2xl bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          <div className="rounded-2xl bg-[#111111] p-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                               Ticket médio
                             </p>
-                            <p className="mt-1 text-base font-black text-slate-950">
+                            <p className="mt-1 text-base font-black text-white">
                               {formatMoney(customer.averageTicket)}
                             </p>
                           </div>
@@ -1142,12 +1142,12 @@ export default function ClientesSumidosPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-                      <UserX className="mx-auto h-8 w-8 text-slate-400" />
-                      <p className="mt-3 text-sm font-bold text-slate-700">
+                    <div className="col-span-full rounded-3xl border border-dashed border-white/10 bg-[#111111] p-10 text-center">
+                      <UserX className="mx-auto h-8 w-8 text-zinc-500" />
+                      <p className="mt-3 text-sm font-bold text-zinc-500">
                         Nenhum cliente encontrado
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm text-zinc-500">
                         Tente mudar o filtro de dias ou buscar por outro nome.
                       </p>
                     </div>
@@ -1155,7 +1155,7 @@ export default function ClientesSumidosPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <div className="rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-sm text-yellow-400">
                 <div className="flex gap-3">
                   <AlertTriangle className="mt-0.5 h-5 w-5 flex-none" />
                   <div>

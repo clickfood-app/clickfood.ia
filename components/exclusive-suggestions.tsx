@@ -21,18 +21,18 @@ const reasonIcons: Record<ExclusiveReason, React.ReactNode> = {
 }
 
 const reasonAccentColor: Record<ExclusiveReason, string> = {
-  fidelidade: "border-blue-200 bg-blue-50",
+  fidelidade: "border-yellow-400/30 bg-yellow-400/10",
   pedido_cancelado: "border-red-200 bg-red-50",
-  cliente_vip: "border-amber-200 bg-amber-50",
-  recuperacao_inativo: "border-green-200 bg-green-50",
+  cliente_vip: "border-yellow-400/30 bg-yellow-400/10",
+  recuperacao_inativo: "border-emerald-400/30 bg-emerald-500/10",
   manual: "border-border bg-muted",
 }
 
 const reasonIconColor: Record<ExclusiveReason, string> = {
-  fidelidade: "bg-blue-100 text-blue-600",
+  fidelidade: "bg-yellow-400/10 text-yellow-400",
   pedido_cancelado: "bg-red-100 text-red-600",
-  cliente_vip: "bg-amber-100 text-amber-600",
-  recuperacao_inativo: "bg-green-100 text-green-600",
+  cliente_vip: "bg-yellow-400/10 text-yellow-400",
+  recuperacao_inativo: "bg-emerald-500/10 text-emerald-400",
   manual: "bg-muted text-muted-foreground",
 }
 

@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils"
 import { formatBRL, type RecentOrder } from "@/lib/dashboard-data"
 
 const statusConfig: Record<RecentOrder["status"], { label: string; bg: string; text: string }> = {
-  pendente: { label: "Pendente", bg: "bg-amber-100", text: "text-amber-700" },
-  em_preparo: { label: "Preparando", bg: "bg-blue-100", text: "text-blue-700" },
-  pronto: { label: "Pronto", bg: "bg-emerald-100", text: "text-emerald-700" },
+  pendente: { label: "Pendente", bg: "bg-yellow-400/10", text: "text-yellow-400" },
+  em_preparo: { label: "Preparando", bg: "bg-yellow-400/10", text: "text-yellow-400" },
+  pronto: { label: "Pronto", bg: "bg-emerald-500/10", text: "text-emerald-400" },
   entregue: { label: "Entregue", bg: "bg-muted", text: "text-muted-foreground" },
   cancelado: { label: "Cancelado", bg: "bg-red-100", text: "text-red-700" },
 }

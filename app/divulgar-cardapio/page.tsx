@@ -42,8 +42,8 @@ type Restaurant = {
 
 type ImageType = "logo" | "cover"
 
-const CLICKFOOD_BLUE = "#2563eb"
-const CLICKFOOD_ORANGE = "#f97316"
+const CLICKFOOD_BLUE = "#facc15"
+const CLICKFOOD_ORANGE = "#facc15"
 const MAX_FILE_SIZE_MB = 5
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
@@ -270,9 +270,9 @@ export default function CardapioIndexPage() {
     if (isLoading) {
       return (
         <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4">
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-            <span className="text-sm font-semibold text-slate-600">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm">
+            <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+            <span className="text-sm font-semibold text-zinc-500">
               Carregando cardápio...
             </span>
           </div>
@@ -283,16 +283,16 @@ export default function CardapioIndexPage() {
     if (!restaurant) {
       return (
         <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100">
-              <Store className="h-6 w-6 text-slate-500" />
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#0A0A0A] p-5 text-center shadow-sm">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#111111]">
+              <Store className="h-6 w-6 text-zinc-500" />
             </div>
 
-            <h1 className="text-lg font-black text-slate-950">
+            <h1 className="text-lg font-black text-white">
               Restaurante não encontrado
             </h1>
 
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="mt-2 text-sm leading-6 text-zinc-500">
               Não encontramos um restaurante vinculado à sua conta.
             </p>
           </div>
@@ -301,7 +301,7 @@ export default function CardapioIndexPage() {
     }
 
     return (
-      <div className="min-h-screen bg-slate-50 px-3 pb-20 pt-4 sm:px-4 lg:px-6 lg:pb-6">
+      <div className="min-h-screen bg-[#111111] px-3 pb-20 pt-4 sm:px-4 lg:px-6 lg:pb-6">
         <input
           ref={logoInputRef}
           type="file"
@@ -319,19 +319,19 @@ export default function CardapioIndexPage() {
         />
 
         <div className="mx-auto max-w-7xl space-y-3">
-          <header className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <header className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <div className="mb-1 inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+                <div className="mb-1 inline-flex items-center gap-1 rounded-lg bg-yellow-400/10 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-yellow-400">
                   <Palette className="h-3 w-3" />
                   Cardápio
                 </div>
 
-                <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
+                <h1 className="text-lg font-black tracking-tight text-white sm:text-xl">
                   Aparência e divulgação
                 </h1>
 
-                <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                <p className="mt-1 text-xs text-zinc-500 sm:text-sm">
                   Edite dados públicos, imagens, link e QR Code do cardápio.
                 </p>
               </div>
@@ -339,7 +339,7 @@ export default function CardapioIndexPage() {
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="hidden h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:inline-flex"
+                className="hidden h-10 items-center justify-center gap-2 rounded-lg bg-[#050505] px-4 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60 sm:inline-flex"
               >
                 {isSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -354,26 +354,26 @@ export default function CardapioIndexPage() {
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
             <main className="space-y-3">
-              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                 <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
                     <Share2 className="h-4 w-4" />
                   </div>
 
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black text-slate-950">
+                    <h2 className="text-sm font-black text-white">
                       Divulgação
                     </h2>
 
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-zinc-500">
                       Link público e QR Code do cardápio.
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
-                  <div className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
-                    <Link2 className="h-4 w-4 shrink-0 text-slate-400" />
+                  <div className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-3 text-sm font-semibold text-zinc-500">
+                    <Link2 className="h-4 w-4 shrink-0 text-zinc-500" />
                     <span className="truncate">
                       {publicMenuUrl || "Slug do restaurante não encontrado"}
                     </span>
@@ -382,7 +382,7 @@ export default function CardapioIndexPage() {
                   <button
                     onClick={handleCopyLink}
                     disabled={!publicMenuUrl}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#050505] px-3 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {copied ? (
                       <Check className="h-4 w-4" />
@@ -398,7 +398,7 @@ export default function CardapioIndexPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className={cn(
-                      "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50",
+                      "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 transition hover:bg-[#111111]",
                       !publicMenuUrl && "pointer-events-none opacity-50"
                     )}
                   >
@@ -410,7 +410,7 @@ export default function CardapioIndexPage() {
                     type="button"
                     onClick={handleGenerateQrCode}
                     disabled={!publicMenuUrl}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-3 text-sm font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <QrCode className="h-4 w-4" />
                     Gerar QR Code
@@ -418,9 +418,9 @@ export default function CardapioIndexPage() {
                 </div>
 
                 {showQrCode && (
-                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="mt-3 rounded-lg border border-white/10 bg-[#111111] p-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="mx-auto flex h-32 w-32 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white p-2 sm:mx-0">
+                      <div className="mx-auto flex h-32 w-32 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] p-2 sm:mx-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={qrCodeUrl}
@@ -432,11 +432,11 @@ export default function CardapioIndexPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <h3 className="text-sm font-black text-slate-950">
+                            <h3 className="text-sm font-black text-white">
                               QR Code gerado
                             </h3>
 
-                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                            <p className="mt-1 text-xs leading-5 text-zinc-500">
                               Use em mesas, balcão, embalagem, panfleto ou
                               Instagram.
                             </p>
@@ -445,7 +445,7 @@ export default function CardapioIndexPage() {
                           <button
                             type="button"
                             onClick={() => setShowQrCode(false)}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -455,7 +455,7 @@ export default function CardapioIndexPage() {
                           <button
                             type="button"
                             onClick={handleDownloadQrCode}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#050505] px-3 text-sm font-black text-white transition hover:bg-[#111111]"
                           >
                             <Download className="h-4 w-4" />
                             Baixar PNG
@@ -464,7 +464,7 @@ export default function CardapioIndexPage() {
                           <button
                             type="button"
                             onClick={handleCopyLink}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                           >
                             <Copy className="h-4 w-4" />
                             Copiar link
@@ -476,18 +476,18 @@ export default function CardapioIndexPage() {
                 )}
               </section>
 
-              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                 <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
                     <Store className="h-4 w-4" />
                   </div>
 
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black text-slate-950">
+                    <h2 className="text-sm font-black text-white">
                       Dados principais
                     </h2>
 
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-zinc-500">
                       Nome e descrição exibidos no cardápio.
                     </p>
                   </div>
@@ -495,7 +495,7 @@ export default function CardapioIndexPage() {
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <label className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                       Nome do restaurante
                     </label>
 
@@ -503,12 +503,12 @@ export default function CardapioIndexPage() {
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       placeholder="Nome do restaurante"
-                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                      className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#111111] px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                       Descrição curta
                     </label>
 
@@ -516,24 +516,24 @@ export default function CardapioIndexPage() {
                       value={description}
                       onChange={(event) => setDescription(event.target.value)}
                       placeholder="Ex: Hambúrguer artesanal, porções e bebidas."
-                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                      className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#111111] px-3 text-sm text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
                 </div>
               </section>
 
-              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                 <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-700">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
                     <ImageIcon className="h-4 w-4" />
                   </div>
 
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black text-slate-950">
+                    <h2 className="text-sm font-black text-white">
                       Imagens
                     </h2>
 
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-zinc-500">
                       Logo e capa do cardápio. PNG, JPG ou WEBP até 5 MB.
                     </p>
                   </div>
@@ -564,25 +564,25 @@ export default function CardapioIndexPage() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#111111] text-zinc-500">
                     <Palette className="h-4 w-4" />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-black text-slate-950">
+                    <h2 className="text-sm font-black text-white">
                       Cores oficiais do cardápio
                     </h2>
 
-                    <p className="text-xs leading-5 text-slate-500">
+                    <p className="text-xs leading-5 text-zinc-500">
                       O restaurante não edita a cor. A ClickFood mantém o padrão
                       azul e laranja em todos os cardápios.
                     </p>
                   </div>
 
                   <div className="hidden shrink-0 items-center gap-2 sm:flex">
-                    <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs font-black text-zinc-500">
                       <span
                         className="h-3.5 w-3.5 rounded-full"
                         style={{ backgroundColor: CLICKFOOD_BLUE }}
@@ -590,7 +590,7 @@ export default function CardapioIndexPage() {
                       Azul
                     </span>
 
-                    <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs font-black text-zinc-500">
                       <span
                         className="h-3.5 w-3.5 rounded-full"
                         style={{ backgroundColor: CLICKFOOD_ORANGE }}
@@ -601,29 +601,29 @@ export default function CardapioIndexPage() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:hidden">
+              <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm lg:hidden">
                 <button
                   type="button"
                   onClick={() => setShowMobilePreview((current) => !current)}
                   className="flex w-full items-center justify-between gap-3"
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#111111] text-zinc-500">
                       <Smartphone className="h-4 w-4" />
                     </span>
 
                     <span className="min-w-0 text-left">
-                      <span className="block text-sm font-black text-slate-950">
+                      <span className="block text-sm font-black text-white">
                         Preview do cardápio
                       </span>
 
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-zinc-500">
                         Fica fechado no celular para não ocupar tela.
                       </span>
                     </span>
                   </span>
 
-                  <span className="text-xs font-black text-blue-600">
+                  <span className="text-xs font-black text-yellow-400">
                     {showMobilePreview ? "Fechar" : "Ver"}
                   </span>
                 </button>
@@ -642,17 +642,17 @@ export default function CardapioIndexPage() {
             </main>
 
             <aside className="hidden lg:block">
-              <div className="sticky top-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="sticky top-4 rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <div>
-                    <h2 className="text-sm font-black text-slate-950">
+                    <h2 className="text-sm font-black text-white">
                       Preview
                     </h2>
 
-                    <p className="text-xs text-slate-500">Prévia compacta.</p>
+                    <p className="text-xs text-zinc-500">Prévia compacta.</p>
                   </div>
 
-                  <Smartphone className="h-5 w-5 text-slate-400" />
+                  <Smartphone className="h-5 w-5 text-zinc-500" />
                 </div>
 
                 <CompactPreview
@@ -666,11 +666,11 @@ export default function CardapioIndexPage() {
           </div>
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white p-2 shadow-[0_-10px_30px_rgba(15,23,42,0.10)] sm:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0A0A0A] p-2 shadow-[0_-10px_30px_rgba(15,23,42,0.10)] sm:hidden">
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#050505] text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -710,10 +710,10 @@ function ImageRow({
   onRemove,
 }: ImageRowProps) {
   return (
-    <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center">
+    <div className="grid gap-2 rounded-lg border border-white/10 bg-[#111111] p-2 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center">
       <div
         className={cn(
-          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white",
+          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-[#0A0A0A]",
           imageType === "logo" ? "h-16 w-16" : "h-16 w-24"
         )}
       >
@@ -725,16 +725,16 @@ function ImageRow({
             className="object-cover"
           />
         ) : (
-          <ImageIcon className="h-5 w-5 text-slate-400" />
+          <ImageIcon className="h-5 w-5 text-zinc-500" />
         )}
       </div>
 
       <div className="min-w-0">
-        <h3 className="text-sm font-black text-slate-950">{title}</h3>
+        <h3 className="text-sm font-black text-white">{title}</h3>
 
-        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+        <p className="mt-1 text-xs leading-5 text-zinc-500">{description}</p>
 
-        <p className="mt-1 text-[11px] font-semibold text-slate-400">
+        <p className="mt-1 text-[11px] font-semibold text-zinc-500">
           {imageUrl ? "Imagem carregada." : "Nenhuma imagem adicionada."}
         </p>
       </div>
@@ -744,7 +744,7 @@ function ImageRow({
           type="button"
           onClick={onUpload}
           disabled={isUploading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#050505] px-3 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -759,7 +759,7 @@ function ImageRow({
           type="button"
           onClick={onRemove}
           disabled={!imageUrl || isUploading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Trash2 className="h-4 w-4" />
           Remover
@@ -783,7 +783,7 @@ function CompactPreview({
   coverImageUrl,
 }: CompactPreviewProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A]">
       <div className="relative h-36">
         {coverImageUrl ? (
           <Image
@@ -804,7 +804,7 @@ function CompactPreview({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 
         <div className="absolute bottom-3 left-3 right-3 flex items-end gap-2">
-          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/30 bg-white shadow-lg">
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/30 bg-[#0A0A0A] shadow-lg">
             {logoUrl ? (
               <Image
                 src={logoUrl}
@@ -813,7 +813,7 @@ function CompactPreview({
                 className="object-cover"
               />
             ) : (
-              <Store className="h-6 w-6 text-slate-400" />
+              <Store className="h-6 w-6 text-zinc-500" />
             )}
           </div>
 
@@ -829,34 +829,34 @@ function CompactPreview({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 border-t border-slate-200 bg-white text-center">
+      <div className="grid grid-cols-3 border-t border-white/10 bg-[#0A0A0A] text-center">
         <div className="px-2 py-3">
-          <p className="text-[10px] font-black uppercase text-slate-400">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Status
           </p>
-          <p className="mt-1 text-xs font-black text-slate-950">Aberto</p>
+          <p className="mt-1 text-xs font-black text-white">Aberto</p>
         </div>
 
-        <div className="border-x border-slate-200 px-2 py-3">
-          <p className="text-[10px] font-black uppercase text-slate-400">
+        <div className="border-x border-white/10 px-2 py-3">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Entrega
           </p>
-          <p className="mt-1 text-xs font-black text-slate-950">Ativa</p>
+          <p className="mt-1 text-xs font-black text-white">Ativa</p>
         </div>
 
         <div className="px-2 py-3">
-          <p className="text-[10px] font-black uppercase text-slate-400">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Tema
           </p>
 
           <div className="mt-1 flex justify-center gap-1">
             <span
-              className="h-4 w-4 rounded-full border border-slate-200"
+              className="h-4 w-4 rounded-full border border-white/10"
               style={{ backgroundColor: CLICKFOOD_BLUE }}
             />
 
             <span
-              className="h-4 w-4 rounded-full border border-slate-200"
+              className="h-4 w-4 rounded-full border border-white/10"
               style={{ backgroundColor: CLICKFOOD_ORANGE }}
             />
           </div>

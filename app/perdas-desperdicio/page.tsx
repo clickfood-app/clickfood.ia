@@ -802,11 +802,11 @@ export default function PerdasDesperdicioPage() {
               Controle de margem perdida
             </p>
 
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-white">
               Perdas e Consumos
             </h1>
 
-            <p className="mt-1 text-sm font-medium text-slate-500">
+            <p className="mt-1 text-sm font-medium text-zinc-500">
               Registre desperdícios, quebras, vencimentos, consumo interno e cortesias.
             </p>
           </div>
@@ -814,7 +814,7 @@ export default function PerdasDesperdicioPage() {
           <button
             type="button"
             onClick={openModal}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300"
           >
             <Plus className="h-4 w-4" />
             Novo lançamento
@@ -822,9 +822,9 @@ export default function PerdasDesperdicioPage() {
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Perda hoje
               </p>
               <TrendingDown className="h-4 w-4 text-red-600" />
@@ -834,101 +834,101 @@ export default function PerdasDesperdicioPage() {
               {formatCurrency(totals.todayLoss)}
             </p>
 
-            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+            <p className="mt-0.5 text-xs font-semibold text-zinc-500">
               impacto do dia
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Perda no mês
               </p>
-              <Package className="h-4 w-4 text-slate-500" />
+              <Package className="h-4 w-4 text-zinc-500" />
             </div>
 
-            <p className="mt-1 text-xl font-black text-slate-950">
+            <p className="mt-1 text-xl font-black text-white">
               {formatCurrency(totals.monthLoss)}
             </p>
 
-            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+            <p className="mt-0.5 text-xs font-semibold text-zinc-500">
               {totals.count} lançamentos
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Venda perdida
               </p>
-              <ClipboardList className="h-4 w-4 text-blue-600" />
+              <ClipboardList className="h-4 w-4 text-yellow-400" />
             </div>
 
-            <p className="mt-1 text-xl font-black text-blue-600">
+            <p className="mt-1 text-xl font-black text-yellow-400">
               {formatCurrency(totals.potentialSaleAmount)}
             </p>
 
-            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+            <p className="mt-0.5 text-xs font-semibold text-zinc-500">
               potencial não vendido
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Evitável
               </p>
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
+              <AlertTriangle className="h-4 w-4 text-yellow-400" />
             </div>
 
-            <p className="mt-1 text-xl font-black text-orange-600">
+            <p className="mt-1 text-xl font-black text-yellow-400">
               {formatCurrency(totals.preventableLoss)}
             </p>
 
-            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+            <p className="mt-0.5 text-xs font-semibold text-zinc-500">
               pode ser reduzido
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Consumo interno
               </p>
-              <Utensils className="h-4 w-4 text-emerald-600" />
+              <Utensils className="h-4 w-4 text-emerald-400" />
             </div>
 
-            <p className="mt-1 text-xl font-black text-emerald-600">
+            <p className="mt-1 text-xl font-black text-emerald-400">
               {formatCurrency(totals.internalConsumption)}
             </p>
 
-            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+            <p className="mt-0.5 text-xs font-semibold text-zinc-500">
               funcionários/dono
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="space-y-3 border-b border-slate-100 p-3">
+        <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+          <div className="space-y-3 border-b border-white/10 p-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-base font-black text-slate-950">
+                <h2 className="text-base font-black text-white">
                   Histórico operacional
                 </h2>
 
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-sm font-medium text-zinc-500">
                   Lista de tudo que tirou margem do restaurante.
                 </p>
               </div>
 
               <div className="relative w-full lg:max-w-sm">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
 
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar item, motivo ou responsável..."
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A]"
                 />
               </div>
             </div>
@@ -944,14 +944,14 @@ export default function PerdasDesperdicioPage() {
                     onClick={() => setActiveFilter(filter.id)}
                     className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-black transition ${
                       isActive
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        ? "border-yellow-400/30 bg-yellow-400 text-black"
+                        : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                     }`}
                   >
                     {filter.label}
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                        isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                        isActive ? "bg-[#0A0A0A] text-white" : "bg-[#111111] text-zinc-500"
                       }`}
                     >
                       {filterCounts[filter.id]}
@@ -970,29 +970,29 @@ export default function PerdasDesperdicioPage() {
 
           {loading ? (
             <div className="flex min-h-[260px] items-center justify-center">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+              <div className="flex items-center gap-2 text-sm font-bold text-zinc-500">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 Carregando registros...
               </div>
             </div>
           ) : filteredLosses.length === 0 ? (
             <div className="flex min-h-[240px] flex-col items-center justify-center p-6 text-center">
-              <div className="rounded-xl bg-slate-100 p-3 text-slate-500">
+              <div className="rounded-xl bg-[#111111] p-3 text-zinc-500">
                 <TrendingDown className="h-6 w-6" />
               </div>
 
-              <h3 className="mt-3 text-base font-black text-slate-950">
+              <h3 className="mt-3 text-base font-black text-white">
                 Nenhum lançamento encontrado
               </h3>
 
-              <p className="mt-1 max-w-md text-sm font-medium text-slate-500">
+              <p className="mt-1 max-w-md text-sm font-medium text-zinc-500">
                 Registre perdas, consumos, doações e quebras para enxergar onde o restaurante está perdendo dinheiro.
               </p>
 
               <button
                 type="button"
                 onClick={openModal}
-                className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
+                className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black transition hover:bg-yellow-300"
               >
                 <Plus className="h-4 w-4" />
                 Criar primeiro lançamento
@@ -1003,7 +1003,7 @@ export default function PerdasDesperdicioPage() {
               <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full min-w-[1050px] text-left">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+                    <tr className="border-b border-white/10 bg-[#111111] text-xs font-black uppercase tracking-wide text-zinc-500">
                       <th className="px-4 py-3">Data</th>
                       <th className="px-4 py-3">Tipo</th>
                       <th className="px-4 py-3">Item</th>
@@ -1016,48 +1016,48 @@ export default function PerdasDesperdicioPage() {
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-white/10">
                     {filteredLosses.map((loss) => (
-                      <tr key={loss.id} className="hover:bg-slate-50">
-                        <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-500">
+                      <tr key={loss.id} className="hover:bg-[#111111]">
+                        <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-zinc-500">
                           {formatDateTime(loss.occurred_at)}
                         </td>
 
                         <td className="px-4 py-3">
-                          <span className="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">
+                          <span className="inline-flex rounded-lg bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500">
                             {loss.reason}
                           </span>
 
                           {loss.is_preventable && (
-                            <p className="mt-1 text-xs font-bold text-orange-600">
+                            <p className="mt-1 text-xs font-bold text-yellow-400">
                               Evitável
                             </p>
                           )}
                         </td>
 
                         <td className="px-4 py-3">
-                          <p className="font-black text-slate-950">
+                          <p className="font-black text-white">
                             {loss.product_name}
                           </p>
 
                           {loss.notes && (
-                            <p className="mt-1 max-w-xs truncate text-xs font-semibold text-slate-400">
+                            <p className="mt-1 max-w-xs truncate text-xs font-semibold text-zinc-500">
                               {loss.notes}
                             </p>
                           )}
                         </td>
 
                         <td className="px-4 py-3">
-                          <p className="text-sm font-bold capitalize text-slate-700">
+                          <p className="text-sm font-bold capitalize text-zinc-500">
                             {loss.loss_origin.replaceAll("_", " ")}
                           </p>
 
-                          <p className="text-xs font-semibold capitalize text-slate-400">
+                          <p className="text-xs font-semibold capitalize text-zinc-500">
                             {loss.sector}
                           </p>
                         </td>
 
-                        <td className="px-4 py-3 text-sm font-bold text-slate-700">
+                        <td className="px-4 py-3 text-sm font-bold text-zinc-500">
                           {Number(loss.quantity || 0)} {loss.loss_unit_type}
                         </td>
 
@@ -1065,11 +1065,11 @@ export default function PerdasDesperdicioPage() {
                           {formatCurrency(Number(loss.total_cost || 0))}
                         </td>
 
-                        <td className="px-4 py-3 text-sm font-black text-blue-600">
+                        <td className="px-4 py-3 text-sm font-black text-yellow-400">
                           {formatCurrency(Number(loss.potential_sale_amount || 0))}
                         </td>
 
-                        <td className="px-4 py-3 text-sm font-bold text-slate-700">
+                        <td className="px-4 py-3 text-sm font-bold text-zinc-500">
                           {loss.responsible_name || "Não informado"}
                         </td>
 
@@ -1078,7 +1078,7 @@ export default function PerdasDesperdicioPage() {
                             <button
                               type="button"
                               onClick={() => handleDeleteLoss(loss)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                               title="Remover"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1091,16 +1091,16 @@ export default function PerdasDesperdicioPage() {
                 </table>
               </div>
 
-              <div className="divide-y divide-slate-100 lg:hidden">
+              <div className="divide-y divide-white/10 lg:hidden">
                 {filteredLosses.map((loss) => (
                   <div key={loss.id} className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-black text-slate-950">
+                        <p className="truncate font-black text-white">
                           {loss.product_name}
                         </p>
 
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           {formatDateTime(loss.occurred_at)} · {loss.sector}
                         </p>
                       </div>
@@ -1108,7 +1108,7 @@ export default function PerdasDesperdicioPage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteLoss(loss)}
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                         title="Remover"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1116,16 +1116,16 @@ export default function PerdasDesperdicioPage() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">
+                      <span className="rounded-lg bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500">
                         {loss.reason}
                       </span>
 
-                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black capitalize text-slate-700">
+                      <span className="rounded-lg bg-[#111111] px-2.5 py-1 text-xs font-black capitalize text-zinc-500">
                         {loss.loss_origin.replaceAll("_", " ")}
                       </span>
 
                       {loss.is_preventable && (
-                        <span className="rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-black text-orange-700">
+                        <span className="rounded-lg bg-yellow-400/10 px-2.5 py-1 text-xs font-black text-yellow-400">
                           Evitável
                         </span>
                       )}
@@ -1142,18 +1142,18 @@ export default function PerdasDesperdicioPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-xl bg-blue-50 p-3">
-                        <p className="text-xs font-bold text-blue-700">
+                      <div className="rounded-xl bg-yellow-400/10 p-3">
+                        <p className="text-xs font-bold text-yellow-400">
                           Venda perdida
                         </p>
 
-                        <p className="mt-1 text-base font-black text-blue-700">
+                        <p className="mt-1 text-base font-black text-yellow-400">
                           {formatCurrency(Number(loss.potential_sale_amount || 0))}
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-3 text-xs font-semibold text-slate-500">
+                    <div className="mt-3 text-xs font-semibold text-zinc-500">
                       <p>
                         Qtd: {Number(loss.quantity || 0)} {loss.loss_unit_type}
                       </p>
@@ -1172,22 +1172,22 @@ export default function PerdasDesperdicioPage() {
         </div>
 
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/50">
+          <div className="fixed inset-0 z-50 flex justify-end bg-[#050505]">
             <form
               onSubmit={handleCreateLoss}
-              className="flex h-full w-full flex-col bg-white shadow-2xl sm:max-w-2xl sm:rounded-l-3xl"
+              className="flex h-full w-full flex-col bg-[#0A0A0A] shadow-2xl sm:max-w-2xl sm:rounded-l-3xl"
             >
-              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow-400">
                     Novo lançamento
                   </p>
 
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                  <h2 className="mt-1 text-xl font-black text-white">
                     Perda ou consumo
                   </h2>
 
-                  <p className="mt-1 text-sm font-medium text-slate-500">
+                  <p className="mt-1 text-sm font-medium text-zinc-500">
                     Informe o tipo, item, quantidade e impacto financeiro.
                   </p>
                 </div>
@@ -1195,21 +1195,21 @@ export default function PerdasDesperdicioPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <section className="rounded-2xl border border-white/10 bg-[#111111] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-black text-slate-950">
+                      <h3 className="text-sm font-black text-white">
                         1. Tipo do lançamento
                       </h3>
 
-                      <p className="text-xs font-semibold text-slate-500">
+                      <p className="text-xs font-semibold text-zinc-500">
                         Escolha o cenário para preencher o cadastro mais rápido.
                       </p>
                     </div>
@@ -1226,21 +1226,21 @@ export default function PerdasDesperdicioPage() {
                           onClick={() => handlePresetSelect(preset.id)}
                           className={`rounded-xl border p-3 text-left transition ${
                             isActive
-                              ? "border-blue-600 bg-white shadow-sm ring-2 ring-blue-100"
-                              : "border-slate-200 bg-white hover:border-blue-200"
+                              ? "border-yellow-400/30 bg-[#0A0A0A] shadow-sm ring-2 ring-yellow-400/20"
+                              : "border-white/10 bg-[#0A0A0A] hover:border-yellow-400/30"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-black text-slate-950">
+                            <p className="text-sm font-black text-white">
                               {preset.label}
                             </p>
 
                             {isActive && (
-                              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                              <CheckCircle2 className="h-4 w-4 text-yellow-400" />
                             )}
                           </div>
 
-                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                          <p className="mt-1 text-xs font-semibold text-zinc-500">
                             {preset.description}
                           </p>
                         </button>
@@ -1249,12 +1249,12 @@ export default function PerdasDesperdicioPage() {
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <h3 className="text-sm font-black text-slate-950">
+                <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3">
+                  <h3 className="text-sm font-black text-white">
                     2. Item perdido ou consumido
                   </h3>
 
-                  <p className="text-xs font-semibold text-slate-500">
+                  <p className="text-xs font-semibold text-zinc-500">
                     Busque no cardápio, estoque ou lance manualmente.
                   </p>
 
@@ -1264,8 +1264,8 @@ export default function PerdasDesperdicioPage() {
                       onClick={() => handleItemSourceChange("manual")}
                       className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-xs font-black transition ${
                         form.item_source === "manual"
-                          ? "border-blue-600 bg-blue-50 text-blue-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                          : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                       }`}
                     >
                       <ClipboardList className="h-4 w-4" />
@@ -1277,8 +1277,8 @@ export default function PerdasDesperdicioPage() {
                       onClick={() => handleItemSourceChange("product")}
                       className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-xs font-black transition ${
                         form.item_source === "product"
-                          ? "border-blue-600 bg-blue-50 text-blue-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                          : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                       }`}
                     >
                       <Utensils className="h-4 w-4" />
@@ -1290,8 +1290,8 @@ export default function PerdasDesperdicioPage() {
                       onClick={() => handleItemSourceChange("stock")}
                       className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-xs font-black transition ${
                         form.item_source === "stock"
-                          ? "border-blue-600 bg-blue-50 text-blue-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                          : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                       }`}
                     >
                       <Warehouse className="h-4 w-4" />
@@ -1301,7 +1301,7 @@ export default function PerdasDesperdicioPage() {
 
                   {form.item_source === "manual" ? (
                     <label className="mt-3 block">
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Nome do item *
                       </span>
 
@@ -1314,18 +1314,18 @@ export default function PerdasDesperdicioPage() {
                           }))
                         }
                         placeholder="Ex: marmita G de picanha com fritas"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
                   ) : (
                     <div className="mt-3 space-y-2">
                       <label className="block">
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Buscar item
                         </span>
 
                         <div className="relative mt-2">
-                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
 
                           <input
                             value={itemSearch}
@@ -1335,12 +1335,12 @@ export default function PerdasDesperdicioPage() {
                                 ? "Digite o nome do produto do cardápio..."
                                 : "Digite o nome do item do estoque..."
                             }
-                            className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                            className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                           />
                         </div>
                       </label>
 
-                      <div className="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-2">
+                      <div className="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-[#111111] p-2">
                         {form.item_source === "product" &&
                           productOptions.map((product) => {
                             const isActive = form.product_id === product.id
@@ -1352,21 +1352,21 @@ export default function PerdasDesperdicioPage() {
                                 onClick={() => handleProductSelect(product)}
                                 className={`w-full rounded-xl border p-3 text-left transition ${
                                   isActive
-                                    ? "border-blue-600 bg-white ring-2 ring-blue-100"
-                                    : "border-slate-200 bg-white hover:border-blue-200"
+                                    ? "border-yellow-400/30 bg-[#0A0A0A] ring-2 ring-yellow-400/20"
+                                    : "border-white/10 bg-[#0A0A0A] hover:border-yellow-400/30"
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-3">
-                                  <p className="text-sm font-black text-slate-950">
+                                  <p className="text-sm font-black text-white">
                                     {getProductName(product)}
                                   </p>
 
-                                  <p className="shrink-0 text-sm font-black text-blue-600">
+                                  <p className="shrink-0 text-sm font-black text-yellow-400">
                                     {formatCurrency(getProductPrice(product))}
                                   </p>
                                 </div>
 
-                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                <p className="mt-1 text-xs font-semibold text-zinc-500">
                                   Cardápio · custo estimado {formatCurrency(getProductCost(product))}
                                 </p>
                               </button>
@@ -1384,21 +1384,21 @@ export default function PerdasDesperdicioPage() {
                                 onClick={() => handleStockSelect(item)}
                                 className={`w-full rounded-xl border p-3 text-left transition ${
                                   isActive
-                                    ? "border-blue-600 bg-white ring-2 ring-blue-100"
-                                    : "border-slate-200 bg-white hover:border-blue-200"
+                                    ? "border-yellow-400/30 bg-[#0A0A0A] ring-2 ring-yellow-400/20"
+                                    : "border-white/10 bg-[#0A0A0A] hover:border-yellow-400/30"
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-3">
-                                  <p className="text-sm font-black text-slate-950">
+                                  <p className="text-sm font-black text-white">
                                     {getStockName(item)}
                                   </p>
 
-                                  <p className="shrink-0 text-xs font-black text-slate-500">
+                                  <p className="shrink-0 text-xs font-black text-zinc-500">
                                     {getStockQuantity(item)} {getStockUnit(item)}
                                   </p>
                                 </div>
 
-                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                <p className="mt-1 text-xs font-semibold text-zinc-500">
                                   Estoque · custo {formatCurrency(getStockCost(item))} por {getStockUnit(item)}
                                 </p>
                               </button>
@@ -1406,13 +1406,13 @@ export default function PerdasDesperdicioPage() {
                           })}
 
                         {form.item_source === "product" && productOptions.length === 0 && (
-                          <p className="p-3 text-sm font-bold text-slate-500">
+                          <p className="p-3 text-sm font-bold text-zinc-500">
                             Nenhum produto encontrado.
                           </p>
                         )}
 
                         {form.item_source === "stock" && stockOptions.length === 0 && (
-                          <p className="p-3 text-sm font-bold text-slate-500">
+                          <p className="p-3 text-sm font-bold text-zinc-500">
                             Nenhum item de estoque encontrado.
                           </p>
                         )}
@@ -1421,14 +1421,14 @@ export default function PerdasDesperdicioPage() {
                   )}
                 </section>
 
-                <section className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <h3 className="text-sm font-black text-slate-950">
+                <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3">
+                  <h3 className="text-sm font-black text-white">
                     3. Quantidade e valores
                   </h3>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Quantidade *
                       </span>
 
@@ -1441,12 +1441,12 @@ export default function PerdasDesperdicioPage() {
                           }))
                         }
                         placeholder="1"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
 
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Unidade
                       </span>
 
@@ -1460,12 +1460,12 @@ export default function PerdasDesperdicioPage() {
                           }))
                         }
                         placeholder="unidade, kg, g..."
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
 
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Data/hora
                       </span>
 
@@ -1478,14 +1478,14 @@ export default function PerdasDesperdicioPage() {
                             occurred_at: event.target.value,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
                   </div>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Custo unitário
                       </span>
 
@@ -1498,12 +1498,12 @@ export default function PerdasDesperdicioPage() {
                           }))
                         }
                         placeholder="0"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
 
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Preço de venda unitário
                       </span>
 
@@ -1516,20 +1516,20 @@ export default function PerdasDesperdicioPage() {
                           }))
                         }
                         placeholder="0"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <h3 className="text-sm font-black text-slate-950">
+                <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3">
+                  <h3 className="text-sm font-black text-white">
                     4. Operação
                   </h3>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Motivo
                       </span>
 
@@ -1541,7 +1541,7 @@ export default function PerdasDesperdicioPage() {
                             reason: event.target.value,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       >
                         <option value="Vencimento">Vencimento</option>
                         <option value="Erro de produção">Erro de produção</option>
@@ -1559,7 +1559,7 @@ export default function PerdasDesperdicioPage() {
                     </label>
 
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Origem
                       </span>
 
@@ -1571,7 +1571,7 @@ export default function PerdasDesperdicioPage() {
                             loss_origin: event.target.value,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       >
                         <option value="estoque">Estoque</option>
                         <option value="producao">Produção</option>
@@ -1586,7 +1586,7 @@ export default function PerdasDesperdicioPage() {
                     </label>
 
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Setor
                       </span>
 
@@ -1599,12 +1599,12 @@ export default function PerdasDesperdicioPage() {
                           }))
                         }
                         placeholder="estoque, cozinha, salão..."
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
 
                     <label>
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         Responsável
                       </span>
 
@@ -1617,13 +1617,13 @@ export default function PerdasDesperdicioPage() {
                           }))
                         }
                         placeholder="Nome da pessoa ou setor"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                       />
                     </label>
                   </div>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-[#111111] p-3">
                       <input
                         type="checkbox"
                         checked={form.is_preventable}
@@ -1633,21 +1633,21 @@ export default function PerdasDesperdicioPage() {
                             is_preventable: event.target.checked,
                           }))
                         }
-                        className="mt-1 h-4 w-4 rounded border-slate-300"
+                        className="mt-1 h-4 w-4 rounded border-white/10"
                       />
 
                       <div>
-                        <p className="text-sm font-black text-slate-700">
+                        <p className="text-sm font-black text-zinc-500">
                           Perda evitável
                         </p>
 
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           Marque quando poderia ser reduzida com processo.
                         </p>
                       </div>
                     </label>
 
-                    <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-[#111111] p-3">
                       <input
                         type="checkbox"
                         checked={form.update_stock}
@@ -1658,15 +1658,15 @@ export default function PerdasDesperdicioPage() {
                             update_stock: event.target.checked,
                           }))
                         }
-                        className="mt-1 h-4 w-4 rounded border-slate-300 disabled:opacity-40"
+                        className="mt-1 h-4 w-4 rounded border-white/10 disabled:opacity-40"
                       />
 
                       <div>
-                        <p className="text-sm font-black text-slate-700">
+                        <p className="text-sm font-black text-zinc-500">
                           Baixar do estoque
                         </p>
 
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           Disponível apenas para item vinculado ao estoque.
                         </p>
                       </div>
@@ -1674,12 +1674,12 @@ export default function PerdasDesperdicioPage() {
                   </div>
 
                   {selectedStockItem && (
-                    <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                    <div className="mt-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-yellow-400">
                         Movimento de estoque
                       </p>
 
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-sm font-bold text-blue-900">
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-sm font-bold text-yellow-400">
                         <p>Atual: {stockCurrentQuantity} {getStockUnit(selectedStockItem)}</p>
                         <p>Após baixa: {stockAfterQuantity} {getStockUnit(selectedStockItem)}</p>
                       </div>
@@ -1687,7 +1687,7 @@ export default function PerdasDesperdicioPage() {
                   )}
 
                   <label className="mt-3 block">
-                    <span className="text-sm font-black text-slate-700">
+                    <span className="text-sm font-black text-zinc-500">
                       Observações
                     </span>
 
@@ -1701,19 +1701,19 @@ export default function PerdasDesperdicioPage() {
                       }
                       placeholder="Explique rapidamente o que aconteceu..."
                       rows={3}
-                      className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold outline-none transition focus:border-blue-500"
+                      className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30"
                     />
                   </label>
                 </section>
 
-                <section className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white">
+                <section className="rounded-2xl border border-white/10 bg-[#050505] p-4 text-white">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-black text-white">
                         Resumo do impacto
                       </h3>
 
-                      <p className="text-xs font-semibold text-slate-400">
+                      <p className="text-xs font-semibold text-zinc-500">
                         Conferência antes de salvar o lançamento.
                       </p>
                     </div>
@@ -1722,8 +1722,8 @@ export default function PerdasDesperdicioPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl bg-white/10 p-3">
-                      <p className="text-xs font-bold text-slate-300">
+                    <div className="rounded-xl bg-[#0A0A0A] p-3">
+                      <p className="text-xs font-bold text-zinc-500">
                         Custo perdido
                       </p>
 
@@ -1732,8 +1732,8 @@ export default function PerdasDesperdicioPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-xl bg-white/10 p-3">
-                      <p className="text-xs font-bold text-slate-300">
+                    <div className="rounded-xl bg-[#0A0A0A] p-3">
+                      <p className="text-xs font-bold text-zinc-500">
                         Venda possível perdida
                       </p>
 
@@ -1743,7 +1743,7 @@ export default function PerdasDesperdicioPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-xl bg-white/10 p-3 text-xs font-semibold text-slate-300">
+                  <div className="mt-3 rounded-xl bg-[#0A0A0A] p-3 text-xs font-semibold text-zinc-500">
                     <p>Tipo: {form.reason}</p>
                     <p>Item: {form.product_name || "não informado"}</p>
                     <p>
@@ -1753,13 +1753,13 @@ export default function PerdasDesperdicioPage() {
                 </section>
               </div>
 
-              <div className="border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
+              <div className="border-t border-white/10 bg-[#0A0A0A] px-4 py-3 sm:px-5">
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={closeModal}
                     disabled={saving}
-                    className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Cancelar
                   </button>
@@ -1767,7 +1767,7 @@ export default function PerdasDesperdicioPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                     Salvar lançamento

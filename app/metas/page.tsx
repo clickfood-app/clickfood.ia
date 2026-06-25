@@ -320,10 +320,10 @@ function getGoalView(goal: GoalRow, actualValue: number) {
       progressWidth,
       label: "Acompanhando",
       helper: "Primeiros 20 dias em modo neutro.",
-      barClass: "from-violet-600 via-blue-600 to-cyan-400",
-      badgeClass: "border-blue-100 bg-blue-50 text-blue-700",
-      textClass: "text-blue-700",
-      borderClass: "border-blue-100",
+      barClass: "from-violet-600 via-yellow-400 to-cyan-400",
+      badgeClass: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
+      textClass: "text-yellow-400",
+      borderClass: "border-yellow-400/30",
     }
   }
 
@@ -335,9 +335,9 @@ function getGoalView(goal: GoalRow, actualValue: number) {
         label: "Meta batida",
         helper: "Excelente. Essa meta já foi alcançada.",
         barClass: "from-emerald-500 via-green-500 to-lime-400",
-        badgeClass: "border-emerald-100 bg-emerald-50 text-emerald-700",
-        textClass: "text-emerald-700",
-        borderClass: "border-emerald-100",
+        badgeClass: "border-emerald-400/30 bg-emerald-500/10 text-emerald-400",
+        textClass: "text-emerald-400",
+        borderClass: "border-emerald-400/30",
       }
     }
 
@@ -347,10 +347,10 @@ function getGoalView(goal: GoalRow, actualValue: number) {
         progressWidth,
         label: "No caminho",
         helper: "Boa evolução. Falta pouco para bater.",
-        barClass: "from-emerald-500 via-blue-500 to-cyan-400",
-        badgeClass: "border-emerald-100 bg-emerald-50 text-emerald-700",
-        textClass: "text-emerald-700",
-        borderClass: "border-emerald-100",
+        barClass: "from-emerald-500 via-yellow-4000 to-cyan-400",
+        badgeClass: "border-emerald-400/30 bg-emerald-500/10 text-emerald-400",
+        textClass: "text-emerald-400",
+        borderClass: "border-emerald-400/30",
       }
     }
 
@@ -360,10 +360,10 @@ function getGoalView(goal: GoalRow, actualValue: number) {
         progressWidth,
         label: "Atenção",
         helper: "Precisa acelerar para bater essa meta.",
-        barClass: "from-amber-400 via-orange-400 to-yellow-300",
-        badgeClass: "border-amber-100 bg-amber-50 text-amber-700",
-        textClass: "text-amber-700",
-        borderClass: "border-amber-100",
+        barClass: "from-yellow-400 via-yellow-400 to-yellow-300",
+        badgeClass: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
+        textClass: "text-yellow-400",
+        borderClass: "border-yellow-400/30",
       }
     }
 
@@ -372,7 +372,7 @@ function getGoalView(goal: GoalRow, actualValue: number) {
       progressWidth,
       label: "Abaixo",
       helper: "Meta abaixo do ritmo ideal para o período.",
-      barClass: "from-red-600 via-rose-500 to-orange-400",
+      barClass: "from-red-600 via-rose-500 to-yellow-400",
       badgeClass: "border-red-100 bg-red-50 text-red-700",
       textClass: "text-red-700",
       borderClass: "border-red-100",
@@ -385,7 +385,7 @@ function getGoalView(goal: GoalRow, actualValue: number) {
       progressWidth: 100,
       label: "Estourou",
       helper: "O limite dessa meta já foi ultrapassado.",
-      barClass: "from-red-600 via-rose-500 to-orange-400",
+      barClass: "from-red-600 via-rose-500 to-yellow-400",
       badgeClass: "border-red-100 bg-red-50 text-red-700",
       textClass: "text-red-700",
       borderClass: "border-red-100",
@@ -398,10 +398,10 @@ function getGoalView(goal: GoalRow, actualValue: number) {
       progressWidth,
       label: "Atenção",
       helper: "Está perto de bater o limite definido.",
-      barClass: "from-amber-400 via-orange-400 to-yellow-300",
-      badgeClass: "border-amber-100 bg-amber-50 text-amber-700",
-      textClass: "text-amber-700",
-      borderClass: "border-amber-100",
+      barClass: "from-yellow-400 via-yellow-400 to-yellow-300",
+      badgeClass: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
+      textClass: "text-yellow-400",
+      borderClass: "border-yellow-400/30",
     }
   }
 
@@ -411,9 +411,9 @@ function getGoalView(goal: GoalRow, actualValue: number) {
     label: "Controlado",
     helper: "Dentro do limite planejado.",
     barClass: "from-emerald-500 via-green-500 to-lime-400",
-    badgeClass: "border-emerald-100 bg-emerald-50 text-emerald-700",
-    textClass: "text-emerald-700",
-    borderClass: "border-emerald-100",
+    badgeClass: "border-emerald-400/30 bg-emerald-500/10 text-emerald-400",
+    textClass: "text-emerald-400",
+    borderClass: "border-emerald-400/30",
   }
 }
 
@@ -944,19 +944,19 @@ export default function MetasPage() {
   return (
     <AdminLayout title="Metas">
       <div className="space-y-4">
-        <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+        <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm md:p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                 <Target className="h-4 w-4" />
               </div>
 
               <div className="min-w-0">
-                <h1 className="truncate text-lg font-black text-slate-950 md:text-xl">
+                <h1 className="truncate text-lg font-black text-white md:text-xl">
                   Metas do restaurante
                 </h1>
 
-                <p className="line-clamp-2 text-xs font-medium text-slate-500 md:text-sm">
+                <p className="line-clamp-2 text-xs font-medium text-zinc-500 md:text-sm">
                   Acompanhe faturamento, despesas, desperdícios, quebras, pedidos,
                   ticket médio e CMV.
                 </p>
@@ -968,13 +968,13 @@ export default function MetasPage() {
                 type="month"
                 value={selectedMonth}
                 onChange={(event) => setSelectedMonth(event.target.value)}
-                className="h-10 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                className="h-10 rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
               />
 
               <button
                 type="button"
                 onClick={() => setShowForm((current) => !current)}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-4 text-sm font-black text-black shadow-sm shadow-yellow-400/20 transition hover:bg-yellow-300"
               >
                 <Plus className="h-4 w-4" />
                 Nova meta
@@ -984,58 +984,58 @@ export default function MetasPage() {
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                   Metas ativas
                 </p>
-                <p className="mt-1 text-xl font-black text-slate-950">
+                <p className="mt-1 text-xl font-black text-white">
                   {summary.total}
                 </p>
               </div>
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#111111] text-zinc-500">
                 <Gauge className="h-4 w-4" />
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-blue-100 bg-white p-3 shadow-sm">
+          <div className="rounded-3xl border border-yellow-400/30 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-wide text-blue-500">
+                <p className="text-[11px] font-black uppercase tracking-wide text-zinc-4000">
                   Neutras
                 </p>
-                <p className="mt-1 text-xl font-black text-blue-700">
+                <p className="mt-1 text-xl font-black text-yellow-400">
                   {summary.neutral}
                 </p>
               </div>
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                 <Target className="h-4 w-4" />
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-emerald-100 bg-white p-3 shadow-sm">
+          <div className="rounded-3xl border border-emerald-400/30 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wide text-emerald-500">
                   Boas
                 </p>
-                <p className="mt-1 text-xl font-black text-emerald-700">
+                <p className="mt-1 text-xl font-black text-emerald-400">
                   {summary.good}
                 </p>
               </div>
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                 <Trophy className="h-4 w-4" />
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-red-100 bg-white p-3 shadow-sm">
+          <div className="rounded-3xl border border-red-100 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wide text-red-500">
@@ -1054,14 +1054,14 @@ export default function MetasPage() {
         </section>
 
         {showForm && (
-          <section className="rounded-3xl border border-blue-100 bg-white p-3 shadow-sm md:p-4">
+          <section className="rounded-3xl border border-yellow-400/30 bg-[#0A0A0A] p-3 shadow-sm md:p-4">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-black text-slate-950">
+                <h2 className="text-base font-black text-white">
                   Criar nova meta
                 </h2>
 
-                <p className="text-xs font-medium text-slate-500 md:text-sm">
+                <p className="text-xs font-medium text-zinc-500 md:text-sm">
                   Escolha o tipo de meta, informe o valor alvo e a ClickFood acompanha
                   o realizado automaticamente.
                 </p>
@@ -1070,7 +1070,7 @@ export default function MetasPage() {
               <button
                 type="button"
                 onClick={handleCancelForm}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#111111] text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
                 aria-label="Cancelar"
               >
                 <X className="h-4 w-4" />
@@ -1079,7 +1079,7 @@ export default function MetasPage() {
 
             <form onSubmit={handleCreateGoal} className="grid gap-3 lg:grid-cols-12">
               <label className="space-y-1.5 lg:col-span-3">
-                <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                   Tipo
                 </span>
 
@@ -1088,7 +1088,7 @@ export default function MetasPage() {
                   onChange={(event) =>
                     handleMetricChange(event.target.value as MetricKey)
                   }
-                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-10 w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 >
                   {metricOrder.map((metricKey) => (
                     <option key={metricKey} value={metricKey}>
@@ -1099,7 +1099,7 @@ export default function MetasPage() {
               </label>
 
               <label className="space-y-1.5 lg:col-span-3">
-                <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                   Nome
                 </span>
 
@@ -1111,13 +1111,13 @@ export default function MetasPage() {
                       name: event.target.value,
                     }))
                   }
-                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-10 w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                   placeholder="Ex: Faturamento de junho"
                 />
               </label>
 
               <label className="space-y-1.5 lg:col-span-2">
-                <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                   Valor da meta
                 </span>
 
@@ -1129,13 +1129,13 @@ export default function MetasPage() {
                       target_value: event.target.value,
                     }))
                   }
-                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-10 w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                   placeholder="120000"
                 />
               </label>
 
               <label className="space-y-1.5 lg:col-span-2">
-                <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                   Início
                 </span>
 
@@ -1148,12 +1148,12 @@ export default function MetasPage() {
                       period_start: event.target.value,
                     }))
                   }
-                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-10 w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </label>
 
               <label className="space-y-1.5 lg:col-span-2">
-                <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                   Fim
                 </span>
 
@@ -1166,12 +1166,12 @@ export default function MetasPage() {
                       period_end: event.target.value,
                     }))
                   }
-                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-10 w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </label>
 
               <label className="space-y-1.5 lg:col-span-8">
-                <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                   Observação
                 </span>
 
@@ -1183,7 +1183,7 @@ export default function MetasPage() {
                       notes: event.target.value,
                     }))
                   }
-                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-10 w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                   placeholder="Ex: Meta agressiva para campanha do mês"
                 />
               </label>
@@ -1193,7 +1193,7 @@ export default function MetasPage() {
                   type="button"
                   onClick={handleCancelForm}
                   disabled={isSaving}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancelar
                 </button>
@@ -1201,7 +1201,7 @@ export default function MetasPage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-[#050505] px-4 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1215,41 +1215,41 @@ export default function MetasPage() {
           </section>
         )}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+        <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm md:p-4">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-base font-black text-slate-950">
+              <h2 className="text-base font-black text-white">
                 Painel de metas
               </h2>
 
-              <p className="text-xs font-medium text-slate-500 md:text-sm">
+              <p className="text-xs font-medium text-zinc-500 md:text-sm">
                 Cada card mostra meta, realizado, progresso e status.
               </p>
             </div>
 
-            <div className="w-fit rounded-2xl border border-blue-100 bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-700">
+            <div className="w-fit rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-[11px] font-bold text-yellow-400">
               Até o 20º dia: roxo/azul neutro
             </div>
           </div>
 
           {isLoading ? (
             <div className="flex min-h-[220px] items-center justify-center">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 shadow-sm">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 text-sm font-bold text-zinc-500 shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
                 Carregando metas...
               </div>
             </div>
           ) : visibleGoals.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-3xl bg-blue-50 text-blue-700">
+            <div className="rounded-3xl border border-dashed border-white/10 bg-[#111111] p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-3xl bg-yellow-400/10 text-yellow-400">
                 <Target className="h-6 w-6" />
               </div>
 
-              <h3 className="mt-4 text-base font-black text-slate-950">
+              <h3 className="mt-4 text-base font-black text-white">
                 Nenhuma meta cadastrada para esse mês
               </h3>
 
-              <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+              <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-zinc-500">
                 Crie metas de faturamento, despesas, desperdícios, quebras, ticket
                 médio, pedidos e CMV.
               </p>
@@ -1257,7 +1257,7 @@ export default function MetasPage() {
               <button
                 type="button"
                 onClick={() => setShowForm(true)}
-                className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700"
+                className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-4 text-sm font-black text-black shadow-sm shadow-yellow-400/20 transition hover:bg-yellow-300"
               >
                 <Plus className="h-4 w-4" />
                 Criar primeira meta
@@ -1275,20 +1275,20 @@ export default function MetasPage() {
                   <article
                     key={goal.id}
                     className={cn(
-                      "overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+                      "overflow-hidden rounded-3xl border bg-[#0A0A0A] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
                       view.borderClass,
                     )}
                   >
                     <div className="p-3 md:p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#111111] text-zinc-500">
                             {config.icon}
                           </div>
 
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="truncate text-sm font-black text-slate-950 md:text-base">
+                              <h3 className="truncate text-sm font-black text-white md:text-base">
                                 {goal.name}
                               </h3>
 
@@ -1302,7 +1302,7 @@ export default function MetasPage() {
                               </span>
                             </div>
 
-                            <p className="mt-0.5 line-clamp-1 text-xs font-medium text-slate-500 md:text-sm">
+                            <p className="mt-0.5 line-clamp-1 text-xs font-medium text-zinc-500 md:text-sm">
                               {config.description}
                             </p>
                           </div>
@@ -1311,7 +1311,7 @@ export default function MetasPage() {
                         <button
                           type="button"
                           onClick={() => void handleDeleteGoal(goal.id)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
                           aria-label="Remover meta"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1320,7 +1320,7 @@ export default function MetasPage() {
 
                       <div className="mt-4">
                         <div className="mb-1.5 flex items-center justify-between gap-3">
-                          <span className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                          <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                             Progresso
                           </span>
 
@@ -1332,7 +1332,7 @@ export default function MetasPage() {
                           </span>
                         </div>
 
-                        <div className="relative h-5 overflow-hidden rounded-full border border-slate-200 bg-slate-100 p-1 shadow-inner">
+                        <div className="relative h-5 overflow-hidden rounded-full border border-white/10 bg-[#111111] p-1 shadow-inner">
                           <div
                             className={cn(
                               "relative h-full overflow-hidden rounded-full bg-gradient-to-r shadow-sm transition-all duration-700",
@@ -1348,39 +1348,39 @@ export default function MetasPage() {
                       </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                        <div className="rounded-2xl border border-white/10 bg-[#111111] p-3">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                             Meta
                           </p>
 
-                          <p className="mt-1 truncate text-sm font-black text-slate-950 md:text-base">
+                          <p className="mt-1 truncate text-sm font-black text-white md:text-base">
                             {formatMetricValue(goal.metric_key, targetValue)}
                           </p>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                        <div className="rounded-2xl border border-white/10 bg-[#111111] p-3">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                             Atingido
                           </p>
 
-                          <p className="mt-1 truncate text-sm font-black text-slate-950 md:text-base">
+                          <p className="mt-1 truncate text-sm font-black text-white md:text-base">
                             {formatMetricValue(goal.metric_key, actualValue)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="mt-3 rounded-2xl border border-slate-100 bg-white p-3">
-                        <p className="text-xs font-bold text-slate-700 md:text-sm">
+                      <div className="mt-3 rounded-2xl border border-white/10 bg-[#0A0A0A] p-3">
+                        <p className="text-xs font-bold text-zinc-500 md:text-sm">
                           {getGoalBalanceText(goal, actualValue)}
                         </p>
 
-                        <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                        <p className="mt-1 text-[11px] font-semibold text-zinc-500">
                           {view.helper}
                         </p>
                       </div>
 
                       {goal.notes && (
-                        <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                        <p className="mt-3 rounded-2xl bg-[#111111] px-3 py-2 text-xs font-semibold text-zinc-500">
                           {goal.notes}
                         </p>
                       )}

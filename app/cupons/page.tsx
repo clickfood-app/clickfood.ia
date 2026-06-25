@@ -90,9 +90,9 @@ function getStatusLabel(status: CouponStatus) {
 }
 
 function getStatusClass(status: CouponStatus) {
-  if (status === "active") return "bg-emerald-100 text-emerald-700"
-  if (status === "scheduled") return "bg-amber-100 text-amber-700"
-  return "bg-slate-200 text-slate-600"
+  if (status === "active") return "bg-emerald-500/10 text-emerald-400"
+  if (status === "scheduled") return "bg-yellow-400/10 text-yellow-400"
+  return "bg-[#111111] text-zinc-500"
 }
 
 function getAudienceLabel(coupon: Coupon) {
@@ -133,12 +133,12 @@ function CreateCouponModal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111] p-4">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-[#0A0A0A] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Novo cupom</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="text-lg font-semibold text-white">Novo cupom</h2>
+            <p className="mt-1 text-sm text-zinc-500">
               Preencha os dados para criar um novo cupom.
             </p>
           </div>
@@ -146,7 +146,7 @@ function CreateCouponModal({
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg p-2 text-zinc-500 transition hover:bg-[#111111] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -155,7 +155,7 @@ function CreateCouponModal({
         <div className="max-h-[calc(92vh-145px)] overflow-y-auto">
           <div className="grid gap-4 p-5 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Código do cupom
               </label>
               <input
@@ -163,12 +163,12 @@ function CreateCouponModal({
                 value={formData.code}
                 onChange={(e) => onChange("code", e.target.value.toUpperCase())}
                 placeholder="Ex: BEMVINDO10"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Nome do cupom
               </label>
               <input
@@ -176,18 +176,18 @@ function CreateCouponModal({
                 value={formData.title}
                 onChange={(e) => onChange("title", e.target.value)}
                 placeholder="Ex: Cupom de boas-vindas"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Tipo de desconto
               </label>
               <select
                 value={formData.type}
                 onChange={(e) => onChange("type", e.target.value as CouponType)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               >
                 <option value="percentage">Porcentagem</option>
                 <option value="fixed">Valor fixo</option>
@@ -195,7 +195,7 @@ function CreateCouponModal({
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Valor do desconto
               </label>
               <input
@@ -204,12 +204,12 @@ function CreateCouponModal({
                 value={formData.value}
                 onChange={(e) => onChange("value", e.target.value)}
                 placeholder={formData.type === "percentage" ? "Ex: 10" : "Ex: 5"}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Pedido mínimo
               </label>
               <input
@@ -218,12 +218,12 @@ function CreateCouponModal({
                 value={formData.minimumOrder}
                 onChange={(e) => onChange("minimumOrder", e.target.value)}
                 placeholder="Ex: 30"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Limite de uso
               </label>
               <input
@@ -232,24 +232,24 @@ function CreateCouponModal({
                 value={formData.usageLimit}
                 onChange={(e) => onChange("usageLimit", e.target.value)}
                 placeholder="Ex: 100"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Data de validade
               </label>
               <input
                 type="date"
                 value={formData.validUntil}
                 onChange={(e) => onChange("validUntil", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-500">
                 Quem pode usar esse cupom?
               </label>
 
@@ -258,7 +258,7 @@ function CreateCouponModal({
                 onChange={(e) =>
                   onChange("audienceType", e.target.value as CouponAudienceType)
                 }
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
               >
                 <option value="all">Todos os clientes</option>
                 <option value="specific_customer">
@@ -272,14 +272,14 @@ function CreateCouponModal({
                 </option>
               </select>
 
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-zinc-500">
                 Essa regra será usada no checkout para bloquear quem não tiver direito ao cupom.
               </p>
             </div>
 
             {formData.audienceType === "specific_customer" ? (
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-zinc-500">
                   Telefone do cliente
                 </label>
                 <input
@@ -287,14 +287,14 @@ function CreateCouponModal({
                   value={formData.customerPhone}
                   onChange={(e) => onChange("customerPhone", e.target.value)}
                   placeholder="Ex: 31999999999"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                  className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
                 />
               </div>
             ) : null}
 
             {formData.audienceType === "min_orders" ? (
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-zinc-500">
                   Mínimo de compras do cliente
                 </label>
                 <input
@@ -303,7 +303,7 @@ function CreateCouponModal({
                   value={formData.minCustomerOrders}
                   onChange={(e) => onChange("minCustomerOrders", e.target.value)}
                   placeholder="Ex: 3"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                  className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-white/10"
                 />
               </div>
             ) : null}
@@ -316,11 +316,11 @@ function CreateCouponModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
+        <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-4">
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-white/10 bg-[#0A0A0A] px-4 py-2.5 text-sm font-medium text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -328,7 +328,7 @@ function CreateCouponModal({
           <button
             onClick={onSubmit}
             disabled={isSubmitting}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#080808] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -580,15 +580,15 @@ export default function CuponsPage() {
       <div className="space-y-6 p-4 md:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Cupons</h1>
-            <p className="mt-1 text-sm text-slate-600">
+            <h1 className="text-2xl font-semibold text-white">Cupons</h1>
+            <p className="mt-1 text-sm text-zinc-500">
               Crie, acompanhe e gerencie os cupons do seu restaurante.
             </p>
           </div>
 
           <button
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#080808] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#111111]"
           >
             <Plus className="h-4 w-4" />
             Novo cupom
@@ -602,65 +602,65 @@ export default function CuponsPage() {
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4">
             <div className="flex items-center gap-2">
-              <Ticket className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">
+              <Ticket className="h-4 w-4 text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-500">
                 Total de cupons
               </span>
             </div>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">
+            <p className="mt-3 text-3xl font-semibold text-white">
               {stats.total}
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4">
             <div className="flex items-center gap-2">
-              <BadgePercent className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">
+              <BadgePercent className="h-4 w-4 text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-500">
                 Cupons ativos
               </span>
             </div>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">
+            <p className="mt-3 text-3xl font-semibold text-white">
               {stats.active}
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">
+              <Users className="h-4 w-4 text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-500">
                 Cupons exclusivos
               </span>
             </div>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">
+            <p className="mt-3 text-3xl font-semibold text-white">
               {stats.exclusive}
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">
+              <Users className="h-4 w-4 text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-500">
                 Usos totais
               </span>
             </div>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">
+            <p className="mt-3 text-3xl font-semibold text-white">
               {stats.totalUses}
             </p>
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 p-4">
+        <div className="rounded-xl border border-white/10 bg-[#0A0A0A]">
+          <div className="border-b border-white/10 p-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <input
                 type="text"
                 placeholder="Buscar cupom por código, nome ou público..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-white/10 bg-[#0A0A0A] py-2.5 pl-10 pr-4 text-sm text-white outline-none transition focus:border-white/10"
               />
             </div>
           </div>
@@ -668,18 +668,18 @@ export default function CuponsPage() {
           <div className="p-4">
             {isLoading ? (
               <div className="flex min-h-[240px] items-center justify-center">
-                <div className="inline-flex items-center gap-2 text-sm text-slate-500">
+                <div className="inline-flex items-center gap-2 text-sm text-zinc-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Carregando cupons...
                 </div>
               </div>
             ) : filteredCoupons.length === 0 ? (
-              <div className="flex min-h-[240px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center">
-                <Ticket className="h-10 w-10 text-slate-300" />
-                <h2 className="mt-3 text-base font-semibold text-slate-900">
+              <div className="flex min-h-[240px] flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-[#111111] text-center">
+                <Ticket className="h-10 w-10 text-zinc-500" />
+                <h2 className="mt-3 text-base font-semibold text-white">
                   Nenhum cupom encontrado
                 </h2>
-                <p className="mt-1 max-w-md text-sm text-slate-500">
+                <p className="mt-1 max-w-md text-sm text-zinc-500">
                   Crie seu primeiro cupom para aumentar conversão, fidelizar clientes e incentivar novos pedidos.
                 </p>
               </div>
@@ -688,12 +688,12 @@ export default function CuponsPage() {
                 {filteredCoupons.map((coupon) => (
                   <div
                     key={coupon.id}
-                    className="rounded-xl border border-slate-200 bg-white p-4"
+                    className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold tracking-wide text-white">
+                          <span className="rounded-lg bg-[#080808] px-3 py-1.5 text-sm font-semibold tracking-wide text-white">
                             {coupon.code}
                           </span>
 
@@ -706,49 +706,49 @@ export default function CuponsPage() {
                           </span>
 
                           {coupon.audience_type !== "all" ? (
-                            <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">
+                            <span className="rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-medium text-yellow-400">
                               Exclusivo
                             </span>
                           ) : null}
                         </div>
 
                         <div>
-                          <h3 className="text-base font-semibold text-slate-900">
+                          <h3 className="text-base font-semibold text-white">
                             {coupon.title}
                           </h3>
-                          <p className="mt-1 text-sm text-slate-500">
+                          <p className="mt-1 text-sm text-zinc-500">
                             {coupon.type === "percentage"
                               ? `${coupon.value}% de desconto`
                               : `${formatCurrency(coupon.value)} de desconto`}
                           </p>
-                          <p className="mt-1 text-sm font-medium text-slate-700">
+                          <p className="mt-1 text-sm font-medium text-zinc-500">
                             {getAudienceLabel(coupon)}
                           </p>
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-3">
-                          <div className="rounded-lg bg-slate-50 p-3">
-                            <p className="text-xs text-slate-500">
+                          <div className="rounded-lg bg-[#111111] p-3">
+                            <p className="text-xs text-zinc-500">
                               Pedido mínimo
                             </p>
-                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                            <p className="mt-1 text-sm font-semibold text-white">
                               {formatCurrency(coupon.minimum_order)}
                             </p>
                           </div>
 
-                          <div className="rounded-lg bg-slate-50 p-3">
-                            <p className="text-xs text-slate-500">Uso</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                          <div className="rounded-lg bg-[#111111] p-3">
+                            <p className="text-xs text-zinc-500">Uso</p>
+                            <p className="mt-1 text-sm font-semibold text-white">
                               {coupon.used_count} / {coupon.usage_limit}
                             </p>
                           </div>
 
-                          <div className="rounded-lg bg-slate-50 p-3">
-                            <div className="flex items-center gap-1 text-xs text-slate-500">
+                          <div className="rounded-lg bg-[#111111] p-3">
+                            <div className="flex items-center gap-1 text-xs text-zinc-500">
                               <CalendarRange className="h-3.5 w-3.5" />
                               <span>Validade</span>
                             </div>
-                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                            <p className="mt-1 text-sm font-semibold text-white">
                               {formatDate(coupon.valid_until)}
                             </p>
                           </div>
@@ -758,7 +758,7 @@ export default function CuponsPage() {
                       <div className="flex flex-row gap-2 lg:flex-col">
                         <button
                           onClick={() => handleCopyCode(coupon.code)}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 text-sm font-medium text-zinc-500 transition hover:bg-[#111111]"
                         >
                           <Copy className="h-4 w-4" />
                           Copiar
@@ -766,7 +766,7 @@ export default function CuponsPage() {
 
                         <button
                           onClick={() => handleDeleteCoupon(coupon.id)}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-[#0A0A0A] px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
                           Excluir

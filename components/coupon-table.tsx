@@ -39,9 +39,9 @@ interface CouponTableProps {
 function statusBadge(status: CouponStatus) {
   switch (status) {
     case "ativo":
-      return "bg-emerald-100 text-emerald-700"
+      return "bg-emerald-500/10 text-emerald-400"
     case "pausado":
-      return "bg-amber-100 text-amber-700"
+      return "bg-yellow-400/10 text-yellow-400"
     case "expirado":
       return "bg-red-100 text-red-700"
     default:

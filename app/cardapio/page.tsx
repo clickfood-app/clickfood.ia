@@ -36,7 +36,7 @@ export default function CardapioIndexPage() {
   const [description, setDescription] = useState("")
   const [logoUrl, setLogoUrl] = useState("")
   const [coverImageUrl, setCoverImageUrl] = useState("")
-  const [themeColor, setThemeColor] = useState("#7c3aed")
+  const [themeColor, setThemeColor] = useState("#facc15")
 
   const publicMenuUrl =
     typeof window !== "undefined" && restaurant?.slug
@@ -79,7 +79,7 @@ export default function CardapioIndexPage() {
         setDescription(data.description ?? "")
         setLogoUrl(data.logo_url ?? "")
         setCoverImageUrl(data.cover_image_url ?? "")
-        setThemeColor(data.theme_color ?? "#7c3aed")
+        setThemeColor(data.theme_color ?? "#facc15")
       } catch (error) {
         console.error("Erro ao carregar cardápio:", error)
       } finally {
@@ -103,7 +103,7 @@ export default function CardapioIndexPage() {
           description: description.trim() || null,
           logo_url: logoUrl.trim() || null,
           cover_image_url: coverImageUrl.trim() || null,
-          theme_color: themeColor || "#7c3aed",
+          theme_color: themeColor || "#facc15",
         })
         .eq("id", restaurant.id)
 
@@ -117,7 +117,7 @@ export default function CardapioIndexPage() {
         description: description.trim() || null,
         logo_url: logoUrl.trim() || null,
         cover_image_url: coverImageUrl.trim() || null,
-        theme_color: themeColor || "#7c3aed",
+        theme_color: themeColor || "#facc15",
       })
 
       alert("Aparência do cardápio salva com sucesso!")
@@ -147,9 +147,9 @@ export default function CardapioIndexPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
-        <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin text-violet-600" />
-          <span className="text-sm font-medium text-gray-600">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 py-4 shadow-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+          <span className="text-sm font-medium text-zinc-500">
             Carregando cardápio...
           </span>
         </div>
@@ -160,16 +160,16 @@ export default function CardapioIndexPage() {
   if (!restaurant) {
     return (
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4">
-        <div className="max-w-md rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100">
-            <Store className="h-7 w-7 text-gray-500" />
+        <div className="max-w-md rounded-3xl border border-white/10 bg-[#0A0A0A] p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#111111]">
+            <Store className="h-7 w-7 text-zinc-500" />
           </div>
 
-          <h1 className="text-xl font-black text-gray-900">
+          <h1 className="text-xl font-black text-white">
             Restaurante não encontrado
           </h1>
 
-          <p className="mt-2 text-sm leading-6 text-gray-500">
+          <p className="mt-2 text-sm leading-6 text-zinc-500">
             Não encontramos um restaurante vinculado à sua conta.
           </p>
         </div>
@@ -178,20 +178,20 @@ export default function CardapioIndexPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6 lg:px-8">
+    <div className="min-h-screen bg-[#111111] px-4 py-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-bold text-yellow-400">
               <Palette className="h-3.5 w-3.5" />
               Cardápio digital
             </div>
 
-            <h1 className="text-2xl font-black tracking-tight text-gray-900 lg:text-3xl">
+            <h1 className="text-2xl font-black tracking-tight text-white lg:text-3xl">
               Aparência e divulgação
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
               Ajuste o visual do cardápio que o cliente vê e copie o link para
               divulgar no Instagram, WhatsApp e QR Code.
             </p>
@@ -200,7 +200,7 @@ export default function CardapioIndexPage() {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-bold text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -214,18 +214,18 @@ export default function CardapioIndexPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
           <div className="space-y-6">
-            <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm lg:p-6">
+            <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm lg:p-6">
               <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                   <Palette className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-black text-gray-900">
+                  <h2 className="text-lg font-black text-white">
                     Aparência do cardápio
                   </h2>
 
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-zinc-500">
                     Esses dados aparecem no topo do cardápio público.
                   </p>
                 </div>
@@ -233,7 +233,7 @@ export default function CardapioIndexPage() {
 
               <div className="grid gap-4">
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                     Nome do restaurante
                   </label>
 
@@ -241,12 +241,12 @@ export default function CardapioIndexPage() {
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="Nome do restaurante"
-                    className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                     Descrição curta
                   </label>
 
@@ -255,12 +255,12 @@ export default function CardapioIndexPage() {
                     onChange={(event) => setDescription(event.target.value)}
                     placeholder="Ex: Hambúrguer artesanal, porções e bebidas geladas."
                     rows={3}
-                    className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                    className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                     URL da logo
                   </label>
 
@@ -268,12 +268,12 @@ export default function CardapioIndexPage() {
                     value={logoUrl}
                     onChange={(event) => setLogoUrl(event.target.value)}
                     placeholder="https://..."
-                    className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                     URL da imagem de capa
                   </label>
 
@@ -281,12 +281,12 @@ export default function CardapioIndexPage() {
                     value={coverImageUrl}
                     onChange={(event) => setCoverImageUrl(event.target.value)}
                     placeholder="https://..."
-                    className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                     Cor principal
                   </label>
 
@@ -295,44 +295,44 @@ export default function CardapioIndexPage() {
                       type="color"
                       value={themeColor}
                       onChange={(event) => setThemeColor(event.target.value)}
-                      className="h-12 w-16 cursor-pointer rounded-2xl border border-gray-200 bg-white p-1"
+                      className="h-12 w-16 cursor-pointer rounded-2xl border border-white/10 bg-[#0A0A0A] p-1"
                     />
 
                     <input
                       value={themeColor}
                       onChange={(event) => setThemeColor(event.target.value)}
-                      placeholder="#7c3aed"
-                      className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                      placeholder="#facc15"
+                      className="flex-1 rounded-2xl border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                     />
                   </div>
                 </div>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm lg:p-6">
+            <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm lg:p-6">
               <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                   <Share2 className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-black text-gray-900">
+                  <h2 className="text-lg font-black text-white">
                     Divulgação
                   </h2>
 
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-zinc-500">
                     Use esse link na bio do Instagram, WhatsApp ou QR Code.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+              <div className="rounded-2xl border border-white/10 bg-[#111111] p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Link público do cardápio
                 </p>
 
                 <div className="flex flex-col gap-3 lg:flex-row">
-                  <div className="flex min-h-12 flex-1 items-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700">
+                  <div className="flex min-h-12 flex-1 items-center rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-medium text-zinc-500">
                     <span className="truncate">
                       {publicMenuUrl || "Slug do restaurante não encontrado"}
                     </span>
@@ -341,7 +341,7 @@ export default function CardapioIndexPage() {
                   <button
                     onClick={handleCopyLink}
                     disabled={!publicMenuUrl}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#080808] px-4 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Link2 className="h-4 w-4" />
                     {copied ? "Copiado" : "Copiar"}
@@ -352,7 +352,7 @@ export default function CardapioIndexPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className={cn(
-                      "inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50",
+                      "inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-3 text-sm font-bold text-zinc-500 transition hover:bg-[#111111]",
                       !publicMenuUrl && "pointer-events-none opacity-50"
                     )}
                   >
@@ -364,18 +364,18 @@ export default function CardapioIndexPage() {
             </section>
           </div>
 
-          <aside className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+          <aside className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
             <div className="mb-4">
-              <h2 className="text-lg font-black text-gray-900">
+              <h2 className="text-lg font-black text-white">
                 Preview rápido
               </h2>
 
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-zinc-500">
                 Prévia simples do topo do cardápio.
               </p>
             </div>
 
-            <div className="overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-xl">
+            <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0A0A0A] shadow-xl">
               <div className="relative h-56">
                 {coverImageUrl ? (
                   <Image
@@ -396,7 +396,7 @@ export default function CardapioIndexPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 
                 <div className="absolute bottom-4 left-4 right-4 flex items-end gap-3">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white shadow-xl">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#0A0A0A] shadow-xl">
                     {logoUrl ? (
                       <Image
                         src={logoUrl}
@@ -428,28 +428,28 @@ export default function CardapioIndexPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 border-t border-gray-200 bg-white">
+              <div className="grid grid-cols-3 border-t border-white/10 bg-[#0A0A0A]">
                 <div className="px-3 py-4 text-center">
-                  <p className="text-[10px] font-bold uppercase text-gray-400">
+                  <p className="text-[10px] font-bold uppercase text-zinc-500">
                     Status
                   </p>
-                  <p className="mt-1 text-sm font-black text-gray-900">Aberto</p>
+                  <p className="mt-1 text-sm font-black text-white">Aberto</p>
                 </div>
 
-                <div className="border-x border-gray-200 px-3 py-4 text-center">
-                  <p className="text-[10px] font-bold uppercase text-gray-400">
+                <div className="border-x border-white/10 px-3 py-4 text-center">
+                  <p className="text-[10px] font-bold uppercase text-zinc-500">
                     Entrega
                   </p>
-                  <p className="mt-1 text-sm font-black text-gray-900">Ativa</p>
+                  <p className="mt-1 text-sm font-black text-white">Ativa</p>
                 </div>
 
                 <div className="px-3 py-4 text-center">
-                  <p className="text-[10px] font-bold uppercase text-gray-400">
+                  <p className="text-[10px] font-bold uppercase text-zinc-500">
                     Tema
                   </p>
                   <div className="mt-1 flex justify-center">
                     <span
-                      className="h-5 w-5 rounded-full border border-gray-200"
+                      className="h-5 w-5 rounded-full border border-white/10"
                       style={{ backgroundColor: themeColor }}
                     />
                   </div>

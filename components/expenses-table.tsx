@@ -478,8 +478,8 @@ export default function ExpensesTable({
                         onClick={() => toggleStatus(expense)}
                         className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                           normalizeStatus(expense.status) === "pago"
-                            ? "bg-emerald-500/15 text-emerald-600"
-                            : "bg-amber-500/15 text-amber-600"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : "bg-yellow-400/15 text-yellow-400"
                         }`}
                       >
                         {statusLabel(expense.status)}

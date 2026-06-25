@@ -143,7 +143,7 @@ function getStatusClasses(status: string) {
   const normalized = normalizeStatus(status)
 
   if (normalized === "pending" || normalized === "pendente") {
-    return "border-amber-200 bg-amber-50 text-amber-700"
+    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
   }
 
   if (
@@ -158,11 +158,11 @@ function getStatusClasses(status: string) {
     normalized === "out_for_delivery" ||
     normalized === "saiu_para_entrega"
   ) {
-    return "border-blue-200 bg-blue-50 text-blue-700"
+    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
   }
 
   if (normalized === "delivered" || normalized === "entregue") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700"
+    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
   }
 
   if (
@@ -173,7 +173,7 @@ function getStatusClasses(status: string) {
     return "border-red-200 bg-red-50 text-red-700"
   }
 
-  return "border-slate-200 bg-slate-50 text-slate-700"
+  return "border-white/10 bg-[#111111] text-zinc-500"
 }
 
 function pctChange(current: number, previous: number) {
@@ -272,7 +272,7 @@ function buildMetrics(allOrders: OrderRow[], now = new Date()): DashboardMetrics
 }
 
 function SkeletonCard() {
-  return <div className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+  return <div className="h-32 animate-pulse rounded-2xl bg-[#111111]" />
 }
 
 function VariationBadge({ value }: { value: number }) {
@@ -283,8 +283,8 @@ function VariationBadge({ value }: { value: number }) {
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
-        isNeutral && "bg-slate-100 text-slate-600",
-        !isNeutral && isPositive && "bg-emerald-100 text-emerald-700",
+        isNeutral && "bg-[#111111] text-zinc-500",
+        !isNeutral && isPositive && "bg-emerald-500/10 text-emerald-400",
         !isNeutral && !isPositive && "bg-red-100 text-red-700"
       )}
     >
@@ -391,9 +391,9 @@ export default function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-[#111111]">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="h-24 animate-pulse rounded-3xl bg-white" />
+          <div className="h-24 animate-pulse rounded-3xl bg-[#0A0A0A]" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <SkeletonCard />
             <SkeletonCard />
@@ -401,8 +401,8 @@ export default function DashboardContent() {
             <SkeletonCard />
           </div>
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-            <div className="h-96 animate-pulse rounded-3xl bg-white" />
-            <div className="h-96 animate-pulse rounded-3xl bg-white" />
+            <div className="h-96 animate-pulse rounded-3xl bg-[#0A0A0A]" />
+            <div className="h-96 animate-pulse rounded-3xl bg-[#0A0A0A]" />
           </div>
         </div>
       </div>
@@ -410,28 +410,28 @@ export default function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#111111]">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-400">
                 <TimerReset className="h-3.5 w-3.5" />
                 Operação em tempo real
               </div>
 
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              <h1 className="text-2xl font-bold tracking-tight text-white">
                 Painel do dia
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-zinc-500">
                 Dados reais do restaurante com atualização automática.
               </p>
             </div>
 
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600">
+              <div className="rounded-2xl border border-white/10 bg-[#111111] px-4 py-2 text-sm text-zinc-500">
                 Última atualização:{" "}
-                <span className="font-semibold text-slate-900">
+                <span className="font-semibold text-white">
                   {lastUpdated
                     ? new Intl.DateTimeFormat("pt-BR", {
                         hour: "2-digit",
@@ -445,7 +445,7 @@ export default function DashboardContent() {
               <button
                 type="button"
                 onClick={() => loadDashboard(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111]"
               >
                 {refreshing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -465,111 +465,111 @@ export default function DashboardContent() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex items-start justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                 <DollarSign className="h-5 w-5" />
               </div>
               <VariationBadge value={metrics.faturamentoVar} />
             </div>
-            <p className="mt-4 text-sm text-slate-500">Faturamento hoje</p>
-            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+            <p className="mt-4 text-sm text-zinc-500">Faturamento hoje</p>
+            <h3 className="mt-1 text-3xl font-bold text-white">
               {formatBRL(metrics.faturamentoHoje)}
             </h3>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-zinc-500">
               Ontem: {formatBRL(metrics.faturamentoOntem)}
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex items-start justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                 <ShoppingCart className="h-5 w-5" />
               </div>
               <VariationBadge value={metrics.pedidosVar} />
             </div>
-            <p className="mt-4 text-sm text-slate-500">Pedidos hoje</p>
-            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+            <p className="mt-4 text-sm text-zinc-500">Pedidos hoje</p>
+            <h3 className="mt-1 text-3xl font-bold text-white">
               {metrics.pedidosHoje}
             </h3>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-zinc-500">
               Ontem: {metrics.pedidosOntem}
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex items-start justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                 <Receipt className="h-5 w-5" />
               </div>
               <VariationBadge value={metrics.ticketVar} />
             </div>
-            <p className="mt-4 text-sm text-slate-500">Ticket médio</p>
-            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+            <p className="mt-4 text-sm text-zinc-500">Ticket médio</p>
+            <h3 className="mt-1 text-3xl font-bold text-white">
               {formatBRL(metrics.ticketMedioHoje)}
             </h3>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-zinc-500">
               Ontem: {formatBRL(metrics.ticketMedioOntem)}
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
                 <XCircle className="h-5 w-5" />
               </div>
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+              <span className="inline-flex items-center rounded-full bg-[#111111] px-2.5 py-1 text-xs font-semibold text-zinc-500">
                 Hoje
               </span>
             </div>
-            <p className="mt-4 text-sm text-slate-500">Cancelados</p>
-            <h3 className="mt-1 text-3xl font-bold text-slate-900">
+            <p className="mt-4 text-sm text-zinc-500">Cancelados</p>
+            <h3 className="mt-1 text-3xl font-bold text-white">
               {metrics.canceladosHoje}
             </h3>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-zinc-500">
               Pedidos cancelados no dia
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-lg font-bold text-white">
                   Fila operacional
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Situação atual da operação
                 </p>
               </div>
 
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#111111] px-3 py-1 text-xs font-semibold text-zinc-500">
                 <Clock3 className="h-3.5 w-3.5" />
                 Atualiza em tempo real
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-medium text-amber-700">Pendentes</p>
-                <h3 className="mt-2 text-3xl font-bold text-amber-900">
+              <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
+                <p className="text-sm font-medium text-yellow-400">Pendentes</p>
+                <h3 className="mt-2 text-3xl font-bold text-yellow-400">
                   {metrics.pendentesAgora}
                 </h3>
               </div>
 
-              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm font-medium text-blue-700">Em preparo</p>
-                <h3 className="mt-2 text-3xl font-bold text-blue-900">
+              <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
+                <p className="text-sm font-medium text-yellow-400">Em preparo</p>
+                <h3 className="mt-2 text-3xl font-bold text-yellow-400">
                   {metrics.emPreparoAgora}
                 </h3>
               </div>
 
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-sm font-medium text-emerald-700">
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+                <p className="text-sm font-medium text-emerald-400">
                   Concluídos hoje
                 </p>
-                <h3 className="mt-2 text-3xl font-bold text-emerald-900">
+                <h3 className="mt-2 text-3xl font-bold text-emerald-400">
                   {metrics.concluidosHoje}
                 </h3>
               </div>
@@ -579,7 +579,7 @@ export default function DashboardContent() {
                   "rounded-2xl border p-4",
                   metrics.canceladosHoje > 0
                     ? "border-rose-200 bg-rose-50"
-                    : "border-slate-200 bg-slate-50"
+                    : "border-white/10 bg-[#111111]"
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -588,7 +588,7 @@ export default function DashboardContent() {
                       "text-sm font-medium",
                       metrics.canceladosHoje > 0
                         ? "text-rose-700"
-                        : "text-slate-600"
+                        : "text-zinc-500"
                     )}
                   >
                     Cancelados
@@ -604,7 +604,7 @@ export default function DashboardContent() {
                     "mt-2 text-3xl font-bold",
                     metrics.canceladosHoje > 0
                       ? "text-rose-900"
-                      : "text-slate-900"
+                      : "text-white"
                   )}
                 >
                   {metrics.canceladosHoje}
@@ -613,22 +613,22 @@ export default function DashboardContent() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
             <div className="mb-5">
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-white">
                 Últimos pedidos
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-zinc-500">
                 Entradas mais recentes do dia
               </p>
             </div>
 
             {metrics.recentOrders.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-                <p className="text-sm font-medium text-slate-700">
+              <div className="rounded-2xl border border-dashed border-white/10 bg-[#111111] p-8 text-center">
+                <p className="text-sm font-medium text-zinc-500">
                   Nenhum pedido hoje
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-zinc-500">
                   Assim que entrarem pedidos, eles aparecem aqui.
                 </p>
               </div>
@@ -637,14 +637,14 @@ export default function DashboardContent() {
                 {metrics.recentOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                    className="rounded-2xl border border-white/10 bg-[#111111] p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">
+                        <p className="truncate text-sm font-semibold text-white">
                           #{order.public_order_number} • {order.customer_name}
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-zinc-500">
                           {formatDateTime(order.created_at)}
                         </p>
                       </div>
@@ -660,8 +660,8 @@ export default function DashboardContent() {
                     </div>
 
                     <div className="mt-3 flex items-center justify-between">
-                      <p className="text-xs text-slate-500">Total</p>
-                      <p className="text-sm font-bold text-slate-900">
+                      <p className="text-xs text-zinc-500">Total</p>
+                      <p className="text-sm font-bold text-white">
                         {formatBRL(Number(order.total || 0))}
                       </p>
                     </div>

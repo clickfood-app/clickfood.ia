@@ -86,9 +86,9 @@ const statusLabels: Record<string, string> = {
 }
 
 const statusStyles: Record<string, string> = {
-  pending: "bg-orange-100 text-orange-700 ring-orange-200",
-  paid: "bg-emerald-100 text-emerald-700 ring-emerald-200",
-  cancelled: "bg-slate-100 text-slate-600 ring-slate-200",
+  pending: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+  paid: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
+  cancelled: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
 }
 
 const originLabels: Record<ExpenseOrigin, string> = {
@@ -100,26 +100,26 @@ const originLabels: Record<ExpenseOrigin, string> = {
 }
 
 const originStyles: Record<ExpenseOrigin, string> = {
-  manual: "bg-blue-50 text-blue-700 ring-blue-100",
-  purchase: "bg-violet-50 text-violet-700 ring-violet-100",
-  staff: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  delivery: "bg-orange-50 text-orange-700 ring-orange-100",
+  manual: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+  purchase: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+  staff: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
+  delivery: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
   loss: "bg-red-50 text-red-700 ring-red-100",
 }
 
 const originAccentStyles: Record<ExpenseOrigin, string> = {
-  manual: "border-l-blue-500",
+  manual: "border-l-yellow-400",
   purchase: "border-l-violet-500",
   staff: "border-l-emerald-500",
-  delivery: "border-l-orange-500",
+  delivery: "border-l-yellow-400",
   loss: "border-l-red-500",
 }
 
 const originActiveStyles: Record<ExpenseOrigin, string> = {
-  manual: "border-blue-200 bg-blue-50/70 ring-blue-100",
-  purchase: "border-violet-200 bg-violet-50/70 ring-violet-100",
-  staff: "border-emerald-200 bg-emerald-50/70 ring-emerald-100",
-  delivery: "border-orange-200 bg-orange-50/70 ring-orange-100",
+  manual: "border-yellow-400/30 bg-yellow-400/10 ring-yellow-400/20",
+  purchase: "border-yellow-400/30 bg-yellow-400/10 ring-yellow-400/20",
+  staff: "border-emerald-400/30 bg-emerald-500/10 ring-emerald-400/20",
+  delivery: "border-yellow-400/30 bg-yellow-400/10 ring-yellow-400/20",
   loss: "border-red-200 bg-red-50/70 ring-red-100",
 }
 
@@ -894,7 +894,7 @@ export default function DespesasPage() {
   function renderExpenseActions(expense: Expense360) {
     if (!expense.canEdit && !expense.canPay) {
       return (
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+        <span className="rounded-full bg-[#111111] px-3 py-1 text-xs font-medium text-zinc-500">
           Via {expense.originLabel}
         </span>
       )
@@ -948,23 +948,23 @@ export default function DespesasPage() {
   return (
     <AdminLayout>
       <div className="space-y-4 pb-8">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.06)]">
-          <div className="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-white p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-[0_10px_35px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-col gap-3 border-b border-white/10 bg-gradient-to-r from-[#050505] via-[#080808] to-[#080808] p-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A] text-white shadow-sm">
                 <ArrowDownCircle className="h-5 w-5" />
               </div>
 
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
+                  <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
                     Despesas 360
                   </h1>
-                  <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-700">
+                  <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-yellow-400">
                     visão contábil
                   </span>
                 </div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Contas a pagar, centros de custo, baixas e conferência financeira em uma tela limpa.
                 </p>
               </div>
@@ -976,7 +976,7 @@ export default function DespesasPage() {
                 variant="outline"
                 onClick={loadData}
                 disabled={loading}
-                className="h-9 gap-2 border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+                className="h-9 gap-2 border-white/10 bg-[#0A0A0A] shadow-sm hover:bg-[#111111]"
               >
                 <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
                 Atualizar
@@ -989,49 +989,49 @@ export default function DespesasPage() {
             </div>
           </div>
 
-          <div className="grid gap-0 divide-y divide-slate-100 bg-white sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5">
-            <div className="group p-4 transition hover:bg-slate-50/80">
+          <div className="grid gap-0 divide-y divide-white/10 bg-[#0A0A0A] sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5">
+            <div className="group p-4 transition hover:bg-[#111111]">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
                   Total no período
                 </p>
-                <span className="h-2 w-2 rounded-full bg-slate-300" />
+                <span className="h-2 w-2 rounded-full bg-[#111111]" />
               </div>
-              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-slate-950">
+              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-white">
                 {formatCurrency(totals.total)}
               </strong>
-              <span className="text-xs text-slate-400">Base para conferência</span>
+              <span className="text-xs text-zinc-500">Base para conferência</span>
             </div>
 
-            <div className="group p-4 transition hover:bg-slate-50/80">
+            <div className="group p-4 transition hover:bg-[#111111]">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
                   Pago
                 </p>
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
               </div>
-              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-emerald-600">
+              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-emerald-400">
                 {formatCurrency(totals.paid)}
               </strong>
-              <span className="text-xs text-slate-400">{totals.paidCount} baixa(s)</span>
+              <span className="text-xs text-zinc-500">{totals.paidCount} baixa(s)</span>
             </div>
 
-            <div className="group p-4 transition hover:bg-slate-50/80">
+            <div className="group p-4 transition hover:bg-[#111111]">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
                   Em aberto
                 </p>
-                <span className="h-2 w-2 rounded-full bg-orange-500" />
+                <span className="h-2 w-2 rounded-full bg-yellow-400" />
               </div>
-              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-orange-600">
+              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-yellow-400">
                 {formatCurrency(totals.pending)}
               </strong>
-              <span className="text-xs text-slate-400">{totals.pendingCount} pendência(s)</span>
+              <span className="text-xs text-zinc-500">{totals.pendingCount} pendência(s)</span>
             </div>
 
-            <div className="group p-4 transition hover:bg-slate-50/80">
+            <div className="group p-4 transition hover:bg-[#111111]">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
                   Vencido
                 </p>
                 <span className="h-2 w-2 rounded-full bg-red-500" />
@@ -1039,23 +1039,23 @@ export default function DespesasPage() {
               <strong className="mt-1.5 block text-xl font-bold tracking-tight text-red-600">
                 {formatCurrency(totals.overdue)}
               </strong>
-              <span className="text-xs text-slate-400">{totals.overdueCount} título(s)</span>
+              <span className="text-xs text-zinc-500">{totals.overdueCount} título(s)</span>
             </div>
 
-            <div className="bg-slate-50/70 p-4 sm:col-span-2 xl:col-span-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+            <div className="bg-[#111111] p-4 sm:col-span-2 xl:col-span-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
                 Competência
               </p>
-              <strong className="mt-1.5 block text-sm font-bold text-slate-950">
+              <strong className="mt-1.5 block text-sm font-bold text-white">
                 {formatDate(startDate)} - {formatDate(endDate)}
               </strong>
-              <span className="text-xs text-slate-400">Filtro ativo</span>
+              <span className="text-xs text-zinc-500">Filtro ativo</span>
             </div>
           </div>
         </div>
 
         {showForm && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40 backdrop-blur-[2px]">
+          <div className="fixed inset-0 z-50 flex justify-end bg-[#050505] backdrop-blur-[2px]">
             <button
               type="button"
               aria-label="Fechar formulário"
@@ -1065,18 +1065,18 @@ export default function DespesasPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="flex h-full w-full flex-col bg-white shadow-2xl sm:max-w-xl"
+              className="flex h-full w-full flex-col bg-[#0A0A0A] shadow-2xl sm:max-w-xl"
             >
-              <div className="border-b border-slate-200 p-4">
+              <div className="border-b border-white/10 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700 ring-1 ring-orange-100">
+                    <span className="rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-semibold text-yellow-400 ring-1 ring-yellow-400/20">
                       Lançamento manual
                     </span>
-                    <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                    <h2 className="mt-2 text-lg font-semibold text-white">
                       {editingId ? "Editar despesa" : "Nova despesa"}
                     </h2>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-zinc-500">
                       Use apenas para gastos que não entram automaticamente por outros módulos.
                     </p>
                   </div>
@@ -1189,12 +1189,12 @@ export default function DespesasPage() {
                   />
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                <div className="rounded-xl border border-white/10 bg-[#111111] p-3 text-xs text-zinc-500">
                   Despesas de compras, funcionários, entregadores e perdas devem vir dos módulos de origem. Aqui fica só o lançamento contábil manual.
                 </div>
               </div>
 
-              <div className="grid gap-2 border-t border-slate-200 p-4 sm:grid-cols-2">
+              <div className="grid gap-2 border-t border-white/10 p-4 sm:grid-cols-2">
                 <Button type="button" variant="outline" onClick={() => clearForm(true)}>
                   Cancelar
                 </Button>
@@ -1212,18 +1212,18 @@ export default function DespesasPage() {
           </div>
         )}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_28px_rgba(15,23,42,0.05)]">
+        <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-[0_8px_28px_rgba(15,23,42,0.05)]">
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-slate-500">
+                <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-zinc-500">
                   Centros de custo
                 </h2>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[11px] font-semibold text-zinc-500">
                   {sourceCards.length} grupos
                 </span>
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-zinc-500">
                 Filtre a movimentação por origem para conferir cada conta com mais clareza.
               </p>
             </div>
@@ -1234,8 +1234,8 @@ export default function DespesasPage() {
               className={cn(
                 "w-fit rounded-lg px-3 py-2 text-xs font-bold ring-1 transition",
                 originFilter === "all"
-                  ? "bg-slate-900 text-white ring-slate-900 shadow-sm"
-                  : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+                  ? "bg-[#080808] text-white ring-yellow-400/20 shadow-sm"
+                  : "bg-[#0A0A0A] text-zinc-500 ring-yellow-400/20 hover:bg-[#111111]",
               )}
             >
               Todos os centros
@@ -1253,43 +1253,43 @@ export default function DespesasPage() {
                   type="button"
                   onClick={() => setOriginFilter(active ? "all" : item.key)}
                   className={cn(
-                    "group rounded-2xl border border-l-4 bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md",
+                    "group rounded-2xl border border-l-4 bg-[#0A0A0A] p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-white/10 hover:shadow-md",
                     originAccentStyles[item.key],
                     active
                       ? cn("ring-2", originActiveStyles[item.key])
-                      : "border-slate-200",
+                      : "border-white/10",
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-slate-950">{item.title}</p>
-                      <p className="mt-0.5 line-clamp-2 min-h-[32px] text-xs leading-4 text-slate-500">
+                      <p className="truncate text-sm font-bold text-white">{item.title}</p>
+                      <p className="mt-0.5 line-clamp-2 min-h-[32px] text-xs leading-4 text-zinc-500">
                         {item.description}
                       </p>
                     </div>
 
                     <div
                       className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border bg-white shadow-sm transition group-hover:scale-105",
-                        active ? "border-slate-300 text-slate-900" : "border-slate-200 text-slate-500",
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border bg-[#0A0A0A] shadow-sm transition group-hover:scale-105",
+                        active ? "border-white/10 text-white" : "border-white/10 text-zinc-500",
                       )}
                     >
                       <Icon className="h-4 w-4" />
                     </div>
                   </div>
 
-                  <div className="mt-3 flex items-end justify-between gap-2 border-t border-slate-100 pt-3">
+                  <div className="mt-3 flex items-end justify-between gap-2 border-t border-white/10 pt-3">
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">
                         Lançado
                       </span>
-                      <strong className="block text-lg font-bold tracking-tight text-slate-950">
+                      <strong className="block text-lg font-bold tracking-tight text-white">
                         {formatCurrency(item.value)}
                       </strong>
                     </div>
 
                     {active && (
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200">
+                      <span className="rounded-full bg-[#0A0A0A] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500 ring-1 ring-yellow-400/20">
                         filtrando
                       </span>
                     )}
@@ -1301,11 +1301,11 @@ export default function DespesasPage() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-3">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+            <div className="border-b border-white/10 p-3">
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_145px_145px_145px_145px]">
                 <div className="relative md:col-span-2 xl:col-span-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                   <Input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
@@ -1355,17 +1355,17 @@ export default function DespesasPage() {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-14 text-sm text-slate-500">
+              <div className="flex items-center justify-center py-14 text-sm text-zinc-500">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Carregando despesas 360...
               </div>
             ) : filteredExpenses.length === 0 ? (
-              <div className="m-3 rounded-xl border border-dashed border-slate-200 p-8 text-center sm:p-10">
-                <ArrowDownCircle className="mx-auto h-9 w-9 text-slate-300" />
-                <p className="mt-2 font-medium text-slate-800">
+              <div className="m-3 rounded-xl border border-dashed border-white/10 p-8 text-center sm:p-10">
+                <ArrowDownCircle className="mx-auto h-9 w-9 text-zinc-500" />
+                <p className="mt-2 font-medium text-white">
                   Nenhuma despesa encontrada
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Lance uma despesa, registre uma compra ou ajuste os filtros.
                 </p>
               </div>
@@ -1375,11 +1375,11 @@ export default function DespesasPage() {
                   {filteredExpenses.map((expense) => (
                     <div
                       key={expense.id}
-                      className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                      className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="line-clamp-2 font-semibold text-slate-950">
+                          <p className="line-clamp-2 font-semibold text-white">
                             {expense.description}
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -1396,7 +1396,7 @@ export default function DespesasPage() {
                               className={cn(
                                 "rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
                                 statusStyles[expense.status] ||
-                                  "bg-slate-100 text-slate-600 ring-slate-200",
+                                  "bg-[#111111] text-zinc-500 ring-yellow-400/20",
                               )}
                             >
                               {statusLabels[expense.status] || expense.status}
@@ -1405,29 +1405,29 @@ export default function DespesasPage() {
                         </div>
 
                         <div className="text-right">
-                          <strong className="block text-sm font-semibold text-orange-600">
+                          <strong className="block text-sm font-semibold text-yellow-400">
                             {formatCurrency(expense.amount)}
                           </strong>
-                          <span className="text-xs text-slate-500">{formatDate(expense.date)}</span>
+                          <span className="text-xs text-zinc-500">{formatDate(expense.date)}</span>
                         </div>
                       </div>
 
-                      <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
+                      <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-[#111111] p-2 text-xs text-zinc-500">
                         <div>
-                          <p className="text-slate-400">Categoria</p>
-                          <p className="font-medium text-slate-700">{expense.category}</p>
+                          <p className="text-zinc-500">Categoria</p>
+                          <p className="font-medium text-zinc-500">{expense.category}</p>
                         </div>
 
                         <div>
-                          <p className="text-slate-400">Pagamento</p>
-                          <p className="font-medium text-slate-700">
+                          <p className="text-zinc-500">Pagamento</p>
+                          <p className="font-medium text-zinc-500">
                             {expense.status === "paid" ? expense.paymentMethod || "Pago" : "Em aberto"}
                           </p>
                         </div>
                       </div>
 
                       {expense.notes && (
-                        <p className="mt-2 line-clamp-2 text-xs text-slate-500">{expense.notes}</p>
+                        <p className="mt-2 line-clamp-2 text-xs text-zinc-500">{expense.notes}</p>
                       )}
 
                       <div className="mt-3 flex justify-end">
@@ -1440,7 +1440,7 @@ export default function DespesasPage() {
                 <div className="hidden overflow-hidden lg:block">
                   <div className="max-h-[650px] overflow-auto">
                     <table className="w-full min-w-[980px] text-sm">
-                      <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 shadow-[inset_0_-1px_0_#e2e8f0]">
+                      <thead className="sticky top-0 z-10 bg-[#111111] text-left text-[11px] uppercase tracking-wide text-zinc-500 shadow-[inset_0_-1px_0_#111111]">
                         <tr>
                           <th className="px-4 py-2.5">Despesa</th>
                           <th className="px-4 py-2.5">Centro</th>
@@ -1453,9 +1453,9 @@ export default function DespesasPage() {
                         </tr>
                       </thead>
 
-                      <tbody className="divide-y divide-slate-100 bg-white">
+                      <tbody className="divide-y divide-white/10 bg-[#0A0A0A]">
                         {filteredExpenses.map((expense) => (
-                          <tr key={expense.id} className="hover:bg-slate-50/80">
+                          <tr key={expense.id} className="hover:bg-[#111111]">
                             <td className="px-4 py-3 align-top">
                               <div className="flex items-start gap-2">
                                 {isExpenseOverdue(expense) && (
@@ -1463,10 +1463,10 @@ export default function DespesasPage() {
                                 )}
 
                                 <div className="min-w-0">
-                                  <p className="max-w-[360px] truncate font-medium text-slate-950">
+                                  <p className="max-w-[360px] truncate font-medium text-white">
                                     {expense.description}
                                   </p>
-                                  <p className="max-w-[420px] truncate text-xs text-slate-500">
+                                  <p className="max-w-[420px] truncate text-xs text-zinc-500">
                                     {expense.notes || "Sem observação"}
                                   </p>
                                 </div>
@@ -1484,16 +1484,16 @@ export default function DespesasPage() {
                               </span>
                             </td>
 
-                            <td className="px-4 py-3 align-top text-slate-700">
+                            <td className="px-4 py-3 align-top text-zinc-500">
                               {expense.category}
                             </td>
 
                             <td className="px-4 py-3 align-top">
-                              <div className="flex items-center gap-2 text-slate-700">
+                              <div className="flex items-center gap-2 text-zinc-500">
                                 {isExpenseOverdue(expense) ? (
                                   <AlertTriangle className="h-4 w-4 text-red-500" />
                                 ) : (
-                                  <CalendarClock className="h-4 w-4 text-slate-400" />
+                                  <CalendarClock className="h-4 w-4 text-zinc-500" />
                                 )}
                                 {formatDate(expense.date)}
                               </div>
@@ -1504,14 +1504,14 @@ export default function DespesasPage() {
                                 className={cn(
                                   "whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ring-1",
                                   statusStyles[expense.status] ||
-                                    "bg-slate-100 text-slate-600 ring-slate-200",
+                                    "bg-[#111111] text-zinc-500 ring-yellow-400/20",
                                 )}
                               >
                                 {statusLabels[expense.status] || expense.status}
                               </span>
                             </td>
 
-                            <td className="px-4 py-3 align-top text-slate-500">
+                            <td className="px-4 py-3 align-top text-zinc-500">
                               {expense.status === "paid" ? (
                                 <span className="line-clamp-2 max-w-[220px]">
                                   {expense.paymentMethod || "Método não informado"}
@@ -1524,7 +1524,7 @@ export default function DespesasPage() {
                               )}
                             </td>
 
-                            <td className="px-4 py-3 text-right align-top font-semibold text-orange-600">
+                            <td className="px-4 py-3 text-right align-top font-semibold text-yellow-400">
                               {formatCurrency(expense.amount)}
                             </td>
 
@@ -1542,17 +1542,17 @@ export default function DespesasPage() {
           </div>
 
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-slate-500" />
-                  <h2 className="font-semibold text-slate-950">Maiores categorias</h2>
+                  <BarChart3 className="h-4 w-4 text-zinc-500" />
+                  <h2 className="font-semibold text-white">Maiores categorias</h2>
                 </div>
-                <span className="text-xs text-slate-400">Top 8</span>
+                <span className="text-xs text-zinc-500">Top 8</span>
               </div>
 
               {totalsByCategory.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
                   Nenhuma categoria no período.
                 </div>
               ) : (
@@ -1564,17 +1564,17 @@ export default function DespesasPage() {
                     return (
                       <div key={item.category} className="space-y-1.5">
                         <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="truncate font-medium text-slate-700">
+                          <span className="truncate font-medium text-zinc-500">
                             {item.category}
                           </span>
-                          <strong className="text-slate-950">
+                          <strong className="text-white">
                             {formatCurrency(item.total)}
                           </strong>
                         </div>
 
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-2 overflow-hidden rounded-full bg-[#111111]">
                           <div
-                            className="h-full rounded-full bg-orange-500"
+                            className="h-full rounded-full bg-yellow-400"
                             style={{ width: `${percent}%` }}
                           />
                         </div>
@@ -1585,14 +1585,14 @@ export default function DespesasPage() {
               )}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                   <Clock3 className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-950">Regra operacional</h3>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <h3 className="font-semibold text-white">Regra operacional</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
                     A tela consolida despesas automáticas dos módulos. O lançamento manual fica para contas fixas, impostos, doações, consumo próprio e ajustes contábeis.
                   </p>
                 </div>

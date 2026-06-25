@@ -535,21 +535,21 @@ export default function RadarBairrosPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-[#111111] px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-5">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                     <MapIcon className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <h1 className="text-xl font-bold text-slate-950">
+                    <h1 className="text-xl font-bold text-white">
                       Radar de Bairros
                     </h1>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-zinc-500">
                       Descubra quais regiões mais compram, onde vale fazer ação
                       local e onde a entrega pesa mais.
                     </p>
@@ -557,7 +557,7 @@ export default function RadarBairrosPage() {
                 </div>
 
                 {restaurant?.name ? (
-                  <p className="text-xs font-medium text-slate-400">
+                  <p className="text-xs font-medium text-zinc-500">
                     Restaurante: {restaurant.name}
                   </p>
                 ) : null}
@@ -569,7 +569,7 @@ export default function RadarBairrosPage() {
                   onChange={(event) =>
                     setPeriodFilter(event.target.value as PeriodFilter)
                   }
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                  className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-emerald-400/50 focus:ring-4 focus:ring-emerald-400/20"
                 >
                   {periodOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -582,7 +582,7 @@ export default function RadarBairrosPage() {
                   type="button"
                   onClick={() => loadData(true)}
                   disabled={refreshing}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {refreshing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -602,8 +602,8 @@ export default function RadarBairrosPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-slate-200 bg-white">
-              <div className="flex flex-col items-center gap-3 text-slate-500">
+            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-white/10 bg-[#0A0A0A]">
+              <div className="flex flex-col items-center gap-3 text-zinc-500">
                 <Loader2 className="h-7 w-7 animate-spin" />
                 <p className="text-sm font-medium">
                   Carregando radar de bairros...
@@ -613,60 +613,60 @@ export default function RadarBairrosPage() {
           ) : (
             <>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                     <BadgeDollarSign className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Faturamento no período
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {formatMoney(summary.totalRevenue)}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <ShoppingBag className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Pedidos mapeados
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {formatNumber(summary.totalOrders)}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Navigation className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Bairros ativos
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {formatNumber(summary.neighborhoodsCount)}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Target className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Ticket médio geral
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {formatMoney(summary.averageTicket)}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-2">
                     <Crown className="h-5 w-5 text-yellow-500" />
-                    <h2 className="text-base font-bold text-slate-950">
+                    <h2 className="text-base font-bold text-white">
                       Bairro campeão
                     </h2>
                   </div>
@@ -691,35 +691,35 @@ export default function RadarBairrosPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-500">
+                    <div className="rounded-2xl bg-[#111111] p-4 text-sm font-medium text-zinc-500">
                       Nenhum bairro encontrado no período.
                     </div>
                   )}
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-emerald-600" />
-                    <h2 className="text-base font-bold text-slate-950">
+                    <TrendingUp className="h-5 w-5 text-emerald-400" />
+                    <h2 className="text-base font-bold text-white">
                       Crescimento regional
                     </h2>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl bg-emerald-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-700/70">
+                    <div className="rounded-2xl bg-emerald-500/10 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-400">
                         Bairros crescendo
                       </p>
-                      <p className="mt-1 text-2xl font-black text-emerald-700">
+                      <p className="mt-1 text-2xl font-black text-emerald-400">
                         {summary.neighborhoodsWithGrowth}
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="rounded-2xl bg-[#111111] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Clientes únicos
                       </p>
-                      <p className="mt-1 text-2xl font-black text-slate-950">
+                      <p className="mt-1 text-2xl font-black text-white">
                         {formatNumber(summary.totalCustomers)}
                       </p>
                     </div>
@@ -727,14 +727,14 @@ export default function RadarBairrosPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-5">
+              <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                <div className="border-b border-white/10 p-5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-base font-bold text-slate-950">
+                      <h2 className="text-base font-bold text-white">
                         Ranking por bairro
                       </h2>
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-zinc-500">
                         Veja onde entram mais pedidos e onde existe oportunidade
                         de campanha local.
                       </p>
@@ -742,14 +742,14 @@ export default function RadarBairrosPage() {
 
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                         <input
                           value={searchTerm}
                           onChange={(event) =>
                             setSearchTerm(event.target.value)
                           }
                           placeholder="Buscar bairro..."
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 sm:w-64"
+                          className="h-10 w-full rounded-xl border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-zinc-500 focus:border-emerald-400/50 focus:ring-4 focus:ring-emerald-400/20 sm:w-64"
                         />
                       </div>
 
@@ -758,7 +758,7 @@ export default function RadarBairrosPage() {
                         onChange={(event) =>
                           setPaymentFilter(event.target.value as PaymentFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-emerald-400/50 focus:ring-4 focus:ring-emerald-400/20"
                       >
                         {paymentOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -772,7 +772,7 @@ export default function RadarBairrosPage() {
                         onChange={(event) =>
                           setSortFilter(event.target.value as SortFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-emerald-400/50 focus:ring-4 focus:ring-emerald-400/20"
                       >
                         {sortOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -790,7 +790,7 @@ export default function RadarBairrosPage() {
                       {filteredRanking.map((item, index) => (
                         <div
                           key={item.key}
-                          className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/20"
+                          className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm transition hover:border-emerald-400/30 hover:bg-emerald-500/15"
                         >
                           <div className="grid gap-4 xl:grid-cols-[60px_minmax(0,1fr)_180px_180px_160px_160px] xl:items-center">
                             <div className="flex items-center gap-3 xl:block">
@@ -798,19 +798,19 @@ export default function RadarBairrosPage() {
                                 className={cn(
                                   "flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-black",
                                   index === 0 && "bg-yellow-100 text-yellow-700",
-                                  index === 1 && "bg-slate-100 text-slate-700",
-                                  index === 2 && "bg-orange-100 text-orange-700",
-                                  index > 2 && "bg-emerald-50 text-emerald-700",
+                                  index === 1 && "bg-[#111111] text-zinc-500",
+                                  index === 2 && "bg-yellow-400/10 text-yellow-400",
+                                  index > 2 && "bg-emerald-500/10 text-emerald-400",
                                 )}
                               >
                                 #{index + 1}
                               </div>
 
                               <div className="xl:hidden">
-                                <p className="text-base font-black text-slate-950">
+                                <p className="text-base font-black text-white">
                                   {item.name}
                                 </p>
-                                <p className="text-sm font-semibold text-slate-500">
+                                <p className="text-sm font-semibold text-zinc-500">
                                   {item.ordersCount} pedido(s)
                                 </p>
                               </div>
@@ -818,10 +818,10 @@ export default function RadarBairrosPage() {
 
                             <div className="min-w-0">
                               <div className="hidden xl:block">
-                                <p className="line-clamp-1 text-base font-black text-slate-950">
+                                <p className="line-clamp-1 text-base font-black text-white">
                                   {item.name}
                                 </p>
-                                <p className="mt-1 text-sm font-semibold text-slate-500">
+                                <p className="mt-1 text-sm font-semibold text-zinc-500">
                                   {item.uniqueCustomers} cliente(s) único(s)
                                 </p>
                               </div>
@@ -831,19 +831,19 @@ export default function RadarBairrosPage() {
                                   className={cn(
                                     "rounded-full px-2.5 py-1 text-xs font-black",
                                     item.status === "hot" &&
-                                      "bg-emerald-100 text-emerald-700",
+                                      "bg-emerald-500/10 text-emerald-400",
                                     item.status === "growth" &&
-                                      "bg-blue-100 text-blue-700",
+                                      "bg-yellow-400/10 text-yellow-400",
                                     item.status === "attention" &&
-                                      "bg-amber-100 text-amber-700",
+                                      "bg-yellow-400/10 text-yellow-400",
                                     item.status === "weak" &&
-                                      "bg-slate-100 text-slate-600",
+                                      "bg-[#111111] text-zinc-500",
                                   )}
                                 >
                                   {item.statusLabel}
                                 </span>
 
-                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
+                                <span className="rounded-full bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500">
                                   {formatPercent(item.revenueShare)} da receita
                                 </span>
 
@@ -852,7 +852,7 @@ export default function RadarBairrosPage() {
                                     className={cn(
                                       "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black",
                                       item.trend > 0
-                                        ? "bg-emerald-100 text-emerald-700"
+                                        ? "bg-emerald-500/10 text-emerald-400"
                                         : "bg-red-100 text-red-700",
                                     )}
                                   >
@@ -867,55 +867,55 @@ export default function RadarBairrosPage() {
                               </div>
                             </div>
 
-                            <div className="rounded-2xl bg-slate-50 p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            <div className="rounded-2xl bg-[#111111] p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                                 Faturamento
                               </p>
-                              <p className="mt-1 text-base font-black text-slate-950">
+                              <p className="mt-1 text-base font-black text-white">
                                 {formatMoney(item.revenue)}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-slate-50 p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            <div className="rounded-2xl bg-[#111111] p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                                 Pedidos
                               </p>
-                              <p className="mt-1 text-base font-black text-slate-950">
+                              <p className="mt-1 text-base font-black text-white">
                                 {item.ordersCount}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-slate-50 p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            <div className="rounded-2xl bg-[#111111] p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                                 Ticket médio
                               </p>
-                              <p className="mt-1 text-base font-black text-slate-950">
+                              <p className="mt-1 text-base font-black text-white">
                                 {formatMoney(item.averageTicket)}
                               </p>
                             </div>
 
-                            <div className="rounded-2xl bg-slate-50 p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                            <div className="rounded-2xl bg-[#111111] p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                                 Taxa média
                               </p>
-                              <p className="mt-1 text-base font-black text-slate-950">
+                              <p className="mt-1 text-base font-black text-white">
                                 {formatMoney(item.averageDeliveryFee)}
                               </p>
                             </div>
                           </div>
 
                           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                            <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">
+                            <div className="flex items-center gap-2 rounded-2xl bg-emerald-500/10 p-3 text-sm font-bold text-emerald-400">
                               <ShoppingBag className="h-4 w-4" />
                               {item.paidOrdersCount} pago(s)
                             </div>
 
-                            <div className="flex items-center gap-2 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-700">
+                            <div className="flex items-center gap-2 rounded-2xl bg-yellow-400/10 p-3 text-sm font-bold text-yellow-400">
                               <Percent className="h-4 w-4" />
                               {formatPercent(item.ordersShare)} dos pedidos
                             </div>
 
-                            <div className="flex items-center gap-2 rounded-2xl bg-blue-50 p-3 text-sm font-bold text-blue-700">
+                            <div className="flex items-center gap-2 rounded-2xl bg-yellow-400/10 p-3 text-sm font-bold text-yellow-400">
                               <MapPin className="h-4 w-4" />
                               {item.lastOrderDate
                                 ? `Último pedido em ${item.lastOrderDate.toLocaleDateString("pt-BR")}`
@@ -926,12 +926,12 @@ export default function RadarBairrosPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-                      <MapPin className="mx-auto h-8 w-8 text-slate-400" />
-                      <p className="mt-3 text-sm font-bold text-slate-700">
+                    <div className="rounded-3xl border border-dashed border-white/10 bg-[#111111] p-10 text-center">
+                      <MapPin className="mx-auto h-8 w-8 text-zinc-500" />
+                      <p className="mt-3 text-sm font-bold text-zinc-500">
                         Nenhum bairro encontrado
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm text-zinc-500">
                         Tente mudar os filtros ou aguarde novos pedidos com
                         bairro preenchido.
                       </p>
@@ -940,7 +940,7 @@ export default function RadarBairrosPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <div className="rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-400">
                 <div className="flex gap-3">
                   <AlertTriangle className="mt-0.5 h-5 w-5 flex-none" />
                   <div>

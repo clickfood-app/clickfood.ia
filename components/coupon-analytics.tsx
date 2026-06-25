@@ -157,7 +157,7 @@ export default function CouponAnalytics({
               className={cn(
                 "flex w-fit items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
                 analytics.comparison.isPositive
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                  ? "bg-emerald-500/10 text-emerald-400 dark:bg-emerald-950 dark:text-emerald-400"
                   : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
               )}
             >

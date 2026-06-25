@@ -663,11 +663,11 @@ export default function PaymentsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-5">
+      <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-blue-700" />
+              <QrCode className="h-5 w-5 text-yellow-400" />
               <h3 className="text-base font-bold text-card-foreground">
                 Pix automático
               </h3>
@@ -679,13 +679,13 @@ export default function PaymentsTab() {
           </div>
 
           {loadingEfi ? (
-            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700">
+            <div className="flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-[#0A0A0A] px-3 py-2 text-sm font-semibold text-yellow-400">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando
             </div>
           ) : (
-            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-white px-3 py-2">
-              <span className="text-sm font-semibold text-blue-900">
+            <div className="flex items-center gap-3 rounded-lg border border-yellow-400/30 bg-[#0A0A0A] px-3 py-2">
+              <span className="text-sm font-semibold text-yellow-400">
                 {efiForm.enabled ? "Ativo" : "Desativado"}
               </span>
               <Switch
@@ -698,14 +698,14 @@ export default function PaymentsTab() {
         </div>
 
         {!loadingEfi ? (
-          <div className="mt-4 rounded-lg border border-blue-100 bg-white p-4">
+          <div className="mt-4 rounded-lg border border-yellow-400/30 bg-[#0A0A0A] p-4">
             {savedEfiAccount?.readyToEnable ? (
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm font-bold text-blue-950">
+                  <p className="text-sm font-bold text-yellow-400">
                     {efiForm.enabled ? "Pix automático ativo" : "Pix automático desativado"}
                   </p>
-                  <p className="mt-1 text-sm text-blue-800">
+                  <p className="mt-1 text-sm text-yellow-400">
                     {efiForm.enabled
                       ? "Os pedidos pagos por Pix entram automaticamente no painel."
                       : "Sua conta Efí está conectada. Ative para receber Pix automático."}
@@ -715,7 +715,7 @@ export default function PaymentsTab() {
                 <button
                   type="button"
                   onClick={() => setEditingEfi((current) => !current)}
-                  className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50"
+                  className="rounded-lg border border-yellow-400/30 bg-[#0A0A0A] px-4 py-2 text-sm font-semibold text-yellow-400 transition-colors hover:bg-yellow-400/10"
                 >
                   {editingEfi ? "Ocultar configuração" : "Alterar conexão"}
                 </button>
@@ -723,10 +723,10 @@ export default function PaymentsTab() {
             ) : (
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm font-bold text-amber-900">
+                  <p className="text-sm font-bold text-yellow-400">
                     Pix automático não configurado
                   </p>
-                  <p className="mt-1 text-sm text-amber-800">
+                  <p className="mt-1 text-sm text-yellow-400">
                     Conecte a conta Efí para liberar Pix automático no checkout.
                   </p>
                 </div>
@@ -734,7 +734,7 @@ export default function PaymentsTab() {
                 <button
                   type="button"
                   onClick={() => setEditingEfi(true)}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+                  className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black shadow-sm transition-opacity hover:opacity-90"
                 >
                   Conectar conta Efí
                 </button>
@@ -744,7 +744,7 @@ export default function PaymentsTab() {
         ) : null}
 
         {editingEfi ? (
-          <div className="mt-5 rounded-xl border border-blue-100 bg-white p-4">
+          <div className="mt-5 rounded-xl border border-yellow-400/30 bg-[#0A0A0A] p-4">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-card-foreground">
@@ -842,7 +842,7 @@ export default function PaymentsTab() {
               <input
                 type="file"
                 accept=".p12"
-                className="input-field file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                className="input-field file:mr-3 file:rounded-md file:border-0 file:bg-yellow-400 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-black"
                 disabled={uploadingEfiCertificate}
                 onChange={(event) => {
                   const file = event.target.files?.[0] ?? null
@@ -860,7 +860,7 @@ export default function PaymentsTab() {
                 type="button"
                 onClick={handleSaveEfiAccount}
                 disabled={savingEfi || uploadingEfiCertificate}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-yellow-400 px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingEfi ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -874,11 +874,11 @@ export default function PaymentsTab() {
         ) : null}
       </div>
 
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
+      <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-5">
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-emerald-700" />
+              <QrCode className="h-5 w-5 text-emerald-400" />
               <h3 className="text-base font-bold text-card-foreground">
                 Pix Direto sem taxa
               </h3>
@@ -889,8 +889,8 @@ export default function PaymentsTab() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-3 py-2">
-            <span className="text-sm font-semibold text-emerald-900">
+          <div className="flex items-center gap-3 rounded-lg border border-emerald-400/30 bg-[#0A0A0A] px-3 py-2">
+            <span className="text-sm font-semibold text-emerald-400">
               {pixForm.pixEnabled ? "Ativo" : "Inativo"}
             </span>
             <Switch
@@ -902,7 +902,7 @@ export default function PaymentsTab() {
         </div>
 
         {loadingPix ? (
-          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-4 text-sm font-semibold text-emerald-700">
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-[#0A0A0A] px-3 py-4 text-sm font-semibold text-emerald-400">
             <Loader2 className="h-4 w-4 animate-spin" />
             Carregando configurações do Pix Direto...
           </div>
@@ -992,14 +992,14 @@ export default function PaymentsTab() {
               />
             </div>
 
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="mt-4 rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-4">
               <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-yellow-400" />
                 <div>
-                  <p className="text-sm font-semibold text-amber-900">
+                  <p className="text-sm font-semibold text-yellow-400">
                     Conferência manual obrigatória
                   </p>
-                  <p className="mt-1 text-sm text-amber-800">
+                  <p className="mt-1 text-sm text-yellow-400">
                     O QR Code facilita o pagamento, mas não confirma sozinho. O
                     restaurante deve conferir valor, data, horário e destinatário
                     no comprovante antes de confirmar o Pix no painel.

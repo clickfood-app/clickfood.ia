@@ -217,12 +217,12 @@ export default function CouponManager() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border bg-[#0A0A0A] p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-2">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-white">
             {editingId ? "Editar cupom" : "Criar cupom"}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-zinc-500">
             Cadastre cupons de desconto para o seu restaurante.
           </p>
         </div>
@@ -234,53 +234,53 @@ export default function CouponManager() {
         )}
 
         {success && (
-          <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div className="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
             {success}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Código</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Código</label>
             <input
               type="text"
               value={form.code}
               onChange={(e) => handleChange("code", e.target.value.toUpperCase())}
               placeholder="Ex: PROMO10"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Título</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Título</label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => handleChange("title", e.target.value)}
               placeholder="Ex: Cupom de boas-vindas"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Descrição</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Descrição</label>
             <input
               type="text"
               value={form.description}
               onChange={(e) => handleChange("description", e.target.value)}
               placeholder="Ex: válido para primeira compra"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Tipo de desconto</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Tipo de desconto</label>
             <select
               value={form.discount_type}
               onChange={(e) =>
                 handleChange("discount_type", e.target.value as "percentual" | "fixo")
               }
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             >
               <option value="percentual">Porcentagem (%)</option>
               <option value="fixo">Valor fixo (R$)</option>
@@ -288,69 +288,69 @@ export default function CouponManager() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Valor do desconto</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Valor do desconto</label>
             <input
               type="number"
               step="0.01"
               value={form.discount_value}
               onChange={(e) => handleChange("discount_value", e.target.value)}
               placeholder={form.discount_type === "percentual" ? "10" : "5.00"}
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Pedido mínimo (R$)</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Pedido mínimo (R$)</label>
             <input
               type="number"
               step="0.01"
               value={form.min_order_value}
               onChange={(e) => handleChange("min_order_value", e.target.value)}
               placeholder="Opcional"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Desconto máximo (R$)</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Desconto máximo (R$)</label>
             <input
               type="number"
               step="0.01"
               value={form.max_discount_value}
               onChange={(e) => handleChange("max_discount_value", e.target.value)}
               placeholder="Opcional"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Limite de usos</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Limite de usos</label>
             <input
               type="number"
               value={form.usage_limit}
               onChange={(e) => handleChange("usage_limit", e.target.value)}
               placeholder="Opcional"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Início</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Início</label>
             <input
               type="datetime-local"
               value={form.starts_at}
               onChange={(e) => handleChange("starts_at", e.target.value)}
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Expira em</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-500">Expira em</label>
             <input
               type="datetime-local"
               value={form.expires_at}
               onChange={(e) => handleChange("expires_at", e.target.value)}
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500"
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30"
             />
           </div>
 
@@ -362,7 +362,7 @@ export default function CouponManager() {
               onChange={(e) => handleChange("active", e.target.checked)}
               className="h-4 w-4"
             />
-            <label htmlFor="active" className="text-sm font-medium text-gray-700">
+            <label htmlFor="active" className="text-sm font-medium text-zinc-500">
               Cupom ativo
             </label>
           </div>
@@ -371,7 +371,7 @@ export default function CouponManager() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-purple-600 px-5 py-3 font-medium text-white transition hover:bg-purple-700 disabled:opacity-60"
+              className="rounded-xl bg-yellow-400 px-5 py-3 font-medium text-black transition hover:bg-yellow-300 disabled:opacity-60"
             >
               {saving ? "Salvando..." : editingId ? "Atualizar cupom" : "Criar cupom"}
             </button>
@@ -380,7 +380,7 @@ export default function CouponManager() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="rounded-xl border px-5 py-3 font-medium text-gray-700 transition hover:bg-gray-50"
+                className="rounded-xl border px-5 py-3 font-medium text-zinc-500 transition hover:bg-[#111111]"
               >
                 Cancelar edição
               </button>
@@ -389,11 +389,11 @@ export default function CouponManager() {
         </form>
       </div>
 
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border bg-[#0A0A0A] p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Cupons cadastrados</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-2xl font-bold text-white">Cupons cadastrados</h2>
+            <p className="text-sm text-zinc-500">
               Gerencie, edite, ative ou exclua seus cupons.
             </p>
           </div>
@@ -403,19 +403,19 @@ export default function CouponManager() {
             placeholder="Buscar cupom..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border px-4 py-3 outline-none focus:border-purple-500 md:w-72"
+            className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400/30 md:w-72"
           />
         </div>
 
         {loading ? (
-          <div className="py-8 text-sm text-gray-500">Carregando cupons...</div>
+          <div className="py-8 text-sm text-zinc-500">Carregando cupons...</div>
         ) : filteredCoupons.length === 0 ? (
-          <div className="py-8 text-sm text-gray-500">Nenhum cupom encontrado.</div>
+          <div className="py-8 text-sm text-zinc-500">Nenhum cupom encontrado.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-y-3">
               <thead>
-                <tr className="text-left text-sm text-gray-500">
+                <tr className="text-left text-sm text-zinc-500">
                   <th className="px-3">Código</th>
                   <th className="px-3">Desconto</th>
                   <th className="px-3">Usos</th>
@@ -429,28 +429,28 @@ export default function CouponManager() {
                   const isActive = coupon.status === "ativo"
 
                   return (
-                    <tr key={coupon.id} className="rounded-2xl bg-gray-50">
-                      <td className="px-3 py-4 font-semibold text-gray-900">
+                    <tr key={coupon.id} className="rounded-2xl bg-[#111111]">
+                      <td className="px-3 py-4 font-semibold text-white">
                         <div>{coupon.code}</div>
                         {coupon.title && (
-                          <div className="mt-1 text-xs font-normal text-gray-500">
+                          <div className="mt-1 text-xs font-normal text-zinc-500">
                             {coupon.title}
                           </div>
                         )}
                       </td>
 
-                      <td className="px-3 py-4 text-sm text-gray-700">
+                      <td className="px-3 py-4 text-sm text-zinc-500">
                         {coupon.discount_type === "percentual"
                           ? `${coupon.discount_value}%`
                           : `R$ ${Number(coupon.discount_value).toFixed(2)}`}
                       </td>
 
-                      <td className="px-3 py-4 text-sm text-gray-700">
+                      <td className="px-3 py-4 text-sm text-zinc-500">
                         {coupon.used_count}
                         {coupon.usage_limit ? ` / ${coupon.usage_limit}` : ""}
                       </td>
 
-                      <td className="px-3 py-4 text-sm text-gray-700">
+                      <td className="px-3 py-4 text-sm text-zinc-500">
                         {coupon.expires_at
                           ? new Date(coupon.expires_at).toLocaleString("pt-BR")
                           : "Sem expiração"}
@@ -459,7 +459,7 @@ export default function CouponManager() {
                       <td className="px-3 py-4">
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
+                            isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-[#111111] text-zinc-500"
                           }`}
                         >
                           {isActive ? "Ativo" : "Inativo"}
@@ -470,14 +470,14 @@ export default function CouponManager() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={() => handleEdit(coupon)}
-                            className="rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white"
+                            className="rounded-lg border px-3 py-2 text-sm font-medium text-zinc-500 hover:bg-[#0A0A0A]"
                           >
                             Editar
                           </button>
 
                           <button
                             onClick={() => handleToggleActive(coupon)}
-                            className="rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white"
+                            className="rounded-lg border px-3 py-2 text-sm font-medium text-zinc-500 hover:bg-[#0A0A0A]"
                           >
                             {isActive ? "Desativar" : "Ativar"}
                           </button>

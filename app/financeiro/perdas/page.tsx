@@ -224,21 +224,21 @@ function MetricCard({
 }) {
   const toneClass = {
     red: "bg-red-50 text-red-700 ring-red-100",
-    amber: "bg-amber-50 text-amber-700 ring-amber-100",
-    blue: "bg-blue-50 text-blue-700 ring-blue-100",
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    amber: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    blue: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    slate: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
+    green: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
   }[tone]
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-500">{title}</p>
-          <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
+          <p className="text-sm font-semibold text-zinc-500">{title}</p>
+          <p className="mt-2 truncate text-2xl font-black tracking-tight text-white">
             {value}
           </p>
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+          <p className="mt-2 text-xs font-medium leading-5 text-zinc-500">
             {subtitle}
           </p>
         </div>
@@ -272,23 +272,23 @@ function Panel({
   return (
     <section
       className={cn(
-        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm",
         className
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-black tracking-tight text-slate-950">
+          <h2 className="text-base font-black tracking-tight text-white">
             {title}
           </h2>
 
           {subtitle && (
-            <p className="mt-1 text-sm leading-5 text-slate-500">{subtitle}</p>
+            <p className="mt-1 text-sm leading-5 text-zinc-500">{subtitle}</p>
           )}
         </div>
 
         {icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
             {icon}
           </div>
         )}
@@ -301,7 +301,7 @@ function Panel({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+    <div className="rounded-xl border border-dashed border-white/10 bg-[#111111] px-4 py-8 text-center text-sm font-semibold text-zinc-500">
       {message}
     </div>
   )
@@ -320,13 +320,13 @@ function ProgressBar({
 
   const toneClass = {
     red: "bg-red-500",
-    amber: "bg-amber-500",
-    blue: "bg-blue-600",
-    slate: "bg-slate-900",
+    amber: "bg-yellow-400",
+    blue: "bg-yellow-400",
+    slate: "bg-[#080808]",
   }[tone]
 
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+    <div className="h-2 overflow-hidden rounded-full bg-[#111111]">
       <div
         className={cn(
           "h-full rounded-full transition-all duration-700 ease-out",
@@ -785,11 +785,11 @@ if (stockError) {
       <div className="space-y-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-950">
+            <h1 className="text-2xl font-black tracking-tight text-white">
               Perdas
             </h1>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-zinc-500">
               Descubra onde o dinheiro está vazando na operação.
             </p>
           </div>
@@ -803,8 +803,8 @@ if (stockError) {
                 className={cn(
                   "h-10 rounded-xl px-4 text-sm font-bold transition",
                   period === option.key
-                    ? "bg-slate-950 text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    ? "bg-[#050505] text-white shadow-sm"
+                    : "border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                 )}
               >
                 {option.label}
@@ -814,7 +814,7 @@ if (stockError) {
             <button
               type="button"
               onClick={() => void loadPerdas()}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-bold text-zinc-500 transition hover:bg-[#111111]"
             >
               <RefreshCcw className="h-4 w-4" />
               Atualizar
@@ -823,8 +823,8 @@ if (stockError) {
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A]">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando perdas...
             </div>
@@ -881,14 +881,14 @@ if (stockError) {
               >
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Item do estoque
                     </label>
 
                     <select
                       value={form.stock_item_id}
                       onChange={(event) => handleStockItemChange(event.target.value)}
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                     >
                       <option value="">Selecionar item ou lançar manualmente</option>
 
@@ -902,7 +902,7 @@ if (stockError) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Nome da perda
                     </label>
 
@@ -915,12 +915,12 @@ if (stockError) {
                         }))
                       }
                       placeholder="Ex: arroz, carne, queijo..."
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-white/10"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Motivo
                     </label>
 
@@ -932,7 +932,7 @@ if (stockError) {
                           reason: event.target.value,
                         }))
                       }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                     >
                       {reasonOptions.map((reason) => (
                         <option key={reason} value={reason}>
@@ -943,7 +943,7 @@ if (stockError) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Quantidade perdida
                     </label>
 
@@ -958,12 +958,12 @@ if (stockError) {
                       type="number"
                       min="0"
                       step="0.001"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Medida da perda
                     </label>
 
@@ -975,7 +975,7 @@ if (stockError) {
                           loss_unit_type: event.target.value as UnitType,
                         }))
                       }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                     >
                       {unitOptions
                         .filter((unit) => compatibleUnits.includes(unit.value))
@@ -989,7 +989,7 @@ if (stockError) {
 
                   {!selectedStockItem && (
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Custo manual por medida
                       </label>
 
@@ -1005,13 +1005,13 @@ if (stockError) {
                         min="0"
                         step="0.01"
                         placeholder="0,00"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-white/10"
                       />
                     </div>
                   )}
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Setor
                     </label>
 
@@ -1023,7 +1023,7 @@ if (stockError) {
                           sector: event.target.value,
                         }))
                       }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                     >
                       {sectorOptions.map((sector) => (
                         <option key={sector} value={sector}>
@@ -1034,7 +1034,7 @@ if (stockError) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Origem da perda
                     </label>
 
@@ -1046,7 +1046,7 @@ if (stockError) {
                           loss_origin: event.target.value,
                         }))
                       }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                     >
                       {originOptions.map((origin) => (
                         <option key={origin} value={origin}>
@@ -1057,7 +1057,7 @@ if (stockError) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Responsável
                     </label>
 
@@ -1070,12 +1070,12 @@ if (stockError) {
                         }))
                       }
                       placeholder="Opcional"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-white/10"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Data
                     </label>
 
@@ -1088,12 +1088,12 @@ if (stockError) {
                         }))
                       }
                       type="datetime-local"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-700">
+                    <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3 py-3 text-sm font-bold text-zinc-500">
                       <input
                         type="checkbox"
                         checked={form.is_preventable}
@@ -1110,7 +1110,7 @@ if (stockError) {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Observação
                     </label>
 
@@ -1124,18 +1124,18 @@ if (stockError) {
                       }
                       placeholder="Ex: arroz queimou, carne passou do ponto, embalagem rasgou..."
                       rows={3}
-                      className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                      className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-white/10"
                     />
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+                <div className="mt-5 rounded-2xl bg-[#111111] p-4">
                   <div className="grid gap-3 md:grid-cols-3">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Quantidade base
                       </p>
-                      <p className="mt-1 text-lg font-black text-slate-950">
+                      <p className="mt-1 text-lg font-black text-white">
                         {formatNumber(baseQuantity)}{" "}
                         {selectedStockItem
                           ? getUnitLabel(selectedStockItem.base_unit_type)
@@ -1144,16 +1144,16 @@ if (stockError) {
                     </div>
 
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Custo usado
                       </p>
-                      <p className="mt-1 text-lg font-black text-slate-950">
+                      <p className="mt-1 text-lg font-black text-white">
                         {formatCurrency(unitCost)}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Total perdido
                       </p>
                       <p className="mt-1 text-lg font-black text-red-600">
@@ -1163,7 +1163,7 @@ if (stockError) {
                   </div>
 
                   {selectedStockItem && (
-                    <p className="mt-3 text-xs font-semibold text-slate-500">
+                    <p className="mt-3 text-xs font-semibold text-zinc-500">
                       Estoque atual:{" "}
                       {formatNumber(Number(selectedStockItem.current_quantity || 0))}{" "}
                       {getUnitLabel(selectedStockItem.base_unit_type).toLowerCase()}.
@@ -1182,7 +1182,7 @@ if (stockError) {
                     type="button"
                     onClick={() => void handleRegisterLoss()}
                     disabled={isSaving}
-                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#050505] px-5 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1201,7 +1201,7 @@ if (stockError) {
               >
                 <div className="space-y-5">
                   <div>
-                    <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">
+                    <p className="mb-3 text-xs font-black uppercase tracking-wide text-zinc-500">
                       Por motivo
                     </p>
 
@@ -1212,7 +1212,7 @@ if (stockError) {
                         summaryByReason.slice(0, 5).map((item) => (
                           <div key={item.label}>
                             <div className="mb-2 flex items-center justify-between gap-3">
-                              <p className="text-sm font-black text-slate-800">
+                              <p className="text-sm font-black text-white">
                                 {item.label}
                               </p>
 
@@ -1228,8 +1228,8 @@ if (stockError) {
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-100 pt-5">
-                    <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">
+                  <div className="border-t border-white/10 pt-5">
+                    <p className="mb-3 text-xs font-black uppercase tracking-wide text-zinc-500">
                       Por setor
                     </p>
 
@@ -1240,7 +1240,7 @@ if (stockError) {
                         summaryBySector.slice(0, 5).map((item) => (
                           <div key={item.label}>
                             <div className="mb-2 flex items-center justify-between gap-3">
-                              <p className="text-sm font-black text-slate-800">
+                              <p className="text-sm font-black text-white">
                                 {item.label}
                               </p>
 
@@ -1285,11 +1285,11 @@ if (stockError) {
                     losses.map((loss) => (
                       <div
                         key={loss.id}
-                        className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#111111] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-black text-slate-950">
+                            <p className="font-black text-white">
                               {loss.product_name}
                             </p>
 
@@ -1297,12 +1297,12 @@ if (stockError) {
                               {loss.reason}
                             </span>
 
-                            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">
+                            <span className="rounded-full bg-[#0A0A0A] px-2.5 py-1 text-xs font-black text-zinc-500 ring-1 ring-yellow-400/20">
                               {loss.sector}
                             </span>
                           </div>
 
-                          <p className="mt-1 text-sm font-medium text-slate-500">
+                          <p className="mt-1 text-sm font-medium text-zinc-500">
                             {formatNumber(Number(loss.quantity || 0))}{" "}
                             {getUnitLabel(loss.loss_unit_type).toLowerCase()} •{" "}
                             {formatCurrency(Number(loss.unit_cost || 0))}/
@@ -1311,14 +1311,14 @@ if (stockError) {
                           </p>
 
                           {loss.notes && (
-                            <p className="mt-1 text-sm text-slate-500">
+                            <p className="mt-1 text-sm text-zinc-500">
                               {loss.notes}
                             </p>
                           )}
                         </div>
 
                         <div className="flex shrink-0 items-center gap-2">
-                          <p className="rounded-full bg-white px-3 py-1.5 text-sm font-black text-red-600">
+                          <p className="rounded-full bg-[#0A0A0A] px-3 py-1.5 text-sm font-black text-red-600">
                             {formatCurrency(Number(loss.total_cost || 0))}
                           </p>
 
@@ -1326,7 +1326,7 @@ if (stockError) {
                             type="button"
                             onClick={() => void handleDeleteLoss(loss.id)}
                             disabled={deletingId === loss.id}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label="Remover perda"
                           >
                             {deletingId === loss.id ? (
@@ -1354,7 +1354,7 @@ if (stockError) {
                     summaryByProduct.slice(0, 8).map((item, index) => (
                       <div
                         key={item.label}
-                        className="rounded-xl bg-slate-50 px-3 py-3"
+                        className="rounded-xl bg-[#111111] px-3 py-3"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex min-w-0 items-center gap-3">
@@ -1363,17 +1363,17 @@ if (stockError) {
                                 "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black",
                                 index === 0
                                   ? "bg-red-100 text-red-700"
-                                  : "bg-white text-slate-700"
+                                  : "bg-[#0A0A0A] text-zinc-500"
                               )}
                             >
                               {index + 1}
                             </div>
 
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-slate-800">
+                              <p className="truncate text-sm font-black text-white">
                                 {item.label}
                               </p>
-                              <p className="text-xs font-medium text-slate-500">
+                              <p className="text-xs font-medium text-zinc-500">
                                 {formatNumber(item.quantity)} medida(s) registrada(s)
                               </p>
                             </div>

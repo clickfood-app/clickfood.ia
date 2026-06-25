@@ -146,14 +146,14 @@ export default function ConfigurarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#050505] to-yellow-400">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0A0A0A] backdrop-blur-md">
         <div className="mx-auto max-w-3xl px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-slate-900">Configurar Restaurante</h1>
-              <p className="text-sm text-slate-500">Passo {currentStep} de {totalSteps}</p>
+              <h1 className="text-lg font-bold text-white">Configurar Restaurante</h1>
+              <p className="text-sm text-zinc-500">Passo {currentStep} de {totalSteps}</p>
             </div>
             {/* Progress indicator */}
             <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export default function ConfigurarPage() {
                   key={i}
                   className={cn(
                     "h-2 w-8 rounded-full transition-colors",
-                    i + 1 <= currentStep ? "bg-blue-600" : "bg-slate-200"
+                    i + 1 <= currentStep ? "bg-yellow-400" : "bg-[#111111]"
                   )}
                 />
               ))}
@@ -174,12 +174,12 @@ export default function ConfigurarPage() {
       <main className="mx-auto max-w-3xl px-4 py-8">
         {/* Welcome message */}
         <div className="mb-8 text-center">
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h2 className="text-2xl font-bold text-white">
             Ola{user?.user_metadata?.name || user?.user_metadata?.full_name
   ? `, ${String(user.user_metadata.name || user.user_metadata.full_name).split(" ")[0]}`
   : ""}! Vamos configurar seu restaurante
           </h2>
-          <p className="mt-2 text-slate-600">
+          <p className="mt-2 text-zinc-500">
             Complete as informacoes abaixo para comecar a receber pedidos.
           </p>
         </div>
@@ -187,85 +187,85 @@ export default function ConfigurarPage() {
         {currentStep === 1 && (
           <div className="space-y-6">
             {/* Logo Section */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                   <Store className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Logo do Restaurante</h3>
-                  <p className="text-sm text-slate-500">Adicione o logo que aparecera no cardapio</p>
+                  <h3 className="font-semibold text-white">Logo do Restaurante</h3>
+                  <p className="text-sm text-zinc-500">Adicione o logo que aparecera no cardapio</p>
                 </div>
               </div>
               <ImageUpload value={logo} onChange={setLogo} />
             </section>
 
             {/* Restaurant Info Section */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Informacoes do Restaurante</h3>
-                  <p className="text-sm text-slate-500">Dados basicos do seu estabelecimento</p>
+                  <h3 className="font-semibold text-white">Informacoes do Restaurante</h3>
+                  <p className="text-sm text-zinc-500">Dados basicos do seu estabelecimento</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 {/* Name */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                     Nome do restaurante *
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Store className="h-4 w-4 text-slate-400" />
+                      <Store className="h-4 w-4 text-zinc-500" />
                     </div>
                     <input
                       type="text"
                       value={restaurantName}
                       onChange={(e) => setRestaurantName(e.target.value)}
                       placeholder="Ex: Pizzaria do Joao"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
                 </div>
 
                 {/* Address */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                     Endereco completo *
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <MapPin className="h-4 w-4 text-slate-400" />
+                      <MapPin className="h-4 w-4 text-zinc-500" />
                     </div>
                     <input
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="Rua, numero, bairro, cidade"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                     Telefone de contato *
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Phone className="h-4 w-4 text-slate-400" />
+                      <Phone className="h-4 w-4 text-zinc-500" />
                     </div>
                     <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="(00) 00000-0000"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
                 </div>
@@ -273,14 +273,14 @@ export default function ConfigurarPage() {
             </section>
 
             {/* Business Hours Section */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                   <Clock className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Horario de Funcionamento</h3>
-                  <p className="text-sm text-slate-500">Configure os horarios de cada dia</p>
+                  <h3 className="font-semibold text-white">Horario de Funcionamento</h3>
+                  <p className="text-sm text-zinc-500">Configure os horarios de cada dia</p>
                 </div>
               </div>
 
@@ -291,8 +291,8 @@ export default function ConfigurarPage() {
                     className={cn(
                       "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
                       hours.enabled
-                        ? "border-slate-200 bg-white"
-                        : "border-slate-100 bg-slate-50"
+                        ? "border-white/10 bg-[#0A0A0A]"
+                        : "border-white/10 bg-[#111111]"
                     )}
                   >
                     {/* Toggle */}
@@ -300,12 +300,12 @@ export default function ConfigurarPage() {
                       onClick={() => toggleDay(hours.id)}
                       className={cn(
                         "flex h-5 w-9 items-center rounded-full transition-colors",
-                        hours.enabled ? "bg-blue-600" : "bg-slate-300"
+                        hours.enabled ? "bg-yellow-400" : "bg-[#111111]"
                       )}
                     >
                       <span
                         className={cn(
-                          "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                          "h-4 w-4 rounded-full bg-[#0A0A0A] shadow-sm transition-transform",
                           hours.enabled ? "translate-x-4" : "translate-x-0.5"
                         )}
                       />
@@ -315,7 +315,7 @@ export default function ConfigurarPage() {
                     <span
                       className={cn(
                         "w-20 text-sm font-medium",
-                        hours.enabled ? "text-slate-900" : "text-slate-400"
+                        hours.enabled ? "text-white" : "text-zinc-500"
                       )}
                     >
                       {hours.day}
@@ -328,18 +328,18 @@ export default function ConfigurarPage() {
                           type="time"
                           value={hours.openTime}
                           onChange={(e) => updateHours(hours.id, "openTime", e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          className="rounded-lg border border-white/10 bg-[#111111] px-2 py-1.5 text-sm text-white focus:border-yellow-400/30 focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                         />
-                        <span className="text-slate-400">ate</span>
+                        <span className="text-zinc-500">ate</span>
                         <input
                           type="time"
                           value={hours.closeTime}
                           onChange={(e) => updateHours(hours.id, "closeTime", e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          className="rounded-lg border border-white/10 bg-[#111111] px-2 py-1.5 text-sm text-white focus:border-yellow-400/30 focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
                     ) : (
-                      <span className="text-sm text-slate-400 italic">Fechado</span>
+                      <span className="text-sm text-zinc-500 italic">Fechado</span>
                     )}
                   </div>
                 ))}
@@ -349,7 +349,7 @@ export default function ConfigurarPage() {
             {/* Next button */}
             <button
               onClick={() => setCurrentStep(2)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-sm font-semibold text-black shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 active:scale-[0.98]"
             >
               Continuar
               <ChevronRight className="h-4 w-4" />
@@ -360,20 +360,20 @@ export default function ConfigurarPage() {
         {currentStep === 2 && (
           <div className="space-y-6">
             {/* Products Section */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                     <Package className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900">Adicionar Produtos</h3>
-                    <p className="text-sm text-slate-500">Opcional - voce pode adicionar depois</p>
+                    <h3 className="font-semibold text-white">Adicionar Produtos</h3>
+                    <p className="text-sm text-zinc-500">Opcional - voce pode adicionar depois</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowProductModal(true)}
-                  className="flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+                  className="flex items-center gap-1.5 rounded-lg bg-yellow-400/10 px-3 py-2 text-sm font-medium text-yellow-400 transition-colors hover:bg-yellow-300/10"
                 >
                   <Plus className="h-4 w-4" />
                   Adicionar
@@ -385,21 +385,21 @@ export default function ConfigurarPage() {
                   {products.map((product) => (
                     <div
                       key={product.id}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-[#111111] px-4 py-3"
                     >
                       <div>
-                        <p className="font-medium text-slate-900">{product.name}</p>
+                        <p className="font-medium text-white">{product.name}</p>
                         {product.description && (
-                          <p className="text-sm text-slate-500">{product.description}</p>
+                          <p className="text-sm text-zinc-500">{product.description}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-semibold text-blue-600">
+                        <span className="font-semibold text-yellow-400">
                           {formatPrice(product.price)}
                         </span>
                         <button
                           onClick={() => removeProduct(product.id)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-red-100 hover:text-red-600"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -408,9 +408,9 @@ export default function ConfigurarPage() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-8 text-center">
-                  <Package className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-2 text-sm text-slate-500">
+                <div className="rounded-xl border-2 border-dashed border-white/10 bg-[#111111] py-8 text-center">
+                  <Package className="mx-auto h-8 w-8 text-zinc-500" />
+                  <p className="mt-2 text-sm text-zinc-500">
                     Nenhum produto adicionado ainda
                   </p>
                 </div>
@@ -418,21 +418,21 @@ export default function ConfigurarPage() {
             </section>
 
             {/* Settings Section */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                   <Truck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Configuracoes Adicionais</h3>
-                  <p className="text-sm text-slate-500">Tipo de atendimento e taxas</p>
+                  <h3 className="font-semibold text-white">Configuracoes Adicionais</h3>
+                  <p className="text-sm text-zinc-500">Tipo de atendimento e taxas</p>
                 </div>
               </div>
 
               <div className="space-y-5">
                 {/* Service Type */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-500 mb-2">
                     Tipo de atendimento
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -447,8 +447,8 @@ export default function ConfigurarPage() {
                         className={cn(
                           "flex flex-col items-center gap-2 rounded-xl border-2 py-4 transition-all",
                           serviceType === value
-                            ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                            ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                            : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-white/10"
                         )}
                       >
                         <Icon className="h-5 w-5" />
@@ -461,12 +461,12 @@ export default function ConfigurarPage() {
                 {/* Delivery Fee */}
                 {(serviceType === "delivery" || serviceType === "both") && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                       Taxa de entrega (opcional)
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                        <DollarSign className="h-4 w-4 text-slate-400" />
+                        <DollarSign className="h-4 w-4 text-zinc-500" />
                       </div>
                       <input
                         type="number"
@@ -474,7 +474,7 @@ export default function ConfigurarPage() {
                         value={deliveryFee}
                         onChange={(e) => setDeliveryFee(e.target.value)}
                         placeholder="0,00"
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        className="w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                       />
                     </div>
                   </div>
@@ -482,19 +482,19 @@ export default function ConfigurarPage() {
 
                 {/* Welcome Message */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                     Mensagem de boas-vindas (opcional)
                   </label>
                   <div className="relative">
                     <div className="absolute top-3 left-3.5 pointer-events-none">
-                      <MessageSquare className="h-4 w-4 text-slate-400" />
+                      <MessageSquare className="h-4 w-4 text-zinc-500" />
                     </div>
                     <textarea
                       value={welcomeMessage}
                       onChange={(e) => setWelcomeMessage(e.target.value)}
                       placeholder="Ex: Obrigado por escolher nosso restaurante!"
                       rows={3}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                      className="w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20 resize-none"
                     />
                   </div>
                 </div>
@@ -505,14 +505,14 @@ export default function ConfigurarPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setCurrentStep(1)}
-                className="flex-1 rounded-xl border border-slate-200 bg-white py-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                className="flex-1 rounded-xl border border-white/10 bg-[#0A0A0A] py-4 text-sm font-semibold text-zinc-500 transition-colors hover:bg-[#111111]"
               >
                 Voltar
               </button>
               <button
                 onClick={handleSave}
                 disabled={isSaving || !restaurantName.trim()}
-                className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-sm font-semibold text-black shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
                   <>
@@ -530,13 +530,13 @@ export default function ConfigurarPage() {
 
       {/* Product Modal */}
       {showProductModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111] p-4">
+          <div className="w-full max-w-md rounded-2xl bg-[#0A0A0A] p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-slate-900">Adicionar Produto</h3>
+              <h3 className="text-lg font-bold text-white">Adicionar Produto</h3>
               <button
                 onClick={() => setShowProductModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-[#111111] hover:text-zinc-500"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -544,7 +544,7 @@ export default function ConfigurarPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                   Nome do produto *
                 </label>
                 <input
@@ -552,17 +552,17 @@ export default function ConfigurarPage() {
                   value={newProduct.name}
                   onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
                   placeholder="Ex: X-Bacon"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                   Preco *
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <span className="text-sm text-slate-400">R$</span>
+                    <span className="text-sm text-zinc-500">R$</span>
                   </div>
                   <input
                     type="number"
@@ -570,13 +570,13 @@ export default function ConfigurarPage() {
                     value={newProduct.price}
                     onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
                     placeholder="0,00"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                   Descricao (opcional)
                 </label>
                 <textarea
@@ -584,7 +584,7 @@ export default function ConfigurarPage() {
                   onChange={(e) => setNewProduct((p) => ({ ...p, description: e.target.value }))}
                   placeholder="Descreva seu produto..."
                   rows={2}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  className="w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20 resize-none"
                 />
               </div>
             </div>
@@ -592,14 +592,14 @@ export default function ConfigurarPage() {
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setShowProductModal(false)}
-                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                className="flex-1 rounded-xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-semibold text-zinc-500 transition-colors hover:bg-[#111111]"
               >
                 Cancelar
               </button>
               <button
                 onClick={addProduct}
                 disabled={!newProduct.name.trim() || !newProduct.price}
-                className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl bg-yellow-400 py-3 text-sm font-semibold text-black transition-all hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Adicionar
               </button>

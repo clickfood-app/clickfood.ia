@@ -430,17 +430,17 @@ export default function CaixaDoDiaPage() {
   return (
     <AdminLayout>
       <div className="space-y-5">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
               <Wallet className="h-5 w-5" />
             </div>
 
             <div>
-              <h1 className="text-xl font-semibold text-slate-950">
+              <h1 className="text-xl font-semibold text-white">
                 Caixa do dia
               </h1>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-zinc-500">
                 Acompanhe pedidos pagos, despesas do dia e fechamento de caixa.
               </p>
             </div>
@@ -468,40 +468,40 @@ export default function CaixaDoDiaPage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Faturamento pago</p>
-            <strong className="mt-1 block text-2xl font-semibold text-emerald-600">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Faturamento pago</p>
+            <strong className="mt-1 block text-2xl font-semibold text-emerald-400">
               {formatCurrency(totals.grossRevenue)}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Pedidos pagos</p>
-            <strong className="mt-1 block text-2xl font-semibold text-slate-950">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Pedidos pagos</p>
+            <strong className="mt-1 block text-2xl font-semibold text-white">
               {totals.ordersCount}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Ticket médio</p>
-            <strong className="mt-1 block text-2xl font-semibold text-slate-950">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Ticket médio</p>
+            <strong className="mt-1 block text-2xl font-semibold text-white">
               {formatCurrency(totals.averageTicket)}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Despesas pagas</p>
-            <strong className="mt-1 block text-2xl font-semibold text-orange-600">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Despesas pagas</p>
+            <strong className="mt-1 block text-2xl font-semibold text-yellow-400">
               {formatCurrency(totals.expenses)}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Saldo estimado</p>
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Saldo estimado</p>
             <strong
               className={cn(
                 "mt-1 block text-2xl font-semibold",
-                totals.estimatedBalance >= 0 ? "text-violet-700" : "text-red-600",
+                totals.estimatedBalance >= 0 ? "text-yellow-400" : "text-red-600",
               )}
             >
               {formatCurrency(totals.estimatedBalance)}
@@ -511,65 +511,65 @@ export default function CaixaDoDiaPage() {
 
         <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
           <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4">
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="font-semibold text-white">
                   Recebimentos por forma
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Separação dos pedidos pagos no dia.
                 </p>
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                       <Smartphone className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">Pix</span>
+                    <span className="text-sm font-medium text-zinc-500">Pix</span>
                   </div>
 
-                  <strong className="text-slate-950">
+                  <strong className="text-white">
                     {formatCurrency(totals.pixTotal)}
                   </strong>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                       <Banknote className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">Dinheiro</span>
+                    <span className="text-sm font-medium text-zinc-500">Dinheiro</span>
                   </div>
 
-                  <strong className="text-slate-950">
+                  <strong className="text-white">
                     {formatCurrency(totals.cashTotal)}
                   </strong>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                       <CreditCard className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">Cartão</span>
+                    <span className="text-sm font-medium text-zinc-500">Cartão</span>
                   </div>
 
-                  <strong className="text-slate-950">
+                  <strong className="text-white">
                     {formatCurrency(totals.cardTotal)}
                   </strong>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-200 text-slate-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                       <DollarSign className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">Outros</span>
+                    <span className="text-sm font-medium text-zinc-500">Outros</span>
                   </div>
 
-                  <strong className="text-slate-950">
+                  <strong className="text-white">
                     {formatCurrency(totals.otherTotal)}
                   </strong>
                 </div>
@@ -578,24 +578,24 @@ export default function CaixaDoDiaPage() {
 
             <form
               onSubmit={handleCloseCash}
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+              className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm"
             >
               <div className="mb-4">
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="font-semibold text-white">
                   Fechamento do caixa
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Salve o resumo financeiro do dia selecionado.
                 </p>
               </div>
 
               {selectedClosing ? (
-                <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                <div className="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
                   Caixa já fechado em {formatDateTime(selectedClosing.closed_at)}.
                   Se salvar novamente, o fechamento será atualizado.
                 </div>
               ) : (
-                <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-700">
+                <div className="mb-4 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3 text-sm text-yellow-400">
                   Caixa ainda não fechado para esta data.
                 </div>
               )}
@@ -611,7 +611,7 @@ export default function CaixaDoDiaPage() {
                     onChange={(event) => setManualIncome(event.target.value)}
                     placeholder="Ex: 50.00"
                   />
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-zinc-500">
                     Use para ajustes manuais, troco inicial ou entrada não vinculada a pedido.
                   </p>
                 </div>
@@ -626,27 +626,27 @@ export default function CaixaDoDiaPage() {
                   />
                 </div>
 
-                <div className="rounded-xl bg-slate-50 p-3 text-sm">
+                <div className="rounded-xl bg-[#111111] p-3 text-sm">
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-500">Faturamento pago</span>
+                    <span className="text-zinc-500">Faturamento pago</span>
                     <strong>{formatCurrency(totals.grossRevenue)}</strong>
                   </div>
 
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-500">Entrada manual</span>
+                    <span className="text-zinc-500">Entrada manual</span>
                     <strong>{formatCurrency(totals.manualIncome)}</strong>
                   </div>
 
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-500">Despesas pagas</span>
-                    <strong className="text-orange-600">
+                    <span className="text-zinc-500">Despesas pagas</span>
+                    <strong className="text-yellow-400">
                       -{formatCurrency(totals.expenses)}
                     </strong>
                   </div>
 
-                  <div className="mt-2 flex justify-between border-t border-slate-200 pt-2">
-                    <span className="font-medium text-slate-700">Saldo estimado</span>
-                    <strong className="text-violet-700">
+                  <div className="mt-2 flex justify-between border-t border-white/10 pt-2">
+                    <span className="font-medium text-zinc-500">Saldo estimado</span>
+                    <strong className="text-yellow-400">
                       {formatCurrency(totals.estimatedBalance)}
                     </strong>
                   </div>
@@ -665,34 +665,34 @@ export default function CaixaDoDiaPage() {
           </div>
 
           <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-violet-700" />
-                <h2 className="font-semibold text-slate-950">
+                <ShoppingBag className="h-4 w-4 text-yellow-400" />
+                <h2 className="font-semibold text-white">
                   Pedidos pagos do dia
                 </h2>
               </div>
 
               {loading ? (
-                <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+                <div className="flex items-center justify-center py-10 text-sm text-zinc-500">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Carregando caixa...
                 </div>
               ) : orders.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
-                  <ReceiptText className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-2 font-medium text-slate-800">
+                <div className="rounded-xl border border-dashed border-white/10 p-8 text-center">
+                  <ReceiptText className="mx-auto h-8 w-8 text-zinc-500" />
+                  <p className="mt-2 font-medium text-white">
                     Nenhum pedido pago nesta data
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     Quando pedidos forem pagos, eles aparecerão aqui.
                   </p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="overflow-hidden rounded-xl border border-white/10">
                   <div className="max-h-[360px] overflow-auto">
                     <table className="w-full min-w-[720px] text-sm">
-                      <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                      <thead className="sticky top-0 bg-[#111111] text-left text-xs uppercase tracking-wide text-zinc-500">
                         <tr>
                           <th className="px-4 py-3">Pedido</th>
                           <th className="px-4 py-3">Cliente</th>
@@ -702,26 +702,26 @@ export default function CaixaDoDiaPage() {
                         </tr>
                       </thead>
 
-                      <tbody className="divide-y divide-slate-100 bg-white">
+                      <tbody className="divide-y divide-white/10 bg-[#0A0A0A]">
                         {orders.map((order) => (
-                          <tr key={order.id} className="hover:bg-slate-50">
-                            <td className="px-4 py-3 font-medium text-slate-950">
+                          <tr key={order.id} className="hover:bg-[#111111]">
+                            <td className="px-4 py-3 font-medium text-white">
                               #{order.public_order_number}
                             </td>
 
-                            <td className="px-4 py-3 text-slate-700">
+                            <td className="px-4 py-3 text-zinc-500">
                               {order.customer_name}
                             </td>
 
-                            <td className="px-4 py-3 text-slate-500">
+                            <td className="px-4 py-3 text-zinc-500">
                               {order.payment_method || "Não informado"}
                             </td>
 
-                            <td className="px-4 py-3 text-slate-500">
+                            <td className="px-4 py-3 text-zinc-500">
                               {formatDateTime(order.created_at)}
                             </td>
 
-                            <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                            <td className="px-4 py-3 text-right font-semibold text-emerald-400">
                               {formatCurrency(order.total)}
                             </td>
                           </tr>
@@ -734,16 +734,16 @@ export default function CaixaDoDiaPage() {
             </div>
 
             <div className="grid gap-5 xl:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
-                  <ArrowDownCircle className="h-4 w-4 text-orange-600" />
-                  <h2 className="font-semibold text-slate-950">
+                  <ArrowDownCircle className="h-4 w-4 text-yellow-400" />
+                  <h2 className="font-semibold text-white">
                     Despesas pagas no dia
                   </h2>
                 </div>
 
                 {paidExpenses.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                  <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
                     Nenhuma despesa paga nesta data.
                   </div>
                 ) : (
@@ -751,19 +751,19 @@ export default function CaixaDoDiaPage() {
                     {paidExpenses.map((expense) => (
                       <div
                         key={expense.id}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3"
+                        className="flex items-center justify-between gap-3 rounded-xl bg-[#111111] p-3"
                       >
                         <div>
-                          <p className="font-medium text-slate-950">
+                          <p className="font-medium text-white">
                             {expense.description}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-zinc-500">
                             {expense.category || "Sem categoria"} •{" "}
                             {expense.payment_method || "Sem método"}
                           </p>
                         </div>
 
-                        <strong className="text-orange-600">
+                        <strong className="text-yellow-400">
                           {formatCurrency(expense.amount)}
                         </strong>
                       </div>
@@ -772,16 +772,16 @@ export default function CaixaDoDiaPage() {
                 )}
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-violet-700" />
-                  <h2 className="font-semibold text-slate-950">
+                  <CalendarDays className="h-4 w-4 text-yellow-400" />
+                  <h2 className="font-semibold text-white">
                     Contas vencendo hoje
                   </h2>
                 </div>
 
                 {pendingDueToday.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                  <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
                     Nenhuma conta pendente vencendo nesta data.
                   </div>
                 ) : (
@@ -789,18 +789,18 @@ export default function CaixaDoDiaPage() {
                     {pendingDueToday.map((expense) => (
                       <div
                         key={expense.id}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3"
+                        className="flex items-center justify-between gap-3 rounded-xl bg-[#111111] p-3"
                       >
                         <div>
-                          <p className="font-medium text-slate-950">
+                          <p className="font-medium text-white">
                             {expense.description}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-zinc-500">
                             Vence em {formatDate(expense.due_date)}
                           </p>
                         </div>
 
-                        <strong className="text-slate-900">
+                        <strong className="text-white">
                           {formatCurrency(expense.amount)}
                         </strong>
                       </div>
@@ -808,29 +808,29 @@ export default function CaixaDoDiaPage() {
                   </div>
                 )}
 
-                <div className="mt-3 rounded-xl bg-orange-50 p-3 text-sm text-orange-700">
+                <div className="mt-3 rounded-xl bg-yellow-400/10 p-3 text-sm text-yellow-400">
                   Total pendente hoje:{" "}
                   <strong>{formatCurrency(totals.dueToday)}</strong>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
-                <History className="h-4 w-4 text-violet-700" />
-                <h2 className="font-semibold text-slate-950">
+                <History className="h-4 w-4 text-yellow-400" />
+                <h2 className="font-semibold text-white">
                   Histórico de fechamentos
                 </h2>
               </div>
 
               {closings.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
                   Nenhum fechamento registrado ainda.
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="overflow-hidden rounded-xl border border-white/10">
                   <table className="w-full min-w-[780px] text-sm">
-                    <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <thead className="bg-[#111111] text-left text-xs uppercase tracking-wide text-zinc-500">
                       <tr>
                         <th className="px-4 py-3">Data</th>
                         <th className="px-4 py-3">Pedidos</th>
@@ -841,30 +841,30 @@ export default function CaixaDoDiaPage() {
                       </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-white/10 bg-[#0A0A0A]">
                       {closings.map((closingItem) => (
-                        <tr key={closingItem.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 font-medium text-slate-950">
+                        <tr key={closingItem.id} className="hover:bg-[#111111]">
+                          <td className="px-4 py-3 font-medium text-white">
                             {formatDate(closingItem.closing_date)}
                           </td>
 
-                          <td className="px-4 py-3 text-slate-700">
+                          <td className="px-4 py-3 text-zinc-500">
                             {closingItem.orders_count}
                           </td>
 
-                          <td className="px-4 py-3 text-emerald-600">
+                          <td className="px-4 py-3 text-emerald-400">
                             {formatCurrency(closingItem.gross_revenue)}
                           </td>
 
-                          <td className="px-4 py-3 text-orange-600">
+                          <td className="px-4 py-3 text-yellow-400">
                             {formatCurrency(closingItem.expenses)}
                           </td>
 
-                          <td className="px-4 py-3 font-semibold text-violet-700">
+                          <td className="px-4 py-3 font-semibold text-yellow-400">
                             {formatCurrency(closingItem.estimated_profit)}
                           </td>
 
-                          <td className="px-4 py-3 text-slate-500">
+                          <td className="px-4 py-3 text-zinc-500">
                             {formatDateTime(closingItem.closed_at)}
                           </td>
                         </tr>

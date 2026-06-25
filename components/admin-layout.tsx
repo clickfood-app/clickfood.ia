@@ -325,13 +325,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           isCollapsed && "md:ml-[72px] md:w-[calc(100%-72px)]",
         )}
       >
-        <header className="sticky top-0 z-30 border-b border-zinc-800 bg-black/95 shadow-sm shadow-black/30 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-black/95 shadow-sm shadow-black/30 backdrop-blur-xl">
           <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950 text-white transition hover:border-yellow-400 hover:bg-yellow-400 hover:text-black md:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#050505] text-white transition hover:border-yellow-400 hover:bg-yellow-400 hover:text-black md:hidden"
                 aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
@@ -340,12 +340,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               <div className="hidden min-w-0 items-center gap-2 sm:flex">
                 <Link
                   href="/pedidos"
-                  className="text-sm font-bold text-zinc-400 transition hover:text-yellow-300"
+                  className="text-sm font-bold text-zinc-500 transition hover:text-yellow-300"
                 >
                   Painel
                 </Link>
 
-                <ChevronRight className="h-4 w-4 text-zinc-700" />
+                <ChevronRight className="h-4 w-4 text-zinc-500" />
 
                 <span className="truncate text-sm font-black text-white">
                   {currentPage}
@@ -377,7 +377,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   onClick={() => {
                     setProfileOpen((prev) => !prev)
                   }}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-2 transition hover:border-yellow-400 hover:bg-zinc-900"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-[#050505] px-2 transition hover:border-yellow-400 hover:bg-[#080808]"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-black">
                     {userInitials}
@@ -388,7 +388,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                       {userName}
                     </p>
 
-                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-zinc-400">
+                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-zinc-500">
                       {userEmail}
                     </p>
                   </div>
@@ -397,13 +397,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-xl shadow-black/30">
-                    <div className="border-b border-zinc-800 px-3 py-3">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-white/10 bg-[#050505] p-2 shadow-xl shadow-black/30">
+                    <div className="border-b border-white/10 px-3 py-3">
                       <p className="truncate text-sm font-black text-white">
                         {userName}
                       </p>
 
-                      <p className="mt-1 truncate text-xs text-zinc-400">
+                      <p className="mt-1 truncate text-xs text-zinc-500">
                         {userEmail}
                       </p>
                     </div>
@@ -414,7 +414,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-300 transition hover:bg-yellow-400 hover:text-black"
+                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-yellow-400 hover:text-black"
                     >
                       <User className="h-4 w-4" />
                       Perfil
@@ -426,13 +426,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-300 transition hover:bg-yellow-400 hover:text-black"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-yellow-400 hover:text-black"
                     >
                       <Settings className="h-4 w-4" />
                       Configurações
                     </button>
 
-                    <div className="my-2 h-px bg-zinc-800" />
+                    <div className="my-2 h-px bg-[#111111]" />
 
                     <button
                       type="button"

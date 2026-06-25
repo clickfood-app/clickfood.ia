@@ -395,9 +395,9 @@ export default function CoverImageUpload() {
       )}
 
       {/* Info box */}
-      <div className="mt-4 flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2.5">
-        <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-blue-700">
+      <div className="mt-4 flex items-start gap-2 rounded-lg bg-yellow-400/10 px-3 py-2.5">
+        <Info className="h-4 w-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-yellow-400">
           Se nenhuma imagem for cadastrada, sera exibido um banner padrao azul no cardapio publico.
         </p>
       </div>

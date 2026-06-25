@@ -626,17 +626,17 @@ export default function UpsellPage() {
   return (
   <AdminLayout>
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-orange-500">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-400">
             Campanhas / Upsell
           </p>
 
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">
             Upsell inteligente
           </h1>
 
-          <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500">
+          <p className="mt-1 max-w-2xl text-sm font-semibold text-zinc-500">
             Crie ofertas automáticas baseadas no que o cliente colocou no carrinho.
           </p>
         </div>
@@ -644,7 +644,7 @@ export default function UpsellPage() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-none bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+          className="inline-flex items-center justify-center gap-2 rounded-none bg-yellow-400 px-4 py-3 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300"
         >
           <Plus className="h-4 w-4" />
           Nova regra
@@ -652,55 +652,55 @@ export default function UpsellPage() {
       </div> 
 
         <div className="grid gap-4 md:grid-cols-5">
-          <div className="rounded-none border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">Total</p>
-            <p className="mt-3 text-3xl font-black text-slate-950">{totals.total}</p>
-            <p className="mt-1 text-xs font-semibold text-slate-400">regras criadas</p>
+          <div className="rounded-none border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+            <p className="text-sm font-bold text-zinc-500">Total</p>
+            <p className="mt-3 text-3xl font-black text-white">{totals.total}</p>
+            <p className="mt-1 text-xs font-semibold text-zinc-500">regras criadas</p>
           </div>
 
-          <div className="rounded-none border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">Ativas</p>
-            <p className="mt-3 text-3xl font-black text-emerald-600">{totals.active}</p>
-            <p className="mt-1 text-xs font-semibold text-slate-400">em funcionamento</p>
+          <div className="rounded-none border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+            <p className="text-sm font-bold text-zinc-500">Ativas</p>
+            <p className="mt-3 text-3xl font-black text-emerald-400">{totals.active}</p>
+            <p className="mt-1 text-xs font-semibold text-zinc-500">em funcionamento</p>
           </div>
 
-          <div className="rounded-none border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">Por produto</p>
-            <p className="mt-3 text-3xl font-black text-slate-950">{totals.productRules}</p>
-            <p className="mt-1 text-xs font-semibold text-slate-400">gatilho produto</p>
+          <div className="rounded-none border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+            <p className="text-sm font-bold text-zinc-500">Por produto</p>
+            <p className="mt-3 text-3xl font-black text-white">{totals.productRules}</p>
+            <p className="mt-1 text-xs font-semibold text-zinc-500">gatilho produto</p>
           </div>
 
-          <div className="rounded-none border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">Por categoria</p>
-            <p className="mt-3 text-3xl font-black text-slate-950">{totals.categoryRules}</p>
-            <p className="mt-1 text-xs font-semibold text-slate-400">gatilho categoria</p>
+          <div className="rounded-none border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+            <p className="text-sm font-bold text-zinc-500">Por categoria</p>
+            <p className="mt-3 text-3xl font-black text-white">{totals.categoryRules}</p>
+            <p className="mt-1 text-xs font-semibold text-zinc-500">gatilho categoria</p>
           </div>
 
-          <div className="rounded-none border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">Por valor</p>
-            <p className="mt-3 text-3xl font-black text-slate-950">{totals.cartRules}</p>
-            <p className="mt-1 text-xs font-semibold text-slate-400">gatilho carrinho</p>
+          <div className="rounded-none border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+            <p className="text-sm font-bold text-zinc-500">Por valor</p>
+            <p className="mt-3 text-3xl font-black text-white">{totals.cartRules}</p>
+            <p className="mt-1 text-xs font-semibold text-zinc-500">gatilho carrinho</p>
           </div>
         </div>
 
-        <div className="rounded-none border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-none border border-white/10 bg-[#0A0A0A] shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-black text-slate-950">
+              <h2 className="text-base font-black text-white">
                 Regras de upsell
               </h2>
-              <p className="text-sm font-medium text-slate-500">
+              <p className="text-sm font-medium text-zinc-500">
                 Configure ofertas para aparecerem no carrinho público.
               </p>
             </div>
 
             <div className="relative w-full sm:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar regra..."
-                className="h-11 w-full rounded-none border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                className="h-11 w-full rounded-none border border-white/10 bg-[#111111] pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
               />
             </div>
           </div>
@@ -713,29 +713,29 @@ export default function UpsellPage() {
 
           {loading ? (
             <div className="flex min-h-[320px] items-center justify-center">
-              <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
+              <div className="flex items-center gap-3 text-sm font-bold text-zinc-500">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 Carregando upsells...
               </div>
             </div>
           ) : filteredRules.length === 0 ? (
             <div className="flex min-h-[320px] flex-col items-center justify-center p-6 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-none bg-slate-100 text-slate-500">
+              <div className="flex h-14 w-14 items-center justify-center rounded-none bg-[#111111] text-zinc-500">
                 <ShoppingCart className="h-7 w-7" />
               </div>
 
-              <h3 className="mt-4 text-lg font-black text-slate-950">
+              <h3 className="mt-4 text-lg font-black text-white">
                 Nenhuma regra de upsell criada
               </h3>
 
-              <p className="mt-2 max-w-md text-sm font-medium text-slate-500">
+              <p className="mt-2 max-w-md text-sm font-medium text-zinc-500">
                 Crie uma regra para sugerir complemento quando o cliente adicionar um produto, categoria ou atingir valor mínimo.
               </p>
 
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="mt-5 inline-flex items-center gap-2 rounded-none bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+                className="mt-5 inline-flex items-center gap-2 rounded-none bg-yellow-400 px-4 py-3 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300"
               >
                 <Plus className="h-4 w-4" />
                 Criar regra
@@ -745,7 +745,7 @@ export default function UpsellPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1080px] text-left">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-black uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-white/10 bg-[#111111] text-xs font-black uppercase tracking-wide text-zinc-500">
                     <th className="px-5 py-4">Regra</th>
                     <th className="px-5 py-4">Gatilho</th>
                     <th className="px-5 py-4">Oferta</th>
@@ -756,43 +756,43 @@ export default function UpsellPage() {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-white/10">
                   {filteredRules.map((rule) => (
-                    <tr key={rule.id} className="transition hover:bg-slate-50">
+                    <tr key={rule.id} className="transition hover:bg-[#111111]">
                       <td className="px-5 py-4">
-                        <p className="font-black text-slate-950">{rule.name}</p>
+                        <p className="font-black text-white">{rule.name}</p>
                         {rule.description && (
-                          <p className="mt-1 max-w-xs text-xs font-semibold text-slate-400">
+                          <p className="mt-1 max-w-xs text-xs font-semibold text-zinc-500">
                             {rule.description}
                           </p>
                         )}
                       </td>
 
                       <td className="px-5 py-4">
-                        <span className="inline-flex rounded-none bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                        <span className="inline-flex rounded-none bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-400">
                           {getTriggerLabel(rule, productsById, categoriesById)}
                         </span>
                       </td>
 
                       <td className="px-5 py-4">
-                        <p className="font-bold text-slate-700">
+                        <p className="font-bold text-zinc-500">
                           {rule.offered_title ||
                             getProductName(productsById.get(rule.offered_product_id || ""))}
                         </p>
                         {rule.offered_description && (
-                          <p className="mt-1 max-w-xs text-xs font-semibold text-slate-400">
+                          <p className="mt-1 max-w-xs text-xs font-semibold text-zinc-500">
                             {rule.offered_description}
                           </p>
                         )}
                       </td>
 
                       <td className="px-5 py-4">
-                        <span className="inline-flex rounded-none bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
+                        <span className="inline-flex rounded-none bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-400">
                           {getDiscountLabel(rule)}
                         </span>
                       </td>
 
-                      <td className="px-5 py-4 text-xs font-semibold text-slate-500">
+                      <td className="px-5 py-4 text-xs font-semibold text-zinc-500">
                         <p>Início: {formatDateTime(rule.starts_at)}</p>
                         <p className="mt-1">Fim: {formatDateTime(rule.ends_at)}</p>
                       </td>
@@ -801,8 +801,8 @@ export default function UpsellPage() {
                         <span
                           className={
                             rule.is_active
-                              ? "inline-flex rounded-none bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"
-                              : "inline-flex rounded-none bg-slate-100 px-3 py-1 text-xs font-black text-slate-500"
+                              ? "inline-flex rounded-none bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-400"
+                              : "inline-flex rounded-none bg-[#111111] px-3 py-1 text-xs font-black text-zinc-500"
                           }
                         >
                           {rule.is_active ? "Ativo" : "Inativo"}
@@ -814,7 +814,7 @@ export default function UpsellPage() {
                           <button
                             type="button"
                             onClick={() => openEditModal(rule)}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-none border border-slate-200 bg-white text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-none border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-yellow-400/10 hover:text-yellow-400"
                             title="Editar"
                           >
                             <Edit3 className="h-4 w-4" />
@@ -823,7 +823,7 @@ export default function UpsellPage() {
                           <button
                             type="button"
                             onClick={() => toggleRule(rule)}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-none border border-slate-200 bg-white text-slate-600 transition hover:bg-orange-50 hover:text-orange-700"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-none border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-yellow-400/10 hover:text-yellow-400"
                             title={rule.is_active ? "Desativar" : "Ativar"}
                           >
                             {rule.is_active ? (
@@ -836,7 +836,7 @@ export default function UpsellPage() {
                           <button
                             type="button"
                             onClick={() => deleteRule(rule)}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-none border border-slate-200 bg-white text-slate-600 transition hover:bg-red-50 hover:text-red-600"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-none border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
                             title="Remover"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -853,17 +853,17 @@ export default function UpsellPage() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-3 py-4 backdrop-blur-sm sm:px-4">
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] px-3 py-4 backdrop-blur-sm sm:px-4">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-none border border-white/10 bg-[#0A0A0A] shadow-2xl">
+            <div className="flex items-start justify-between border-b border-white/10 px-5 py-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-orange-500">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-400">
                   Upsell
                 </p>
-                <h2 className="mt-1 text-xl font-black text-slate-950">
+                <h2 className="mt-1 text-xl font-black text-white">
                   {editingRule ? "Editar regra de upsell" : "Nova regra de upsell"}
                 </h2>
-                <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500">
+                <p className="mt-1 max-w-2xl text-sm font-semibold text-zinc-500">
                   Crie uma sugestão rápida: cliente escolhe um item, o sistema oferece outro no carrinho.
                 </p>
               </div>
@@ -871,7 +871,7 @@ export default function UpsellPage() {
               <button
                 type="button"
                 onClick={closeModal}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-[#111111] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -879,35 +879,35 @@ export default function UpsellPage() {
 
             <form onSubmit={handleSaveRule} className="flex max-h-[calc(92vh-82px)] flex-col">
               <div className="overflow-y-auto px-5 py-4">
-                <div className="border border-blue-100 bg-blue-50/70 p-3">
+                <div className="border border-yellow-400/30 bg-yellow-400/10 p-3">
                   <div className="grid gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
-                    <div className="border border-blue-200 bg-white px-3 py-2">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <div className="border border-yellow-400/30 bg-[#0A0A0A] px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                         Quando
                       </p>
-                      <p className="mt-1 truncate text-sm font-black text-slate-950">
+                      <p className="mt-1 truncate text-sm font-black text-white">
                         {getFormTriggerSummary()}
                       </p>
                     </div>
 
-                    <ArrowRight className="hidden h-4 w-4 text-blue-500 md:block" />
+                    <ArrowRight className="hidden h-4 w-4 text-zinc-4000 md:block" />
 
-                    <div className="border border-blue-200 bg-white px-3 py-2">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <div className="border border-yellow-400/30 bg-[#0A0A0A] px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                         Oferecer
                       </p>
-                      <p className="mt-1 truncate text-sm font-black text-slate-950">
+                      <p className="mt-1 truncate text-sm font-black text-white">
                         {selectedOfferTitle}
                       </p>
                     </div>
 
-                    <ArrowRight className="hidden h-4 w-4 text-blue-500 md:block" />
+                    <ArrowRight className="hidden h-4 w-4 text-zinc-4000 md:block" />
 
-                    <div className="border border-blue-200 bg-white px-3 py-2">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <div className="border border-yellow-400/30 bg-[#0A0A0A] px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                         Condição
                       </p>
-                      <p className="mt-1 truncate text-sm font-black text-slate-950">
+                      <p className="mt-1 truncate text-sm font-black text-white">
                         {selectedConditionLabel}
                       </p>
                     </div>
@@ -918,7 +918,7 @@ export default function UpsellPage() {
                   <button
                     type="button"
                     onClick={() => applyQuickTemplate("product")}
-                    className="border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                    className="border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs font-black text-zinc-500 transition hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
                   >
                     Produto + complemento
                   </button>
@@ -926,7 +926,7 @@ export default function UpsellPage() {
                   <button
                     type="button"
                     onClick={() => applyQuickTemplate("category")}
-                    className="border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                    className="border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs font-black text-zinc-500 transition hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
                   >
                     Categoria + oferta
                   </button>
@@ -934,36 +934,36 @@ export default function UpsellPage() {
                   <button
                     type="button"
                     onClick={() => applyQuickTemplate("cart_total")}
-                    className="border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                    className="border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs font-black text-zinc-500 transition hover:border-emerald-400/30 hover:bg-emerald-500/15 hover:text-emerald-400"
                   >
                     Pedido mínimo
                   </button>
                 </div>
 
-                <div className="mt-4 border border-slate-200 bg-white">
-                  <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-                    <h3 className="text-sm font-black text-slate-950">
+                <div className="mt-4 border border-white/10 bg-[#0A0A0A]">
+                  <div className="border-b border-white/10 bg-[#111111] px-4 py-3">
+                    <h3 className="text-sm font-black text-white">
                       Montar regra
                     </h3>
-                    <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                    <p className="mt-0.5 text-xs font-semibold text-zinc-500">
                       Selecione o gatilho, o produto sugerido e a condição comercial.
                     </p>
                   </div>
 
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-white/10">
                     <div className="grid gap-3 p-4 lg:grid-cols-[180px_1fr] lg:items-end">
                       <div>
-                        <p className="text-sm font-black text-slate-950">
+                        <p className="text-sm font-black text-white">
                           1. Quando mostrar
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           O que o cliente precisa fazer.
                         </p>
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-[220px_1fr]">
                         <label>
-                          <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                          <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                             Tipo
                           </span>
 
@@ -978,7 +978,7 @@ export default function UpsellPage() {
                                 minimum_cart_total: "0",
                               }))
                             }
-                            className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                           >
                             <option value="product">Produto específico</option>
                             <option value="category">Categoria</option>
@@ -988,7 +988,7 @@ export default function UpsellPage() {
 
                         {form.trigger_type === "product" && (
                           <label>
-                            <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                            <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                               Produto gatilho *
                             </span>
 
@@ -1000,7 +1000,7 @@ export default function UpsellPage() {
                                   trigger_product_id: event.target.value,
                                 }))
                               }
-                              className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                              className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                             >
                               <option value="">Selecione o produto</option>
                               {products.map((product) => (
@@ -1014,7 +1014,7 @@ export default function UpsellPage() {
 
                         {form.trigger_type === "category" && (
                           <label>
-                            <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                            <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                               Categoria gatilho *
                             </span>
 
@@ -1026,7 +1026,7 @@ export default function UpsellPage() {
                                   trigger_category_id: event.target.value,
                                 }))
                               }
-                              className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                              className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                             >
                               <option value="">Selecione a categoria</option>
                               {categories.map((category) => (
@@ -1040,7 +1040,7 @@ export default function UpsellPage() {
 
                         {form.trigger_type === "cart_total" && (
                           <label>
-                            <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                            <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                               Valor mínimo *
                             </span>
 
@@ -1053,7 +1053,7 @@ export default function UpsellPage() {
                                 }))
                               }
                               placeholder="Ex: 50"
-                              className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                              className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                             />
                           </label>
                         )}
@@ -1062,17 +1062,17 @@ export default function UpsellPage() {
 
                     <div className="grid gap-3 p-4 lg:grid-cols-[180px_1fr] lg:items-start">
                       <div>
-                        <p className="text-sm font-black text-slate-950">
+                        <p className="text-sm font-black text-white">
                           2. O que oferecer
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           Produto que vai aparecer no carrinho.
                         </p>
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-2">
                         <label>
-                          <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                          <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                             Produto do upsell
                           </span>
 
@@ -1097,7 +1097,7 @@ export default function UpsellPage() {
                                     : current.special_price,
                               }))
                             }}
-                            className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                           >
                             <option value="">Oferta manual</option>
                             {products.map((product) => (
@@ -1112,7 +1112,7 @@ export default function UpsellPage() {
                         </label>
 
                         <label>
-                          <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                          <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                             Título da oferta *
                           </span>
 
@@ -1125,12 +1125,12 @@ export default function UpsellPage() {
                               }))
                             }
                             placeholder="Ex: Adicione uma Coca 2L"
-                            className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                           />
                         </label>
 
                         <label className="md:col-span-2">
-                          <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                          <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                             Descrição curta
                           </span>
 
@@ -1143,7 +1143,7 @@ export default function UpsellPage() {
                               }))
                             }
                             placeholder="Ex: Combina muito com esse pedido"
-                            className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                           />
                         </label>
                       </div>
@@ -1151,17 +1151,17 @@ export default function UpsellPage() {
 
                     <div className="grid gap-3 p-4 lg:grid-cols-[180px_1fr] lg:items-start">
                       <div>
-                        <p className="text-sm font-black text-slate-950">
+                        <p className="text-sm font-black text-white">
                           3. Condição
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           Preço, desconto e status.
                         </p>
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-3">
                         <label>
-                          <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                          <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                             Oferta
                           </span>
 
@@ -1173,7 +1173,7 @@ export default function UpsellPage() {
                                 discount_type: event.target.value as DiscountType,
                               }))
                             }
-                            className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                           >
                             <option value="none">Sem desconto</option>
                             <option value="special_price">Preço especial</option>
@@ -1186,7 +1186,7 @@ export default function UpsellPage() {
                         {(form.discount_type === "fixed" ||
                           form.discount_type === "percentage") && (
                           <label>
-                            <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                            <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                               Valor
                             </span>
 
@@ -1199,14 +1199,14 @@ export default function UpsellPage() {
                                 }))
                               }
                               placeholder="Ex: 5 ou 10"
-                              className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                              className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                             />
                           </label>
                         )}
 
                         {form.discount_type === "special_price" && (
                           <label>
-                            <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                            <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                               Preço especial
                             </span>
 
@@ -1219,12 +1219,12 @@ export default function UpsellPage() {
                                 }))
                               }
                               placeholder="Ex: 9,90"
-                              className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                              className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                             />
                           </label>
                         )}
 
-                        <label className="flex h-11 items-center gap-3 border border-slate-200 bg-white px-3 md:mt-5">
+                        <label className="flex h-11 items-center gap-3 border border-white/10 bg-[#0A0A0A] px-3 md:mt-5">
                           <input
                             type="checkbox"
                             checked={form.is_active}
@@ -1234,10 +1234,10 @@ export default function UpsellPage() {
                                 is_active: event.target.checked,
                               }))
                             }
-                            className="h-4 w-4 rounded-none border-slate-300"
+                            className="h-4 w-4 rounded-none border-white/10"
                           />
 
-                          <span className="text-sm font-black text-slate-700">
+                          <span className="text-sm font-black text-zinc-500">
                             Regra ativa
                           </span>
                         </label>
@@ -1247,53 +1247,53 @@ export default function UpsellPage() {
                 </div>
 
                 <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-                  <div className="border border-orange-200 bg-orange-50 px-4 py-3">
+                  <div className="border border-yellow-400/30 bg-yellow-400/10 px-4 py-3">
                     <div className="flex items-start gap-3">
-                      <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" />
+                      <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-yellow-400" />
                       <div>
-                        <p className="text-sm font-black text-slate-950">
+                        <p className="text-sm font-black text-white">
                           Preview no carrinho
                         </p>
-                        <p className="mt-1 text-sm font-semibold text-slate-600">
+                        <p className="mt-1 text-sm font-semibold text-zinc-500">
                           {selectedOfferTitle} · {selectedConditionLabel}
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           {selectedOfferDescription}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">
+                  <div className="border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-400">
                     {getFormTriggerSummary()} → {selectedOfferTitle}
                   </div>
                 </div>
 
-                <div className="mt-4 border border-slate-200 bg-white">
+                <div className="mt-4 border border-white/10 bg-[#0A0A0A]">
                   <button
                     type="button"
                     onClick={() => setAdvancedOpen((current) => !current)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#111111]"
                   >
                     <div>
-                      <p className="text-sm font-black text-slate-950">Opções avançadas</p>
-                      <p className="text-xs font-semibold text-slate-500">
+                      <p className="text-sm font-black text-white">Opções avançadas</p>
+                      <p className="text-xs font-semibold text-zinc-500">
                         Nome interno, prioridade e período de exibição.
                       </p>
                     </div>
                     <ChevronDown
                       className={
                         advancedOpen
-                          ? "h-5 w-5 rotate-180 text-slate-500 transition"
-                          : "h-5 w-5 text-slate-500 transition"
+                          ? "h-5 w-5 rotate-180 text-zinc-500 transition"
+                          : "h-5 w-5 text-zinc-500 transition"
                       }
                     />
                   </button>
 
                   {advancedOpen && (
-                    <div className="grid gap-3 border-t border-slate-100 bg-slate-50 p-4 md:grid-cols-2">
+                    <div className="grid gap-3 border-t border-white/10 bg-[#111111] p-4 md:grid-cols-2">
                       <label className="md:col-span-2">
-                        <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                           Nome interno da regra
                         </span>
 
@@ -1303,12 +1303,12 @@ export default function UpsellPage() {
                             setForm((current) => ({ ...current, name: event.target.value }))
                           }
                           placeholder={`Ex: Upsell ${selectedOfferTitle}`}
-                          className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label className="md:col-span-2">
-                        <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                           Descrição interna
                         </span>
 
@@ -1321,12 +1321,12 @@ export default function UpsellPage() {
                             }))
                           }
                           placeholder="Opcional, aparece só para controle interno"
-                          className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label>
-                        <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                           Prioridade
                         </span>
 
@@ -1339,12 +1339,12 @@ export default function UpsellPage() {
                             }))
                           }
                           placeholder="0"
-                          className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label>
-                        <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                           Início
                         </span>
 
@@ -1357,12 +1357,12 @@ export default function UpsellPage() {
                               starts_at: event.target.value,
                             }))
                           }
-                          className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label>
-                        <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-black uppercase tracking-wide text-zinc-500">
                           Fim
                         </span>
 
@@ -1375,7 +1375,7 @@ export default function UpsellPage() {
                               ends_at: event.target.value,
                             }))
                           }
-                          className="mt-1 h-11 w-full rounded-none border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-1 h-11 w-full rounded-none border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
                     </div>
@@ -1383,12 +1383,12 @@ export default function UpsellPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-white px-5 py-4 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-3 border-t border-white/10 bg-[#0A0A0A] px-5 py-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeModal}
                   disabled={saving}
-                  className="inline-flex items-center justify-center rounded-none border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-none border border-white/10 bg-[#0A0A0A] px-5 py-3 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancelar
                 </button>
@@ -1396,7 +1396,7 @@ export default function UpsellPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-none bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-none bg-yellow-400 px-5 py-3 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                   {editingRule ? "Salvar alterações" : "Salvar regra"}

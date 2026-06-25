@@ -383,7 +383,7 @@ function percentWidth(value: number) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-[#cdd9ea] bg-[#f8fbff] px-4 py-6 text-center text-sm text-[#55708f]">
+    <div className="rounded-xl border border-dashed border-[#cdd9ea] bg-[#f8fbff] px-4 py-6 text-center text-sm text-[#a1a1aa]">
       {text}
     </div>
   )
@@ -405,18 +405,18 @@ function SectionCard({
   action?: ReactNode
 }) {
   return (
-    <section className={cn("rounded-2xl border border-[#dbe5f2] bg-white shadow-sm", className)}>
+    <section className={cn("rounded-2xl border border-[#111111] bg-[#0A0A0A] shadow-sm", className)}>
       <div className="flex items-start justify-between gap-3 border-b border-[#edf2f8] px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
           {icon ? (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#eef5ff] text-[#2563eb]">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#eef5ff] text-yellow-400">
               {icon}
             </div>
           ) : null}
 
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-[#07152f]">{title}</h2>
-            {subtitle ? <p className="mt-0.5 text-xs leading-relaxed text-[#55708f]">{subtitle}</p> : null}
+            <h2 className="text-sm font-bold text-[#ffffff]">{title}</h2>
+            {subtitle ? <p className="mt-0.5 text-xs leading-relaxed text-[#a1a1aa]">{subtitle}</p> : null}
           </div>
         </div>
 
@@ -430,7 +430,7 @@ function SectionCard({
 
 function MiniSparkline({
   values,
-  color = "#2563eb",
+  color = "#facc15",
 }: {
   values: number[]
   color?: string
@@ -481,19 +481,19 @@ function MetricCard({
 }) {
   const toneStyles = {
     blue: {
-      icon: "bg-blue-100 text-[#2563eb]",
-      value: "text-[#07152f]",
-      line: "#2563eb",
+      icon: "bg-yellow-400/10 text-yellow-400",
+      value: "text-[#ffffff]",
+      line: "#facc15",
     },
     green: {
-      icon: "bg-emerald-100 text-[#059669]",
+      icon: "bg-emerald-500/10 text-[#059669]",
       value: "text-[#059669]",
       line: "#059669",
     },
     orange: {
-      icon: "bg-orange-100 text-[#f97316]",
-      value: "text-[#f97316]",
-      line: "#f97316",
+      icon: "bg-yellow-400/10 text-yellow-400",
+      value: "text-yellow-400",
+      line: "#facc15",
     },
     red: {
       icon: "bg-red-100 text-[#dc2626]",
@@ -501,26 +501,26 @@ function MetricCard({
       line: "#dc2626",
     },
     violet: {
-      icon: "bg-violet-100 text-[#7c3aed]",
-      value: "text-[#07152f]",
-      line: "#7c3aed",
+      icon: "bg-yellow-400/10 text-[#facc15]",
+      value: "text-[#ffffff]",
+      line: "#facc15",
     },
     slate: {
-      icon: "bg-slate-100 text-[#55708f]",
-      value: "text-[#07152f]",
-      line: "#55708f",
+      icon: "bg-[#111111] text-[#a1a1aa]",
+      value: "text-[#ffffff]",
+      line: "#a1a1aa",
     },
   }[tone]
 
   return (
-    <div className="min-h-[150px] rounded-2xl border border-[#dbe5f2] bg-white p-4 shadow-sm">
+    <div className="min-h-[150px] rounded-2xl border border-[#111111] bg-[#0A0A0A] p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold text-[#07152f]">{title}</p>
+          <p className="text-xs font-bold text-[#ffffff]">{title}</p>
           <strong className={cn("mt-1 block truncate text-2xl font-black tracking-tight", toneStyles.value)}>
             {value}
           </strong>
-          {helper ? <p className="mt-1 text-xs leading-relaxed text-[#55708f]">{helper}</p> : null}
+          {helper ? <p className="mt-1 text-xs leading-relaxed text-[#a1a1aa]">{helper}</p> : null}
         </div>
 
         <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", toneStyles.icon)}>
@@ -547,12 +547,12 @@ function ProgressBar({
   tone?: "blue" | "green" | "orange" | "red" | "violet" | "slate"
 }) {
   const colors = {
-    blue: "bg-[#2563eb]",
+    blue: "bg-yellow-400",
     green: "bg-[#059669]",
-    orange: "bg-[#f97316]",
+    orange: "bg-yellow-400",
     red: "bg-[#dc2626]",
-    violet: "bg-[#7c3aed]",
-    slate: "bg-[#07152f]",
+    violet: "bg-[#facc15]",
+    slate: "bg-[#ffffff]",
   }
 
   return (
@@ -572,7 +572,7 @@ function BarWithPercent({
   return (
     <div className="flex min-w-[112px] items-center gap-2">
       <ProgressBar percent={percent} tone={tone} />
-      <span className="w-10 shrink-0 text-right text-xs font-bold text-[#07152f]">{formatPercent(percent)}</span>
+      <span className="w-10 shrink-0 text-right text-xs font-bold text-[#ffffff]">{formatPercent(percent)}</span>
     </div>
   )
 }
@@ -595,10 +595,10 @@ function CompactTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[#dbe5f2]">
+    <div className="overflow-hidden rounded-xl border border-[#111111]">
       <div className="overflow-x-auto">
         <table className="w-full text-sm" style={{ minWidth }}>
-          <thead className="bg-[#f8fbff] text-left text-[11px] font-bold uppercase tracking-wide text-[#55708f]">
+          <thead className="bg-[#f8fbff] text-left text-[11px] font-bold uppercase tracking-wide text-[#a1a1aa]">
             <tr>
               {headers.map((header) => (
                 <th key={header} className="whitespace-nowrap px-3 py-2.5">
@@ -607,11 +607,11 @@ function CompactTable({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#edf2f8] bg-white">
+          <tbody className="divide-y divide-[#edf2f8] bg-[#0A0A0A]">
             {rows.map((row, rowIndex) => (
               <tr key={rowIndex} className="hover:bg-[#f8fbff]">
                 {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="px-3 py-2.5 align-middle text-[#07152f]">
+                  <td key={cellIndex} className="px-3 py-2.5 align-middle text-[#ffffff]">
                     {cell}
                   </td>
                 ))}
@@ -619,7 +619,7 @@ function CompactTable({
             ))}
           </tbody>
           {footer ? (
-            <tfoot className="border-t border-[#dbe5f2] bg-[#fbfdff] font-black text-[#07152f]">
+            <tfoot className="border-t border-[#111111] bg-[#fbfdff] font-black text-[#ffffff]">
               <tr>
                 {footer.map((cell, index) => (
                   <td key={index} className="px-3 py-2.5 align-middle">
@@ -642,9 +642,9 @@ function StatusDot({
 }) {
   const colors = {
     green: "bg-[#059669]",
-    orange: "bg-[#f97316]",
+    orange: "bg-yellow-400",
     red: "bg-[#dc2626]",
-    blue: "bg-[#2563eb]",
+    blue: "bg-yellow-400",
   }
 
   return <span className={cn("h-2 w-2 shrink-0 rounded-full", colors[tone])} />
@@ -658,11 +658,11 @@ function StatusPill({
   tone?: "green" | "orange" | "red" | "blue" | "slate"
 }) {
   const styles = {
-    green: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    orange: "border-orange-200 bg-orange-50 text-orange-700",
+    green: "border-emerald-400/30 bg-emerald-500/10 text-emerald-400",
+    orange: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
     red: "border-red-200 bg-red-50 text-red-700",
-    blue: "border-blue-200 bg-blue-50 text-blue-700",
-    slate: "border-slate-200 bg-slate-50 text-slate-600",
+    blue: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
+    slate: "border-white/10 bg-[#111111] text-zinc-500",
   }
 
   return (
@@ -686,10 +686,10 @@ function StatusDonut({
   const pendingDegrees = total > 0 ? (pending / total) * 360 : 0
   const gradient =
     total > 0
-      ? `conic-gradient(#059669 0deg ${paidDegrees}deg, #f97316 ${paidDegrees}deg ${
+      ? `conic-gradient(#059669 0deg ${paidDegrees}deg, #facc15 ${paidDegrees}deg ${
           paidDegrees + pendingDegrees
         }deg, #dc2626 ${paidDegrees + pendingDegrees}deg 360deg)`
-      : "conic-gradient(#dbe5f2 0deg 360deg)"
+      : "conic-gradient(#111111 0deg 360deg)"
 
   const rows = [
     { label: "Pagos", value: paid, tone: "green" as const },
@@ -700,9 +700,9 @@ function StatusDonut({
   return (
     <div className="grid gap-5 sm:grid-cols-[160px_1fr] sm:items-center">
       <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-full p-5" style={{ background: gradient }}>
-        <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center shadow-inner">
-          <strong className="text-3xl font-black text-[#07152f]">{total}</strong>
-          <span className="text-xs font-bold text-[#55708f]">Total</span>
+        <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-[#0A0A0A] text-center shadow-inner">
+          <strong className="text-3xl font-black text-[#ffffff]">{total}</strong>
+          <span className="text-xs font-bold text-[#a1a1aa]">Total</span>
         </div>
       </div>
 
@@ -712,18 +712,18 @@ function StatusDonut({
             <div className="min-w-0">
               <div className="mb-1 flex items-center gap-2">
                 <StatusDot tone={row.tone} />
-                <span className="text-sm font-bold text-[#07152f]">{row.label}</span>
+                <span className="text-sm font-bold text-[#ffffff]">{row.label}</span>
               </div>
               <ProgressBar percent={percentage(row.value, total)} tone={row.tone} />
             </div>
             <div className="text-right">
-              <strong className="block text-sm font-black text-[#07152f]">{row.value}</strong>
-              <span className="text-xs text-[#55708f]">{formatPercent(percentage(row.value, total))}</span>
+              <strong className="block text-sm font-black text-[#ffffff]">{row.value}</strong>
+              <span className="text-xs text-[#a1a1aa]">{formatPercent(percentage(row.value, total))}</span>
             </div>
           </div>
         ))}
 
-        <div className="flex items-center justify-between border-t border-[#edf2f8] pt-3 text-sm font-black text-[#07152f]">
+        <div className="flex items-center justify-between border-t border-[#edf2f8] pt-3 text-sm font-black text-[#ffffff]">
           <span>Total</span>
           <span>{total}</span>
         </div>
@@ -746,7 +746,7 @@ function RevenueBars({
   }
 
   return (
-    <div className="rounded-xl border border-[#dbe5f2] bg-white p-3">
+    <div className="rounded-xl border border-[#111111] bg-[#0A0A0A] p-3">
       <div className="relative h-[230px] overflow-hidden">
         <div className="absolute inset-x-0 top-6 border-t border-[#edf2f8]" />
         <div className="absolute inset-x-0 top-[72px] border-t border-[#edf2f8]" />
@@ -763,16 +763,16 @@ function RevenueBars({
                 className="flex min-w-[58px] flex-1 flex-col items-center justify-end gap-2"
                 title={`${item.helper || item.label}: ${formatCurrency(item.value)}`}
               >
-                <span className="text-center text-[11px] font-bold text-[#55708f]">
+                <span className="text-center text-[11px] font-bold text-[#a1a1aa]">
                   {formatCompactCurrency(item.value)}
                 </span>
                 <div className="flex h-[150px] w-full items-end justify-center rounded-lg bg-[#f4f7fb] px-1 pb-0.5">
                   <div
-                    className="w-full rounded-t-md bg-[#2563eb] shadow-sm shadow-blue-200"
+                    className="w-full rounded-t-md bg-yellow-400 shadow-sm shadow-yellow-400/20"
                     style={{ height: `${barHeight}px` }}
                   />
                 </div>
-                <span className="whitespace-nowrap text-[11px] font-bold text-[#07152f]">{item.label}</span>
+                <span className="whitespace-nowrap text-[11px] font-bold text-[#ffffff]">{item.label}</span>
               </div>
             )
           })}
@@ -794,15 +794,15 @@ function OwnerInsight({
   tone?: AlertTone | "green"
 }) {
   const styles = {
-    blue: "bg-blue-500/15 text-blue-200 ring-blue-400/25",
-    green: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/25",
-    orange: "bg-orange-500/15 text-orange-200 ring-orange-400/25",
+    blue: "bg-yellow-400/15 text-zinc-400 ring-yellow-400/20",
+    green: "bg-emerald-500/15 text-emerald-400 ring-emerald-400/20",
+    orange: "bg-yellow-400/15 text-yellow-400 ring-yellow-400/20",
     red: "bg-red-500/15 text-red-200 ring-red-400/25",
-    violet: "bg-violet-500/15 text-violet-200 ring-violet-400/25",
+    violet: "bg-yellow-400/15 text-yellow-400 ring-yellow-400/20",
   }
 
   return (
-    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
       <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1", styles[tone])}>
         {icon}
       </div>
@@ -828,16 +828,16 @@ function DecisionCard({
   tone: "green" | "orange" | "blue" | "red"
 }) {
   const styles = {
-    green: "border-emerald-400/35 text-emerald-300",
-    orange: "border-orange-400/35 text-orange-300",
-    blue: "border-blue-400/35 text-blue-300",
-    red: "border-red-400/45 text-orange-300",
+    green: "border-emerald-400/30 text-emerald-300",
+    orange: "border-yellow-400/30 text-yellow-400",
+    blue: "border-yellow-400/30 text-zinc-400",
+    red: "border-red-400/45 text-yellow-400",
   }
 
   return (
-    <div className={cn("rounded-2xl border bg-white/[0.03] p-4", styles[tone])}>
+    <div className={cn("rounded-2xl border bg-[#0A0A0A] p-4", styles[tone])}>
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0A0A0A]">
           {icon}
         </div>
         <div className="min-w-0">
@@ -1630,8 +1630,8 @@ export default function RelatoriosFinanceirosPage() {
 
   const dreRows = [
     ["Receita recebida", <span key="received" className="font-black text-[#059669]">{formatCurrency(totals.revenue)}</span>],
-    ["Receita pendente", <span key="pending" className="font-black text-[#f97316]">{formatCurrency(totals.pendingRevenue)}</span>],
-    ["Receita bruta total", <span key="gross" className="font-black text-[#07152f]">{formatCurrency(totals.grossRevenue)}</span>],
+    ["Receita pendente", <span key="pending" className="font-black text-yellow-400">{formatCurrency(totals.pendingRevenue)}</span>],
+    ["Receita bruta total", <span key="gross" className="font-black text-[#ffffff]">{formatCurrency(totals.grossRevenue)}</span>],
     ["Custos com folha fixa", <span key="payroll">{formatCurrency(fixedPayroll)}</span>],
     ["Custos com freelancers / diárias", <span key="freelancers">{formatCurrency(freelancerCost)}</span>],
     ["Custos com entregadores", <span key="delivery">{formatCurrency(deliveryCost)}</span>],
@@ -1641,10 +1641,10 @@ export default function RelatoriosFinanceirosPage() {
   ]
 
   const productRows = topProducts.map((product, index) => [
-    <span key="position" className="font-black text-[#55708f]">{index + 1}</span>,
+    <span key="position" className="font-black text-[#a1a1aa]">{index + 1}</span>,
     <div key="product" className="max-w-[220px]">
-      <p className="font-black leading-tight text-[#07152f]">{product.label}</p>
-      <p className="text-xs text-[#55708f]">{product.helper}</p>
+      <p className="font-black leading-tight text-[#ffffff]">{product.label}</p>
+      <p className="text-xs text-[#a1a1aa]">{product.helper}</p>
     </div>,
     <span key="quantity" className="font-bold">{product.quantity || 0}</span>,
     <span key="revenue" className="font-black">{formatCurrency(product.value)}</span>,
@@ -1656,7 +1656,7 @@ export default function RelatoriosFinanceirosPage() {
 
     return [
       <div key="method" className="flex items-center gap-2">
-        <span className="font-bold text-[#07152f]">{method.label}</span>
+        <span className="font-bold text-[#ffffff]">{method.label}</span>
         {isMain ? <StatusPill tone="blue">Principal</StatusPill> : null}
       </div>,
       <span key="value" className="font-black">{formatCurrency(method.value)}</span>,
@@ -1666,42 +1666,42 @@ export default function RelatoriosFinanceirosPage() {
   })
 
   const channelRows = salesChannels.map((channel) => [
-    <span key="channel" className="font-bold text-[#07152f]">{channel.label}</span>,
+    <span key="channel" className="font-bold text-[#ffffff]">{channel.label}</span>,
     <span key="value" className="font-black">{formatCurrency(channel.value)}</span>,
     <span key="orders" className="font-bold">{channel.orders || 0}</span>,
     <BarWithPercent key="share" percent={percentage(channel.value, totals.revenue)} tone="blue" />,
   ])
 
   const costRows = displayCostAreas.map((area) => [
-    <span key="area" className="font-bold text-[#07152f]">{area.label}</span>,
+    <span key="area" className="font-bold text-[#ffffff]">{area.label}</span>,
     <span key="total" className="font-black">{formatCurrency(area.total)}</span>,
     <span key="paid" className="font-bold text-[#059669]">{formatCurrency(area.paid)}</span>,
-    <span key="pending" className="font-bold text-[#f97316]">{formatCurrency(area.pending)}</span>,
+    <span key="pending" className="font-bold text-yellow-400">{formatCurrency(area.pending)}</span>,
     <BarWithPercent key="share" percent={percentage(area.total, totalMainCosts)} tone="orange" />,
   ])
 
   const supplierRows = suppliersRanking.map((supplier) => [
-    <span key="supplier" className="font-bold text-[#07152f]">{supplier.label}</span>,
+    <span key="supplier" className="font-bold text-[#ffffff]">{supplier.label}</span>,
     <span key="total" className="font-black">{formatCurrency(supplier.value)}</span>,
     <span key="count" className="font-bold">{supplier.count || 0}</span>,
   ])
 
   const deliveryRows = deliveryRanking.map((driver) => [
-    <span key="driver" className="font-bold text-[#07152f]">{driver.label}</span>,
+    <span key="driver" className="font-bold text-[#ffffff]">{driver.label}</span>,
     <span key="total" className="font-black">{formatCurrency(driver.value)}</span>,
     <span key="count" className="font-bold">{driver.count || 0}</span>,
   ])
 
   const closingRows = closings.slice(0, 6).map((closing) => [
-    <span key="day" className="font-bold text-[#07152f]">{formatWeekday(closing.closing_date)}</span>,
-    <span key="date" className="font-bold text-[#55708f]">{formatDate(closing.closing_date)}</span>,
+    <span key="day" className="font-bold text-[#ffffff]">{formatWeekday(closing.closing_date)}</span>,
+    <span key="date" className="font-bold text-[#a1a1aa]">{formatDate(closing.closing_date)}</span>,
     <span key="balance" className={cn("font-black", closing.estimated_profit >= 0 ? "text-[#059669]" : "text-[#dc2626]")}>
       {formatCurrency(closing.estimated_profit)}
     </span>,
     <StatusPill key="status" tone={closing.closed_at ? "green" : "orange"}>
       {closing.closed_at ? "Caixa fechado" : "Em aberto"}
     </StatusPill>,
-    <span key="note" className="text-[#55708f]">
+    <span key="note" className="text-[#a1a1aa]">
       {closing.orders_count > 0
         ? `${closing.orders_count} pedido${closing.orders_count === 1 ? "" : "s"} · ticket ${formatCurrency(closing.average_ticket)}`
         : "-"}
@@ -1711,40 +1711,40 @@ export default function RelatoriosFinanceirosPage() {
   return (
     <AdminLayout>
       <div className="-m-2 space-y-4 bg-[#f4f7fb] p-2 sm:-m-3 sm:p-3 md:-m-4 md:p-4">
-        <header className="rounded-2xl border border-[#dbe5f2] bg-white p-4 shadow-sm">
+        <header className="rounded-2xl border border-[#111111] bg-[#0A0A0A] p-4 shadow-sm">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-[#07152f] sm:text-3xl">
+                <h1 className="text-2xl font-black tracking-tight text-[#ffffff] sm:text-3xl">
                   Relatório operacional
                 </h1>
-                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-[#2563eb]">
+                <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-yellow-400">
                   Gerencial
                 </span>
               </div>
-              <p className="mt-1 text-sm font-medium text-[#55708f]">
+              <p className="mt-1 text-sm font-medium text-[#a1a1aa]">
                 Leitura completa do período para tomada de decisão.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[160px_160px_auto] xl:items-end">
               <div className="space-y-1">
-                <Label className="text-xs font-bold text-[#55708f]">Data inicial</Label>
+                <Label className="text-xs font-bold text-[#a1a1aa]">Data inicial</Label>
                 <Input
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
-                  className="h-10 rounded-xl border-[#dbe5f2] bg-white font-bold text-[#07152f]"
+                  className="h-10 rounded-xl border-[#111111] bg-[#0A0A0A] font-bold text-[#ffffff]"
                 />
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs font-bold text-[#55708f]">Data final</Label>
+                <Label className="text-xs font-bold text-[#a1a1aa]">Data final</Label>
                 <Input
                   type="date"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
-                  className="h-10 rounded-xl border-[#dbe5f2] bg-white font-bold text-[#07152f]"
+                  className="h-10 rounded-xl border-[#111111] bg-[#0A0A0A] font-bold text-[#ffffff]"
                 />
               </div>
 
@@ -1753,7 +1753,7 @@ export default function RelatoriosFinanceirosPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-10 rounded-xl border-[#dbe5f2] bg-white px-3 font-bold text-[#07152f] hover:bg-blue-50 hover:text-[#2563eb]"
+                  className="h-10 rounded-xl border-[#111111] bg-[#0A0A0A] px-3 font-bold text-[#ffffff] hover:bg-yellow-400/10 hover:text-yellow-400"
                   onClick={() => {
                     setStartDate(todayDate())
                     setEndDate(todayDate())
@@ -1765,7 +1765,7 @@ export default function RelatoriosFinanceirosPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-10 rounded-xl border-[#dbe5f2] bg-white px-3 font-bold text-[#07152f] hover:bg-blue-50 hover:text-[#2563eb]"
+                  className="h-10 rounded-xl border-[#111111] bg-[#0A0A0A] px-3 font-bold text-[#ffffff] hover:bg-yellow-400/10 hover:text-yellow-400"
                   onClick={() => {
                     setStartDate(monthStart())
                     setEndDate(todayDate())
@@ -1777,7 +1777,7 @@ export default function RelatoriosFinanceirosPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-10 rounded-xl border-[#dbe5f2] bg-white px-3 font-bold text-[#07152f] hover:bg-blue-50 hover:text-[#2563eb]"
+                  className="h-10 rounded-xl border-[#111111] bg-[#0A0A0A] px-3 font-bold text-[#ffffff] hover:bg-yellow-400/10 hover:text-yellow-400"
                   onClick={() => {
                     setStartDate(lastThirtyDaysStart())
                     setEndDate(todayDate())
@@ -1790,7 +1790,7 @@ export default function RelatoriosFinanceirosPage() {
                   size="sm"
                   onClick={loadData}
                   disabled={loading}
-                  className="h-10 rounded-xl bg-[#2563eb] px-3 font-bold text-white hover:bg-[#1d4ed8]"
+                  className="h-10 rounded-xl bg-yellow-400 px-3 font-bold text-black hover:bg-yellow-300"
                 >
                   <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
                   <span className="sr-only">Atualizar</span>
@@ -1800,8 +1800,8 @@ export default function RelatoriosFinanceirosPage() {
           </div>
         </header>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-white px-4 py-3 text-sm font-bold text-[#07152f] shadow-sm">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+        <div className="flex items-center gap-3 rounded-2xl border border-yellow-400/30 bg-[#0A0A0A] px-4 py-3 text-sm font-bold text-[#ffffff] shadow-sm">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
             <CalendarDays className="h-4 w-4" />
           </div>
           <span>
@@ -1811,14 +1811,14 @@ export default function RelatoriosFinanceirosPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-[#dbe5f2] bg-white py-16 text-sm font-bold text-[#55708f] shadow-sm">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#2563eb]" />
+          <div className="flex items-center justify-center rounded-2xl border border-[#111111] bg-[#0A0A0A] py-16 text-sm font-bold text-[#a1a1aa] shadow-sm">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin text-yellow-400" />
             Carregando relatório operacional...
           </div>
         ) : (
           <>
             <section className="space-y-3">
-              <h2 className="text-lg font-black text-[#07152f]">Resumo executivo</h2>
+              <h2 className="text-lg font-black text-[#ffffff]">Resumo executivo</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                 <MetricCard
                   title="Receita recebida"
@@ -1871,7 +1871,7 @@ export default function RelatoriosFinanceirosPage() {
                   icon={<ShoppingBag className="h-4 w-4" />}
                   tone="slate"
                 >
-                  <div className="space-y-1.5 text-xs font-bold text-[#55708f]">
+                  <div className="space-y-1.5 text-xs font-bold text-[#a1a1aa]">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2"><StatusDot tone="green" /> pagos</span>
                       <span>{totals.paidOrdersCount}</span>
@@ -1889,7 +1889,7 @@ export default function RelatoriosFinanceirosPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#07152f] bg-[#07152f] p-4 shadow-sm">
+            <section className="rounded-2xl border border-[#ffffff] bg-[#ffffff] p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="text-lg font-black text-white">Leitura para o dono</h2>
                 <StatusPill tone={totals.pendingRevenue > 0 ? "orange" : "green"}>
@@ -1950,22 +1950,22 @@ export default function RelatoriosFinanceirosPage() {
                 subtitle="Receita, custos e margem em leitura direta."
                 icon={<FileText className="h-4 w-4" />}
               >
-                <div className="overflow-hidden rounded-xl border border-[#dbe5f2]">
-                  <div className="divide-y divide-[#edf2f8] bg-white text-sm">
+                <div className="overflow-hidden rounded-xl border border-[#111111]">
+                  <div className="divide-y divide-[#edf2f8] bg-[#0A0A0A] text-sm">
                     {dreRows.map(([label, value]) => (
                       <div key={String(label)} className="flex items-center justify-between gap-4 px-3 py-2.5">
-                        <span className="font-medium text-[#55708f]">{label}</span>
-                        <span className="shrink-0 text-right font-bold text-[#07152f]">{value}</span>
+                        <span className="font-medium text-[#a1a1aa]">{label}</span>
+                        <span className="shrink-0 text-right font-bold text-[#ffffff]">{value}</span>
                       </div>
                     ))}
-                    <div className="flex items-center justify-between gap-4 bg-[#07152f] px-3 py-3 text-white">
+                    <div className="flex items-center justify-between gap-4 bg-[#ffffff] px-3 py-3 text-white">
                       <span className="font-black">Resultado operacional</span>
                       <strong className={cn("text-base", operationalResult >= 0 ? "text-emerald-300" : "text-red-300")}>
                         {formatCurrency(operationalResult)}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between gap-4 px-3 py-3">
-                      <span className="font-black text-[#07152f]">Margem operacional</span>
+                      <span className="font-black text-[#ffffff]">Margem operacional</span>
                       <strong className={cn(operationalMargin >= 0 ? "text-[#059669]" : "text-[#dc2626]")}>
                         {formatPercent(operationalMargin)}
                       </strong>
@@ -2067,26 +2067,26 @@ export default function RelatoriosFinanceirosPage() {
                 icon={<Truck className="h-4 w-4" />}
               >
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-xl border border-[#dbe5f2] bg-[#f8fbff] p-3">
-                    <p className="text-xs font-bold text-[#55708f]">Fornecedores</p>
-                    <strong className="mt-1 block text-xl font-black text-[#07152f]">{formatCurrency(supplierAreaSummary.total)}</strong>
-                    <p className="text-xs text-[#55708f]">Gasto total</p>
+                  <div className="rounded-xl border border-[#111111] bg-[#f8fbff] p-3">
+                    <p className="text-xs font-bold text-[#a1a1aa]">Fornecedores</p>
+                    <strong className="mt-1 block text-xl font-black text-[#ffffff]">{formatCurrency(supplierAreaSummary.total)}</strong>
+                    <p className="text-xs text-[#a1a1aa]">Gasto total</p>
                   </div>
-                  <div className="rounded-xl border border-[#dbe5f2] bg-[#f8fbff] p-3">
-                    <p className="text-xs font-bold text-[#55708f]">Entregas</p>
-                    <strong className="mt-1 block text-xl font-black text-[#07152f]">{deliveryCount}</strong>
-                    <p className="text-xs text-[#55708f]">Total no período</p>
+                  <div className="rounded-xl border border-[#111111] bg-[#f8fbff] p-3">
+                    <p className="text-xs font-bold text-[#a1a1aa]">Entregas</p>
+                    <strong className="mt-1 block text-xl font-black text-[#ffffff]">{deliveryCount}</strong>
+                    <p className="text-xs text-[#a1a1aa]">Total no período</p>
                   </div>
-                  <div className="rounded-xl border border-[#dbe5f2] bg-[#f8fbff] p-3">
-                    <p className="text-xs font-bold text-[#55708f]">Média por entrega</p>
-                    <strong className="mt-1 block text-xl font-black text-[#07152f]">{formatCurrency(averageDeliveryCost)}</strong>
-                    <p className="text-xs text-[#55708f]">Por entrega</p>
+                  <div className="rounded-xl border border-[#111111] bg-[#f8fbff] p-3">
+                    <p className="text-xs font-bold text-[#a1a1aa]">Média por entrega</p>
+                    <strong className="mt-1 block text-xl font-black text-[#ffffff]">{formatCurrency(averageDeliveryCost)}</strong>
+                    <p className="text-xs text-[#a1a1aa]">Por entrega</p>
                   </div>
                 </div>
 
                 <div className="mt-4 grid gap-4">
                   <div>
-                    <p className="mb-2 text-sm font-black text-[#07152f]">Top fornecedores</p>
+                    <p className="mb-2 text-sm font-black text-[#ffffff]">Top fornecedores</p>
                     <CompactTable
                       headers={["Fornecedor", "Gasto", "Registros"]}
                       rows={supplierRows}
@@ -2096,7 +2096,7 @@ export default function RelatoriosFinanceirosPage() {
                   </div>
 
                   <div>
-                    <p className="mb-2 text-sm font-black text-[#07152f]">Acertos por entregador</p>
+                    <p className="mb-2 text-sm font-black text-[#ffffff]">Acertos por entregador</p>
                     <CompactTable
                       headers={["Entregador", "Valor", "Acertos"]}
                       rows={deliveryRows}
@@ -2117,7 +2117,7 @@ export default function RelatoriosFinanceirosPage() {
                   closings.length > 6 ? (
                     <a
                       href="/financeiro/caixa"
-                      className="inline-flex items-center gap-1 text-xs font-black text-[#2563eb] hover:text-[#1d4ed8]"
+                      className="inline-flex items-center gap-1 text-xs font-black text-yellow-400 hover:text-yellow-400"
                     >
                       Ver todos <ArrowRight className="h-3.5 w-3.5" />
                     </a>
@@ -2135,7 +2135,7 @@ export default function RelatoriosFinanceirosPage() {
                   <div className="mt-3 text-center">
                     <a
                       href="/financeiro/caixa"
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-[#2563eb] hover:bg-blue-100"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-2 text-sm font-black text-yellow-400 hover:bg-yellow-300/10"
                     >
                       Ver todos os fechamentos <ArrowRight className="h-4 w-4" />
                     </a>
@@ -2152,15 +2152,15 @@ export default function RelatoriosFinanceirosPage() {
                   <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
                     {managerAlerts.map((alert) => {
                       const styles = {
-                        blue: "border-blue-200 bg-blue-50 text-blue-800",
-                        orange: "border-orange-200 bg-orange-50 text-orange-800",
+                        blue: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
+                        orange: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
                         red: "border-red-200 bg-red-50 text-red-800",
-                        violet: "border-violet-200 bg-violet-50 text-violet-800",
+                        violet: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
                       }[alert.tone]
 
                       return (
                         <div key={alert.title} className={cn("min-w-0 rounded-2xl border p-4", styles)}>
-                          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/70">
+                          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-[#0A0A0A]">
                             {alert.icon}
                           </div>
                           <p className="break-words text-sm font-black leading-tight">{alert.title}</p>
@@ -2175,7 +2175,7 @@ export default function RelatoriosFinanceirosPage() {
               </SectionCard>
             </div>
 
-            <section className="rounded-2xl border border-[#07152f] bg-[#07152f] p-4 shadow-sm">
+            <section className="rounded-2xl border border-[#ffffff] bg-[#ffffff] p-4 shadow-sm">
               <div className="mb-4">
                 <h2 className="text-xl font-black text-white">Resumo para decisão</h2>
               </div>
@@ -2212,7 +2212,7 @@ export default function RelatoriosFinanceirosPage() {
               </div>
             </section>
 
-            <p className="pb-2 text-center text-xs font-medium text-[#55708f]">
+            <p className="pb-2 text-center text-xs font-medium text-[#a1a1aa]">
               Relatório gerencial baseado nos dados reais do período selecionado.
             </p>
           </>

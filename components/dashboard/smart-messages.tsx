@@ -7,9 +7,9 @@ import type { SmartMessage } from "@/lib/dashboard-data"
 const config: Record<SmartMessage["type"], { icon: React.ReactNode; bg: string; border: string; text: string }> = {
   positive: {
     icon: <CheckCircle2 className="h-4 w-4 flex-shrink-0" />,
-    bg: "bg-green-50",
-    border: "border-green-200",
-    text: "text-green-800",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-400/30",
+    text: "text-emerald-400",
   },
   negative: {
     icon: <Info className="h-4 w-4 flex-shrink-0" />,
@@ -19,9 +19,9 @@ const config: Record<SmartMessage["type"], { icon: React.ReactNode; bg: string; 
   },
   warning: {
     icon: <AlertTriangle className="h-4 w-4 flex-shrink-0" />,
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    text: "text-amber-800",
+    bg: "bg-yellow-400/10",
+    border: "border-yellow-400/30",
+    text: "text-yellow-400",
   },
 }
 

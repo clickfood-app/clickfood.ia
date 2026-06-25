@@ -79,8 +79,8 @@ export default function OrderSummary({
                   </div>
 
                   {modifiers.length > 0 && (
-                    <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/70 px-2 py-1.5">
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-blue-700">
+                    <div className="mt-2 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2 py-1.5">
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-yellow-400">
                         Opções
                       </p>
 
@@ -88,7 +88,7 @@ export default function OrderSummary({
                         {modifiers.map((modifier, index) => (
                           <p
                             key={`${modifier.groupId}-${modifier.optionId}-${index}`}
-                            className="text-[11px] font-semibold leading-relaxed text-blue-900"
+                            className="text-[11px] font-semibold leading-relaxed text-yellow-400"
                           >
                             • {formatModifier(modifier)}
                           </p>

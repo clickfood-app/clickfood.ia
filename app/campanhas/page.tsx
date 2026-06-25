@@ -196,14 +196,14 @@ function getStatusClasses(status: string) {
   const normalized = status.toLowerCase();
 
   if (normalized.includes("ativa")) {
-    return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+    return "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-400/20";
   }
 
   if (normalized.includes("conclu")) {
-    return "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
+    return "bg-[#111111] text-zinc-500 ring-1 ring-yellow-400/20";
   }
 
-  return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
+  return "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20";
 }
 
 function getText(record: RawRecord, keys: string[]) {
@@ -887,9 +887,9 @@ export default function CampanhasPage() {
     return (
       <AdminLayout title="Campanhas">
         <div className="flex min-h-[70vh] items-center justify-center">
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-            <span className="text-sm font-semibold text-slate-600">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 py-4 shadow-sm">
+            <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+            <span className="text-sm font-semibold text-zinc-500">
               Carregando visão geral das campanhas...
             </span>
           </div>
@@ -902,18 +902,18 @@ export default function CampanhasPage() {
     return (
       <AdminLayout title="Campanhas">
         <div className="flex min-h-[70vh] items-center justify-center">
-          <div className="w-full max-w-4xl rounded-[28px] border border-red-100 bg-white p-6 shadow-sm">
+          <div className="w-full max-w-4xl rounded-[28px] border border-red-100 bg-[#0A0A0A] p-6 shadow-sm">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                 <AlertTriangle className="h-6 w-6" />
               </div>
 
               <div>
-                <h1 className="text-lg font-bold text-slate-900">
+                <h1 className="text-lg font-bold text-white">
                   Não foi possível carregar as campanhas
                 </h1>
 
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mt-2 text-sm leading-6 text-zinc-500">
                   {errorMessage ||
                     "Tente atualizar a página ou fazer login novamente."}
                 </p>
@@ -1027,19 +1027,19 @@ export default function CampanhasPage() {
   return (
     <AdminLayout title="Campanhas">
       <div className="space-y-3">
-        <section className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
+              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-yellow-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-yellow-400 ring-1 ring-yellow-400/20">
                 <TrendingUp className="h-3.5 w-3.5" />
                 Central de crescimento
               </div>
 
-              <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">
+              <h1 className="text-xl font-black tracking-tight text-white md:text-2xl">
                 Campanhas e resultados
               </h1>
 
-              <p className="mt-0.5 max-w-3xl text-sm font-medium text-slate-500">
+              <p className="mt-0.5 max-w-3xl text-sm font-medium text-zinc-500">
                 Controle fidelidade, cashback, upsell e ações inteligentes sem
                 depender de cards grandes ou informação espalhada.
               </p>
@@ -1049,15 +1049,15 @@ export default function CampanhasPage() {
               <button
                 type="button"
                 onClick={() => setShowReviewsDetails(true)}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
               >
-                <MessageSquare className="h-4 w-4 text-blue-600" />
+                <MessageSquare className="h-4 w-4 text-yellow-400" />
                 Comentários
               </button>
 
               <Link
                 href="/campanhas/fidelidade"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-sm font-black text-white shadow-sm shadow-blue-500/20 transition hover:bg-blue-700"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-3 text-sm font-black text-black shadow-sm shadow-yellow-400/20 transition hover:bg-yellow-300"
               >
                 <Megaphone className="h-4 w-4" />
                 Nova campanha
@@ -1157,11 +1157,11 @@ export default function CampanhasPage() {
 
 function getToneClasses(tone: Tone) {
   const toneClasses = {
-    blue: "bg-blue-50 text-blue-600 ring-blue-100",
-    orange: "bg-orange-50 text-orange-600 ring-orange-100",
-    green: "bg-emerald-50 text-emerald-600 ring-emerald-100",
-    purple: "bg-violet-50 text-violet-600 ring-violet-100",
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+    blue: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    orange: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    green: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
+    purple: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    slate: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
   };
 
   return toneClasses[tone];
@@ -1169,10 +1169,10 @@ function getToneClasses(tone: Tone) {
 
 function getStatusToneClasses(tone: StatusTone) {
   const toneClasses = {
-    active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-    warning: "bg-orange-50 text-orange-700 ring-1 ring-orange-200",
-    neutral: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
-    info: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+    active: "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-400/20",
+    warning: "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20",
+    neutral: "bg-[#111111] text-zinc-500 ring-1 ring-yellow-400/20",
+    info: "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20",
   };
 
   return toneClasses[tone];
@@ -1192,7 +1192,7 @@ function CompactMetric({
   tone: Tone;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 py-2.5 shadow-sm">
       <div className="flex items-center gap-3">
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${getToneClasses(
@@ -1203,13 +1203,13 @@ function CompactMetric({
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-400">
+          <p className="truncate text-[10px] font-black uppercase tracking-wide text-zinc-500">
             {title}
           </p>
-          <p className="mt-0.5 truncate text-lg font-black leading-tight text-slate-950">
+          <p className="mt-0.5 truncate text-lg font-black leading-tight text-white">
             {value}
           </p>
-          <p className="truncate text-xs font-semibold text-slate-500">
+          <p className="truncate text-xs font-semibold text-zinc-500">
             {description}
           </p>
         </div>
@@ -1237,18 +1237,18 @@ type CampaignModuleItem = {
 
 function CampaignModulesTable({ modules }: { modules: CampaignModuleItem[] }) {
   return (
-    <div className="h-fit overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="h-fit overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-black text-slate-950">
+          <h2 className="text-base font-black text-white">
             Métricas por campanha
           </h2>
-          <p className="text-xs font-bold text-slate-400">
+          <p className="text-xs font-bold text-zinc-500">
             Cada bloco mostra uso, dinheiro gerado ou oportunidade real.
           </p>
         </div>
 
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-500 ring-1 ring-slate-200">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#111111] px-2.5 py-1 text-[11px] font-black text-zinc-500 ring-1 ring-yellow-400/20">
           <Zap className="h-3.5 w-3.5" />
           Ajusta conforme a quantidade
         </span>
@@ -1270,7 +1270,7 @@ function CampaignMetricCard({ module }: { module: CampaignModuleItem }) {
   return (
     <Link
       href={module.href}
-      className="group rounded-2xl border border-slate-100 bg-slate-50/60 p-3 transition hover:border-blue-200 hover:bg-blue-50/40"
+      className="group rounded-2xl border border-white/10 bg-[#111111] p-3 transition hover:border-yellow-400/30 hover:bg-yellow-400/10"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -1283,10 +1283,10 @@ function CampaignMetricCard({ module }: { module: CampaignModuleItem }) {
           </div>
 
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-slate-950">
+            <p className="truncate text-sm font-black text-white">
               {module.title}
             </p>
-            <p className="line-clamp-1 text-xs font-semibold text-slate-500">
+            <p className="line-clamp-1 text-xs font-semibold text-zinc-500">
               {module.subtitle}
             </p>
           </div>
@@ -1302,20 +1302,20 @@ function CampaignMetricCard({ module }: { module: CampaignModuleItem }) {
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-white bg-white px-2.5 py-2 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        <div className="rounded-xl border border-white bg-[#0A0A0A] px-2.5 py-2 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
             {module.mainLabel}
           </p>
-          <p className="mt-0.5 truncate text-base font-black text-slate-950">
+          <p className="mt-0.5 truncate text-base font-black text-white">
             {module.mainValue}
           </p>
         </div>
 
-        <div className="rounded-xl border border-white bg-white px-2.5 py-2 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        <div className="rounded-xl border border-white bg-[#0A0A0A] px-2.5 py-2 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
             {module.sideLabel}
           </p>
-          <p className="mt-0.5 truncate text-base font-black text-slate-950">
+          <p className="mt-0.5 truncate text-base font-black text-white">
             {module.sideValue}
           </p>
         </div>
@@ -1323,18 +1323,18 @@ function CampaignMetricCard({ module }: { module: CampaignModuleItem }) {
 
       <div className="mt-3">
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <p className="line-clamp-1 text-[11px] font-bold text-slate-500">
+          <p className="line-clamp-1 text-[11px] font-bold text-zinc-500">
             {module.progressLabel}
           </p>
-          <span className="inline-flex items-center gap-1 text-[11px] font-black text-blue-700">
+          <span className="inline-flex items-center gap-1 text-[11px] font-black text-yellow-400">
             {module.action}
             <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
           </span>
         </div>
 
-        <div className="h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
+        <div className="h-1.5 overflow-hidden rounded-full bg-[#0A0A0A] ring-1 ring-yellow-400/20">
           <div
-            className="h-full rounded-full bg-blue-600 transition-all"
+            className="h-full rounded-full bg-yellow-400 transition-all"
             style={{ width: `${progressWidth}%` }}
           />
         </div>
@@ -1357,22 +1357,22 @@ function CampaignRevenueBarChart({
   const hasRevenue = maxRevenue > 0;
 
   return (
-    <div className="h-fit overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="h-fit overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-black text-slate-950">
+          <h2 className="text-base font-black text-white">
             Faturamento por campanha
           </h2>
-          <p className="text-xs font-bold text-slate-400">
+          <p className="text-xs font-bold text-zinc-500">
             Mostra qual estratégia está ajudando a colocar dinheiro no caixa.
           </p>
         </div>
 
-        <div className="rounded-xl bg-slate-50 px-3 py-1.5 text-right ring-1 ring-slate-200">
-          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        <div className="rounded-xl bg-[#111111] px-3 py-1.5 text-right ring-1 ring-yellow-400/20">
+          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
             Rastreado
           </p>
-          <p className="text-sm font-black text-slate-950">
+          <p className="text-sm font-black text-white">
             {formatCurrency(trackedRevenue)}
           </p>
         </div>
@@ -1380,8 +1380,8 @@ function CampaignRevenueBarChart({
 
       <div className="space-y-2.5 p-4">
         {isLoading ? (
-          <div className="flex h-[132px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm font-bold text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          <div className="flex h-[132px] items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-[#111111] text-sm font-bold text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
             Calculando faturamento das campanhas...
           </div>
         ) : (
@@ -1395,9 +1395,9 @@ function CampaignRevenueBarChart({
         )}
       </div>
 
-      <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-2.5">
+      <div className="border-t border-white/10 bg-[#111111] px-4 py-2.5">
         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-bold text-slate-500">
+          <p className="text-xs font-bold text-zinc-500">
             {hasRevenue
               ? `${formatCurrency(trackedRevenue)} de ${formatCurrency(
                   totalRevenue,
@@ -1405,7 +1405,7 @@ function CampaignRevenueBarChart({
               : "Ainda não existe venda rastreada por campanha."}
           </p>
 
-          <p className="text-xs font-semibold text-slate-400">
+          <p className="text-xs font-semibold text-zinc-500">
             Para ficar 100%, cada pedido precisa salvar a origem da campanha.
           </p>
         </div>
@@ -1426,27 +1426,27 @@ function CampaignRevenueBar({
   return (
     <Link
       href={item.href}
-      className="group block rounded-xl border border-slate-100 bg-white px-3 py-2.5 transition hover:border-blue-200 hover:bg-blue-50/30"
+      className="group block rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2.5 transition hover:border-yellow-400/30 hover:bg-yellow-400/10"
     >
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black text-slate-950">
+          <p className="truncate text-sm font-black text-white">
             {item.title}
           </p>
-          <p className="truncate text-xs font-semibold text-slate-500">
+          <p className="truncate text-xs font-semibold text-zinc-500">
             {item.description}
           </p>
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="text-sm font-black text-slate-950">
+          <p className="text-sm font-black text-white">
             {formatCurrency(item.revenue)}
           </p>
-          <p className="text-[11px] font-bold text-slate-400">{item.detail}</p>
+          <p className="text-[11px] font-bold text-zinc-500">{item.detail}</p>
         </div>
       </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+      <div className="h-2 overflow-hidden rounded-full bg-[#111111]">
         <div
           className={`h-full rounded-full transition-all ${getRevenueBarClasses(
             item.tone,
@@ -1460,11 +1460,11 @@ function CampaignRevenueBar({
 
 function getRevenueBarClasses(tone: Tone) {
   const toneClasses = {
-    blue: "bg-blue-600",
-    orange: "bg-orange-500",
+    blue: "bg-yellow-400",
+    orange: "bg-yellow-400",
     green: "bg-emerald-500",
-    purple: "bg-violet-500",
-    slate: "bg-slate-500",
+    purple: "bg-yellow-400",
+    slate: "bg-[#111111]",
   };
 
   return toneClasses[tone];
@@ -1482,15 +1482,15 @@ function ActionQueue({
   onOpenReviews: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <h2 className="text-base font-black text-slate-950">O que fazer agora</h2>
-        <p className="text-xs font-bold text-slate-400">
+    <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+      <div className="border-b border-white/10 px-4 py-3">
+        <h2 className="text-base font-black text-white">O que fazer agora</h2>
+        <p className="text-xs font-bold text-zinc-500">
           Ações curtas para vender mais ou evitar perda de cliente.
         </p>
       </div>
 
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-white/10">
         <ActionQueueItem
           icon={Trophy}
           title={`${formatNumber(closeToComplete)} clientes perto da recompensa`}
@@ -1560,22 +1560,22 @@ function ActionQueueItem({
 
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-black text-slate-950">{title}</p>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+          <p className="truncate text-sm font-black text-white">{title}</p>
+          <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-zinc-500">
             {label}
           </span>
         </div>
-        <p className="truncate text-xs font-semibold text-slate-500">
+        <p className="truncate text-xs font-semibold text-zinc-500">
           {description}
         </p>
       </div>
 
-      <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+      <ChevronRight className="h-4 w-4 text-zinc-500 transition group-hover:translate-x-0.5 group-hover:text-yellow-400" />
     </>
   );
 
   const className =
-    "group grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50/80";
+    "group grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-left transition hover:bg-[#111111]";
 
   if (onClick) {
     return (
@@ -1612,11 +1612,11 @@ function ReputationSummary({
   onOpenDetails: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+    <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div>
-          <h2 className="text-base font-black text-slate-950">Reputação</h2>
-          <p className="text-xs font-bold text-slate-400">
+          <h2 className="text-base font-black text-white">Reputação</h2>
+          <p className="text-xs font-bold text-zinc-500">
             Resumo das avaliações recentes.
           </p>
         </div>
@@ -1625,14 +1625,14 @@ function ReputationSummary({
           id="comentarios"
           type="button"
           onClick={onOpenDetails}
-          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-black text-blue-700 transition hover:bg-blue-50"
+          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-[#0A0A0A] px-2.5 text-xs font-black text-yellow-400 transition hover:bg-yellow-400/10"
         >
           Ver tudo
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+      <div className="grid grid-cols-3 divide-x divide-white/10 border-b border-white/10">
         <ReviewMiniMetric label="Média" value={formatRating(averageRating)} />
         <ReviewMiniMetric
           label="Positivas"
@@ -1646,8 +1646,8 @@ function ReputationSummary({
 
       <div className="p-2">
         {isLoading ? (
-          <div className="flex h-[116px] items-center justify-center gap-2 text-sm font-bold text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          <div className="flex h-[116px] items-center justify-center gap-2 text-sm font-bold text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
             Carregando avaliações...
           </div>
         ) : errorMessage ? (
@@ -1661,8 +1661,8 @@ function ReputationSummary({
             ))}
           </div>
         ) : (
-          <div className="flex h-[116px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
-            <p className="text-sm font-bold text-slate-500">
+          <div className="flex h-[116px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-[#111111] px-4 text-center">
+            <p className="text-sm font-bold text-zinc-500">
               Nenhuma avaliação encontrada ainda.
             </p>
           </div>
@@ -1675,10 +1675,10 @@ function ReputationSummary({
 function ReviewMiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-3 py-2.5">
-      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
         {label}
       </p>
-      <p className="mt-0.5 text-lg font-black leading-none text-slate-950">
+      <p className="mt-0.5 text-lg font-black leading-none text-white">
         {value}
       </p>
     </div>
@@ -1691,23 +1691,23 @@ function ReviewCompactRow({ review }: { review: CampaignReview }) {
   return (
     <button
       type="button"
-      className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2 text-left transition hover:border-blue-200 hover:bg-blue-50/30"
+      className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2 text-left transition hover:border-yellow-400/30 hover:bg-yellow-400/10"
     >
       <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-[11px] font-black text-white">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#050505] text-[11px] font-black text-white">
           {getInitials(review.customerName)}
         </div>
 
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-sm font-black text-slate-950">
+            <p className="truncate text-sm font-black text-white">
               {review.customerName}
             </p>
-            <span className="text-xs font-bold text-slate-400">
+            <span className="text-xs font-bold text-zinc-500">
               {formatDateTime(review.createdAt)}
             </span>
           </div>
-          <p className="truncate text-xs font-semibold text-slate-500">
+          <p className="truncate text-xs font-semibold text-zinc-500">
             “{review.comment}”
           </p>
         </div>
@@ -1716,8 +1716,8 @@ function ReviewCompactRow({ review }: { review: CampaignReview }) {
       <span
         className={`rounded-full px-2.5 py-1 text-xs font-black ${
           isAttention
-            ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-            : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+            ? "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20"
+            : "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-400/20"
         }`}
       >
         {formatRating(review.rating)}
@@ -1743,8 +1743,8 @@ function ReviewFilterButton({
       onClick={onClick}
       className={`inline-flex h-9 items-center justify-center rounded-xl px-3.5 text-sm font-black transition ${
         active
-          ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
-          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          ? "bg-yellow-400 text-black shadow-sm shadow-yellow-400/20"
+          : "border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
       }`}
     >
       {children}
@@ -1763,8 +1763,8 @@ function RatingStars({ rating }: { rating: number }) {
             key={index}
             className={`h-4 w-4 ${
               isFilled
-                ? "fill-orange-400 text-orange-400"
-                : "fill-slate-100 text-slate-200"
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-[#111111] text-zinc-500"
             }`}
           />
         );
@@ -1789,19 +1789,19 @@ function ReviewsModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
+      <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#0A0A0A] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20">
               <MessageSquare className="h-5 w-5" />
             </div>
 
             <div>
-              <h2 className="text-lg font-black text-slate-950">
+              <h2 className="text-lg font-black text-white">
                 Comentários e avaliações
               </h2>
-              <p className="text-sm font-medium text-slate-500">
+              <p className="text-sm font-medium text-zinc-500">
                 Veja quem avaliou, nota, comentário e pedido vinculado.
               </p>
             </div>
@@ -1810,14 +1810,14 @@ function ReviewsModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
             aria-label="Fechar avaliações"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+        <div className="border-b border-white/10 bg-[#111111] px-5 py-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-2">
               <ReviewFilterButton
@@ -1841,12 +1841,12 @@ function ReviewsModal({
             </div>
 
             <div className="relative w-full lg:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <input
                 value={reviewSearch}
                 onChange={(event) => setReviewSearch(event.target.value)}
                 placeholder="Buscar cliente, pedido ou comentário"
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-50"
+                className="h-10 w-full rounded-xl border border-white/10 bg-[#0A0A0A] pl-10 pr-3 text-sm font-semibold text-zinc-500 outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
               />
             </div>
           </div>
@@ -1860,8 +1860,8 @@ function ReviewsModal({
               ))}
             </div>
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-6 py-8 text-center">
-              <p className="text-sm font-bold text-slate-500">
+            <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#111111] px-6 py-8 text-center">
+              <p className="text-sm font-bold text-zinc-500">
                 Nenhuma avaliação encontrada com esse filtro.
               </p>
             </div>
@@ -1877,17 +1877,17 @@ function ReviewDetailRow({ review }: { review: CampaignReview }) {
   const isAttention = review.rating > 0 && review.rating <= 3;
 
   return (
-    <div className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm md:grid-cols-[1.1fr_0.75fr_1.7fr_0.8fr] md:items-center">
+    <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm md:grid-cols-[1.1fr_0.75fr_1.7fr_0.8fr] md:items-center">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-xs font-black text-white">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#050505] text-xs font-black text-white">
           {getInitials(review.customerName)}
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-sm font-black text-slate-950">
+          <p className="truncate text-sm font-black text-white">
             {review.customerName}
           </p>
-          <p className="text-xs font-bold text-slate-400">
+          <p className="text-xs font-bold text-zinc-500">
             {review.customerPhone
               ? maskPhone(review.customerPhone)
               : "Telefone não informado"}
@@ -1900,23 +1900,23 @@ function ReviewDetailRow({ review }: { review: CampaignReview }) {
         <span
           className={`rounded-full px-2.5 py-1 text-xs font-black ${
             isPositive
-              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+              ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-400/20"
               : isAttention
-                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                ? "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20"
+                : "bg-[#111111] text-zinc-500 ring-1 ring-yellow-400/20"
           }`}
         >
           {isPositive ? "Positiva" : isAttention ? "Atenção" : "Sem nota"}
         </span>
       </div>
 
-      <p className="text-sm font-semibold leading-5 text-slate-600">
+      <p className="text-sm font-semibold leading-5 text-zinc-500">
         “{review.comment}”
       </p>
 
-      <div className="text-xs font-bold text-slate-400 md:text-right">
+      <div className="text-xs font-bold text-zinc-500 md:text-right">
         <p>{formatDateTime(review.createdAt)}</p>
-        <p className="mt-1 text-blue-600">
+        <p className="mt-1 text-yellow-400">
           {review.orderNumber
             ? `Pedido #${review.orderNumber}`
             : review.orderId

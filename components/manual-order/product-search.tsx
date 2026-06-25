@@ -274,7 +274,7 @@ export default function ProductSearch({
                     </p>
 
                     {needsConfiguration && (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                      <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
                         Opções
                       </span>
                     )}

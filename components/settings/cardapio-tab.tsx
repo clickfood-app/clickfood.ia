@@ -59,10 +59,10 @@ export default function CardapioTab() {
 
   const [logoUrl, setLogoUrl] = useState("")
   const [coverImageUrl, setCoverImageUrl] = useState("")
-  const [themeColor, setThemeColor] = useState("#7c3aed")
+  const [themeColor, setThemeColor] = useState("#facc15")
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark")
 
-  const [floatingCartBgColor, setFloatingCartBgColor] = useState("#7c3aed")
+  const [floatingCartBgColor, setFloatingCartBgColor] = useState("#facc15")
   const [floatingCartTextColor, setFloatingCartTextColor] = useState("#ffffff")
   const [floatingCartNumberColor, setFloatingCartNumberColor] = useState("#ffffff")
 
@@ -98,10 +98,10 @@ export default function CardapioTab() {
         setCoverImageUrl(
           restaurant.cover_image_url ? withCacheBust(restaurant.cover_image_url) : ""
         )
-        setThemeColor(restaurant.theme_color || "#7c3aed")
+        setThemeColor(restaurant.theme_color || "#facc15")
         setThemeMode((restaurant.theme_mode as ThemeMode) || "dark")
         setFloatingCartBgColor(
-          restaurant.floating_cart_bg_color || restaurant.theme_color || "#7c3aed"
+          restaurant.floating_cart_bg_color || restaurant.theme_color || "#facc15"
         )
         setFloatingCartTextColor(restaurant.floating_cart_text_color || "#ffffff")
         setFloatingCartNumberColor(restaurant.floating_cart_number_color || "#ffffff")
@@ -168,10 +168,10 @@ export default function CardapioTab() {
       setCoverImageUrl(
         restaurant.cover_image_url ? withCacheBust(restaurant.cover_image_url) : ""
       )
-      setThemeColor(restaurant.theme_color || "#7c3aed")
+      setThemeColor(restaurant.theme_color || "#facc15")
       setThemeMode((restaurant.theme_mode as ThemeMode) || "dark")
       setFloatingCartBgColor(
-        restaurant.floating_cart_bg_color || restaurant.theme_color || "#7c3aed"
+        restaurant.floating_cart_bg_color || restaurant.theme_color || "#facc15"
       )
       setFloatingCartTextColor(restaurant.floating_cart_text_color || "#ffffff")
       setFloatingCartNumberColor(restaurant.floating_cart_number_color || "#ffffff")
@@ -237,10 +237,10 @@ export default function CardapioTab() {
       setCoverImageUrl(
         restaurant.cover_image_url ? withCacheBust(restaurant.cover_image_url) : ""
       )
-      setThemeColor(restaurant.theme_color || "#7c3aed")
+      setThemeColor(restaurant.theme_color || "#facc15")
       setThemeMode((restaurant.theme_mode as ThemeMode) || "dark")
       setFloatingCartBgColor(
-        restaurant.floating_cart_bg_color || restaurant.theme_color || "#7c3aed"
+        restaurant.floating_cart_bg_color || restaurant.theme_color || "#facc15"
       )
       setFloatingCartTextColor(restaurant.floating_cart_text_color || "#ffffff")
       setFloatingCartNumberColor(restaurant.floating_cart_number_color || "#ffffff")
@@ -284,9 +284,9 @@ export default function CardapioTab() {
           cover_image_url: coverImageUrl.trim()
             ? stripUrlParams(coverImageUrl.trim())
             : null,
-          theme_color: themeColor.trim() || "#7c3aed",
+          theme_color: themeColor.trim() || "#facc15",
           theme_mode: themeMode,
-          floating_cart_bg_color: floatingCartBgColor.trim() || "#7c3aed",
+          floating_cart_bg_color: floatingCartBgColor.trim() || "#facc15",
           floating_cart_text_color: floatingCartTextColor.trim() || "#ffffff",
           floating_cart_number_color: floatingCartNumberColor.trim() || "#ffffff",
         }),
@@ -304,10 +304,10 @@ export default function CardapioTab() {
       setCoverImageUrl(
         restaurant.cover_image_url ? withCacheBust(restaurant.cover_image_url) : ""
       )
-      setThemeColor(restaurant.theme_color || "#7c3aed")
+      setThemeColor(restaurant.theme_color || "#facc15")
       setThemeMode((restaurant.theme_mode as ThemeMode) || "dark")
       setFloatingCartBgColor(
-        restaurant.floating_cart_bg_color || restaurant.theme_color || "#7c3aed"
+        restaurant.floating_cart_bg_color || restaurant.theme_color || "#facc15"
       )
       setFloatingCartTextColor(restaurant.floating_cart_text_color || "#ffffff")
       setFloatingCartNumberColor(restaurant.floating_cart_number_color || "#ffffff")
@@ -402,7 +402,7 @@ export default function CardapioTab() {
                   </label>
 
                   <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4">
-                    <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border bg-white shadow-sm">
+                    <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border bg-[#0A0A0A] shadow-sm">
                       {logoUrl ? (
                         <Image
                           src={logoUrl}
@@ -494,7 +494,7 @@ export default function CardapioTab() {
                     <input
                       value={themeColor}
                       onChange={(e) => setThemeColor(e.target.value)}
-                      placeholder="#7c3aed"
+                      placeholder="#facc15"
                       className="flex-1 rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary"
                     />
                   </div>
@@ -711,10 +711,10 @@ export default function CardapioTab() {
                     style={{ backgroundColor: floatingCartBgColor }}
                   >
                     <div className="flex items-center gap-3" style={{ color: floatingCartTextColor }}>
-                      <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
+                      <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#0A0A0A]">
                         <span className="text-sm">🛍️</span>
                         <span
-                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold"
+                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#0A0A0A] text-[10px] font-bold"
                           style={{ color: floatingCartNumberColor }}
                         >
                           2
@@ -779,7 +779,7 @@ export default function CardapioTab() {
                   "overflow-hidden rounded-[24px] border shadow-sm",
                   themeMode === "dark"
                     ? "border-white/10 bg-neutral-950"
-                    : "border-border bg-gray-50"
+                    : "border-border bg-[#111111]"
                 )}
               >
                 <div className="relative h-48 overflow-hidden">
@@ -808,7 +808,7 @@ export default function CardapioTab() {
 
                 <div className="relative -mt-12 px-4 pb-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-xl">
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#0A0A0A] shadow-xl">
                       {logoUrl ? (
                         <Image
                           src={logoUrl}
@@ -830,7 +830,7 @@ export default function CardapioTab() {
                     <h4
                       className={cn(
                         "mt-3 text-lg font-black",
-                        themeMode === "dark" ? "text-white" : "text-gray-900"
+                        themeMode === "dark" ? "text-white" : "text-white"
                       )}
                     >
                       {restaurantName || "Seu restaurante"}
@@ -839,7 +839,7 @@ export default function CardapioTab() {
                     <p
                       className={cn(
                         "mt-1 text-xs",
-                        themeMode === "dark" ? "text-white/70" : "text-gray-500"
+                        themeMode === "dark" ? "text-white/70" : "text-zinc-500"
                       )}
                     >
                       Seu cardapio com a identidade da sua marca.
@@ -883,8 +883,8 @@ export default function CardapioTab() {
                       className={cn(
                         "w-full rounded-xl px-4 py-3 text-sm",
                         themeMode === "dark"
-                          ? "border border-white/10 bg-white/10 text-white"
-                          : "border border-gray-200 bg-white text-gray-900"
+                          ? "border border-white/10 bg-[#0A0A0A] text-white"
+                          : "border border-white/10 bg-[#0A0A0A] text-white"
                       )}
                     >
                       Buscar no cardapio...
@@ -900,8 +900,8 @@ export default function CardapioTab() {
                           index === 0
                             ? "text-white"
                             : themeMode === "dark"
-                              ? "border border-white/10 bg-white/5 text-white/80"
-                              : "border border-gray-200 bg-white text-gray-600"
+                              ? "border border-white/10 bg-[#0A0A0A] text-white/80"
+                              : "border border-white/10 bg-[#0A0A0A] text-zinc-500"
                         )}
                         style={index === 0 ? { backgroundColor: themeColor } : undefined}
                       >
@@ -910,20 +910,20 @@ export default function CardapioTab() {
                     ))}
                   </div>
 
-                  <div className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
+                  <div className="mt-4 rounded-2xl bg-[#0A0A0A] p-3 shadow-sm">
                     <div className="flex gap-3">
-                      <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-gray-100">
-                        <ImageIcon className="h-6 w-6 text-gray-400" />
+                      <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-[#111111]">
+                        <ImageIcon className="h-6 w-6 text-zinc-500" />
                       </div>
 
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-gray-900">Smash Bacon</p>
-                        <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                        <p className="text-sm font-bold text-white">Smash Bacon</p>
+                        <p className="mt-1 line-clamp-2 text-xs text-zinc-500">
                           Pao brioche, carne smash, cheddar e bacon crocante.
                         </p>
 
                         <div className="mt-2 flex items-center justify-between">
-                          <span className="text-sm font-bold text-gray-900">
+                          <span className="text-sm font-bold text-white">
                             {formatPrice(32.9)}
                           </span>
 
@@ -943,10 +943,10 @@ export default function CardapioTab() {
                     style={{ backgroundColor: floatingCartBgColor }}
                   >
                     <div className="flex items-center gap-3" style={{ color: floatingCartTextColor }}>
-                      <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
+                      <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#0A0A0A]">
                         <span className="text-sm">🛍️</span>
                         <span
-                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold"
+                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#0A0A0A] text-[10px] font-bold"
                           style={{ color: floatingCartNumberColor }}
                         >
                           2

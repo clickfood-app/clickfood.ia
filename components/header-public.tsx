@@ -15,13 +15,13 @@ export default function HeaderPublic({
   backLabel = "Voltar",
 }: HeaderPublicProps) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-center border-b border-gray-100 bg-white/80 backdrop-blur-md">
+    <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-center border-b border-white/10 bg-[#0A0A0A] backdrop-blur-md">
       <div className="flex w-full max-w-7xl items-center justify-between px-4">
         {/* Back link (optional) */}
         {showBackLink ? (
           <Link
             href={backHref}
-            className="flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+            className="flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-white"
           >
             <svg
               className="h-4 w-4"
@@ -53,8 +53,8 @@ export default function HeaderPublic({
               priority
             />
           </div>
-          <span className="text-xl font-bold text-gray-900">
-            Click<span className="text-blue-600">Food</span>
+          <span className="text-xl font-bold text-white">
+            Click<span className="text-yellow-400">Food</span>
           </span>
         </Link>
 
@@ -70,7 +70,7 @@ export function HeaderPublicSimple() {
   return (
     <div className="flex flex-col items-center gap-3 py-8">
       <Link href="/" className="flex items-center gap-2.5">
-        <div className="relative h-12 w-12 overflow-hidden rounded-xl shadow-lg shadow-blue-500/20">
+        <div className="relative h-12 w-12 overflow-hidden rounded-xl shadow-lg shadow-yellow-400/20">
           <Image
             src="/logo.jpg"
             alt="ClickFood"
@@ -79,8 +79,8 @@ export function HeaderPublicSimple() {
             priority
           />
         </div>
-        <span className="text-2xl font-bold text-gray-900">
-          Click<span className="text-blue-600">Food</span>
+        <span className="text-2xl font-bold text-white">
+          Click<span className="text-yellow-400">Food</span>
         </span>
       </Link>
     </div>

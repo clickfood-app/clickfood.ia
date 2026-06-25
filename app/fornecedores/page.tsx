@@ -169,33 +169,33 @@ function StatCard({
 }) {
   const tones = {
     blue: {
-      wrapper: "bg-blue-50 text-blue-700 ring-blue-100",
-      detail: "text-blue-700",
+      wrapper: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+      detail: "text-yellow-400",
     },
     green: {
-      wrapper: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-      detail: "text-emerald-700",
+      wrapper: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
+      detail: "text-emerald-400",
     },
     orange: {
-      wrapper: "bg-orange-50 text-orange-700 ring-orange-100",
-      detail: "text-orange-700",
+      wrapper: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+      detail: "text-yellow-400",
     },
     purple: {
-      wrapper: "bg-violet-50 text-violet-700 ring-violet-100",
-      detail: "text-violet-700",
+      wrapper: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+      detail: "text-yellow-400",
     },
     amber: {
-      wrapper: "bg-amber-50 text-amber-700 ring-amber-100",
-      detail: "text-amber-700",
+      wrapper: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+      detail: "text-yellow-400",
     },
     slate: {
-      wrapper: "bg-slate-100 text-slate-700 ring-slate-200",
-      detail: "text-slate-600",
+      wrapper: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
+      detail: "text-zinc-500",
     },
   }
 
   return (
-    <div className="group rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md hover:shadow-slate-200/80">
+    <div className="group rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm shadow-black/40 transition hover:-translate-y-0.5 hover:shadow-md hover:shadow-black/40">
       <div className="flex items-start gap-4">
         <div
           className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-1 ${tones[tone].wrapper}`}
@@ -204,19 +204,19 @@ function StatCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-extrabold leading-5 text-slate-500">
+          <p className="text-sm font-extrabold leading-5 text-zinc-500">
             {title}
           </p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+          <p className="mt-2 text-3xl font-black tracking-tight text-white">
             {value}
           </p>
-          <p className="mt-1 text-xs font-bold text-slate-400">{description}</p>
+          <p className="mt-1 text-xs font-bold text-zinc-500">{description}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+      <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
         <span className={`text-xs font-black ${tones[tone].detail}`}>{detail}</span>
-        <span className="text-xs font-bold text-slate-400">Atualizado agora</span>
+        <span className="text-xs font-bold text-zinc-500">Atualizado agora</span>
       </div>
     </div>
   )
@@ -227,8 +227,8 @@ function StatusBadge({ status }: { status: SupplierStatus }) {
     <span
       className={
         status === "active"
-          ? "inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100"
-          : "inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500 ring-1 ring-slate-200"
+          ? "inline-flex items-center rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-black text-yellow-400 ring-1 ring-yellow-400/20"
+          : "inline-flex items-center rounded-full bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500 ring-1 ring-yellow-400/20"
       }
     >
       {getStatusLabel(status)}
@@ -237,11 +237,11 @@ function StatusBadge({ status }: { status: SupplierStatus }) {
 }
 
 function FieldLabel({ children }: { children: ReactNode }) {
-  return <span className="text-sm font-black text-slate-700">{children}</span>
+  return <span className="text-sm font-black text-zinc-500">{children}</span>
 }
 
 function fieldClassName() {
-  return "mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+  return "mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
 }
 
 export default function FornecedoresPage() {
@@ -678,7 +678,7 @@ export default function FornecedoresPage() {
             href={whatsappLink}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-700 transition hover:bg-emerald-50"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/30 bg-[#0A0A0A] text-emerald-400 transition hover:bg-emerald-500/15"
             title="Chamar no WhatsApp"
           >
             <Phone className="h-4 w-4" />
@@ -689,7 +689,7 @@ export default function FornecedoresPage() {
           <button
             type="button"
             onClick={() => void copyPixKey(supplier)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-blue-200 bg-white text-blue-700 transition hover:bg-blue-50"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-yellow-400/30 bg-[#0A0A0A] text-yellow-400 transition hover:bg-yellow-400/10"
             title={copiedSupplierId === supplier.id ? "Pix copiado" : "Copiar Pix"}
           >
             <Copy className="h-4 w-4" />
@@ -699,7 +699,7 @@ export default function FornecedoresPage() {
         <button
           type="button"
           onClick={() => openEditModal(supplier)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
           title="Editar"
         >
           <Edit3 className="h-4 w-4" />
@@ -709,7 +709,7 @@ export default function FornecedoresPage() {
           type="button"
           onClick={() => void toggleSupplierStatus(supplier)}
           disabled={statusLoadingId === supplier.id}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
           title={supplier.status === "active" ? "Inativar" : "Ativar"}
         >
           {statusLoadingId === supplier.id ? (
@@ -725,7 +725,7 @@ export default function FornecedoresPage() {
           type="button"
           onClick={() => void deleteSupplier(supplier)}
           disabled={deleteLoadingId === supplier.id}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 bg-[#0A0A0A] text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
           title="Excluir"
         >
           {deleteLoadingId === supplier.id ? (
@@ -742,22 +742,22 @@ export default function FornecedoresPage() {
     <AdminLayout>
       <div className="min-h-[calc(100vh-80px)] bg-[#f4f8ff] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-[1560px] flex-col gap-6">
-          <section className="relative overflow-hidden rounded-[28px] border border-blue-100 bg-white px-5 py-5 shadow-sm shadow-blue-100/60 sm:px-7 sm:py-6">
-            <div className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-blue-100/70 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-28 left-1/3 h-72 w-72 rounded-full bg-orange-100/50 blur-3xl" />
+          <section className="relative overflow-hidden rounded-[28px] border border-yellow-400/30 bg-[#0A0A0A] px-5 py-5 shadow-sm shadow-yellow-400/20 sm:px-7 sm:py-6">
+            <div className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-yellow-400/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-28 left-1/3 h-72 w-72 rounded-full bg-yellow-400/10 blur-3xl" />
 
             <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
+                <div className="inline-flex items-center gap-2 rounded-lg bg-yellow-400/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-yellow-400 ring-1 ring-yellow-400/20">
                   <Handshake className="h-3.5 w-3.5" />
                   Gestão de compras
                 </div>
 
-                <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
                   Fornecedores
                 </h1>
 
-                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
+                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-zinc-500 sm:text-base">
                   Cadastre, organize e acompanhe parceiros de compra, pagamentos,
                   Pix, contatos e base de negociação do restaurante.
                 </p>
@@ -766,7 +766,7 @@ export default function FornecedoresPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   type="button"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 text-sm font-black text-zinc-500 shadow-sm transition hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
                 >
                   <Upload className="h-4 w-4" />
                   Importar fornecedores
@@ -775,7 +775,7 @@ export default function FornecedoresPage() {
                 <button
                   type="button"
                   onClick={openCreateModal}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300"
                 >
                   <Plus className="h-4 w-4" />
                   Novo fornecedor
@@ -797,22 +797,22 @@ export default function FornecedoresPage() {
             </div>
           )}
 
-          <section className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
+          <section className="rounded-[26px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm shadow-black/40 sm:p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="relative w-full xl:max-w-xl">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar fornecedor, contato, Pix, categoria..."
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#111111] pl-12 pr-4 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                   Filtros avançados
@@ -822,7 +822,7 @@ export default function FornecedoresPage() {
                   type="button"
                   onClick={clearFilters}
                   disabled={!hasFilters}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Limpar
@@ -832,7 +832,7 @@ export default function FornecedoresPage() {
 
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
+                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Status
                 </span>
                 <select
@@ -840,7 +840,7 @@ export default function FornecedoresPage() {
                   onChange={(event) =>
                     setStatusFilter(event.target.value as SupplierFilter)
                   }
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                 >
                   <option value="all">Todos</option>
                   <option value="active">Ativos</option>
@@ -849,13 +849,13 @@ export default function FornecedoresPage() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
+                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Categoria
                 </span>
                 <select
                   value={categoryFilter}
                   onChange={(event) => setCategoryFilter(event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                 >
                   <option value="all">Todas</option>
                   {categories.map((category) => (
@@ -867,13 +867,13 @@ export default function FornecedoresPage() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
+                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Forma de pagamento
                 </span>
                 <select
                   value={paymentFilter}
                   onChange={(event) => setPaymentFilter(event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                 >
                   <option value="all">Todas</option>
                   {paymentTerms.map((paymentTerm) => (
@@ -885,13 +885,13 @@ export default function FornecedoresPage() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
+                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Pix
                 </span>
                 <select
                   value={pixFilter}
                   onChange={(event) => setPixFilter(event.target.value as PixFilter)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                 >
                   <option value="all">Todos</option>
                   <option value="with_pix">Com Pix</option>
@@ -901,13 +901,13 @@ export default function FornecedoresPage() {
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
-            <div className="flex flex-col gap-4 border-b border-slate-200 bg-white px-5 py-5 xl:flex-row xl:items-center xl:justify-between">
+          <section className="overflow-hidden rounded-[26px] border border-white/10 bg-[#0A0A0A] shadow-sm shadow-black/40">
+            <div className="flex flex-col gap-4 border-b border-white/10 bg-[#0A0A0A] px-5 py-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-xl font-black tracking-tight text-slate-950">
+                <h2 className="text-xl font-black tracking-tight text-white">
                   Lista de fornecedores
                 </h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
+                <p className="mt-1 text-sm font-semibold text-zinc-500">
                   {filteredSuppliers.length} fornecedor
                   {filteredSuppliers.length === 1 ? "" : "es"} encontrado
                   {filteredSuppliers.length === 1 ? "" : "s"}
@@ -915,12 +915,12 @@ export default function FornecedoresPage() {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="flex h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4">
-                  <span className="text-sm font-bold text-slate-500">Ordenar por:</span>
+                <label className="flex h-11 items-center gap-3 rounded-2xl border border-white/10 bg-[#111111] px-4">
+                  <span className="text-sm font-bold text-zinc-500">Ordenar por:</span>
                   <select
                     value={sortMode}
                     onChange={(event) => setSortMode(event.target.value as SortMode)}
-                    className="bg-transparent text-sm font-black text-slate-700 outline-none"
+                    className="bg-transparent text-sm font-black text-zinc-500 outline-none"
                   >
                     <option value="name_asc">Nome A-Z</option>
                     <option value="name_desc">Nome Z-A</option>
@@ -929,14 +929,14 @@ export default function FornecedoresPage() {
                   </select>
                 </label>
 
-                <div className="flex h-11 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <div className="flex h-11 rounded-2xl border border-white/10 bg-[#111111] p-1">
                   <button
                     type="button"
                     onClick={() => setViewMode("list")}
                     className={
                       viewMode === "list"
-                        ? "inline-flex h-9 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm"
-                        : "inline-flex h-9 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-slate-900"
+                        ? "inline-flex h-9 w-10 items-center justify-center rounded-xl bg-yellow-400 text-black shadow-sm"
+                        : "inline-flex h-9 w-10 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-[#0A0A0A] hover:text-white"
                     }
                     title="Lista"
                   >
@@ -947,8 +947,8 @@ export default function FornecedoresPage() {
                     onClick={() => setViewMode("grid")}
                     className={
                       viewMode === "grid"
-                        ? "inline-flex h-9 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm"
-                        : "inline-flex h-9 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-slate-900"
+                        ? "inline-flex h-9 w-10 items-center justify-center rounded-xl bg-yellow-400 text-black shadow-sm"
+                        : "inline-flex h-9 w-10 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-[#0A0A0A] hover:text-white"
                     }
                     title="Cards"
                   >
@@ -960,22 +960,22 @@ export default function FornecedoresPage() {
 
             {loading ? (
               <div className="flex min-h-[420px] items-center justify-center">
-                <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-500 ring-1 ring-slate-200">
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <div className="flex items-center gap-3 rounded-2xl bg-[#111111] px-4 py-3 text-sm font-black text-zinc-500 ring-1 ring-yellow-400/20">
+                  <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
                   Carregando fornecedores...
                 </div>
               </div>
             ) : filteredSuppliers.length === 0 ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center p-8 text-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20">
                   <Handshake className="h-9 w-9" />
                 </div>
-                <h3 className="mt-5 text-2xl font-black tracking-tight text-slate-950">
+                <h3 className="mt-5 text-2xl font-black tracking-tight text-white">
                   {hasFilters
                     ? "Nenhum fornecedor encontrado"
                     : "Cadastre seu primeiro fornecedor"}
                 </h3>
-                <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-zinc-500">
                   {hasFilters
                     ? "Ajuste a busca ou limpe os filtros para visualizar outros fornecedores da sua base."
                     : "Organize compras, contatos, Pix e condições comerciais para deixar a gestão do restaurante mais profissional."}
@@ -985,7 +985,7 @@ export default function FornecedoresPage() {
                     <button
                       type="button"
                       onClick={clearFilters}
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                     >
                       <Filter className="h-4 w-4" />
                       Limpar filtros
@@ -994,7 +994,7 @@ export default function FornecedoresPage() {
                   <button
                     type="button"
                     onClick={openCreateModal}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300"
                   >
                     <Plus className="h-4 w-4" />
                     Cadastrar fornecedor
@@ -1002,18 +1002,18 @@ export default function FornecedoresPage() {
                 </div>
               </div>
             ) : viewMode === "list" ? (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/10">
                 {filteredSuppliers.map((supplier) => (
                   <div
                     key={supplier.id}
-                    className="grid gap-4 bg-white px-5 py-5 transition hover:bg-slate-50/80 lg:grid-cols-[minmax(260px,1.25fr)_minmax(220px,1fr)_minmax(190px,0.75fr)_minmax(190px,0.75fr)_auto] lg:items-center"
+                    className="grid gap-4 bg-[#0A0A0A] px-5 py-5 transition hover:bg-[#111111] lg:grid-cols-[minmax(260px,1.25fr)_minmax(220px,1fr)_minmax(190px,0.75fr)_minmax(190px,0.75fr)_auto] lg:items-center"
                   >
                     <div className="flex min-w-0 items-center gap-4">
                       <div
                         className={
                           supplier.status === "active"
-                            ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-sm font-black text-blue-700 ring-1 ring-blue-100"
-                            : "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-sm font-black text-slate-500 ring-1 ring-slate-200"
+                            ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-sm font-black text-yellow-400 ring-1 ring-yellow-400/20"
+                            : "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#111111] text-sm font-black text-zinc-500 ring-1 ring-yellow-400/20"
                         }
                       >
                         {getInitials(supplier.name)}
@@ -1021,54 +1021,54 @@ export default function FornecedoresPage() {
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-base font-black text-slate-950">
+                          <p className="truncate text-base font-black text-white">
                             {supplier.name}
                           </p>
                           <StatusBadge status={supplier.status} />
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-slate-500">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-zinc-500">
                           <span>{supplier.category || "Sem categoria"}</span>
-                          <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-flex" />
+                          <span className="hidden h-1 w-1 rounded-full bg-[#111111] sm:inline-flex" />
                           <span className="inline-flex items-center gap-1.5">
                             <UserRound className="h-3.5 w-3.5" />
                             {supplier.contact_name || "Responsável não informado"}
                           </span>
                         </div>
                         {supplier.notes && (
-                          <p className="mt-2 line-clamp-1 text-xs font-semibold text-slate-400">
+                          <p className="mt-2 line-clamp-1 text-xs font-semibold text-zinc-500">
                             {supplier.notes}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <div className="space-y-2 text-sm font-semibold text-slate-600">
+                    <div className="space-y-2 text-sm font-semibold text-zinc-500">
                       <p className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-slate-400" />
+                        <Phone className="h-4 w-4 text-zinc-500" />
                         {supplier.phone || "Telefone não informado"}
                       </p>
                       <p className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-slate-400" />
+                        <Mail className="h-4 w-4 text-zinc-500" />
                         <span className="truncate">
                           {supplier.email || "E-mail não informado"}
                         </span>
                       </p>
                     </div>
 
-                    <div className="space-y-2 text-sm font-semibold text-slate-600">
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                    <div className="space-y-2 text-sm font-semibold text-zinc-500">
+                      <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Pix
                       </p>
                       {supplier.pix_key ? (
                         <div>
-                          <p className="flex items-center gap-2 font-black text-slate-800">
-                            <KeyRound className="h-4 w-4 text-emerald-600" />
+                          <p className="flex items-center gap-2 font-black text-white">
+                            <KeyRound className="h-4 w-4 text-emerald-400" />
                             {getPixTypeLabel(supplier.pix_key_type)}
                           </p>
                           <button
                             type="button"
                             onClick={() => void copyPixKey(supplier)}
-                            className="mt-1 truncate text-xs font-bold text-blue-700 hover:underline"
+                            className="mt-1 truncate text-xs font-bold text-yellow-400 hover:underline"
                           >
                             {copiedSupplierId === supplier.id
                               ? "Chave copiada"
@@ -1080,18 +1080,18 @@ export default function FornecedoresPage() {
                       )}
                     </div>
 
-                    <div className="space-y-2 text-sm font-semibold text-slate-600">
+                    <div className="space-y-2 text-sm font-semibold text-zinc-500">
                       <p className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4 text-slate-400" />
+                        <CalendarDays className="h-4 w-4 text-zinc-500" />
                         <span>
-                          <strong className="text-slate-800">Cadastro:</strong>{" "}
+                          <strong className="text-white">Cadastro:</strong>{" "}
                           {formatDate(supplier.created_at)}
                         </span>
                       </p>
                       <p className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-slate-400" />
+                        <Truck className="h-4 w-4 text-zinc-500" />
                         <span>
-                          <strong className="text-slate-800">Pagamento:</strong>{" "}
+                          <strong className="text-white">Pagamento:</strong>{" "}
                           {supplier.payment_terms || "Não informado"}
                         </span>
                       </p>
@@ -1106,24 +1106,24 @@ export default function FornecedoresPage() {
                 {filteredSuppliers.map((supplier) => (
                   <div
                     key={supplier.id}
-                    className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="rounded-[24px] border border-white/10 bg-[#0A0A0A] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <div
                           className={
                             supplier.status === "active"
-                              ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-sm font-black text-blue-700 ring-1 ring-blue-100"
-                              : "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-sm font-black text-slate-500 ring-1 ring-slate-200"
+                              ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-sm font-black text-yellow-400 ring-1 ring-yellow-400/20"
+                              : "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#111111] text-sm font-black text-zinc-500 ring-1 ring-yellow-400/20"
                           }
                         >
                           {getInitials(supplier.name)}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-lg font-black text-slate-950">
+                          <p className="truncate text-lg font-black text-white">
                             {supplier.name}
                           </p>
-                          <p className="mt-1 text-sm font-semibold text-slate-500">
+                          <p className="mt-1 text-sm font-semibold text-zinc-500">
                             {supplier.category || "Sem categoria"}
                           </p>
                         </div>
@@ -1132,23 +1132,23 @@ export default function FornecedoresPage() {
                       <StatusBadge status={supplier.status} />
                     </div>
 
-                    <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                    <div className="mt-4 grid gap-3 rounded-2xl bg-[#111111] p-4 text-sm font-semibold text-zinc-500">
                       <p className="flex items-center gap-2">
-                        <UserRound className="h-4 w-4 text-slate-400" />
+                        <UserRound className="h-4 w-4 text-zinc-500" />
                         {supplier.contact_name || "Responsável não informado"}
                       </p>
                       <p className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-slate-400" />
+                        <Phone className="h-4 w-4 text-zinc-500" />
                         {supplier.phone || "Telefone não informado"}
                       </p>
                       <p className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-slate-400" />
+                        <Mail className="h-4 w-4 text-zinc-500" />
                         <span className="truncate">
                           {supplier.email || "E-mail não informado"}
                         </span>
                       </p>
                       <p className="flex items-center gap-2">
-                        <KeyRound className="h-4 w-4 text-slate-400" />
+                        <KeyRound className="h-4 w-4 text-zinc-500" />
                         {supplier.pix_key
                           ? `Pix ${getPixTypeLabel(supplier.pix_key_type)}`
                           : "Pix não cadastrado"}
@@ -1156,12 +1156,12 @@ export default function FornecedoresPage() {
                     </div>
 
                     {supplier.notes && (
-                      <p className="mt-4 line-clamp-3 text-sm font-semibold leading-6 text-slate-500">
+                      <p className="mt-4 line-clamp-3 text-sm font-semibold leading-6 text-zinc-500">
                         {supplier.notes}
                       </p>
                     )}
 
-                    <div className="mt-4 border-t border-slate-100 pt-4">
+                    <div className="mt-4 border-t border-white/10 pt-4">
                       {renderSupplierActions(supplier)}
                     </div>
                   </div>
@@ -1172,19 +1172,19 @@ export default function FornecedoresPage() {
         </div>
 
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-slate-950/20">
-              <div className="relative overflow-hidden border-b border-slate-200 px-6 py-5">
-                <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-blue-100 blur-3xl" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] px-4 py-6 backdrop-blur-sm">
+            <div className="w-full max-w-4xl overflow-hidden rounded-[28px] bg-[#0A0A0A] shadow-2xl shadow-black/50">
+              <div className="relative overflow-hidden border-b border-white/10 px-6 py-5">
+                <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-yellow-400/10 blur-3xl" />
                 <div className="relative flex items-center justify-between gap-4">
                   <div>
-                    <p className="inline-flex items-center rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-orange-600 ring-1 ring-orange-100">
+                    <p className="inline-flex items-center rounded-lg bg-yellow-400/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-yellow-400 ring-1 ring-yellow-400/20">
                       {editingSupplier ? "Editar cadastro" : "Novo cadastro"}
                     </p>
-                    <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">
+                    <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
                       {editingSupplier ? "Editar fornecedor" : "Cadastrar fornecedor"}
                     </h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                    <p className="mt-1 text-sm font-semibold text-zinc-500">
                       Mantenha contato, pagamento, Pix e observações sempre atualizados.
                     </p>
                   </div>
@@ -1192,7 +1192,7 @@ export default function FornecedoresPage() {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#111111] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1361,17 +1361,17 @@ export default function FornecedoresPage() {
                         setForm((current) => ({ ...current, notes: event.target.value }))
                       }
                       placeholder="Ex: entrega terça e quinta, pedido mínimo, contato financeiro..."
-                      className="mt-2 min-h-[110px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                      className="mt-2 min-h-[110px] w-full resize-none rounded-xl border border-white/10 bg-[#111111] px-3 py-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                     />
                   </label>
                 </div>
 
-                <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+                <div className="mt-6 flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={closeModal}
                     disabled={saving}
-                    className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Cancelar
                   </button>
@@ -1379,7 +1379,7 @@ export default function FornecedoresPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     {editingSupplier ? "Salvar alterações" : "Cadastrar fornecedor"}

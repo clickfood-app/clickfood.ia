@@ -58,9 +58,9 @@ interface OrderCardProps {
 }
 
 const TYPE_CONFIG: Record<OrderType, { label: string; icon: typeof Bike; className: string }> = {
-  delivery: { label: "Delivery", icon: Bike, className: "bg-blue-100 text-blue-700" },
-  retirada: { label: "Retirada", icon: Store, className: "bg-purple-100 text-purple-700" },
-  mesa: { label: "Mesa", icon: UtensilsCrossed, className: "bg-amber-100 text-amber-700" },
+  delivery: { label: "Delivery", icon: Bike, className: "bg-yellow-400/10 text-yellow-400" },
+  retirada: { label: "Retirada", icon: Store, className: "bg-yellow-400/10 text-yellow-400" },
+  mesa: { label: "Mesa", icon: UtensilsCrossed, className: "bg-yellow-400/10 text-yellow-400" },
 }
 
 const PAYMENT_LABELS: Record<OrderPayment, string> = {
@@ -93,8 +93,8 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
   const timerColor = isLate
     ? "text-red-600 bg-red-50 border-red-200"
     : isAlmostLate
-      ? "text-amber-600 bg-amber-50 border-amber-200"
-      : "text-green-600 bg-green-50 border-green-200"
+      ? "text-yellow-400 bg-yellow-400/10 border-yellow-400/30"
+      : "text-emerald-400 bg-emerald-500/10 border-emerald-400/30"
 
   const handleAction = (label: string, onClick: (prepTime?: number) => void) => {
     if (label === "Aceitar" && !showPrepSelector) {
@@ -112,7 +112,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
   // Progress bar percentage
   const maxTime = order.prepTime || 30
   const progressPct = Math.min(100, (elapsedMin / maxTime) * 100)
-  const progressColor = isLate ? "bg-red-500" : isAlmostLate ? "bg-amber-400" : "bg-green-500"
+  const progressColor = isLate ? "bg-red-500" : isAlmostLate ? "bg-yellow-400" : "bg-emerald-500"
 
   const typeConf = TYPE_CONFIG[order.type]
   const TypeIcon = typeConf.icon
@@ -146,7 +146,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
               "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
               order.priority === "urgente"
                 ? "bg-red-100 text-red-700 animate-pulse"
-                : "bg-amber-100 text-amber-700"
+                : "bg-yellow-400/10 text-yellow-400"
             )}>
               {order.priority}
             </span>
@@ -154,7 +154,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
         </div>
         <div className="flex items-center gap-1.5">
   {isAiOrder && (
-    <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+    <span className="flex items-center gap-1 rounded-full bg-[#111111] px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
       <Bot className="h-3 w-3" />
       IA WhatsApp
     </span>
@@ -223,16 +223,16 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
 
       {/* Observations hint */}
       {order.observations && !isAiOrder && (
-  <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
-    <MessageSquare className="h-3 w-3 text-amber-600 mt-0.5 shrink-0" />
-    <p className="text-[11px] text-amber-700 line-clamp-2">{order.observations}</p>
+  <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-yellow-400/10 border border-yellow-400/30 px-2.5 py-1.5">
+    <MessageSquare className="h-3 w-3 text-yellow-400 mt-0.5 shrink-0" />
+    <p className="text-[11px] text-yellow-400 line-clamp-2">{order.observations}</p>
   </div>
 )}
 
 {isAiOrder && (
-  <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-    <Bot className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-    <p className="text-[11px] font-medium text-slate-600">
+  <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#111111] px-2.5 py-1.5">
+    <Bot className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+    <p className="text-[11px] font-medium text-zinc-500">
       Pedido criado pelo assistente de WhatsApp
     </p>
   </div>
@@ -248,9 +248,9 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
             </div>
             {/* Delivery status badge */}
             {order.deliveryStatus === "entregue" ? (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Entregue</span>
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">Entregue</span>
             ) : order.deliveryPersonId ? (
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Atribuido</span>
+              <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-semibold text-yellow-400">Atribuido</span>
             ) : (
               <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Nao atribuido</span>
             )}
@@ -259,7 +259,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
           {order.deliveryPersonId && order.deliveryPersonName ? (
             <div className="mt-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-400/10 text-xs font-bold text-yellow-400">
                   {order.deliveryPersonName.charAt(0)}
                 </div>
                 <div>
@@ -272,7 +272,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
               {order.deliveryStatus !== "entregue" && onAssignDelivery && (
                 <button
                   onClick={() => onAssignDelivery(order)}
-                  className="text-[11px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                  className="text-[11px] font-medium text-yellow-400 hover:text-yellow-400 hover:underline"
                 >
                   Trocar
                 </button>
@@ -281,7 +281,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
           ) : (
             <button
               onClick={() => onAssignDelivery?.(order)}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-300 bg-blue-50/50 px-3 py-2 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 hover:border-blue-400"
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-400 transition-colors hover:bg-yellow-300/10 hover:border-yellow-400/30"
             >
               <Bike className="h-3.5 w-3.5" />
               Atribuir Entregador
@@ -292,10 +292,10 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
 
       {/* Prep time selector */}
       {showPrepSelector && (
-        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+        <div className="mt-3 rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-800 uppercase tracking-wide">Tempo de preparo</span>
-            <span className="text-sm font-bold text-blue-700 tabular-nums">{selectedPrepTime} min</span>
+            <span className="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Tempo de preparo</span>
+            <span className="text-sm font-bold text-yellow-400 tabular-nums">{selectedPrepTime} min</span>
           </div>
           <input
             type="range"
@@ -304,9 +304,9 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
             step={5}
             value={selectedPrepTime}
             onChange={(e) => setSelectedPrepTime(Number(e.target.value))}
-            className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-blue-200"
+            className="w-full h-2 rounded-full appearance-none cursor-pointer accent-yellow-400 bg-yellow-400/10"
           />
-          <div className="flex items-center justify-between text-[10px] text-blue-500">
+          <div className="flex items-center justify-between text-[10px] text-zinc-4000">
             <span>5 min</span>
             <span>80 min</span>
           </div>
@@ -315,7 +315,7 @@ function OrderCardComponent({ order, actions, isExiting, onViewDetails, onAssign
 
       {/* Prep time badge (visible when prep started) */}
       {order.prepTime && order.status === "em_preparo" && !showPrepSelector && (
-        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-700">
+        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-yellow-400/10 border border-yellow-400/30 px-2.5 py-1.5 text-xs font-medium text-yellow-400">
           <ChefHat className="h-3.5 w-3.5" />
           Preparo: {order.prepTime} min
         </div>
@@ -451,8 +451,8 @@ export function OrderDetailsModal({ order, onClose, actions, statusHistory, onAs
           {order.observations && (
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Observacoes</p>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                <p className="text-sm text-amber-800">{order.observations}</p>
+              <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-4 py-3">
+                <p className="text-sm text-yellow-400">{order.observations}</p>
               </div>
             </div>
           )}
@@ -474,7 +474,7 @@ export function OrderDetailsModal({ order, onClose, actions, statusHistory, onAs
                     <Bike className="h-4 w-4 text-muted-foreground" />
                     {order.deliveryPersonId && order.deliveryPersonName ? (
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400/10 text-sm font-bold text-yellow-400">
                           {order.deliveryPersonName.charAt(0)}
                         </div>
                         <div>
@@ -490,9 +490,9 @@ export function OrderDetailsModal({ order, onClose, actions, statusHistory, onAs
                   </div>
                   {/* Status badge */}
                   {order.deliveryStatus === "entregue" ? (
-                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Entregue</span>
+                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">Entregue</span>
                   ) : order.deliveryPersonId ? (
-                    <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Atribuido</span>
+                    <span className="rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-semibold text-yellow-400">Atribuido</span>
                   ) : (
                     <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">Nao atribuido</span>
                   )}
@@ -500,7 +500,7 @@ export function OrderDetailsModal({ order, onClose, actions, statusHistory, onAs
                 {onAssignDelivery && order.deliveryStatus !== "entregue" && (
                   <button
                     onClick={() => onAssignDelivery(order)}
-                    className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100"
+                    className="mt-3 w-full rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-400 transition-colors hover:bg-yellow-300/10"
                   >
                     {order.deliveryPersonId ? "Trocar Entregador" : "Atribuir Entregador"}
                   </button>

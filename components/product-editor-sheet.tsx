@@ -1366,10 +1366,10 @@ export default function ProductEditorSheet({
         side="right"
         className="w-full overflow-hidden p-0 sm:max-w-[940px] xl:max-w-[1120px]"
       >
-        <div className="flex h-full flex-col bg-slate-50">
-          <SheetHeader className="border-b border-slate-200 bg-white px-5 py-4">
+        <div className="flex h-full flex-col bg-[#111111]">
+          <SheetHeader className="border-b border-white/10 bg-[#0A0A0A] px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                 {mode === "create" ? (
                   <Package2 className="h-5 w-5" />
                 ) : (
@@ -1378,18 +1378,18 @@ export default function ProductEditorSheet({
               </div>
 
               <div className="min-w-0">
-                <SheetTitle className="truncate text-lg font-black text-slate-950">
+                <SheetTitle className="truncate text-lg font-black text-white">
                   {mode === "create" ? "Novo produto" : "Editar produto"}
                 </SheetTitle>
 
-                <SheetDescription className="text-xs text-slate-500">
+                <SheetDescription className="text-xs text-zinc-500">
                   Monte produto, preço, complementos e disponibilidade em uma tela profissional.
                 </SheetDescription>
               </div>
             </div>
           </SheetHeader>
 
-          <div className="border-b border-slate-200 bg-white px-4 py-3">
+          <div className="border-b border-white/10 bg-[#0A0A0A] px-4 py-3">
             <div className="grid gap-2 sm:grid-cols-4">
               {EDITOR_TABS.map((tab) => {
                 const selected = activeTab === tab.id
@@ -1402,8 +1402,8 @@ export default function ProductEditorSheet({
                     className={cn(
                       "rounded-xl border px-3 py-3 text-left transition",
                       selected
-                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-500/10"
-                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                        ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 ring-2 ring-yellow-400/20"
+                        : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                     )}
                   >
                     <p className="text-sm font-black">{tab.label}</p>
@@ -1421,19 +1421,19 @@ export default function ProductEditorSheet({
               <div className="min-w-0">
                 {activeTab === "general" && (
                   <div className="space-y-4">
-                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                       <div className="mb-4">
-                        <h3 className="text-sm font-black text-slate-950">
+                        <h3 className="text-sm font-black text-white">
                           Dados do produto
                         </h3>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-zinc-500">
                           Informações principais que aparecem no cardápio.
                         </p>
                       </div>
 
                       <div className="space-y-4">
                         <div>
-                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                          <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                             Nome do produto <span className="text-red-500">*</span>
                           </label>
 
@@ -1442,12 +1442,12 @@ export default function ProductEditorSheet({
                             value={name}
                             onChange={(event) => setName(event.target.value)}
                             placeholder="Ex: X-Bacon"
-                            className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                            className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                           />
                         </div>
 
                         <div>
-                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                          <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                             Descrição
                           </label>
 
@@ -1458,12 +1458,12 @@ export default function ProductEditorSheet({
                             }
                             placeholder="Ex: Pão brioche, hambúrguer bovino, cheddar, bacon e molho especial..."
                             rows={4}
-                            className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                            className="w-full resize-none rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                           />
                         </div>
 
                         <div>
-                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                          <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                             Categoria <span className="text-red-500">*</span>
                           </label>
 
@@ -1476,7 +1476,7 @@ export default function ProductEditorSheet({
                                 setAvailabilityCategory(event.target.value)
                               }
                             }}
-                            className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                            className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium text-white outline-none transition focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                           >
                             {categories.map((item) => (
                               <option key={item.id} value={item.id}>
@@ -1488,12 +1488,12 @@ export default function ProductEditorSheet({
                       </div>
                     </section>
 
-                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                       <div className="mb-4">
-                        <h3 className="text-sm font-black text-slate-950">
+                        <h3 className="text-sm font-black text-white">
                           Imagem
                         </h3>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-zinc-500">
                           Foto do produto no cardápio.
                         </p>
                       </div>
@@ -1507,17 +1507,17 @@ export default function ProductEditorSheet({
 
                 {activeTab === "pricing" && (
                   <div className="space-y-4">
-                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                       <div className="mb-4 flex items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                           <DollarSign className="h-5 w-5" />
                         </div>
 
                         <div>
-                          <h3 className="text-sm font-black text-slate-950">
+                          <h3 className="text-sm font-black text-white">
                             Preço e custo
                           </h3>
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-zinc-500">
                             Use custo para calcular margem e lucro do produto.
                           </p>
                         </div>
@@ -1525,12 +1525,12 @@ export default function ProductEditorSheet({
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                          <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                             Preço de venda <span className="text-red-500">*</span>
                           </label>
 
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-zinc-500">
                               R$
                             </span>
 
@@ -1543,18 +1543,18 @@ export default function ProductEditorSheet({
                                 )
                               }
                               placeholder="0,00"
-                              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                              className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                          <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                             Custo
                           </label>
 
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-zinc-500">
                               R$
                             </span>
 
@@ -1567,25 +1567,25 @@ export default function ProductEditorSheet({
                                 )
                               }
                               placeholder="0,00"
-                              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                              className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                             />
                           </div>
                         </div>
                       </div>
                     </section>
 
-                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                             <Percent className="h-5 w-5" />
                           </div>
 
                           <div>
-                            <h3 className="text-sm font-black text-slate-950">
+                            <h3 className="text-sm font-black text-white">
                               Promoção
                             </h3>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-zinc-500">
                               Desconto aplicado sobre o preço de venda.
                             </p>
                           </div>
@@ -1609,8 +1609,8 @@ export default function ProductEditorSheet({
                           className={cn(
                             "inline-flex h-9 items-center rounded-full px-3 text-xs font-black transition",
                             promotionActive
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-slate-100 text-slate-500"
+                              ? "bg-yellow-400/10 text-yellow-400"
+                              : "bg-[#111111] text-zinc-500"
                           )}
                         >
                           {promotionActive ? "Promoção ativa" : "Sem promoção"}
@@ -1620,7 +1620,7 @@ export default function ProductEditorSheet({
                       {promotionActive ? (
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div>
-                            <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                               Tipo de desconto
                             </label>
 
@@ -1631,7 +1631,7 @@ export default function ProductEditorSheet({
                                   event.target.value as PromotionType
                                 )
                               }
-                              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                              className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                             >
                               <option value="fixed">Valor fixo em reais</option>
                               <option value="percentage">Porcentagem</option>
@@ -1639,12 +1639,12 @@ export default function ProductEditorSheet({
                           </div>
 
                           <div>
-                            <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                               Valor do desconto
                             </label>
 
                             <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-zinc-500">
                                 {promotionType === "percentage" ? "%" : "R$"}
                               </span>
 
@@ -1659,7 +1659,7 @@ export default function ProductEditorSheet({
                                 placeholder={
                                   promotionType === "percentage" ? "10" : "5,00"
                                 }
-                                className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                                className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                               />
                             </div>
 
@@ -1678,7 +1678,7 @@ export default function ProductEditorSheet({
                           </div>
                         </div>
                       ) : (
-                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                        <div className="rounded-xl border border-dashed border-white/10 bg-[#111111] p-4 text-sm text-zinc-500">
                           Ative a promoção para aplicar desconto neste produto.
                         </div>
                       )}
@@ -1688,11 +1688,11 @@ export default function ProductEditorSheet({
 
                 {activeTab === "modifiers" && (
                   <div className="space-y-4">
-                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                      <div className="border-b border-slate-200 bg-slate-950 p-4 text-white">
+                    <section className="overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                      <div className="border-b border-white/10 bg-[#050505] p-4 text-white">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/10">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0A0A0A] text-white ring-1 ring-white/10">
                               <Settings2 className="h-5 w-5" />
                             </div>
 
@@ -1700,15 +1700,15 @@ export default function ProductEditorSheet({
                               <h3 className="text-sm font-black">
                                 Montador de complementos
                               </h3>
-                              <p className="mt-1 text-xs leading-5 text-slate-300">
+                              <p className="mt-1 text-xs leading-5 text-zinc-500">
                                 Crie grupos tipo iFood: tamanhos, adicionais, molhos, carnes e opções vinculadas a produtos existentes.
                               </p>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 sm:min-w-[220px]">
-                            <div className="rounded-xl bg-white/10 p-3 ring-1 ring-white/10">
-                              <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">
+                            <div className="rounded-xl bg-[#0A0A0A] p-3 ring-1 ring-white/10">
+                              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                 Grupos
                               </p>
                               <p className="mt-1 text-xl font-black">
@@ -1716,8 +1716,8 @@ export default function ProductEditorSheet({
                               </p>
                             </div>
 
-                            <div className="rounded-xl bg-white/10 p-3 ring-1 ring-white/10">
-                              <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">
+                            <div className="rounded-xl bg-[#0A0A0A] p-3 ring-1 ring-white/10">
+                              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                 Itens
                               </p>
                               <p className="mt-1 text-xl font-black">
@@ -1730,19 +1730,19 @@ export default function ProductEditorSheet({
 
                       <div className="p-4">
                         {loadingModifiers ? (
-                          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] p-4 text-sm font-semibold text-zinc-500">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Carregando complementos...
                           </div>
                         ) : (
                           <div className="space-y-4">
-                            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                            <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
                               <div className="mb-3 flex items-center justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                                  <p className="text-xs font-black uppercase tracking-wide text-yellow-400">
                                     Vinculados neste produto
                                   </p>
-                                  <p className="mt-1 text-xs text-blue-700/80">
+                                  <p className="mt-1 text-xs text-yellow-400">
                                     Grupos que aparecem para o cliente ao abrir este item.
                                   </p>
                                 </div>
@@ -1750,7 +1750,7 @@ export default function ProductEditorSheet({
 
                               {selectedExistingGroups.length === 0 &&
                               newModifierGroups.length === 0 ? (
-                                <div className="rounded-lg border border-dashed border-blue-200 bg-white p-3 text-sm text-slate-500">
+                                <div className="rounded-lg border border-dashed border-yellow-400/30 bg-[#0A0A0A] p-3 text-sm text-zinc-500">
                                   Nenhum complemento vinculado neste produto.
                                 </div>
                               ) : (
@@ -1758,23 +1758,23 @@ export default function ProductEditorSheet({
                                   {selectedExistingGroups.map((group) => (
                                     <div
                                       key={group.id}
-                                      className="rounded-xl border border-blue-100 bg-white p-3"
+                                      className="rounded-xl border border-yellow-400/30 bg-[#0A0A0A] p-3"
                                     >
                                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="min-w-0">
                                           <div className="flex flex-wrap items-center gap-2">
-                                            <p className="text-sm font-black text-slate-950">
+                                            <p className="text-sm font-black text-white">
                                               {group.name}
                                             </p>
 
                                             {group.required && (
-                                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                              <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-black text-yellow-400">
                                                 Obrigatório
                                               </span>
                                             )}
                                           </div>
 
-                                          <p className="mt-1 text-xs text-slate-500">
+                                          <p className="mt-1 text-xs text-zinc-500">
                                             {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
                                           </p>
                                         </div>
@@ -1785,7 +1785,7 @@ export default function ProductEditorSheet({
                                             onClick={() =>
                                               openEditReusableModifierGroup(group)
                                             }
-                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
                                           >
                                             <Pencil className="h-3.5 w-3.5" />
                                             Editar grupo
@@ -1796,7 +1796,7 @@ export default function ProductEditorSheet({
                                             onClick={() =>
                                               duplicateExistingGroupForProduct(group)
                                             }
-                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
                                           >
                                             <Copy className="h-3.5 w-3.5" />
                                             Personalizar
@@ -1826,7 +1826,7 @@ export default function ProductEditorSheet({
                                             return (
                                               <span
                                                 key={option.id ?? option.name}
-                                                className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600"
+                                                className="rounded-full bg-[#111111] px-2.5 py-1 text-[11px] font-bold text-zinc-500"
                                               >
                                                 {option.name} · {formatCurrency(option.price)}
                                                 {productName ? " · produto" : ""}
@@ -1835,7 +1835,7 @@ export default function ProductEditorSheet({
                                           })}
 
                                           {group.options.length > 5 && (
-                                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+                                            <span className="rounded-full bg-[#111111] px-2.5 py-1 text-[11px] font-bold text-zinc-500">
                                               +{group.options.length - 5} opções
                                             </span>
                                           )}
@@ -1847,14 +1847,14 @@ export default function ProductEditorSheet({
                                   {newModifierGroups.map((group, groupIndex) => (
                                     <div
                                       key={`linked-new-${groupIndex}`}
-                                      className="rounded-xl border border-slate-200 bg-white p-3"
+                                      className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3"
                                     >
                                       <div className="flex items-center justify-between gap-3">
                                         <div>
-                                          <p className="text-sm font-black text-slate-950">
+                                          <p className="text-sm font-black text-white">
                                             {group.name || "Novo grupo sem nome"}
                                           </p>
-                                          <p className="mt-1 text-xs text-slate-500">
+                                          <p className="mt-1 text-xs text-zinc-500">
                                             {group.options.filter((option) => option.name.trim()).length} opção(ões)
                                           </p>
                                         </div>
@@ -1876,22 +1876,22 @@ export default function ProductEditorSheet({
                               )}
                             </div>
 
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="rounded-xl border border-white/10 bg-[#111111] p-4">
                               <div className="mb-3 flex items-center justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                  <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                                     Biblioteca de grupos
                                   </p>
-                                  <p className="mt-1 text-xs text-slate-500">
+                                  <p className="mt-1 text-xs text-zinc-500">
                                     Use grupos prontos ou edite a biblioteca reaproveitável.
                                   </p>
                                 </div>
 
-                                <Link2 className="h-4 w-4 text-slate-400" />
+                                <Link2 className="h-4 w-4 text-zinc-500" />
                               </div>
 
                               {availableModifierGroups.length === 0 ? (
-                                <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
+                                <div className="rounded-lg border border-dashed border-white/10 bg-[#0A0A0A] p-3 text-sm text-zinc-500">
                                   Nenhum grupo reutilizável cadastrado ainda.
                                 </div>
                               ) : (
@@ -1899,23 +1899,23 @@ export default function ProductEditorSheet({
                                   {unselectedExistingGroups.map((group) => (
                                     <div
                                       key={group.id}
-                                      className="rounded-xl border border-slate-200 bg-white p-3"
+                                      className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3"
                                     >
                                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="min-w-0">
                                           <div className="flex flex-wrap items-center gap-2">
-                                            <p className="text-sm font-black text-slate-950">
+                                            <p className="text-sm font-black text-white">
                                               {group.name}
                                             </p>
 
                                             {group.required && (
-                                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                              <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-black text-yellow-400">
                                                 Obrigatório
                                               </span>
                                             )}
                                           </div>
 
-                                          <p className="mt-1 text-xs text-slate-500">
+                                          <p className="mt-1 text-xs text-zinc-500">
                                             {group.options.length} opção(ões) · mínimo {group.minSelect} · máximo {group.maxSelect}
                                           </p>
                                         </div>
@@ -1926,7 +1926,7 @@ export default function ProductEditorSheet({
                                             onClick={() =>
                                               linkExistingModifierGroup(group.id)
                                             }
-                                            className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300"
                                           >
                                             <Plus className="h-3.5 w-3.5" />
                                             Usar
@@ -1937,7 +1937,7 @@ export default function ProductEditorSheet({
                                             onClick={() =>
                                               openEditReusableModifierGroup(group)
                                             }
-                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
                                           >
                                             <Pencil className="h-3.5 w-3.5" />
                                             Editar
@@ -1948,7 +1948,7 @@ export default function ProductEditorSheet({
                                             onClick={() =>
                                               duplicateExistingGroupForProduct(group)
                                             }
-                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
                                           >
                                             <Copy className="h-3.5 w-3.5" />
                                             Duplicar
@@ -1977,7 +1977,7 @@ export default function ProductEditorSheet({
                                   ))}
 
                                   {unselectedExistingGroups.length === 0 && (
-                                    <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">
+                                    <div className="rounded-lg border border-dashed border-white/10 bg-[#0A0A0A] p-3 text-sm text-zinc-500">
                                       Todos os grupos da biblioteca já estão vinculados neste produto.
                                     </div>
                                   )}
@@ -1986,16 +1986,16 @@ export default function ProductEditorSheet({
                             </div>
 
                             {editingModifierGroup && (
-                              <div className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm">
+                              <div className="rounded-xl border border-yellow-400/30 bg-[#0A0A0A] p-4 shadow-sm">
                                 <div className="mb-4 flex items-start justify-between gap-3">
                                   <div>
-                                    <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                                    <p className="text-xs font-black uppercase tracking-wide text-yellow-400">
                                       Editando grupo
                                     </p>
-                                    <h4 className="mt-1 text-sm font-black text-slate-950">
+                                    <h4 className="mt-1 text-sm font-black text-white">
                                       {editingModifierGroup.name || "Grupo sem nome"}
                                     </h4>
-                                    <p className="mt-1 text-xs text-slate-500">
+                                    <p className="mt-1 text-xs text-zinc-500">
                                       Aqui você pode adicionar item manual ou puxar produto já cadastrado.
                                     </p>
                                   </div>
@@ -2003,7 +2003,7 @@ export default function ProductEditorSheet({
                                   <button
                                     type="button"
                                     onClick={closeEditReusableModifierGroup}
-                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-[#111111] hover:text-zinc-500"
                                   >
                                     <X className="h-4 w-4" />
                                   </button>
@@ -2023,7 +2023,7 @@ export default function ProductEditorSheet({
                                   <button
                                     type="button"
                                     onClick={closeEditReusableModifierGroup}
-                                    className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                                    className="h-10 rounded-lg border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                                   >
                                     Cancelar
                                   </button>
@@ -2034,7 +2034,7 @@ export default function ProductEditorSheet({
                                       void saveEditingReusableModifierGroup()
                                     }
                                     disabled={savingReusableGroup}
-                                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#050505] px-4 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                                   >
                                     {savingReusableGroup && (
                                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -2045,13 +2045,13 @@ export default function ProductEditorSheet({
                               </div>
                             )}
 
-                            <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4">
                               <div className="mb-4 flex items-center justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                  <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                                     Criar novo grupo
                                   </p>
-                                  <p className="mt-1 text-xs text-slate-500">
+                                  <p className="mt-1 text-xs text-zinc-500">
                                     Exemplo: tamanhos, adicionais, ponto da carne ou molhos.
                                   </p>
                                 </div>
@@ -2059,7 +2059,7 @@ export default function ProductEditorSheet({
                                 <button
                                   type="button"
                                   onClick={addNewModifierGroup}
-                                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+                                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300"
                                 >
                                   <Plus className="h-3.5 w-3.5" />
                                   Grupo
@@ -2067,7 +2067,7 @@ export default function ProductEditorSheet({
                               </div>
 
                               {newModifierGroups.length === 0 ? (
-                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                                <div className="rounded-lg border border-dashed border-white/10 bg-[#111111] p-3 text-sm text-zinc-500">
                                   Clique em <strong>Grupo</strong> para criar um novo complemento.
                                 </div>
                               ) : (
@@ -2075,10 +2075,10 @@ export default function ProductEditorSheet({
                                   {newModifierGroups.map((group, groupIndex) => (
                                     <div
                                       key={`new-group-${groupIndex}`}
-                                      className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                                      className="rounded-xl border border-white/10 bg-[#111111] p-3"
                                     >
                                       <div className="mb-3 flex items-center justify-between gap-3">
-                                        <p className="text-sm font-black text-slate-950">
+                                        <p className="text-sm font-black text-white">
                                           Novo grupo #{groupIndex + 1}
                                         </p>
 
@@ -2140,7 +2140,7 @@ export default function ProductEditorSheet({
                                     void saveProductModifierGroups(product.id)
                                   }
                                   disabled={savingModifiers}
-                                  className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="inline-flex h-10 items-center justify-center rounded-lg bg-[#050505] px-4 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   {savingModifiers ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2160,25 +2160,25 @@ export default function ProductEditorSheet({
 
                 {activeTab === "availability" && (
                   <div className="space-y-4">
-                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                             <CalendarDays className="h-5 w-5" />
                           </div>
 
                           <div>
-                            <h3 className="text-sm font-black text-slate-950">
+                            <h3 className="text-sm font-black text-white">
                               Dias e horários de venda
                             </h3>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                            <p className="mt-1 text-xs leading-5 text-zinc-500">
                               Defina se aparece sempre ou somente em dias específicos.
                             </p>
                           </div>
                         </div>
 
                         {loadingAvailability ? (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                          <span className="rounded-full bg-[#111111] px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-zinc-500">
                             Carregando
                           </span>
                         ) : null}
@@ -2197,8 +2197,8 @@ export default function ProductEditorSheet({
                           className={cn(
                             "rounded-xl border px-4 py-3 text-left transition",
                             availabilityType === "always"
-                              ? "border-blue-500 bg-blue-50 text-blue-700"
-                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                              ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                              : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                           )}
                         >
                           <p className="text-sm font-black">Sempre disponível</p>
@@ -2219,8 +2219,8 @@ export default function ProductEditorSheet({
                           className={cn(
                             "rounded-xl border px-4 py-3 text-left transition",
                             availabilityType === "scheduled"
-                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
+                              : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                           )}
                         >
                           <p className="text-sm font-black">Dias específicos</p>
@@ -2231,9 +2231,9 @@ export default function ProductEditorSheet({
                       </div>
 
                       {availabilityType === "scheduled" && (
-                        <div className="mt-4 space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                        <div className="mt-4 space-y-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4">
                           <div>
-                            <label className="mb-2 block text-sm font-black text-slate-800">
+                            <label className="mb-2 block text-sm font-black text-white">
                               Dias em que aparece
                             </label>
 
@@ -2253,8 +2253,8 @@ export default function ProductEditorSheet({
                                     className={cn(
                                       "rounded-lg border px-3 py-2 text-sm font-black transition",
                                       selected
-                                        ? "border-emerald-500 bg-emerald-600 text-white shadow-sm"
-                                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                        ? "border-emerald-400/30 bg-emerald-600 text-white shadow-sm"
+                                        : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                                     )}
                                   >
                                     {weekday.shortLabel}
@@ -2271,7 +2271,7 @@ export default function ProductEditorSheet({
                           </div>
 
                           <div>
-                            <label className="mb-1.5 block text-sm font-bold text-slate-700">
+                            <label className="mb-1.5 block text-sm font-bold text-zinc-500">
                               Categoria onde vai aparecer
                             </label>
 
@@ -2280,7 +2280,7 @@ export default function ProductEditorSheet({
                               onChange={(event) =>
                                 setAvailabilityCategory(event.target.value)
                               }
-                              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                              className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20"
                             >
                               {categories.map((item) => (
                                 <option key={item.id} value={item.id}>
@@ -2291,14 +2291,14 @@ export default function ProductEditorSheet({
                           </div>
 
                           <div>
-                            <div className="mb-2 flex items-center gap-2 text-sm font-black text-slate-800">
-                              <Clock3 className="h-4 w-4 text-emerald-600" />
+                            <div className="mb-2 flex items-center gap-2 text-sm font-black text-white">
+                              <Clock3 className="h-4 w-4 text-emerald-400" />
                               Horário de venda
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
                               <div>
-                                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-zinc-500">
                                   Início
                                 </label>
                                 <input
@@ -2307,12 +2307,12 @@ export default function ProductEditorSheet({
                                   onChange={(event) =>
                                     setAvailabilityStartTime(event.target.value)
                                   }
-                                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                                  className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20"
                                 />
                               </div>
 
                               <div>
-                                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-zinc-500">
                                   Fim
                                 </label>
                                 <input
@@ -2321,7 +2321,7 @@ export default function ProductEditorSheet({
                                   onChange={(event) =>
                                     setAvailabilityEndTime(event.target.value)
                                   }
-                                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                                  className="h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20"
                                 />
                               </div>
                             </div>
@@ -2345,9 +2345,9 @@ export default function ProductEditorSheet({
                       )}
                     </section>
 
-                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                       <div className="mb-4 flex items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                           {active ? (
                             <Eye className="h-5 w-5" />
                           ) : (
@@ -2356,10 +2356,10 @@ export default function ProductEditorSheet({
                         </div>
 
                         <div>
-                          <h3 className="text-sm font-black text-slate-950">
+                          <h3 className="text-sm font-black text-white">
                             Status no cardápio
                           </h3>
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-zinc-500">
                             Controle se o produto aparece para o cliente.
                           </p>
                         </div>
@@ -2372,8 +2372,8 @@ export default function ProductEditorSheet({
                           className={cn(
                             "rounded-lg border px-4 py-3 text-left transition",
                             active
-                              ? "border-blue-500 bg-blue-50 text-blue-700"
-                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                              ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                              : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                           )}
                         >
                           <p className="text-sm font-black">Ativo</p>
@@ -2388,8 +2388,8 @@ export default function ProductEditorSheet({
                           className={cn(
                             "rounded-lg border px-4 py-3 text-left transition",
                             !active
-                              ? "border-amber-400 bg-amber-50 text-amber-700"
-                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                              ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                              : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                           )}
                         >
                           <p className="text-sm font-black">Inativo</p>
@@ -2404,48 +2404,48 @@ export default function ProductEditorSheet({
               </div>
 
               <aside className="min-w-0 space-y-4 xl:sticky xl:top-0 xl:self-start">
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-black text-slate-950">
+                      <h3 className="text-sm font-black text-white">
                         Resumo
                       </h3>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-zinc-500">
                         Visão rápida antes de salvar.
                       </p>
                     </div>
 
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                       <ImageIcon className="h-5 w-5" />
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="rounded-lg border border-white/10 bg-[#111111] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Preço base
                       </p>
-                      <p className="mt-1 text-xl font-black text-slate-950">
+                      <p className="mt-1 text-xl font-black text-white">
                         {formatCurrency(numericPrice)}
                       </p>
                     </div>
 
                     {normalizedPromotionActive && (
                       <>
-                        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-orange-700">
+                        <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-yellow-400">
                             Desconto
                           </p>
-                          <p className="mt-1 text-xl font-black text-orange-700">
+                          <p className="mt-1 text-xl font-black text-yellow-400">
                             {formatCurrency(promotionDiscount)}
                           </p>
                         </div>
 
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-emerald-400">
                             Preço final
                           </p>
-                          <p className="mt-1 text-xl font-black text-emerald-700">
+                          <p className="mt-1 text-xl font-black text-emerald-400">
                             {formatCurrency(finalPrice)}
                           </p>
                         </div>
@@ -2456,14 +2456,14 @@ export default function ProductEditorSheet({
                       className={cn(
                         "rounded-lg border p-4",
                         previewProfit >= 0
-                          ? "border-emerald-200 bg-emerald-50"
+                          ? "border-emerald-400/30 bg-emerald-500/10"
                           : "border-red-200 bg-red-50"
                       )}
                     >
                       <p
                         className={cn(
                           "text-xs font-bold uppercase tracking-wide",
-                          previewProfit >= 0 ? "text-emerald-700" : "text-red-700"
+                          previewProfit >= 0 ? "text-emerald-400" : "text-red-700"
                         )}
                       >
                         Lucro estimado
@@ -2471,14 +2471,14 @@ export default function ProductEditorSheet({
                       <p
                         className={cn(
                           "mt-1 text-xl font-black",
-                          previewProfit >= 0 ? "text-emerald-700" : "text-red-700"
+                          previewProfit >= 0 ? "text-emerald-400" : "text-red-700"
                         )}
                       >
                         {formatCurrency(previewProfit)}
                       </p>
 
                       {normalizedPromotionActive && (
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           Lucro base: {formatCurrency(baseProfit)}
                         </p>
                       )}
@@ -2488,14 +2488,14 @@ export default function ProductEditorSheet({
                       className={cn(
                         "rounded-lg border p-4",
                         previewMargin >= 20
-                          ? "border-blue-200 bg-blue-50"
-                          : "border-amber-200 bg-amber-50"
+                          ? "border-yellow-400/30 bg-yellow-400/10"
+                          : "border-yellow-400/30 bg-yellow-400/10"
                       )}
                     >
                       <p
                         className={cn(
                           "text-xs font-bold uppercase tracking-wide",
-                          previewMargin >= 20 ? "text-blue-700" : "text-amber-700"
+                          previewMargin >= 20 ? "text-yellow-400" : "text-yellow-400"
                         )}
                       >
                         Margem
@@ -2503,35 +2503,35 @@ export default function ProductEditorSheet({
                       <p
                         className={cn(
                           "mt-1 text-xl font-black",
-                          previewMargin >= 20 ? "text-blue-700" : "text-amber-700"
+                          previewMargin >= 20 ? "text-yellow-400" : "text-yellow-400"
                         )}
                       >
                         {previewMargin.toFixed(1)}%
                       </p>
 
                       {normalizedPromotionActive && (
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           Margem base: {baseMargin.toFixed(1)}%
                         </p>
                       )}
                     </div>
 
-                    <div className="rounded-lg border border-slate-200 bg-white p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="rounded-lg border border-white/10 bg-[#0A0A0A] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Complementos
                       </p>
-                      <p className="mt-1 text-xl font-black text-slate-950">
+                      <p className="mt-1 text-xl font-black text-white">
                         {totalModifierGroups}
                       </p>
-                      <p className="text-xs font-semibold text-slate-500">
+                      <p className="text-xs font-semibold text-zinc-500">
                         grupo(s) · {totalModifierOptions} item(ns)
                       </p>
                     </div>
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <h3 className="text-sm font-black text-slate-950">
+                <section className="rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+                  <h3 className="text-sm font-black text-white">
                     Checklist
                   </h3>
 
@@ -2557,9 +2557,9 @@ export default function ProductEditorSheet({
             </div>
           </div>
 
-          <SheetFooter className="border-t border-slate-200 bg-white px-5 py-3 sm:space-x-0">
+          <SheetFooter className="border-t border-white/10 bg-[#0A0A0A] px-5 py-3 sm:space-x-0">
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-zinc-500">
                 {mode === "create"
                   ? "Crie o produto e salve os complementos vinculados."
                   : "As alterações são aplicadas no catálogo após salvar."}
@@ -2569,7 +2569,7 @@ export default function ProductEditorSheet({
                 <Button
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  className="h-10 rounded-lg border-slate-200 px-4"
+                  className="h-10 rounded-lg border-white/10 px-4"
                 >
                   Cancelar
                 </Button>
@@ -2577,7 +2577,7 @@ export default function ProductEditorSheet({
                 <Button
                   onClick={() => void handleSave()}
                   disabled={!canSave || savingModifiers || loadingModifiers}
-                  className="h-10 rounded-lg bg-blue-600 px-5 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-10 rounded-lg bg-yellow-400 px-5 font-bold text-black hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingModifiers ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -2611,7 +2611,7 @@ function ChecklistItem({
       <span
         className={cn(
           "flex h-5 w-5 items-center justify-center rounded-full",
-          checked ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
+          checked ? "bg-emerald-500/10 text-emerald-400" : "bg-[#111111] text-zinc-500"
         )}
       >
         {checked ? (
@@ -2624,7 +2624,7 @@ function ChecklistItem({
       <span
         className={cn(
           "font-semibold",
-          checked ? "text-slate-700" : "text-slate-400"
+          checked ? "text-zinc-500" : "text-zinc-500"
         )}
       >
         {children}
@@ -2670,7 +2670,7 @@ function ModifierGroupForm({
     <div className="space-y-4">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div>
-          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-zinc-500">
             Nome do grupo
           </label>
 
@@ -2683,12 +2683,12 @@ function ModifierGroupForm({
               })
             }
             placeholder="Ex: Tamanhos, Adicionais, Molhos"
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            className="h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-zinc-500">
             Regra de escolha
           </label>
 
@@ -2704,8 +2704,8 @@ function ModifierGroupForm({
               className={cn(
                 "h-10 rounded-lg border px-2 text-left transition",
                 group.required
-                  ? "border-orange-300 bg-orange-50 text-orange-700"
-                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                  ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                  : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
               )}
             >
               <p className="text-[11px] font-black uppercase leading-3">
@@ -2723,7 +2723,7 @@ function ModifierGroupForm({
                 })
               }
               title="Mínimo"
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              className="h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
             />
 
             <input
@@ -2736,23 +2736,23 @@ function ModifierGroupForm({
                 })
               }
               title="Máximo"
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              className="h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
             />
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+      <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3">
         <div className="mb-3 flex items-start gap-2">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-black">
             <ShoppingBag className="h-4 w-4" />
           </div>
 
           <div>
-            <p className="text-sm font-black text-slate-950">
+            <p className="text-sm font-black text-white">
               Adicionar produto existente ao grupo
             </p>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-zinc-500">
               Selecione um item já cadastrado e ajuste o preço que ele terá dentro deste complemento.
             </p>
           </div>
@@ -2762,7 +2762,7 @@ function ModifierGroupForm({
           <select
             value={selectedProductId}
             onChange={(event) => setSelectedProductId(event.target.value)}
-            className="h-10 rounded-lg border border-blue-100 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            className="h-10 rounded-lg border border-yellow-400/30 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
           >
             <option value="">Selecione um produto existente...</option>
             {availableProducts.map((product) => (
@@ -2776,7 +2776,7 @@ function ModifierGroupForm({
             type="button"
             onClick={handleAddProductOption}
             disabled={!selectedProduct}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" />
             Adicionar
@@ -2787,10 +2787,10 @@ function ModifierGroupForm({
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+            <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
               Opções do grupo
             </p>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 text-xs text-zinc-500">
               Nome exibido e preço cobrado dentro deste grupo.
             </p>
           </div>
@@ -2798,7 +2798,7 @@ function ModifierGroupForm({
           <button
             type="button"
             onClick={onAddOption}
-            className="text-xs font-black text-blue-600 hover:text-blue-700"
+            className="text-xs font-black text-yellow-400 hover:text-yellow-400"
           >
             + Item manual
           </button>
@@ -2813,20 +2813,20 @@ function ModifierGroupForm({
           return (
             <div
               key={`${option.id ?? "new"}-${optionIndex}`}
-              className="rounded-xl border border-slate-200 bg-white p-3"
+              className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3"
             >
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">
+                  <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[11px] font-black text-zinc-500">
                     #{optionIndex + 1}
                   </span>
 
                   {linkedProductName ? (
-                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-black text-blue-700">
+                    <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-black text-yellow-400">
                       Produto: {linkedProductName}
                     </span>
                   ) : (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">
+                    <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[11px] font-black text-zinc-500">
                       Manual
                     </span>
                   )}
@@ -2835,7 +2835,7 @@ function ModifierGroupForm({
                 <button
                   type="button"
                   onClick={() => onRemoveOption(optionIndex)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-2 text-[11px] font-black text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 px-2 text-[11px] font-black text-zinc-500 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
                   aria-label="Remover opção"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -2845,7 +2845,7 @@ function ModifierGroupForm({
 
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
                 <div>
-                  <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-400">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-zinc-500">
                     Nome exibido
                   </label>
 
@@ -2858,17 +2858,17 @@ function ModifierGroupForm({
                       })
                     }
                     placeholder="Ex: Bacon extra"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-400">
+                  <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-zinc-500">
                     Preço no grupo
                   </label>
 
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
                       R$
                     </span>
 
@@ -2883,7 +2883,7 @@ function ModifierGroupForm({
                         })
                       }
                       placeholder="0,00"
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                      className="h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] pl-8 pr-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
                 </div>

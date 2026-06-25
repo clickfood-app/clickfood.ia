@@ -455,12 +455,10 @@ export default function AdminSidebar({
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
 
-  const [brand, setBrand] = useState<RestaurantBrand>(
-    () => readCachedRestaurantBrand() ?? getDefaultRestaurantBrand(),
+  const [brand, setBrand] = useState<RestaurantBrand>(() =>
+    getDefaultRestaurantBrand(),
   )
-  const [isBrandLoaded, setIsBrandLoaded] = useState(
-    () => Boolean(cachedRestaurantBrand),
-  )
+  const [isBrandLoaded, setIsBrandLoaded] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
@@ -478,6 +476,13 @@ export default function AdminSidebar({
     let isMounted = true
 
     async function loadRestaurantBrand() {
+      const cachedBrand = readCachedRestaurantBrand()
+
+      if (cachedBrand && isMounted) {
+        setBrand(cachedBrand)
+        setIsBrandLoaded(true)
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -733,7 +738,7 @@ export default function AdminSidebar({
                             "group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm font-bold transition",
                             active
                               ? "border-yellow-400 bg-yellow-400 text-black shadow-sm shadow-yellow-950/20"
-                              : "text-zinc-300 hover:bg-white/[0.07] hover:text-yellow-300",
+                              : "text-zinc-500 hover:bg-[#0A0A0A] hover:text-yellow-300",
                             isCollapsed && "justify-center px-0",
                           )}
                           title={isCollapsed ? item.label : undefined}
@@ -743,7 +748,7 @@ export default function AdminSidebar({
                               "flex shrink-0 items-center justify-center transition",
                               active
                                 ? "text-black"
-                                : "text-zinc-400 group-hover:text-yellow-300",
+                                : "text-zinc-500 group-hover:text-yellow-300",
                               isCollapsed && "h-10 w-10 rounded-xl",
                             )}
                           >
@@ -785,7 +790,7 @@ export default function AdminSidebar({
                                       "group flex items-center gap-2.5 rounded-lg border border-transparent px-3 py-2 text-sm font-semibold transition",
                                       childActive
                                         ? "border-yellow-400 bg-yellow-400 text-black shadow-sm shadow-yellow-950/20"
-                                        : "text-zinc-400 hover:bg-white/[0.07] hover:text-yellow-300",
+                                        : "text-zinc-500 hover:bg-[#0A0A0A] hover:text-yellow-300",
                                     )}
                                   >
                                     <span
@@ -820,7 +825,7 @@ export default function AdminSidebar({
                         "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-bold transition",
                         active
                           ? "border-yellow-400 bg-yellow-400 text-black shadow-sm shadow-yellow-950/20"
-                          : "text-zinc-300 hover:bg-white/[0.07] hover:text-yellow-300",
+                          : "text-zinc-500 hover:bg-[#0A0A0A] hover:text-yellow-300",
                         isCollapsed && "justify-center px-0",
                       )}
                       title={isCollapsed ? item.label : undefined}
@@ -830,7 +835,7 @@ export default function AdminSidebar({
                           "flex shrink-0 items-center justify-center transition",
                           active
                             ? "text-black"
-                            : "text-zinc-400 group-hover:text-yellow-300",
+                            : "text-zinc-500 group-hover:text-yellow-300",
                           isCollapsed && "h-10 w-10 rounded-xl",
                         )}
                       >
@@ -853,7 +858,7 @@ export default function AdminSidebar({
 
       {!isCollapsed && (
         <div className="border-t border-yellow-400/15 bg-[#080808] p-3">
-          <div className="flex items-center gap-2 rounded-xl border border-yellow-400/20 bg-white/5 px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-xl border border-yellow-400/20 bg-[#0A0A0A] px-3 py-2.5">
             <span className="h-2 w-2 rounded-full bg-yellow-400" />
 
             <div className="min-w-0">
@@ -861,7 +866,7 @@ export default function AdminSidebar({
                 Sistema
               </p>
 
-              <p className="truncate text-xs font-semibold text-zinc-300">
+              <p className="truncate text-xs font-semibold text-zinc-500">
                 Sistema online
               </p>
             </div>

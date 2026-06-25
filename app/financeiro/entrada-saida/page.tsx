@@ -205,24 +205,24 @@ function MetricCard({
   tone?: "slate" | "green" | "red" | "blue" | "amber"
 }) {
   const toneClass = {
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    slate: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
+    green: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
     red: "bg-red-50 text-red-700 ring-red-100",
-    blue: "bg-blue-50 text-blue-700 ring-blue-100",
-    amber: "bg-amber-50 text-amber-700 ring-amber-100",
+    blue: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    amber: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
   }[tone]
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-500">{title}</p>
+          <p className="text-sm font-semibold text-zinc-500">{title}</p>
 
-          <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">
+          <p className="mt-2 truncate text-2xl font-black tracking-tight text-white">
             {value}
           </p>
 
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+          <p className="mt-2 text-xs font-medium leading-5 text-zinc-500">
             {subtitle}
           </p>
         </div>
@@ -256,23 +256,23 @@ function Panel({
   return (
     <section
       className={cn(
-        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+        "animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm",
         className
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-black tracking-tight text-slate-950">
+          <h2 className="text-base font-black tracking-tight text-white">
             {title}
           </h2>
 
           {subtitle && (
-            <p className="mt-1 text-sm leading-5 text-slate-500">{subtitle}</p>
+            <p className="mt-1 text-sm leading-5 text-zinc-500">{subtitle}</p>
           )}
         </div>
 
         {icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
             {icon}
           </div>
         )}
@@ -285,7 +285,7 @@ function Panel({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+    <div className="rounded-xl border border-dashed border-white/10 bg-[#111111] px-4 py-8 text-center text-sm font-semibold text-zinc-500">
       {message}
     </div>
   )
@@ -303,14 +303,14 @@ function ProgressBar({
   const width = max <= 0 ? 0 : Math.min(100, (value / max) * 100)
 
   const toneClass = {
-    blue: "bg-blue-600",
+    blue: "bg-yellow-400",
     green: "bg-emerald-600",
     red: "bg-red-500",
-    slate: "bg-slate-900",
+    slate: "bg-[#080808]",
   }[tone]
 
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+    <div className="h-2 overflow-hidden rounded-full bg-[#111111]">
       <div
         className={cn(
           "h-full rounded-full transition-all duration-700 ease-out",
@@ -577,11 +577,11 @@ export default function EntradaSaidaPage() {
       <div className="space-y-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-950">
+            <h1 className="text-2xl font-black tracking-tight text-white">
               Entrada e saída
             </h1>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-zinc-500">
               Registre movimentações manuais do caixa do restaurante.
             </p>
           </div>
@@ -595,8 +595,8 @@ export default function EntradaSaidaPage() {
                 className={cn(
                   "h-10 rounded-xl px-4 text-sm font-bold transition",
                   period === option.key
-                    ? "bg-slate-950 text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    ? "bg-[#050505] text-white shadow-sm"
+                    : "border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                 )}
               >
                 {option.label}
@@ -606,7 +606,7 @@ export default function EntradaSaidaPage() {
             <button
               type="button"
               onClick={() => void loadTransactions()}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-bold text-zinc-500 transition hover:bg-[#111111]"
             >
               <RefreshCcw className="h-4 w-4" />
               Atualizar
@@ -615,8 +615,8 @@ export default function EntradaSaidaPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A]">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando entradas e saídas...
             </div>
@@ -664,15 +664,15 @@ export default function EntradaSaidaPage() {
                 icon={<PlusCircle className="h-5 w-5" />}
               >
                 <div className="grid gap-4">
-                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#111111] p-1">
                     <button
                       type="button"
                       onClick={() => handleTypeChange("income")}
                       className={cn(
                         "h-10 rounded-lg text-sm font-black transition",
                         form.type === "income"
-                          ? "bg-white text-emerald-700 shadow-sm"
-                          : "text-slate-500 hover:text-slate-800"
+                          ? "bg-[#0A0A0A] text-emerald-400 shadow-sm"
+                          : "text-zinc-500 hover:text-white"
                       )}
                     >
                       Entrada
@@ -684,8 +684,8 @@ export default function EntradaSaidaPage() {
                       className={cn(
                         "h-10 rounded-lg text-sm font-black transition",
                         form.type === "expense"
-                          ? "bg-white text-red-700 shadow-sm"
-                          : "text-slate-500 hover:text-slate-800"
+                          ? "bg-[#0A0A0A] text-red-700 shadow-sm"
+                          : "text-zinc-500 hover:text-white"
                       )}
                     >
                       Saída
@@ -693,7 +693,7 @@ export default function EntradaSaidaPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Título
                     </label>
 
@@ -710,13 +710,13 @@ export default function EntradaSaidaPage() {
                           ? "Ex: Pix manual"
                           : "Ex: compra de carne"
                       }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-white/10"
                     />
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Valor
                       </label>
 
@@ -732,12 +732,12 @@ export default function EntradaSaidaPage() {
                         min="0"
                         step="0.01"
                         placeholder="0,00"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-white/10"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Data
                       </label>
 
@@ -750,14 +750,14 @@ export default function EntradaSaidaPage() {
                           }))
                         }
                         type="datetime-local"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                       />
                     </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Categoria
                       </label>
 
@@ -769,7 +769,7 @@ export default function EntradaSaidaPage() {
                             category: event.target.value,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                       >
                         {currentCategoryOptions.map((category) => (
                           <option key={category} value={category}>
@@ -780,7 +780,7 @@ export default function EntradaSaidaPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Forma
                       </label>
 
@@ -792,7 +792,7 @@ export default function EntradaSaidaPage() {
                             payment_method: event.target.value,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-slate-400"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none transition focus:border-white/10"
                       >
                         {paymentMethods.map((method) => (
                           <option key={method.value} value={method.value}>
@@ -804,7 +804,7 @@ export default function EntradaSaidaPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                       Observação
                     </label>
 
@@ -818,20 +818,20 @@ export default function EntradaSaidaPage() {
                       }
                       placeholder="Opcional"
                       rows={3}
-                      className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                      className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-white/10"
                     />
                   </div>
 
                   <div
                     className={cn(
                       "rounded-2xl p-4",
-                      form.type === "income" ? "bg-emerald-50" : "bg-red-50"
+                      form.type === "income" ? "bg-emerald-500/10" : "bg-red-50"
                     )}
                   >
                     <p
                       className={cn(
                         "text-xs font-black uppercase tracking-wide",
-                        form.type === "income" ? "text-emerald-700" : "text-red-700"
+                        form.type === "income" ? "text-emerald-400" : "text-red-700"
                       )}
                     >
                       Prévia do lançamento
@@ -840,7 +840,7 @@ export default function EntradaSaidaPage() {
                     <p
                       className={cn(
                         "mt-1 text-2xl font-black",
-                        form.type === "income" ? "text-emerald-700" : "text-red-700"
+                        form.type === "income" ? "text-emerald-400" : "text-red-700"
                       )}
                     >
                       {form.type === "income" ? "+" : "-"}
@@ -852,7 +852,7 @@ export default function EntradaSaidaPage() {
                     type="button"
                     onClick={() => void handleSave()}
                     disabled={isSaving}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#050505] px-4 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -871,19 +871,19 @@ export default function EntradaSaidaPage() {
                 icon={<ClipboardList className="h-5 w-5" />}
               >
                 <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
-                    <Search className="h-4 w-4 text-slate-400" />
+                  <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-3">
+                    <Search className="h-4 w-4 text-zinc-500" />
 
                     <input
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Buscar por título, categoria ou forma..."
-                      className="h-11 w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                      className="h-11 w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-zinc-500"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1">
-                    <Filter className="ml-2 h-4 w-4 text-slate-400" />
+                  <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] p-1">
+                    <Filter className="ml-2 h-4 w-4 text-zinc-500" />
 
                     {[
                       { key: "all", label: "Todos" },
@@ -897,8 +897,8 @@ export default function EntradaSaidaPage() {
                         className={cn(
                           "h-9 rounded-lg px-3 text-xs font-black transition",
                           typeFilter === option.key
-                            ? "bg-slate-950 text-white"
-                            : "text-slate-500 hover:text-slate-900"
+                            ? "bg-[#050505] text-white"
+                            : "text-zinc-500 hover:text-white"
                         )}
                       >
                         {option.label}
@@ -908,11 +908,11 @@ export default function EntradaSaidaPage() {
                 </div>
 
                 <div className="mb-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl bg-emerald-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                  <div className="rounded-xl bg-emerald-500/10 p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-400">
                       Entradas filtradas
                     </p>
-                    <p className="mt-1 text-xl font-black text-emerald-700">
+                    <p className="mt-1 text-xl font-black text-emerald-400">
                       {formatCurrency(filteredIncomeTotal)}
                     </p>
                   </div>
@@ -937,7 +937,7 @@ export default function EntradaSaidaPage() {
                       return (
                         <div
                           key={transaction.id}
-                          className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                          className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#111111] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
@@ -945,7 +945,7 @@ export default function EntradaSaidaPage() {
                                 className={cn(
                                   "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black ring-1",
                                   isIncome
-                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                                    ? "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20"
                                     : "bg-red-50 text-red-700 ring-red-100"
                                 )}
                               >
@@ -957,19 +957,19 @@ export default function EntradaSaidaPage() {
                                 {isIncome ? "Entrada" : "Saída"}
                               </span>
 
-                              <p className="font-black text-slate-950">
+                              <p className="font-black text-white">
                                 {transaction.title}
                               </p>
                             </div>
 
-                            <p className="mt-1 text-sm font-medium text-slate-500">
+                            <p className="mt-1 text-sm font-medium text-zinc-500">
                               {transaction.category || "Sem categoria"} •{" "}
                               {getPaymentMethodLabel(transaction.payment_method)} •{" "}
                               {formatDateTime(transaction.occurred_at)}
                             </p>
 
                             {transaction.description && (
-                              <p className="mt-1 text-sm text-slate-500">
+                              <p className="mt-1 text-sm text-zinc-500">
                                 {transaction.description}
                               </p>
                             )}
@@ -978,8 +978,8 @@ export default function EntradaSaidaPage() {
                           <div className="flex shrink-0 items-center gap-2">
                             <p
                               className={cn(
-                                "rounded-full bg-white px-3 py-1.5 text-sm font-black",
-                                isIncome ? "text-emerald-600" : "text-red-600"
+                                "rounded-full bg-[#0A0A0A] px-3 py-1.5 text-sm font-black",
+                                isIncome ? "text-emerald-400" : "text-red-600"
                               )}
                             >
                               {isIncome ? "+" : "-"}
@@ -990,7 +990,7 @@ export default function EntradaSaidaPage() {
                               type="button"
                               onClick={() => void handleDelete(transaction.id)}
                               disabled={deletingId === transaction.id}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
                               aria-label="Remover lançamento"
                             >
                               {deletingId === transaction.id ? (
@@ -1022,15 +1022,15 @@ export default function EntradaSaidaPage() {
                       <div key={item.label}>
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-sm font-black text-slate-800">
+                            <p className="text-sm font-black text-white">
                               {item.label}
                             </p>
-                            <p className="text-xs font-medium text-slate-500">
+                            <p className="text-xs font-medium text-zinc-500">
                               {item.count} lançamento(s)
                             </p>
                           </div>
 
-                          <p className="text-sm font-black text-emerald-600">
+                          <p className="text-sm font-black text-emerald-400">
                             {formatCurrency(item.total)}
                           </p>
                         </div>
@@ -1055,10 +1055,10 @@ export default function EntradaSaidaPage() {
                       <div key={item.label}>
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-sm font-black text-slate-800">
+                            <p className="text-sm font-black text-white">
                               {item.label}
                             </p>
-                            <p className="text-xs font-medium text-slate-500">
+                            <p className="text-xs font-medium text-zinc-500">
                               {item.count} lançamento(s)
                             </p>
                           </div>
@@ -1082,11 +1082,11 @@ export default function EntradaSaidaPage() {
               icon={<CalendarDays className="h-5 w-5" />}
             >
               <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-xl bg-emerald-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                <div className="rounded-xl bg-emerald-500/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-emerald-400">
                     Entradas
                   </p>
-                  <p className="mt-2 text-sm font-semibold leading-5 text-emerald-700">
+                  <p className="mt-2 text-sm font-semibold leading-5 text-emerald-400">
                     Use para registrar dinheiro que entrou fora dos pedidos automáticos,
                     como Pix avulso, reembolso ou recebimento manual.
                   </p>
@@ -1102,11 +1102,11 @@ export default function EntradaSaidaPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-blue-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                <div className="rounded-xl bg-yellow-400/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-yellow-400">
                     Saldo
                   </p>
-                  <p className="mt-2 text-sm font-semibold leading-5 text-blue-700">
+                  <p className="mt-2 text-sm font-semibold leading-5 text-yellow-400">
                     Esse saldo é manual. Ele ajuda no controle do caixa, mas não substitui
                     o relatório financeiro completo.
                   </p>

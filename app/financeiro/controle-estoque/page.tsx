@@ -176,13 +176,13 @@ function MiniStat({
   tone?: "slate" | "green" | "amber" | "red" | "blue"
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-black uppercase tracking-wide text-slate-500">
+          <p className="truncate text-[11px] font-black uppercase tracking-wide text-zinc-500">
             {title}
           </p>
-          <p className="mt-0.5 truncate text-lg font-black text-slate-950">
+          <p className="mt-0.5 truncate text-lg font-black text-white">
             {value}
           </p>
         </div>
@@ -190,11 +190,11 @@ function MiniStat({
         <div
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-            tone === "slate" && "bg-slate-100 text-slate-700",
-            tone === "green" && "bg-emerald-50 text-emerald-700",
-            tone === "amber" && "bg-amber-50 text-amber-700",
+            tone === "slate" && "bg-[#111111] text-zinc-500",
+            tone === "green" && "bg-emerald-500/10 text-emerald-400",
+            tone === "amber" && "bg-yellow-400/10 text-yellow-400",
             tone === "red" && "bg-red-50 text-red-700",
-            tone === "blue" && "bg-blue-50 text-blue-700"
+            tone === "blue" && "bg-yellow-400/10 text-yellow-400"
           )}
         >
           {icon}
@@ -206,7 +206,7 @@ function MiniStat({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+    <div className="rounded-xl border border-dashed border-white/10 bg-[#111111] px-4 py-8 text-center text-sm font-semibold text-zinc-500">
       {message}
     </div>
   )
@@ -775,10 +775,10 @@ export default function ControleEstoquePage() {
       <div className="space-y-3 pb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-black tracking-tight text-slate-950">
+            <h1 className="text-xl font-black tracking-tight text-white">
               Estoque
             </h1>
-            <p className="mt-0.5 text-sm font-medium text-slate-500">
+            <p className="mt-0.5 text-sm font-medium text-zinc-500">
               Controle rápido de itens, categorias, custo, entrada, saída e conferência.
             </p>
           </div>
@@ -787,7 +787,7 @@ export default function ControleEstoquePage() {
             <button
               type="button"
               onClick={openNewItemModal}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-black text-white hover:bg-blue-700"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-3 text-sm font-black text-black hover:bg-yellow-300"
             >
               <PlusCircle className="h-4 w-4" />
               Novo item
@@ -796,7 +796,7 @@ export default function ControleEstoquePage() {
             <button
               type="button"
               onClick={() => setShowCategoryModal(true)}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 hover:bg-[#111111]"
             >
               <Layers3 className="h-4 w-4" />
               Categorias
@@ -805,7 +805,7 @@ export default function ControleEstoquePage() {
             <button
               type="button"
               onClick={() => void loadStockData()}
-              className="col-span-2 inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 sm:col-span-1"
+              className="col-span-2 inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 hover:bg-[#111111] sm:col-span-1"
             >
               <RefreshCcw className="h-4 w-4" />
               Atualizar
@@ -814,8 +814,8 @@ export default function ControleEstoquePage() {
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-slate-200 bg-white">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A]">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando estoque...
             </div>
@@ -854,38 +854,38 @@ export default function ControleEstoquePage() {
               />
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-200 p-3">
+            <section className="rounded-xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+              <div className="border-b border-white/10 p-3">
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex min-w-0 items-center gap-2">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#111111] text-zinc-500">
                       <Package className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <h2 className="text-sm font-black text-slate-950">
+                      <h2 className="text-sm font-black text-white">
                         Lista de estoque
                       </h2>
-                      <p className="truncate text-xs font-semibold text-slate-500">
+                      <p className="truncate text-xs font-semibold text-zinc-500">
                         {filteredItems.length} item(ns) encontrado(s)
                       </p>
                     </div>
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-[1fr_180px_160px] lg:w-[720px]">
-                    <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3">
-                      <Search className="h-4 w-4 text-slate-400" />
+                    <div className="flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3">
+                      <Search className="h-4 w-4 text-zinc-500" />
                       <input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Buscar item ou categoria..."
-                        className="h-full w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                        className="h-full w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-zinc-500"
                       />
                     </div>
 
                     <select
                       value={categoryFilter}
                       onChange={(event) => setCategoryFilter(event.target.value)}
-                      className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-slate-500"
+                      className="h-9 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none focus:border-white/100"
                     >
                       <option value="all">Todas categorias</option>
                       <option value="none">Sem categoria</option>
@@ -899,7 +899,7 @@ export default function ControleEstoquePage() {
                     <select
                       value={filter}
                       onChange={(event) => setFilter(event.target.value as StockFilter)}
-                      className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-slate-500"
+                      className="h-9 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none focus:border-white/100"
                     >
                       <option value="all">Todos status</option>
                       <option value="zero">Zerados</option>
@@ -918,7 +918,7 @@ export default function ControleEstoquePage() {
                     <div className="hidden overflow-x-auto md:block">
                       <table className="w-full min-w-[980px] border-separate border-spacing-y-2">
                         <thead>
-                          <tr className="text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                          <tr className="text-left text-[11px] font-black uppercase tracking-wide text-zinc-500">
                             <th className="px-3 py-1">Item</th>
                             <th className="px-3 py-1">Categoria</th>
                             <th className="px-3 py-1">Saldo</th>
@@ -942,8 +942,8 @@ export default function ControleEstoquePage() {
                               <Fragment key={item.id}>
                                 <tr
                                   className={cn(
-                                    "cursor-pointer bg-white text-sm shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50",
-                                    isSelected && "bg-blue-50 ring-blue-200"
+                                    "cursor-pointer bg-[#0A0A0A] text-sm shadow-sm ring-1 ring-yellow-400/20 transition hover:bg-[#111111]",
+                                    isSelected && "bg-yellow-400/10 ring-yellow-400/20"
                                   )}
                                   onClick={() =>
                                     setSelectedItemId((current) =>
@@ -952,31 +952,31 @@ export default function ControleEstoquePage() {
                                   }
                                 >
                                   <td className="rounded-l-xl px-3 py-3">
-                                    <p className="font-black text-slate-950">{item.name}</p>
-                                    <p className="text-xs font-semibold text-slate-500">
+                                    <p className="font-black text-white">{item.name}</p>
+                                    <p className="text-xs font-semibold text-zinc-500">
                                       Unidade: {getUnitLabel(item.base_unit_type)}
                                     </p>
                                   </td>
 
-                                  <td className="px-3 py-3 font-bold text-slate-700">
+                                  <td className="px-3 py-3 font-bold text-zinc-500">
                                     {categoryName}
                                   </td>
 
                                   <td className="px-3 py-3">
-                                    <p className="font-black text-slate-950">
+                                    <p className="font-black text-white">
                                       {formatNumber(quantity)} {getUnitCompact(item.base_unit_type)}
                                     </p>
                                   </td>
 
-                                  <td className="px-3 py-3 font-bold text-slate-700">
+                                  <td className="px-3 py-3 font-bold text-zinc-500">
                                     {formatNumber(minimum)} {getUnitCompact(item.base_unit_type)}
                                   </td>
 
-                                  <td className="px-3 py-3 font-bold text-slate-700">
+                                  <td className="px-3 py-3 font-bold text-zinc-500">
                                     {formatCurrency(unitCost)} / {getUnitCompact(item.base_unit_type)}
                                   </td>
 
-                                  <td className="px-3 py-3 font-black text-slate-950">
+                                  <td className="px-3 py-3 font-black text-white">
                                     {formatCurrency(quantity * unitCost)}
                                   </td>
 
@@ -985,9 +985,9 @@ export default function ControleEstoquePage() {
                                       className={cn(
                                         "inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1",
                                         status === "ok" &&
-                                          "bg-emerald-50 text-emerald-700 ring-emerald-200",
+                                          "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
                                         status === "low" &&
-                                          "bg-amber-50 text-amber-700 ring-amber-200",
+                                          "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
                                         status === "zero" &&
                                           "bg-red-50 text-red-700 ring-red-200"
                                       )}
@@ -1004,7 +1004,7 @@ export default function ControleEstoquePage() {
                                           event.stopPropagation()
                                           openStockAction(item, "entry")
                                         }}
-                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 text-xs font-black text-emerald-400 hover:bg-emerald-500/15"
                                       >
                                         <Plus className="h-3.5 w-3.5" />
                                         Entrada
@@ -1028,7 +1028,7 @@ export default function ControleEstoquePage() {
                                           event.stopPropagation()
                                           openStockAction(item, "count")
                                         }}
-                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 text-xs font-black text-blue-700 hover:bg-blue-100"
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2 text-xs font-black text-yellow-400 hover:bg-yellow-300/10"
                                       >
                                         <ClipboardCheck className="h-3.5 w-3.5" />
                                         Conferir
@@ -1040,7 +1040,7 @@ export default function ControleEstoquePage() {
                                           event.stopPropagation()
                                           handleEdit(item)
                                         }}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                                         aria-label="Editar item"
                                       >
                                         <Edit3 className="h-3.5 w-3.5" />
@@ -1053,7 +1053,7 @@ export default function ControleEstoquePage() {
                                           void handleDelete(item.id)
                                         }}
                                         disabled={deletingId === item.id}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                                         aria-label="Remover item"
                                       >
                                         {deletingId === item.id ? (
@@ -1069,37 +1069,37 @@ export default function ControleEstoquePage() {
                                 {isSelected && (
                                   <tr>
                                     <td colSpan={8} className="px-1 pb-2">
-                                      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                                      <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3">
                                         <div className="grid gap-2 md:grid-cols-4">
-                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
-                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                          <div className="rounded-lg bg-[#0A0A0A] p-2 ring-1 ring-yellow-400/20">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                               Item
                                             </p>
-                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                            <p className="mt-0.5 text-sm font-black text-white">
                                               {item.name}
                                             </p>
                                           </div>
-                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
-                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                          <div className="rounded-lg bg-[#0A0A0A] p-2 ring-1 ring-yellow-400/20">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                               Categoria
                                             </p>
-                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                            <p className="mt-0.5 text-sm font-black text-white">
                                               {categoryName}
                                             </p>
                                           </div>
-                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
-                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                          <div className="rounded-lg bg-[#0A0A0A] p-2 ring-1 ring-yellow-400/20">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                               Custo base
                                             </p>
-                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                            <p className="mt-0.5 text-sm font-black text-white">
                                               {formatCurrency(unitCost)} / {getUnitCompact(item.base_unit_type)}
                                             </p>
                                           </div>
-                                          <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
-                                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                          <div className="rounded-lg bg-[#0A0A0A] p-2 ring-1 ring-yellow-400/20">
+                                            <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                               Valor parado
                                             </p>
-                                            <p className="mt-0.5 text-sm font-black text-slate-900">
+                                            <p className="mt-0.5 text-sm font-black text-white">
                                               {formatCurrency(quantity * unitCost)}
                                             </p>
                                           </div>
@@ -1128,8 +1128,8 @@ export default function ControleEstoquePage() {
                           <div
                             key={item.id}
                             className={cn(
-                              "rounded-xl border border-slate-200 bg-white p-3 shadow-sm",
-                              isSelected && "border-blue-200 bg-blue-50/50"
+                              "rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm",
+                              isSelected && "border-yellow-400/30 bg-yellow-400/10"
                             )}
                           >
                             <button
@@ -1143,10 +1143,10 @@ export default function ControleEstoquePage() {
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="truncate text-sm font-black text-slate-950">
+                                  <p className="truncate text-sm font-black text-white">
                                     {item.name}
                                   </p>
-                                  <p className="mt-0.5 truncate text-xs font-bold text-slate-500">
+                                  <p className="mt-0.5 truncate text-xs font-bold text-zinc-500">
                                     {categoryName} • {getUnitLabel(item.base_unit_type)}
                                   </p>
                                 </div>
@@ -1155,9 +1155,9 @@ export default function ControleEstoquePage() {
                                   className={cn(
                                     "shrink-0 rounded-full px-2 py-1 text-[11px] font-black ring-1",
                                     status === "ok" &&
-                                      "bg-emerald-50 text-emerald-700 ring-emerald-200",
+                                      "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
                                     status === "low" &&
-                                      "bg-amber-50 text-amber-700 ring-amber-200",
+                                      "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
                                     status === "zero" &&
                                       "bg-red-50 text-red-700 ring-red-200"
                                   )}
@@ -1167,27 +1167,27 @@ export default function ControleEstoquePage() {
                               </div>
 
                               <div className="mt-3 grid grid-cols-3 gap-2">
-                                <div className="rounded-lg bg-slate-50 p-2">
-                                  <p className="text-[10px] font-black uppercase text-slate-500">
+                                <div className="rounded-lg bg-[#111111] p-2">
+                                  <p className="text-[10px] font-black uppercase text-zinc-500">
                                     Atual
                                   </p>
-                                  <p className="text-sm font-black text-slate-950">
+                                  <p className="text-sm font-black text-white">
                                     {formatNumber(quantity)} {getUnitCompact(item.base_unit_type)}
                                   </p>
                                 </div>
-                                <div className="rounded-lg bg-slate-50 p-2">
-                                  <p className="text-[10px] font-black uppercase text-slate-500">
+                                <div className="rounded-lg bg-[#111111] p-2">
+                                  <p className="text-[10px] font-black uppercase text-zinc-500">
                                     Mínimo
                                   </p>
-                                  <p className="text-sm font-black text-slate-950">
+                                  <p className="text-sm font-black text-white">
                                     {formatNumber(minimum)}
                                   </p>
                                 </div>
-                                <div className="rounded-lg bg-slate-50 p-2">
-                                  <p className="text-[10px] font-black uppercase text-slate-500">
+                                <div className="rounded-lg bg-[#111111] p-2">
+                                  <p className="text-[10px] font-black uppercase text-zinc-500">
                                     Valor
                                   </p>
-                                  <p className="text-sm font-black text-slate-950">
+                                  <p className="text-sm font-black text-white">
                                     {formatCurrency(quantity * unitCost)}
                                   </p>
                                 </div>
@@ -1199,7 +1199,7 @@ export default function ControleEstoquePage() {
                                 <button
                                   type="button"
                                   onClick={() => openStockAction(item, "entry")}
-                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-700"
+                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 text-xs font-black text-emerald-400"
                                 >
                                   <Plus className="h-3.5 w-3.5" />
                                   Entrada
@@ -1215,7 +1215,7 @@ export default function ControleEstoquePage() {
                                 <button
                                   type="button"
                                   onClick={() => openStockAction(item, "count")}
-                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 text-xs font-black text-blue-700"
+                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2 text-xs font-black text-yellow-400"
                                 >
                                   <ClipboardCheck className="h-3.5 w-3.5" />
                                   Conferir
@@ -1223,7 +1223,7 @@ export default function ControleEstoquePage() {
                                 <button
                                   type="button"
                                   onClick={() => handleEdit(item)}
-                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-xs font-black text-slate-700"
+                                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-white/10 bg-[#0A0A0A] px-2 text-xs font-black text-zinc-500"
                                 >
                                   <Edit3 className="h-3.5 w-3.5" />
                                   Editar
@@ -1232,7 +1232,7 @@ export default function ControleEstoquePage() {
                                   type="button"
                                   onClick={() => void handleDelete(item.id)}
                                   disabled={deletingId === item.id}
-                                  className="col-span-2 inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-xs font-black text-slate-700 disabled:opacity-60"
+                                  className="col-span-2 inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-white/10 bg-[#0A0A0A] px-2 text-xs font-black text-zinc-500 disabled:opacity-60"
                                 >
                                   {deletingId === item.id ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1255,14 +1255,14 @@ export default function ControleEstoquePage() {
         )}
 
         {showItemModal && (
-          <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 p-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:max-w-3xl sm:rounded-2xl">
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white p-4">
+          <div className="fixed inset-0 z-50 flex items-end bg-[#050505] p-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-[#0A0A0A] shadow-xl sm:max-w-3xl sm:rounded-2xl">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-[#0A0A0A] p-4">
                 <div>
-                  <h2 className="text-base font-black text-slate-950">
+                  <h2 className="text-base font-black text-white">
                     {editingId ? "Editar item" : "Novo item"}
                   </h2>
-                  <p className="text-xs font-semibold text-slate-500">
+                  <p className="text-xs font-semibold text-zinc-500">
                     Cadastro profissional com categoria, unidade, custo e quantidade mínima.
                   </p>
                 </div>
@@ -1270,7 +1270,7 @@ export default function ControleEstoquePage() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                   aria-label="Fechar cadastro"
                 >
                   <X className="h-4 w-4" />
@@ -1279,7 +1279,7 @@ export default function ControleEstoquePage() {
 
               <div className="grid gap-3 p-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     Nome do item
                   </label>
                   <input
@@ -1288,12 +1288,12 @@ export default function ControleEstoquePage() {
                       setForm((current) => ({ ...current, name: event.target.value }))
                     }
                     placeholder="Ex: Picanha, arroz, Coca-Cola lata, embalagem G..."
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     Categoria
                   </label>
                   <div className="mt-1 grid grid-cols-[1fr_auto] gap-2">
@@ -1305,7 +1305,7 @@ export default function ControleEstoquePage() {
                           category_id: event.target.value,
                         }))
                       }
-                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                      className="h-10 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                     >
                       <option value="">Sem categoria</option>
                       {categories.map((category) => (
@@ -1318,7 +1318,7 @@ export default function ControleEstoquePage() {
                     <button
                       type="button"
                       onClick={() => setShowCategoryModal(true)}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 hover:bg-[#111111]"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -1326,7 +1326,7 @@ export default function ControleEstoquePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     Unidade de controle
                   </label>
                   <select
@@ -1337,7 +1337,7 @@ export default function ControleEstoquePage() {
                         base_unit_type: event.target.value as BaseUnitType,
                       }))
                     }
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   >
                     {unitOptions.map((unit) => (
                       <option key={unit.value} value={unit.value}>
@@ -1348,7 +1348,7 @@ export default function ControleEstoquePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     Custo por {getUnitCompact(form.base_unit_type)}
                   </label>
                   <input
@@ -1363,12 +1363,12 @@ export default function ControleEstoquePage() {
                     min="0"
                     step="0.01"
                     placeholder="0,00"
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     Quantidade atual
                   </label>
                   <input
@@ -1383,12 +1383,12 @@ export default function ControleEstoquePage() {
                     min="0"
                     step="0.001"
                     placeholder="0"
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     Estoque mínimo
                   </label>
                   <input
@@ -1403,16 +1403,16 @@ export default function ControleEstoquePage() {
                     min="0"
                     step="0.001"
                     placeholder="0"
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   />
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 p-4 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-2 border-t border-white/10 p-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 hover:bg-[#111111]"
                 >
                   Cancelar
                 </button>
@@ -1421,7 +1421,7 @@ export default function ControleEstoquePage() {
                   type="button"
                   onClick={() => void handleSaveItem()}
                   disabled={isSaving}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 text-sm font-black text-black hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1436,14 +1436,14 @@ export default function ControleEstoquePage() {
         )}
 
         {showCategoryModal && (
-          <div className="fixed inset-0 z-[60] flex items-end bg-slate-950/40 p-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-2xl">
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white p-4">
+          <div className="fixed inset-0 z-[60] flex items-end bg-[#050505] p-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-[#0A0A0A] shadow-xl sm:max-w-lg sm:rounded-2xl">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-[#0A0A0A] p-4">
                 <div>
-                  <h2 className="text-base font-black text-slate-950">
+                  <h2 className="text-base font-black text-white">
                     Categorias de estoque
                   </h2>
-                  <p className="text-xs font-semibold text-slate-500">
+                  <p className="text-xs font-semibold text-zinc-500">
                     Crie grupos como Carnes, Bebidas, Embalagens e Hortifruti.
                   </p>
                 </div>
@@ -1451,7 +1451,7 @@ export default function ControleEstoquePage() {
                 <button
                   type="button"
                   onClick={() => setShowCategoryModal(false)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                   aria-label="Fechar categorias"
                 >
                   <X className="h-4 w-4" />
@@ -1470,14 +1470,14 @@ export default function ControleEstoquePage() {
                       }
                     }}
                     placeholder="Nome da categoria"
-                    className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="h-10 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   />
 
                   <button
                     type="button"
                     onClick={() => void handleCreateCategory()}
                     disabled={isSavingCategory}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#050505] px-4 text-sm font-black text-white hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSavingCategory ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1500,13 +1500,13 @@ export default function ControleEstoquePage() {
                       return (
                         <div
                           key={category.id}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2"
+                          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2"
                         >
                           <div>
-                            <p className="text-sm font-black text-slate-950">
+                            <p className="text-sm font-black text-white">
                               {category.name}
                             </p>
-                            <p className="text-xs font-semibold text-slate-500">
+                            <p className="text-xs font-semibold text-zinc-500">
                               {categoryItemsCount} item(ns)
                             </p>
                           </div>
@@ -1517,7 +1517,7 @@ export default function ControleEstoquePage() {
                               setCategoryFilter(category.id)
                               setShowCategoryModal(false)
                             }}
-                            className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                            className="inline-flex h-8 items-center rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 hover:bg-[#111111]"
                           >
                             Filtrar
                           </button>
@@ -1532,14 +1532,14 @@ export default function ControleEstoquePage() {
         )}
 
         {activeAction && activeActionItem && (
-          <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/40 p-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="w-full rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-2xl">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+          <div className="fixed inset-0 z-[70] flex items-end bg-[#050505] p-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="w-full rounded-t-2xl bg-[#0A0A0A] shadow-xl sm:max-w-lg sm:rounded-2xl">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4">
                 <div>
-                  <h2 className="text-base font-black text-slate-950">
+                  <h2 className="text-base font-black text-white">
                     {getActionLabel(activeAction.type)} de estoque
                   </h2>
-                  <p className="text-xs font-semibold text-slate-500">
+                  <p className="text-xs font-semibold text-zinc-500">
                     {activeActionItem.name} • saldo atual:{" "}
                     {formatNumber(Number(activeActionItem.current_quantity || 0))}{" "}
                     {getUnitCompact(activeActionItem.base_unit_type)}
@@ -1549,7 +1549,7 @@ export default function ControleEstoquePage() {
                 <button
                   type="button"
                   onClick={() => setActiveAction(null)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                   aria-label="Fechar movimentação"
                 >
                   <X className="h-4 w-4" />
@@ -1558,7 +1558,7 @@ export default function ControleEstoquePage() {
 
               <div className="space-y-3 p-4">
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     {activeAction.type === "count"
                       ? "Quantidade contada"
                       : `Quantidade em ${getUnitCompact(activeActionItem.base_unit_type)}`}
@@ -1579,12 +1579,12 @@ export default function ControleEstoquePage() {
                     min={activeAction.type === "count" ? "0" : "0.001"}
                     step="0.001"
                     placeholder="0"
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                     Observação opcional
                   </label>
                   <input
@@ -1600,16 +1600,16 @@ export default function ControleEstoquePage() {
                       )
                     }
                     placeholder="Ex: compra, perda, consumo interno, ajuste..."
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                    className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                   />
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 p-4 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-2 border-t border-white/10 p-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setActiveAction(null)}
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 hover:bg-[#111111]"
                 >
                   Cancelar
                 </button>
@@ -1618,7 +1618,7 @@ export default function ControleEstoquePage() {
                   type="button"
                   onClick={() => void handleStockAction()}
                   disabled={isMovingStock}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 text-sm font-black text-black hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isMovingStock ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

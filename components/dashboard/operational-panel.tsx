@@ -19,27 +19,27 @@ export default function OperationalPanel({ data }: { data: OperationalData }) {
 
       {/* Counters */}
       <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
-          <Hourglass className="h-5 w-5 mx-auto text-amber-600" />
-          <p className="mt-2 text-2xl font-bold text-amber-800">{data.pendentes}</p>
-          <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide">Pendentes</p>
+        <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-4 text-center">
+          <Hourglass className="h-5 w-5 mx-auto text-yellow-400" />
+          <p className="mt-2 text-2xl font-bold text-yellow-400">{data.pendentes}</p>
+          <p className="text-[10px] font-semibold text-yellow-400 uppercase tracking-wide">Pendentes</p>
         </div>
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
-          <ChefHat className="h-5 w-5 mx-auto text-blue-600" />
-          <p className="mt-2 text-2xl font-bold text-blue-800">{data.preparando}</p>
-          <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wide">Preparando</p>
+        <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-4 text-center">
+          <ChefHat className="h-5 w-5 mx-auto text-yellow-400" />
+          <p className="mt-2 text-2xl font-bold text-yellow-400">{data.preparando}</p>
+          <p className="text-[10px] font-semibold text-yellow-400 uppercase tracking-wide">Preparando</p>
         </div>
         <div className={cn(
           "rounded-lg border p-4 text-center",
-          tempoMelhorou ? "border-emerald-200 bg-emerald-50" : "border-border bg-muted/30"
+          tempoMelhorou ? "border-emerald-400/30 bg-emerald-500/10" : "border-border bg-muted/30"
         )}>
-          <Clock className={cn("h-5 w-5 mx-auto", tempoMelhorou ? "text-emerald-600" : "text-muted-foreground")} />
-          <p className={cn("mt-2 text-2xl font-bold", tempoMelhorou ? "text-emerald-800" : "text-card-foreground")}>
+          <Clock className={cn("h-5 w-5 mx-auto", tempoMelhorou ? "text-emerald-400" : "text-muted-foreground")} />
+          <p className={cn("mt-2 text-2xl font-bold", tempoMelhorou ? "text-emerald-400" : "text-card-foreground")}>
             {data.tempoMedioMin}min
           </p>
           <div className="flex items-center justify-center gap-1">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tempo Medio</p>
-            {tempoMelhorou && <TrendingDown className="h-3 w-3 text-emerald-600" />}
+            {tempoMelhorou && <TrendingDown className="h-3 w-3 text-emerald-400" />}
           </div>
         </div>
       </div>

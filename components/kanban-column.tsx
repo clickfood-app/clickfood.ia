@@ -40,7 +40,7 @@ function KanbanColumnComponent({
         <h2 className="text-sm font-bold text-white uppercase tracking-wide">
           {title}
         </h2>
-        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white/20 px-2 text-xs font-bold text-white tabular-nums">
+        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#0A0A0A] px-2 text-xs font-bold text-white tabular-nums">
           {count}
         </span>
       </div>

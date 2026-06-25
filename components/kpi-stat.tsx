@@ -25,7 +25,7 @@ export default function KPIStat({ label, value, change, icon }: KPIStatProps) {
           className={cn(
             "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
             isPositive
-              ? "bg-green-50 text-green-600"
+              ? "bg-emerald-500/10 text-emerald-400"
               : "bg-red-50 text-red-600"
           )}
         >

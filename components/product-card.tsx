@@ -202,14 +202,14 @@ export default function ProductCard({
               </h3>
 
               {indicator === "best-seller" && (
-                <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                <span className="flex items-center gap-1 rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-medium text-yellow-400">
                   <Flame className="h-3 w-3" />
                   Mais vendido
                 </span>
               )}
 
               {indicator === "low-margin" && (
-                <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                <span className="flex items-center gap-1 rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-medium text-yellow-400">
                   <AlertTriangle className="h-3 w-3" />
                   Margem baixa
                 </span>
@@ -223,7 +223,7 @@ export default function ProductCard({
               )}
 
               {product.promotionActive && (
-                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700">
+                <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-bold text-yellow-400">
                   Promoção
                 </span>
               )}
@@ -245,7 +245,7 @@ export default function ProductCard({
             >
               <span
                 className={cn(
-                  "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200",
+                  "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-[#0A0A0A] shadow transition-transform duration-200",
                   product.active && "translate-x-5"
                 )}
               />
@@ -324,7 +324,7 @@ export default function ProductCard({
                 className={cn(
                   "rounded-full px-2 py-1 text-[11px] font-bold",
                   product.promotionActive
-                    ? "bg-orange-100 text-orange-700"
+                    ? "bg-yellow-400/10 text-yellow-400"
                     : "bg-muted text-muted-foreground"
                 )}
               >
@@ -346,7 +346,7 @@ export default function ProductCard({
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   Desconto
                 </span>
-                <p className="text-sm font-bold text-orange-600">
+                <p className="text-sm font-bold text-yellow-400">
                   {formatCurrency(promotionDiscount)}
                 </p>
               </div>
@@ -355,7 +355,7 @@ export default function ProductCard({
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   Lucro
                 </span>
-                <p className={cn("text-sm font-bold", profit > 0 ? "text-emerald-600" : "text-destructive")}>
+                <p className={cn("text-sm font-bold", profit > 0 ? "text-emerald-400" : "text-destructive")}>
                   {formatCurrency(profit)}
                 </p>
                 {product.promotionActive && (
@@ -369,7 +369,7 @@ export default function ProductCard({
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   Margem
                 </span>
-                <p className={cn("text-sm font-bold", margin >= 20 ? "text-emerald-600" : "text-amber-600")}>
+                <p className={cn("text-sm font-bold", margin >= 20 ? "text-emerald-400" : "text-yellow-400")}>
                   {margin.toFixed(1)}%
                 </p>
                 {product.promotionActive && (
@@ -412,7 +412,7 @@ export default function ProductCard({
 
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-muted-foreground">Lucro estimado:</span>
-                  <span className={cn("font-bold", simProfit > 0 ? "text-emerald-600" : "text-destructive")}>
+                  <span className={cn("font-bold", simProfit > 0 ? "text-emerald-400" : "text-destructive")}>
                     {formatCurrency(simProfit)}
                   </span>
                   <span className="text-xs text-muted-foreground">({simMargin.toFixed(1)}%)</span>

@@ -11,24 +11,24 @@ interface TopSuppliersPanelProps {
 
 const MEDAL_STYLES = [
   {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    badge: "bg-amber-500 text-white",
-    barColor: "bg-amber-400",
+    bg: "bg-yellow-400/10",
+    border: "border-yellow-400/30",
+    badge: "bg-yellow-400 text-black",
+    barColor: "bg-yellow-400",
     label: "1o",
   },
   {
-    bg: "bg-slate-50",
-    border: "border-slate-200",
-    badge: "bg-slate-400 text-white",
-    barColor: "bg-slate-300",
+    bg: "bg-[#111111]",
+    border: "border-white/10",
+    badge: "bg-yellow-400 text-black",
+    barColor: "bg-[#111111]",
     label: "2o",
   },
   {
-    bg: "bg-orange-50",
-    border: "border-orange-200",
-    badge: "bg-orange-400 text-white",
-    barColor: "bg-orange-300",
+    bg: "bg-yellow-400/10",
+    border: "border-yellow-400/30",
+    badge: "bg-yellow-400 text-black",
+    barColor: "bg-yellow-400/10",
     label: "3o",
   },
 ]
@@ -64,7 +64,7 @@ for (const expense of expenses) {
     <div className="rounded-xl border border-border bg-card">
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-border px-6 py-4">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
           <Trophy className="h-4 w-4" />
         </span>
         <div>
@@ -132,7 +132,7 @@ for (const expense of expenses) {
                   </div>
 
                   {/* Progress bar */}
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-black/5">
+                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#111111]">
                     <div
                       className={cn("h-full rounded-full transition-all duration-500", style.barColor)}
                       style={{ width: `${barWidth}%` }}

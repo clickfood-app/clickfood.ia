@@ -66,7 +66,7 @@ export default function OrderStatusSelect({
         value={status}
         onChange={handleChangeStatus}
         disabled={loading}
-        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-70"
+        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-70"
       >
         <option value="pending">Pendente</option>
         <option value="em_preparo">Em preparo</option>
@@ -76,7 +76,7 @@ export default function OrderStatusSelect({
         <option value="cancelado">Cancelado</option>
       </select>
 
-      {message && <p className="text-xs text-slate-500">{message}</p>}
+      {message && <p className="text-xs text-zinc-500">{message}</p>}
     </div>
   )
 }

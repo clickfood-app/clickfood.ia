@@ -124,14 +124,14 @@ export function RobotWhatsappToggleCard() {
   const autoReplyEnabled = settings?.auto_reply_enabled === true
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-3">
           <div
             className={`flex h-11 w-11 items-center justify-center rounded-xl ${
               isEnabled
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-slate-100 text-slate-600"
+                ? "bg-emerald-500/10 text-emerald-400"
+                : "bg-[#111111] text-zinc-500"
             }`}
           >
             <Bot className="h-5 w-5" />
@@ -139,46 +139,46 @@ export function RobotWhatsappToggleCard() {
 
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-slate-900">
+              <h3 className="text-base font-semibold text-white">
                 Robô WhatsApp
               </h3>
 
               <span
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                   isEnabled
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-slate-100 text-slate-600"
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "bg-[#111111] text-zinc-500"
                 }`}
               >
                 {isEnabled ? "Ativado" : "Desativado"}
               </span>
             </div>
 
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            <p className="mt-1 max-w-2xl text-sm text-zinc-500">
               Controle se a IA do WhatsApp pode responder automaticamente os
               clientes e direcionar para o cardápio oficial.
             </p>
 
-            <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 text-sm text-zinc-500 sm:grid-cols-2">
               <div>
-                <span className="font-medium text-slate-800">Provedor:</span>{" "}
+                <span className="font-medium text-white">Provedor:</span>{" "}
                 {settings?.provider || "WAHA"}
               </div>
 
               <div>
-                <span className="font-medium text-slate-800">Sessão:</span>{" "}
+                <span className="font-medium text-white">Sessão:</span>{" "}
                 {settings?.session_name || "default"}
               </div>
 
               <div>
-                <span className="font-medium text-slate-800">
+                <span className="font-medium text-white">
                   Resposta automática:
                 </span>{" "}
                 {autoReplyEnabled ? "Ligada" : "Desligada"}
               </div>
 
               <div>
-                <span className="font-medium text-slate-800">Número:</span>{" "}
+                <span className="font-medium text-white">Número:</span>{" "}
                 {settings?.phone_number || "Não informado"}
               </div>
             </div>
@@ -215,7 +215,7 @@ export function RobotWhatsappToggleCard() {
             type="button"
             onClick={loadSettings}
             disabled={loading || saving}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar status
@@ -224,7 +224,7 @@ export function RobotWhatsappToggleCard() {
       </div>
 
       {loading && (
-        <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <div className="mt-4 rounded-xl bg-[#111111] px-4 py-3 text-sm text-zinc-500">
           Carregando configurações do robô...
         </div>
       )}

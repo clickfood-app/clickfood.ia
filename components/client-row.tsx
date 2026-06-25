@@ -45,7 +45,7 @@ export default function ClientRow({ client, onClick }: ClientRowProps) {
                 {client.name}
               </p>
               {client.isFavorite && (
-                <Star className="h-3.5 w-3.5 flex-shrink-0 fill-amber-400 text-amber-400" />
+                <Star className="h-3.5 w-3.5 flex-shrink-0 fill-yellow-400 text-yellow-400" />
               )}
               {client.isBlocked && (
                 <Ban className="h-3.5 w-3.5 flex-shrink-0 text-destructive" />
@@ -53,7 +53,7 @@ export default function ClientRow({ client, onClick }: ClientRowProps) {
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               {recurrent && (
-                <Badge variant="secondary" className="h-5 gap-0.5 px-1.5 text-[10px] bg-blue-100 text-blue-700">
+                <Badge variant="secondary" className="h-5 gap-0.5 px-1.5 text-[10px] bg-yellow-400/10 text-yellow-400">
                   <RefreshCw className="h-2.5 w-2.5" />
                   Fiel
                 </Badge>
@@ -101,7 +101,7 @@ export default function ClientRow({ client, onClick }: ClientRowProps) {
           variant="secondary"
           className={
             client.status === "ativo"
-              ? "bg-blue-100 text-blue-700"
+              ? "bg-yellow-400/10 text-yellow-400"
               : "bg-muted text-muted-foreground"
           }
         >

@@ -312,7 +312,7 @@ export default function CouponCreateModal({
 
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+            className="rounded-full p-2 text-white/70 transition hover:bg-[#0A0A0A] hover:text-white"
           >
             <X className="h-5 w-5" />
           </button>
@@ -338,12 +338,12 @@ export default function CouponCreateModal({
                         className={cn(
                           "rounded-2xl border p-4 text-left transition",
                           active
-                            ? "border-violet-400 bg-violet-500/15"
-                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                            ? "border-yellow-400/30 bg-yellow-400/15"
+                            : "border-white/10 bg-[#0A0A0A] hover:bg-[#0A0A0A]"
                         )}
                       >
                         <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                          <span className="text-violet-300">{option.icon}</span>
+                          <span className="text-yellow-400">{option.icon}</span>
                           <span>{option.label}</span>
                         </div>
                         <p className="text-sm text-white/60">{option.desc}</p>
@@ -360,7 +360,7 @@ export default function CouponCreateModal({
                     value={form.title}
                     onChange={(e) => setField("title", e.target.value)}
                     placeholder="Ex: 10% OFF no primeiro pedido"
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                    className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                   />
                 </div>
 
@@ -371,7 +371,7 @@ export default function CouponCreateModal({
                       value={form.code}
                       onChange={(e) => setField("code", e.target.value.toUpperCase())}
                       placeholder="Ex: BEMVINDO10"
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 uppercase outline-none transition focus:border-violet-400"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 uppercase outline-none transition focus:border-yellow-400/30"
                     />
                   </div>
                 )}
@@ -383,7 +383,7 @@ export default function CouponCreateModal({
                     onChange={(e) => setField("description", e.target.value)}
                     rows={3}
                     placeholder="Descreva a campanha ou a condição do cupom"
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                    className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                   />
                 </div>
               </section>
@@ -408,11 +408,11 @@ export default function CouponCreateModal({
                             className={cn(
                               "flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition",
                               active
-                                ? "border-violet-400 bg-violet-500/15"
-                                : "border-white/10 bg-white/5 hover:bg-white/10"
+                                ? "border-yellow-400/30 bg-yellow-400/15"
+                                : "border-white/10 bg-[#0A0A0A] hover:bg-[#0A0A0A]"
                             )}
                           >
-                            <span className="text-violet-300">{option.icon}</span>
+                            <span className="text-yellow-400">{option.icon}</span>
                             {option.label}
                           </button>
                         )
@@ -428,7 +428,7 @@ export default function CouponCreateModal({
                       type="number"
                       value={form.discountValue}
                       onChange={(e) => setField("discountValue", toNumber(e.target.value))}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                     />
                   </div>
 
@@ -438,7 +438,7 @@ export default function CouponCreateModal({
                       type="number"
                       value={form.minOrderValue}
                       onChange={(e) => setField("minOrderValue", toNumber(e.target.value))}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                     />
                   </div>
 
@@ -448,7 +448,7 @@ export default function CouponCreateModal({
                       type="number"
                       value={form.maxDiscountValue}
                       onChange={(e) => setField("maxDiscountValue", toNumber(e.target.value))}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                     />
                   </div>
 
@@ -458,7 +458,7 @@ export default function CouponCreateModal({
                       type="number"
                       value={form.usageLimit}
                       onChange={(e) => setField("usageLimit", toNumber(e.target.value))}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                     />
                   </div>
 
@@ -468,7 +468,7 @@ export default function CouponCreateModal({
                       type="datetime-local"
                       value={form.startsAt}
                       onChange={(e) => setField("startsAt", e.target.value)}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                     />
                   </div>
 
@@ -478,14 +478,14 @@ export default function CouponCreateModal({
                       type="datetime-local"
                       value={form.expiresAt}
                       onChange={(e) => setField("expiresAt", e.target.value)}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                     />
                   </div>
                 </div>
               </section>
 
               {form.type === "automatico" && (
-                <section className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5">
+                <section className="space-y-4 rounded-3xl border border-white/10 bg-[#0A0A0A] p-5">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
                     Regra automática
                   </h3>
@@ -496,7 +496,7 @@ export default function CouponCreateModal({
                       <select
                         value={form.autoTrigger}
                         onChange={(e) => setField("autoTrigger", e.target.value as AutoTrigger)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                       >
                         {Object.entries(autoTriggerLabels).map(([value, label]) => (
                           <option key={value} value={value}>
@@ -513,7 +513,7 @@ export default function CouponCreateModal({
                         value={form.triggerValue ?? 0}
                         onChange={(e) => setField("triggerValue", toNumber(e.target.value))}
                         placeholder="Ex: 30 dias ou R$ 80"
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                       />
                     </div>
                   </div>
@@ -521,7 +521,7 @@ export default function CouponCreateModal({
               )}
 
               {form.type === "relampago" && (
-                <section className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5">
+                <section className="space-y-4 rounded-3xl border border-white/10 bg-[#0A0A0A] p-5">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
                     Configuração relâmpago
                   </h3>
@@ -533,7 +533,7 @@ export default function CouponCreateModal({
                         type="number"
                         value={form.durationHours ?? 0}
                         onChange={(e) => setField("durationHours", toNumber(e.target.value))}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                       />
                     </div>
                   </div>
@@ -541,7 +541,7 @@ export default function CouponCreateModal({
               )}
 
               {form.type === "campanha" && (
-                <section className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5">
+                <section className="space-y-4 rounded-3xl border border-white/10 bg-[#0A0A0A] p-5">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
                     Configuração da campanha
                   </h3>
@@ -557,7 +557,7 @@ export default function CouponCreateModal({
 
             <div className="space-y-6">
               {form.type === "exclusivo" && (
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5">
                   <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/70">
                     Público exclusivo
                   </h3>
@@ -570,7 +570,7 @@ export default function CouponCreateModal({
                         onChange={(e) =>
                           setField("exclusiveReason", e.target.value as ExclusiveReason)
                         }
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-violet-400"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 outline-none transition focus:border-yellow-400/30"
                       >
                         {Object.entries(exclusiveReasonLabels).map(([value, label]) => (
                           <option key={value} value={value}>
@@ -594,11 +594,11 @@ export default function CouponCreateModal({
                               className={cn(
                                 "flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm transition",
                                 active
-                                  ? "border-violet-400 bg-violet-500/15"
-                                  : "border-white/10 bg-white/5 hover:bg-white/10"
+                                  ? "border-yellow-400/30 bg-yellow-400/15"
+                                  : "border-white/10 bg-[#0A0A0A] hover:bg-[#0A0A0A]"
                               )}
                             >
-                              <span className="text-violet-300">{item.icon}</span>
+                              <span className="text-yellow-400">{item.icon}</span>
                               {item.label}
                             </button>
                           )
@@ -615,7 +615,7 @@ export default function CouponCreateModal({
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
                           placeholder="Buscar por nome, email ou telefone"
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 outline-none transition focus:border-violet-400"
+                          className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] py-3 pl-11 pr-4 outline-none transition focus:border-yellow-400/30"
                         />
                       </div>
 
@@ -631,8 +631,8 @@ export default function CouponCreateModal({
                               className={cn(
                                 "w-full rounded-2xl border p-3 text-left transition",
                                 selected
-                                  ? "border-violet-400 bg-violet-500/15"
-                                  : "border-white/10 bg-white/5 hover:bg-white/10"
+                                  ? "border-yellow-400/30 bg-yellow-400/15"
+                                  : "border-white/10 bg-[#0A0A0A] hover:bg-[#0A0A0A]"
                               )}
                             >
                               <div className="flex items-start justify-between gap-3">
@@ -647,7 +647,7 @@ export default function CouponCreateModal({
                                   className={cn(
                                     "h-5 w-5 rounded-full border",
                                     selected
-                                      ? "border-violet-400 bg-violet-400"
+                                      ? "border-yellow-400/30 bg-yellow-400/15"
                                       : "border-white/20"
                                   )}
                                 />
@@ -665,7 +665,7 @@ export default function CouponCreateModal({
                 </section>
               )}
 
-              <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5">
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/70">
                   Resumo
                 </h3>
@@ -715,7 +715,7 @@ export default function CouponCreateModal({
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5">
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/70">
                   Status ao salvar
                 </h3>
@@ -732,8 +732,8 @@ export default function CouponCreateModal({
                         className={cn(
                           "rounded-2xl border px-4 py-3 text-left text-sm transition",
                           active
-                            ? "border-violet-400 bg-violet-500/15"
-                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                            ? "border-yellow-400/30 bg-yellow-400/15"
+                            : "border-white/10 bg-[#0A0A0A] hover:bg-[#0A0A0A]"
                         )}
                       >
                         {status === "ativo" ? "Ativo ao salvar" : "Salvar pausado"}
@@ -750,7 +750,7 @@ export default function CouponCreateModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+            className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-white/70 transition hover:bg-[#0A0A0A] hover:text-white"
           >
             Cancelar
           </button>
@@ -759,7 +759,7 @@ export default function CouponCreateModal({
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-semibold text-white transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? "Salvando..." : "Salvar cupom"}
           </button>

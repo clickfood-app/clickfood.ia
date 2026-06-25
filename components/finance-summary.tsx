@@ -29,8 +29,8 @@ export default function FinanceSummary({
       label: "Total de Entradas",
       value: formatBRL(totalIncome),
       icon: <ArrowUpRight className="h-5 w-5" />,
-      iconBg: "bg-green-100 text-green-600",
-      accent: "text-green-600",
+      iconBg: "bg-emerald-500/10 text-emerald-400",
+      accent: "text-emerald-400",
     },
     {
       label: "Total de Saídas",
@@ -44,9 +44,9 @@ export default function FinanceSummary({
       value: formatBRL(balance),
       icon: <Wallet className="h-5 w-5" />,
       iconBg: isPositive
-        ? "bg-green-100 text-green-600"
+        ? "bg-emerald-500/10 text-emerald-400"
         : "bg-red-100 text-red-600",
-      accent: isPositive ? "text-green-600" : "text-red-600",
+      accent: isPositive ? "text-emerald-400" : "text-red-600",
     },
     {
       label: isPositive ? "Lucro" : "Prejuízo",
@@ -57,9 +57,9 @@ export default function FinanceSummary({
         <TrendingDown className="h-5 w-5" />
       ),
       iconBg: isPositive
-        ? "bg-green-100 text-green-600"
+        ? "bg-emerald-500/10 text-emerald-400"
         : "bg-red-100 text-red-600",
-      accent: isPositive ? "text-green-600" : "text-red-600",
+      accent: isPositive ? "text-emerald-400" : "text-red-600",
     },
   ]
 

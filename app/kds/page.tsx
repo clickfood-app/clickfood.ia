@@ -116,7 +116,7 @@ const finishedStatuses = new Set([
 ])
 
 const scrollbarClassName =
-  "[scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,.75)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300"
+  "[scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,.75)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#111111]"
 
 function toNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return 0
@@ -445,22 +445,22 @@ function KitchenOrderCard({
   return (
     <article
       className={cn(
-        "rounded-lg border bg-white shadow-sm",
+        "rounded-lg border bg-[#0A0A0A] shadow-sm",
         isLate && mode === "preparing"
           ? "border-red-300 ring-2 ring-red-100"
-          : "border-slate-200",
+          : "border-white/10",
       )}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3 py-2.5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {typeof index === "number" ? (
-              <span className="rounded bg-slate-950 px-2 py-1 text-[11px] font-black text-white">
+              <span className="rounded bg-[#050505] px-2 py-1 text-[11px] font-black text-white">
                 {String(index + 1).padStart(2, "0")}
               </span>
             ) : null}
 
-            <h3 className="truncate text-lg font-black leading-none text-slate-950">
+            <h3 className="truncate text-lg font-black leading-none text-white">
               {getOrderNumber(order)}
             </h3>
 
@@ -468,7 +468,7 @@ function KitchenOrderCard({
               className={cn(
                 "rounded-full px-2 py-0.5 text-[10px] font-black",
                 mode === "preparing"
-                  ? "bg-orange-500 text-white"
+                  ? "bg-yellow-400 text-black"
                   : "bg-emerald-500 text-white",
               )}
             >
@@ -476,11 +476,11 @@ function KitchenOrderCard({
             </span>
           </div>
 
-          <p className="mt-1 text-xs font-black text-slate-800">
+          <p className="mt-1 text-xs font-black text-white">
             {getCustomerLine(order)}
           </p>
 
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-slate-500">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-zinc-500">
             {orderTime ? <span>Entrada: {orderTime}</span> : null}
             {order.guest_count ? <span>{toNumber(order.guest_count)} pessoa(s)</span> : null}
             <span>{formatMoney(order.total)}</span>
@@ -493,8 +493,8 @@ function KitchenOrderCard({
             isLate && mode === "preparing"
               ? "bg-red-100 text-red-700"
               : mode === "preparing"
-                ? "bg-orange-100 text-orange-700"
-                : "bg-emerald-100 text-emerald-700",
+                ? "bg-yellow-400/10 text-yellow-400"
+                : "bg-emerald-500/10 text-emerald-400",
           )}
         >
           {mode === "ready" ? (
@@ -508,7 +508,7 @@ function KitchenOrderCard({
 
       <div className="space-y-2 px-3 py-2.5">
         {order.notes ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs font-black text-amber-800">
+          <div className="rounded-md border border-yellow-400/30 bg-yellow-400/10 px-2 py-1.5 text-xs font-black text-yellow-400">
             <div className="flex gap-1.5">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
               <p>Obs pedido: {order.notes}</p>
@@ -525,15 +525,15 @@ function KitchenOrderCard({
               return (
                 <div
                   key={`${item.id}-${itemIndex}`}
-                  className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2"
+                  className="rounded-md border border-white/10 bg-[#111111] px-2 py-2"
                 >
                   <div className="grid grid-cols-[38px_minmax(0,1fr)] gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded bg-slate-950 text-sm font-black text-white">
+                    <div className="flex h-8 w-8 items-center justify-center rounded bg-[#050505] text-sm font-black text-white">
                       {quantity}x
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-sm font-black leading-snug text-slate-950">
+                      <p className="text-sm font-black leading-snug text-white">
                         {details.name}
                       </p>
 
@@ -542,7 +542,7 @@ function KitchenOrderCard({
                           {details.modifiers.map((modifier, modifierIndex) => (
                             <span
                               key={`${modifier}-${modifierIndex}`}
-                              className="rounded bg-white px-1.5 py-0.5 text-[11px] font-bold text-slate-700 ring-1 ring-slate-200"
+                              className="rounded bg-[#0A0A0A] px-1.5 py-0.5 text-[11px] font-bold text-zinc-500 ring-1 ring-yellow-400/20"
                             >
                               + {modifier}
                             </span>
@@ -551,7 +551,7 @@ function KitchenOrderCard({
                       ) : null}
 
                       {details.observation ? (
-                        <p className="mt-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-black text-amber-800">
+                        <p className="mt-1 rounded bg-yellow-400/10 px-1.5 py-0.5 text-[11px] font-black text-yellow-400">
                           Obs item: {details.observation}
                         </p>
                       ) : null}
@@ -568,8 +568,8 @@ function KitchenOrderCard({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
-        <span className="text-[11px] font-black text-slate-500">
+      <div className="flex items-center justify-between gap-2 border-t border-white/10 px-3 py-2">
+        <span className="text-[11px] font-black text-zinc-500">
           {order.items.length} item(ns)
         </span>
 
@@ -578,7 +578,7 @@ function KitchenOrderCard({
             type="button"
             onClick={() => onUpdateStatus(order, "ready")}
             disabled={isUpdating}
-            className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-orange-500 px-3 text-xs font-black text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:bg-yellow-400/10"
           >
             {isUpdating ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -592,7 +592,7 @@ function KitchenOrderCard({
             type="button"
             onClick={() => onUpdateStatus(order, "preparing")}
             disabled={isUpdating}
-            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-emerald-300 bg-white px-3 text-xs font-black text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-emerald-400/30 bg-[#0A0A0A] px-3 text-xs font-black text-emerald-400 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isUpdating ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -839,21 +839,21 @@ export default function KdsPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-100 px-3 py-3 text-slate-950 sm:px-4">
+      <div className="min-h-screen bg-[#111111] px-3 py-3 text-white sm:px-4">
         <div className="mx-auto flex max-w-[1700px] flex-col gap-3">
-          <header className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <header className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500 text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-black">
                   <ChefHat className="h-5 w-5" />
                 </div>
 
                 <div className="min-w-0">
-                  <h1 className="text-xl font-black tracking-tight text-slate-950">
+                  <h1 className="text-xl font-black tracking-tight text-white">
                     KDS - Cozinha
                   </h1>
 
-                  <p className="truncate text-xs font-bold text-slate-500">
+                  <p className="truncate text-xs font-bold text-zinc-500">
                     {restaurant?.name || "Restaurante"} • fila da cozinha
                   </p>
                 </div>
@@ -861,29 +861,29 @@ export default function KdsPage() {
 
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                 <div className="grid grid-cols-4 gap-2">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <p className="text-[10px] font-black uppercase text-slate-500">
+                  <div className="rounded-lg border border-white/10 bg-[#111111] px-3 py-2">
+                    <p className="text-[10px] font-black uppercase text-zinc-500">
                       Total
                     </p>
-                    <p className="text-lg font-black leading-none text-slate-950">
+                    <p className="text-lg font-black leading-none text-white">
                       {summary.total}
                     </p>
                   </div>
 
-                  <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2">
-                    <p className="text-[10px] font-black uppercase text-orange-600">
+                  <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2">
+                    <p className="text-[10px] font-black uppercase text-yellow-400">
                       Preparo
                     </p>
-                    <p className="text-lg font-black leading-none text-orange-600">
+                    <p className="text-lg font-black leading-none text-yellow-400">
                       {summary.preparing}
                     </p>
                   </div>
 
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                    <p className="text-[10px] font-black uppercase text-emerald-600">
+                  <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+                    <p className="text-[10px] font-black uppercase text-emerald-400">
                       Prontos
                     </p>
-                    <p className="text-lg font-black leading-none text-emerald-600">
+                    <p className="text-lg font-black leading-none text-emerald-400">
                       {summary.ready}
                     </p>
                   </div>
@@ -900,12 +900,12 @@ export default function KdsPage() {
 
                 <div className="flex gap-2">
                   <div className="relative min-w-0 flex-1 lg:w-80">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                     <input
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder="Buscar pedido, mesa, garçom ou item..."
-                      className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-400/10"
+                      className="h-10 w-full rounded-lg border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                     />
                   </div>
 
@@ -913,7 +913,7 @@ export default function KdsPage() {
                     type="button"
                     onClick={() => loadData(true)}
                     disabled={refreshing}
-                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {refreshing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -934,32 +934,32 @@ export default function KdsPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex flex-col items-center gap-3 text-slate-500">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+              <div className="flex flex-col items-center gap-3 text-zinc-500">
+                <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
                 <p className="text-sm font-bold">Carregando KDS...</p>
               </div>
             </div>
           ) : (
             <div className="grid min-h-0 gap-3 lg:grid-cols-2">
-              <section className="flex h-[calc(100vh-185px)] min-h-[470px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex shrink-0 items-center justify-between border-b border-orange-100 bg-orange-50 px-3 py-2.5">
+              <section className="flex h-[calc(100vh-185px)] min-h-[470px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                <div className="flex shrink-0 items-center justify-between border-b border-yellow-400/30 bg-yellow-400/10 px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400 text-black">
                       <ChefHat className="h-4 w-4" />
                     </div>
 
                     <div>
-                      <h2 className="text-base font-black text-orange-700">
+                      <h2 className="text-base font-black text-yellow-400">
                         Em preparo
                       </h2>
-                      <p className="text-[11px] font-bold text-orange-600/80">
+                      <p className="text-[11px] font-bold text-yellow-400">
                         Ordem de chegada.
                       </p>
                     </div>
                   </div>
 
-                  <span className="rounded-full bg-orange-500 px-2.5 py-1 text-xs font-black text-white">
+                  <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-xs font-black text-black">
                     {groupedOrders.preparing.length}
                   </span>
                 </div>
@@ -982,12 +982,12 @@ export default function KdsPage() {
                       />
                     ))
                   ) : (
-                    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                      <Clock3 className="mx-auto h-8 w-8 text-slate-400" />
-                      <p className="mt-3 text-sm font-black text-slate-600">
+                    <div className="rounded-lg border border-dashed border-white/10 bg-[#111111] p-6 text-center">
+                      <Clock3 className="mx-auto h-8 w-8 text-zinc-500" />
+                      <p className="mt-3 text-sm font-black text-zinc-500">
                         Nenhum pedido em preparo
                       </p>
-                      <p className="mt-1 text-sm font-medium text-slate-500">
+                      <p className="mt-1 text-sm font-medium text-zinc-500">
                         Quando o garçom enviar, aparece aqui.
                       </p>
                     </div>
@@ -995,18 +995,18 @@ export default function KdsPage() {
                 </div>
               </section>
 
-              <section className="flex h-[calc(100vh-185px)] min-h-[470px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex shrink-0 items-center justify-between border-b border-emerald-100 bg-emerald-50 px-3 py-2.5">
+              <section className="flex h-[calc(100vh-185px)] min-h-[470px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                <div className="flex shrink-0 items-center justify-between border-b border-emerald-400/30 bg-emerald-500/10 px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white">
                       <PackageCheck className="h-4 w-4" />
                     </div>
 
                     <div>
-                      <h2 className="text-base font-black text-emerald-700">
+                      <h2 className="text-base font-black text-emerald-400">
                         Prontos
                       </h2>
-                      <p className="text-[11px] font-bold text-emerald-600/80">
+                      <p className="text-[11px] font-bold text-emerald-400">
                         Finalizados pela cozinha.
                       </p>
                     </div>
@@ -1034,12 +1034,12 @@ export default function KdsPage() {
                       />
                     ))
                   ) : (
-                    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                      <Clock3 className="mx-auto h-8 w-8 text-slate-400" />
-                      <p className="mt-3 text-sm font-black text-slate-600">
+                    <div className="rounded-lg border border-dashed border-white/10 bg-[#111111] p-6 text-center">
+                      <Clock3 className="mx-auto h-8 w-8 text-zinc-500" />
+                      <p className="mt-3 text-sm font-black text-zinc-500">
                         Nenhum pedido pronto
                       </p>
-                      <p className="mt-1 text-sm font-medium text-slate-500">
+                      <p className="mt-1 text-sm font-medium text-zinc-500">
                         Quando finalizar, aparece aqui.
                       </p>
                     </div>

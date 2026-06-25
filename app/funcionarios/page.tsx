@@ -1443,18 +1443,18 @@ export default function FuncionariosPage() {
   return (
     <AdminLayout>
       <div className="mx-auto max-w-[1350px] space-y-4 overflow-hidden pb-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                 <UsersRound className="h-5 w-5" />
               </div>
 
               <div className="min-w-0">
-                <h1 className="text-lg font-semibold leading-tight text-slate-950">
+                <h1 className="text-lg font-semibold leading-tight text-white">
                   Funcionários e Folha
                 </h1>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Lista de funcionários, custos trabalhistas e pendências da competência.
                 </p>
               </div>
@@ -1526,8 +1526,8 @@ export default function FuncionariosPage() {
             value={formatCurrency(totals.pendingTotal)}
             subtitle="salários, encargos e benefícios"
             icon={<Wallet className="h-4 w-4" />}
-            className="border-orange-200 bg-orange-50"
-            valueClassName="text-orange-600"
+            className="border-yellow-400/30 bg-yellow-400/10"
+            valueClassName="text-yellow-400"
           />
 
           <DashboardCard
@@ -1549,12 +1549,12 @@ export default function FuncionariosPage() {
             value={formatCurrency(totals.paidThisMonth)}
             subtitle="lançamentos quitados"
             icon={<CheckCircle2 className="h-4 w-4" />}
-            className="border-emerald-200 bg-emerald-50"
-            valueClassName="text-emerald-600"
+            className="border-emerald-400/30 bg-emerald-500/10"
+            valueClassName="text-emerald-400"
           />
         </div>
 
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-xs text-yellow-400">
           Ao cadastrar CLT, o sistema gera salário, FGTS, INSS/encargos e passagem como despesas pendentes.
           Provisões gerenciais de 13º e férias:{" "}
           <strong>{formatCurrency(totals.provisionsEstimated)}</strong>.
@@ -1563,14 +1563,14 @@ export default function FuncionariosPage() {
         {showStaffForm && (
           <form
             onSubmit={handleSubmitStaff}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm"
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="font-semibold text-white">
                   {editingStaffId ? "Editar funcionário" : "Novo funcionário"}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Se for CLT, configure salário, encargos, passagem, benefícios e insalubridade.
                 </p>
               </div>
@@ -1633,12 +1633,12 @@ export default function FuncionariosPage() {
                 </div>
 
                 {workerType === "fixed" ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-2xl border border-white/10 bg-[#111111] p-4">
                     <div className="mb-3">
-                      <h3 className="font-semibold text-slate-950">
+                      <h3 className="font-semibold text-white">
                         Dados da folha CLT
                       </h3>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-zinc-500">
                         Esses dados alimentam as pendências da competência.
                       </p>
                     </div>
@@ -1790,7 +1790,7 @@ export default function FuncionariosPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-2xl border border-white/10 bg-[#111111] p-4">
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label>Valor da diária</Label>
@@ -1838,10 +1838,10 @@ export default function FuncionariosPage() {
               </div>
 
               {workerType === "fixed" && (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <Calculator className="h-4 w-4 text-blue-700" />
-                    <h3 className="font-semibold text-slate-950">
+                    <Calculator className="h-4 w-4 text-yellow-400" />
+                    <h3 className="font-semibold text-white">
                       Prévia automática
                     </h3>
                   </div>
@@ -1895,12 +1895,12 @@ export default function FuncionariosPage() {
                       value={staffFormCalculation.vacationThirdProvision}
                     />
 
-                    <div className="mt-3 rounded-xl bg-white p-3">
+                    <div className="mt-3 rounded-xl bg-[#0A0A0A] p-3">
                       <CostLine
                         label="Custo total estimado"
                         value={staffFormCalculation.companyCostWithProvisions}
                         strong
-                        valueClassName="text-blue-700"
+                        valueClassName="text-yellow-400"
                       />
                     </div>
                   </div>
@@ -1928,14 +1928,14 @@ export default function FuncionariosPage() {
         {showPaymentForm && (
           <form
             onSubmit={handleSubmitPayment}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm"
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="font-semibold text-white">
                   Registrar custo avulso
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Lançamento extra para a competência atual.
                 </p>
               </div>
@@ -2059,19 +2059,19 @@ export default function FuncionariosPage() {
           </form>
         )}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="font-semibold text-slate-950">
+              <h2 className="font-semibold text-white">
                 Lista de funcionários
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-zinc-500">
                 Clique em uma pessoa para abrir os detalhes da folha.
               </p>
             </div>
 
             <div className="relative w-full lg:max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -2082,17 +2082,17 @@ export default function FuncionariosPage() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+            <div className="flex items-center justify-center py-10 text-sm text-zinc-500">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Carregando equipe...
             </div>
           ) : filteredStaffMembers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
-              <UsersRound className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-2 font-medium text-slate-800">
+            <div className="rounded-xl border border-dashed border-white/10 p-8 text-center">
+              <UsersRound className="mx-auto h-8 w-8 text-zinc-500" />
+              <p className="mt-2 font-medium text-white">
                 Nenhum funcionário cadastrado
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-zinc-500">
                 Cadastre funcionários CLT ou freelancers para começar.
               </p>
             </div>
@@ -2137,10 +2137,10 @@ export default function FuncionariosPage() {
                       }
                     }}
                     className={cn(
-                      "cursor-pointer rounded-xl border bg-white p-3 transition hover:border-blue-200 hover:bg-blue-50/40",
+                      "cursor-pointer rounded-xl border bg-[#0A0A0A] p-3 transition hover:border-yellow-400/30 hover:bg-yellow-400/10",
                       isSelected
-                        ? "border-blue-300 bg-blue-50 ring-1 ring-blue-200"
-                        : "border-slate-200",
+                        ? "border-yellow-400/30 bg-yellow-400/10 ring-1 ring-yellow-400/20"
+                        : "border-white/10",
                     )}
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -2149,8 +2149,8 @@ export default function FuncionariosPage() {
                           className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
                             isClt
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-violet-100 text-violet-700",
+                              ? "bg-yellow-400/10 text-yellow-400"
+                              : "bg-yellow-400/10 text-yellow-400",
                           )}
                         >
                           {member.name
@@ -2162,10 +2162,10 @@ export default function FuncionariosPage() {
                         </div>
 
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-950">
+                          <p className="truncate font-semibold text-white">
                             {member.name}
                           </p>
-                          <p className="truncate text-sm text-slate-500">
+                          <p className="truncate text-sm text-zinc-500">
                             {member.role}
                             {member.phone ? ` • ${member.phone}` : ""}
                           </p>
@@ -2194,12 +2194,12 @@ export default function FuncionariosPage() {
                                 )
                               : formatCurrency(member.daily_rate)
                           }
-                          valueClassName="text-blue-700"
+                          valueClassName="text-yellow-400"
                         />
                         <ListInfo
                           label="Pendente"
                           value={formatCurrency(memberPending)}
-                          valueClassName="text-orange-600"
+                          valueClassName="text-yellow-400"
                         />
                       </div>
                     </div>
@@ -2211,15 +2211,15 @@ export default function FuncionariosPage() {
         </div>
 
         {selectedStaff && selectedCalculation && selectedParsedNotes && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 border-b border-white/10 pb-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold text-slate-950">
+                  <h2 className="text-xl font-semibold text-white">
                     {selectedStaff.name}
                   </h2>
 
-                  <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
+                  <span className="rounded-full bg-yellow-400/10 px-2 py-1 text-xs font-semibold text-yellow-400">
                     {workerTypeLabels[selectedStaff.worker_type] ||
                       selectedStaff.worker_type}
                   </span>
@@ -2228,15 +2228,15 @@ export default function FuncionariosPage() {
                     className={cn(
                       "rounded-full px-2 py-1 text-xs font-semibold",
                       selectedStaff.status === "active"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-slate-100 text-slate-600",
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-[#111111] text-zinc-500",
                     )}
                   >
                     {statusLabels[selectedStaff.status] || selectedStaff.status}
                   </span>
                 </div>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-zinc-500">
                   {selectedStaff.role}
                   {selectedStaff.phone ? ` • ${selectedStaff.phone}` : ""}
                 </p>
@@ -2298,14 +2298,14 @@ export default function FuncionariosPage() {
                   <MiniMetric
                     label="Pendente"
                     value={formatCurrency(selectedStaffPendingTotal)}
-                    valueClassName="text-orange-600"
+                    valueClassName="text-yellow-400"
                   />
                   <MiniMetric
                     label="Custo empresa"
                     value={formatCurrency(
                       selectedCalculation.companyCostWithProvisions,
                     )}
-                    valueClassName="text-blue-700"
+                    valueClassName="text-yellow-400"
                   />
                   <MiniMetric
                     label="Provisões"
@@ -2314,8 +2314,8 @@ export default function FuncionariosPage() {
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200 p-4">
-                    <h3 className="mb-3 font-semibold text-slate-950">
+                  <div className="rounded-xl border border-white/10 p-4">
+                    <h3 className="mb-3 font-semibold text-white">
                       Pagamento e benefícios
                     </h3>
 
@@ -2331,10 +2331,10 @@ export default function FuncionariosPage() {
                       label="Salário pendente"
                       value={selectedCalculation.salaryWithAdditional}
                       strong
-                      valueClassName="text-orange-600"
+                      valueClassName="text-yellow-400"
                     />
 
-                    <div className="my-3 border-t border-slate-100" />
+                    <div className="my-3 border-t border-white/10" />
 
                     <CostLine
                       label="Passagem bruta"
@@ -2355,8 +2355,8 @@ export default function FuncionariosPage() {
                     />
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
-                    <h3 className="mb-3 font-semibold text-slate-950">
+                  <div className="rounded-xl border border-white/10 p-4">
+                    <h3 className="mb-3 font-semibold text-white">
                       Encargos e provisões
                     </h3>
 
@@ -2377,7 +2377,7 @@ export default function FuncionariosPage() {
                       value={selectedCalculation.thirdParty}
                     />
 
-                    <div className="my-3 border-t border-slate-100" />
+                    <div className="my-3 border-t border-white/10" />
 
                     <CostLine
                       label="13º provisionado"
@@ -2395,19 +2395,19 @@ export default function FuncionariosPage() {
                       label="Custo total estimado"
                       value={selectedCalculation.companyCostWithProvisions}
                       strong
-                      valueClassName="text-blue-700"
+                      valueClassName="text-yellow-400"
                     />
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 p-4">
-                <h3 className="font-semibold text-slate-950">
+              <div className="rounded-xl border border-white/10 p-4">
+                <h3 className="font-semibold text-white">
                   Freelancer / Diarista
                 </h3>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-zinc-500">
                   Valor da diária:{" "}
-                  <strong className="text-slate-950">
+                  <strong className="text-white">
                     {formatCurrency(selectedStaff.daily_rate)}
                   </strong>
                 </p>
@@ -2423,13 +2423,13 @@ export default function FuncionariosPage() {
               </div>
             )}
 
-            <div className="mt-4 rounded-xl border border-slate-200 p-4">
+            <div className="mt-4 rounded-xl border border-white/10 p-4">
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="font-semibold text-slate-950">
+                  <h3 className="font-semibold text-white">
                     Lançamentos da competência
                   </h3>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     Pendências vinculadas ao financeiro.
                   </p>
                 </div>
@@ -2445,7 +2445,7 @@ export default function FuncionariosPage() {
               </div>
 
               {selectedStaffPayments.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
+                <div className="rounded-lg border border-dashed border-white/10 p-4 text-center text-sm text-zinc-500">
                   Nenhum lançamento para esta competência.
                 </div>
               ) : (
@@ -2457,13 +2457,13 @@ export default function FuncionariosPage() {
                     return (
                       <div
                         key={payment.id}
-                        className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-2 rounded-lg bg-[#111111] p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
-                          <p className="font-semibold text-slate-950">
+                          <p className="font-semibold text-white">
                             {componentLabels[component]}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-zinc-500">
                             {getPaymentCategory(component, selectedStaff)} •{" "}
                             {getReferenceMonthLabel(payment.reference_month)}
                           </p>
@@ -2473,7 +2473,7 @@ export default function FuncionariosPage() {
                           <strong
                             className={cn(
                               "text-sm",
-                              isPaid ? "text-emerald-700" : "text-orange-600",
+                              isPaid ? "text-emerald-400" : "text-yellow-400",
                             )}
                           >
                             {formatCurrency(payment.amount)}
@@ -2483,8 +2483,8 @@ export default function FuncionariosPage() {
                             className={cn(
                               "rounded-full px-2 py-1 text-xs font-semibold",
                               isPaid
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-orange-100 text-orange-700",
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-yellow-400/10 text-yellow-400",
                             )}
                           >
                             {isPaid ? "Pago" : "Pendente"}
@@ -2531,25 +2531,25 @@ function DashboardCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        "rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm",
         className,
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-slate-500">{title}</p>
+          <p className="truncate text-xs font-medium text-zinc-500">{title}</p>
           <strong
             className={cn(
-              "mt-1 block truncate text-xl font-semibold text-slate-950",
+              "mt-1 block truncate text-xl font-semibold text-white",
               valueClassName,
             )}
           >
             {value}
           </strong>
-          <span className="text-xs text-slate-400">{subtitle}</span>
+          <span className="text-xs text-zinc-500">{subtitle}</span>
         </div>
 
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
           {icon}
         </div>
       </div>
@@ -2567,9 +2567,9 @@ function MiniMetric({
   valueClassName?: string
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <strong className={cn("mt-1 block text-sm text-slate-950", valueClassName)}>
+    <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
+      <p className="text-xs font-medium text-zinc-500">{label}</p>
+      <strong className={cn("mt-1 block text-sm text-white", valueClassName)}>
         {value}
       </strong>
     </div>
@@ -2591,8 +2591,8 @@ function CostLine({
     <div className="flex items-center justify-between gap-3 py-1 text-sm">
       <span
         className={cn(
-          "text-slate-600",
-          strong && "font-semibold text-slate-800",
+          "text-zinc-500",
+          strong && "font-semibold text-white",
         )}
       >
         {label}
@@ -2600,7 +2600,7 @@ function CostLine({
 
       <strong
         className={cn(
-          "text-right text-slate-950",
+          "text-right text-white",
           strong && "font-semibold",
           valueClassName,
         )}
@@ -2622,10 +2622,10 @@ function ListInfo({
 }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
         {label}
       </p>
-      <p className={cn("font-semibold text-slate-950", valueClassName)}>
+      <p className={cn("font-semibold text-white", valueClassName)}>
         {value}
       </p>
     </div>

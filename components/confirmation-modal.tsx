@@ -42,13 +42,13 @@ export default function ConfirmationModal({
           <div
             className={cn(
               "flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full",
-              variant === "danger" ? "bg-red-100" : "bg-amber-100"
+              variant === "danger" ? "bg-red-100" : "bg-yellow-400/10"
             )}
           >
             <AlertTriangle
               className={cn(
                 "h-6 w-6",
-                variant === "danger" ? "text-red-600" : "text-amber-600"
+                variant === "danger" ? "text-red-600" : "text-yellow-400"
               )}
             />
           </div>
@@ -83,7 +83,7 @@ export default function ConfirmationModal({
               "flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-50",
               variant === "danger"
                 ? "bg-red-600 hover:bg-red-700"
-                : "bg-amber-600 hover:bg-amber-700"
+                : "bg-yellow-400 hover:bg-yellow-300"
             )}
           >
             {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}

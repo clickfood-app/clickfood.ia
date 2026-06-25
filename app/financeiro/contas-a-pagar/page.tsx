@@ -260,7 +260,7 @@ function getDueLabel(account: AccountPayable) {
 
 function getStatusBadgeClass(status: VisualStatus) {
   if (status === "paid") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700"
+    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
   }
 
   if (status === "overdue") {
@@ -268,10 +268,10 @@ function getStatusBadgeClass(status: VisualStatus) {
   }
 
   if (status === "canceled") {
-    return "border-slate-200 bg-slate-100 text-slate-500"
+    return "border-white/10 bg-[#111111] text-zinc-500"
   }
 
-  return "border-amber-200 bg-amber-50 text-amber-700"
+  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
 }
 
 function getDueToneClass(account: AccountPayable) {
@@ -279,23 +279,23 @@ function getDueToneClass(account: AccountPayable) {
 
   if (visualStatus === "paid") return "bg-emerald-500"
   if (visualStatus === "overdue") return "bg-red-500"
-  if (visualStatus === "canceled") return "bg-slate-300"
-  if (account.due_date === today) return "bg-amber-500"
+  if (visualStatus === "canceled") return "bg-[#111111]"
+  if (account.due_date === today) return "bg-yellow-400"
 
-  return "bg-blue-500"
+  return "bg-yellow-400"
 }
 
 function MetricCard({ title, value, subtitle, icon, tone }: MetricCardProps) {
   const toneClasses = {
     blue: {
-      card: "border-blue-100 bg-blue-50/70",
-      icon: "bg-blue-600 text-white shadow-blue-600/15",
-      subtitle: "text-blue-700",
+      card: "border-yellow-400/30 bg-yellow-400/10",
+      icon: "bg-yellow-400 text-black shadow-yellow-400/20",
+      subtitle: "text-yellow-400",
     },
     orange: {
-      card: "border-orange-100 bg-orange-50/70",
-      icon: "bg-orange-500 text-white shadow-orange-500/15",
-      subtitle: "text-orange-700",
+      card: "border-yellow-400/30 bg-yellow-400/10",
+      icon: "bg-yellow-400 text-black shadow-yellow-400/20",
+      subtitle: "text-yellow-400",
     },
     red: {
       card: "border-red-100 bg-red-50/70",
@@ -303,14 +303,14 @@ function MetricCard({ title, value, subtitle, icon, tone }: MetricCardProps) {
       subtitle: "text-red-700",
     },
     slate: {
-      card: "border-slate-200 bg-slate-50",
-      icon: "bg-slate-800 text-white shadow-slate-800/15",
-      subtitle: "text-slate-500",
+      card: "border-white/10 bg-[#111111]",
+      icon: "bg-[#111111] text-white shadow-black/40",
+      subtitle: "text-zinc-500",
     },
     emerald: {
-      card: "border-emerald-100 bg-emerald-50/70",
+      card: "border-emerald-400/30 bg-emerald-500/10",
       icon: "bg-emerald-500 text-white shadow-emerald-500/15",
-      subtitle: "text-emerald-700",
+      subtitle: "text-emerald-400",
     },
   }
 
@@ -318,11 +318,11 @@ function MetricCard({ title, value, subtitle, icon, tone }: MetricCardProps) {
     <div className={cn("rounded-2xl border px-3 py-3 shadow-sm", toneClasses[tone].card)}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">
+          <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">
             {title}
           </p>
 
-          <p className="mt-1.5 truncate text-xl font-black tracking-tight text-slate-950">
+          <p className="mt-1.5 truncate text-xl font-black tracking-tight text-white">
             {value}
           </p>
 
@@ -924,23 +924,23 @@ export default function ContasAPagarPage() {
     <AdminLayout>
       <div className="min-h-screen bg-[#f4f7fb] px-3 py-4 sm:px-5 lg:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-3">
-          <section className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5">
+          <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm sm:px-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20">
                   <ReceiptText className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-600">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-400">
                     Financeiro operacional
                   </p>
 
-                  <h1 className="mt-0.5 text-xl font-black tracking-tight text-slate-950">
+                  <h1 className="mt-0.5 text-xl font-black tracking-tight text-white">
                     Contas a Pagar
                   </h1>
 
-                  <p className="mt-0.5 max-w-2xl text-sm font-semibold text-slate-500">
+                  <p className="mt-0.5 max-w-2xl text-sm font-semibold text-zinc-500">
                     Lance as contas do mês, acompanhe vencimentos e controle o que já foi pago.
                   </p>
                 </div>
@@ -948,21 +948,21 @@ export default function ContasAPagarPage() {
 
               <div className="grid gap-2 sm:grid-cols-[180px_auto] sm:items-center">
                 <label className="block">
-                  <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                  <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
                     Mês de controle
                   </span>
                   <input
                     type="month"
                     value={selectedMonth}
                     onChange={(event) => setSelectedMonth(event.target.value || currentMonth)}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-black text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-black text-white outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </label>
 
                 <button
                   type="button"
                   onClick={openCreateModal}
-                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 sm:mt-auto"
+                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300 sm:mt-auto"
                 >
                   <Plus className="h-4 w-4" />
                   Nova conta
@@ -1013,18 +1013,18 @@ export default function ContasAPagarPage() {
             />
           </div>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm sm:p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-xs font-black uppercase tracking-[0.14em] text-slate-900">
+                <h2 className="text-xs font-black uppercase tracking-[0.14em] text-white">
                   Lançamento rápido
                 </h2>
-                <p className="mt-1 text-xs font-medium text-slate-500">
+                <p className="mt-1 text-xs font-medium text-zinc-500">
                   Use os atalhos para lançar as despesas fixas do mês sem perder tempo.
                 </p>
               </div>
 
-              <p className="rounded-xl bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-500">
+              <p className="rounded-xl bg-[#111111] px-3 py-1.5 text-xs font-black text-zinc-500">
                 {getMonthLabel(selectedMonth)}
               </p>
             </div>
@@ -1035,7 +1035,7 @@ export default function ContasAPagarPage() {
                   key={template.label}
                   type="button"
                   onClick={() => openTemplateModal(template)}
-                  className="h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  className="h-9 rounded-xl border border-white/10 bg-[#111111] px-3 text-xs font-black text-zinc-500 transition hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
                 >
                   + {template.label}
                 </button>
@@ -1044,19 +1044,19 @@ export default function ContasAPagarPage() {
           </section>
 
           <section className="grid gap-3 xl:grid-cols-[1fr_320px]">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 bg-white px-4 py-3 sm:px-5">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+              <div className="border-b border-white/10 bg-[#0A0A0A] px-4 py-3 sm:px-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                       <Filter className="h-4 w-4" />
                     </div>
 
                     <div>
-                      <h2 className="text-xs font-black uppercase tracking-[0.14em] text-slate-900">
+                      <h2 className="text-xs font-black uppercase tracking-[0.14em] text-white">
                         Contas de {getMonthLabel(selectedMonth)}
                       </h2>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
+                      <p className="mt-1 text-xs font-medium text-zinc-500">
                         Lista compacta para mobile, sem tabela arrastando para o lado.
                       </p>
                     </div>
@@ -1066,7 +1066,7 @@ export default function ContasAPagarPage() {
                     <button
                       type="button"
                       onClick={clearFilters}
-                      className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black uppercase tracking-wide text-slate-600 transition hover:bg-slate-50"
+                      className="h-9 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black uppercase tracking-wide text-zinc-500 transition hover:bg-[#111111]"
                     >
                       Limpar filtros
                     </button>
@@ -1075,19 +1075,19 @@ export default function ContasAPagarPage() {
 
                 <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr]">
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                     <input
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Buscar por conta, categoria ou fornecedor..."
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                      className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                     />
                   </div>
 
                   <select
                     value={statusFilter}
                     onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   >
                     <option value="all">Todos os status</option>
                     <option value="pending">Pendentes</option>
@@ -1099,7 +1099,7 @@ export default function ContasAPagarPage() {
                   <select
                     value={periodFilter}
                     onChange={(event) => setPeriodFilter(event.target.value as PeriodFilter)}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   >
                     <option value="all">Todo o mês</option>
                     <option value="today">Vence hoje</option>
@@ -1110,7 +1110,7 @@ export default function ContasAPagarPage() {
                   <select
                     value={categoryFilter}
                     onChange={(event) => setCategoryFilter(event.target.value)}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-bold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   >
                     <option value="all">Todas categorias</option>
                     <option value="Sem categoria">Sem categoria</option>
@@ -1131,22 +1131,22 @@ export default function ContasAPagarPage() {
 
               {loading ? (
                 <div className="flex min-h-[300px] items-center justify-center">
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-500 shadow-sm">
+                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 py-3 text-sm font-bold text-zinc-500 shadow-sm">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     Carregando contas...
                   </div>
                 </div>
               ) : filteredAccounts.length === 0 ? (
                 <div className="flex min-h-[300px] flex-col items-center justify-center p-6 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-500">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#111111] text-zinc-500">
                     <ReceiptText className="h-8 w-8" />
                   </div>
 
-                  <h3 className="mt-5 text-lg font-black text-slate-950">
+                  <h3 className="mt-5 text-lg font-black text-white">
                     Nenhuma conta encontrada
                   </h3>
 
-                  <p className="mt-2 max-w-md text-sm font-medium text-slate-500">
+                  <p className="mt-2 max-w-md text-sm font-medium text-zinc-500">
                     Lance as contas fixas e variáveis deste mês: aluguel, água, luz,
                     impostos, sistemas, taxas e outros custos.
                   </p>
@@ -1154,14 +1154,14 @@ export default function ContasAPagarPage() {
                   <button
                     type="button"
                     onClick={openCreateModal}
-                    className="mt-5 inline-flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+                    className="mt-5 inline-flex h-11 items-center gap-2 rounded-2xl bg-yellow-400 px-5 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300"
                   >
                     <Plus className="h-4 w-4" />
                     Cadastrar conta
                   </button>
                 </div>
               ) : (
-                <div className="max-h-[560px] overflow-y-auto p-2.5 scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300 sm:p-3">
+                <div className="max-h-[560px] overflow-y-auto p-2.5 scrollbar-thin scrollbar-track-[#080808] scrollbar-thumb-yellow-400/40 sm:p-3">
                   <div className="space-y-2">
                     {filteredAccounts.map((account) => {
                       const visualStatus = getVisualStatus(account)
@@ -1172,12 +1172,12 @@ export default function ContasAPagarPage() {
                         <article
                           key={account.id}
                           className={cn(
-                            "rounded-2xl border bg-white px-3 py-3 shadow-sm transition hover:border-blue-200 hover:shadow-md",
+                            "rounded-2xl border bg-[#0A0A0A] px-3 py-3 shadow-sm transition hover:border-yellow-400/30 hover:shadow-md",
                             visualStatus === "overdue" && "border-red-200 bg-red-50/35",
-                            isDueToday && "border-amber-200 bg-amber-50/40",
-                            visualStatus === "paid" && "border-emerald-200 bg-emerald-50/25",
-                            visualStatus === "canceled" && "border-slate-200 bg-slate-50 opacity-75",
-                            visualStatus === "pending" && !isDueToday && "border-slate-200",
+                            isDueToday && "border-yellow-400/30 bg-yellow-400/10",
+                            visualStatus === "paid" && "border-emerald-400/30 bg-emerald-500/10",
+                            visualStatus === "canceled" && "border-white/10 bg-[#111111] opacity-75",
+                            visualStatus === "pending" && !isDueToday && "border-white/10",
                           )}
                         >
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1200,19 +1200,19 @@ export default function ContasAPagarPage() {
                                     {getStatusLabel(visualStatus)}
                                   </span>
 
-                                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                                  <span className="rounded-full border border-white/10 bg-[#111111] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-zinc-500">
                                     {account.purchase_id ? "Compra" : "Manual"}
                                   </span>
                                 </div>
 
-                                <h3 className="mt-1.5 truncate text-sm font-black text-slate-950">
+                                <h3 className="mt-1.5 truncate text-sm font-black text-white">
                                   {account.description}
                                 </h3>
 
-                                <div className="mt-2 grid gap-x-3 gap-y-1 text-[11px] font-bold text-slate-500 sm:grid-cols-2 lg:grid-cols-4">
+                                <div className="mt-2 grid gap-x-3 gap-y-1 text-[11px] font-bold text-zinc-500 sm:grid-cols-2 lg:grid-cols-4">
                                   <span>
                                     Vencimento:{" "}
-                                    <strong className="text-slate-900">
+                                    <strong className="text-white">
                                       {formatShortDate(account.due_date)}
                                     </strong>
                                   </span>
@@ -1220,8 +1220,8 @@ export default function ContasAPagarPage() {
                                   <span
                                     className={cn(
                                       visualStatus === "overdue" && "text-red-600",
-                                      isDueToday && "text-amber-600",
-                                      visualStatus === "paid" && "text-emerald-600",
+                                      isDueToday && "text-yellow-400",
+                                      visualStatus === "paid" && "text-emerald-400",
                                     )}
                                   >
                                     {getDueLabel(account)}
@@ -1229,14 +1229,14 @@ export default function ContasAPagarPage() {
 
                                   <span>
                                     Categoria:{" "}
-                                    <strong className="text-slate-900">
+                                    <strong className="text-white">
                                       {account.category || "Sem categoria"}
                                     </strong>
                                   </span>
 
                                   <span>
                                     Pagamento:{" "}
-                                    <strong className="text-slate-900">
+                                    <strong className="text-white">
                                       {getPaymentMethodLabel(account.payment_method)}
                                     </strong>
                                   </span>
@@ -1245,19 +1245,19 @@ export default function ContasAPagarPage() {
                                 {(account.suppliers?.name || account.notes || account.payment_reference) && (
                                   <div className="mt-2 flex flex-wrap gap-1.5">
                                     {account.suppliers?.name && (
-                                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">
+                                      <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-black text-yellow-400">
                                         {account.suppliers.name}
                                       </span>
                                     )}
 
                                     {account.payment_reference && (
-                                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">
+                                      <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[10px] font-black text-zinc-500">
                                         {account.payment_reference}
                                       </span>
                                     )}
 
                                     {account.notes && (
-                                      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-black text-orange-700">
+                                      <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-black text-yellow-400">
                                         tem observação
                                       </span>
                                     )}
@@ -1267,7 +1267,7 @@ export default function ContasAPagarPage() {
                             </div>
 
                             <div className="flex flex-col gap-2 lg:w-[300px] lg:items-end">
-                              <p className="text-xl font-black tracking-tight text-slate-950 lg:text-right">
+                              <p className="text-xl font-black tracking-tight text-white lg:text-right">
                                 {formatCurrency(Number(account.amount || 0))}
                               </p>
 
@@ -1277,7 +1277,7 @@ export default function ContasAPagarPage() {
                                     type="button"
                                     onClick={() => markAsPaid(account)}
                                     disabled={isActionLoading}
-                                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-black text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 text-[11px] font-black text-emerald-400 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
                                   >
                                     {isActionLoading && (
                                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1290,7 +1290,7 @@ export default function ContasAPagarPage() {
                                   type="button"
                                   onClick={() => openEditModal(account)}
                                   disabled={isActionLoading}
-                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-[#0A0A0A] px-2.5 text-[11px] font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                   Editar
@@ -1300,7 +1300,7 @@ export default function ContasAPagarPage() {
                                   type="button"
                                   onClick={() => repeatNextMonth(account)}
                                   disabled={isActionLoading || visualStatus === "canceled"}
-                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 text-[11px] font-black text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 text-[11px] font-black text-yellow-400 transition hover:bg-yellow-300/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isActionLoading ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1314,7 +1314,7 @@ export default function ContasAPagarPage() {
                                   type="button"
                                   onClick={() => deleteAccount(account)}
                                   disabled={isActionLoading}
-                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-red-200 bg-white px-2.5 text-[11px] font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-red-200 bg-[#0A0A0A] px-2.5 text-[11px] font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isActionLoading ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1334,39 +1334,39 @@ export default function ContasAPagarPage() {
               )}
 
               {!loading && filteredAccounts.length > 0 && (
-                <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/80 px-4 py-3 text-xs font-bold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 border-t border-white/10 bg-[#111111] px-4 py-3 text-xs font-bold text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
                   <span>
                     Exibindo {filteredAccounts.length} de {monthAccounts.length} contas do mês.
                   </span>
 
                   <span>
-                    Em aberto: <strong className="font-black text-slate-950">{formatCurrency(totals.openAmount)}</strong>
+                    Em aberto: <strong className="font-black text-white">{formatCurrency(totals.openAmount)}</strong>
                   </span>
                 </div>
               )}
             </div>
 
-            <aside className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <aside className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm sm:p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-xs font-black uppercase tracking-[0.14em] text-slate-900">
+                  <h2 className="text-xs font-black uppercase tracking-[0.14em] text-white">
                     Resumo por categoria
                   </h2>
-                  <p className="mt-1 text-xs font-medium text-slate-500">
+                  <p className="mt-1 text-xs font-medium text-zinc-500">
                     Veja onde o dinheiro do mês está indo.
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
+                <div className="rounded-2xl bg-yellow-400/10 px-3 py-2 text-xs font-black text-yellow-400">
                   {categorySummary.length}
                 </div>
               </div>
 
-              <div className="mt-4 max-h-[620px] space-y-3 overflow-y-auto pr-1 scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300">
+              <div className="mt-4 max-h-[620px] space-y-3 overflow-y-auto pr-1 scrollbar-thin scrollbar-track-[#080808] scrollbar-thumb-yellow-400/40">
                 {categorySummary.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
-                    <p className="text-sm font-black text-slate-700">Sem contas lançadas</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                  <div className="rounded-3xl border border-dashed border-white/10 bg-[#111111] p-5 text-center">
+                    <p className="text-sm font-black text-zinc-500">Sem contas lançadas</p>
+                    <p className="mt-1 text-xs font-semibold text-zinc-500">
                       Ao cadastrar contas, o resumo aparece aqui.
                     </p>
                   </div>
@@ -1375,21 +1375,21 @@ export default function ContasAPagarPage() {
                     const paidPercent = item.total > 0 ? Math.round((item.paid / item.total) * 100) : 0
 
                     return (
-                      <div key={item.category} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                      <div key={item.category} className="rounded-3xl border border-white/10 bg-[#111111] p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-sm font-black text-slate-950">{item.category}</p>
-                            <p className="mt-1 text-xs font-bold text-slate-500">
+                            <p className="text-sm font-black text-white">{item.category}</p>
+                            <p className="mt-1 text-xs font-bold text-zinc-500">
                               {item.count} {item.count === 1 ? "conta" : "contas"}
                             </p>
                           </div>
 
-                          <p className="text-sm font-black text-slate-950">
+                          <p className="text-sm font-black text-white">
                             {formatCurrency(item.total)}
                           </p>
                         </div>
 
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#0A0A0A]">
                           <div
                             className="h-full rounded-full bg-emerald-500"
                             style={{ width: `${paidPercent}%` }}
@@ -1397,16 +1397,16 @@ export default function ContasAPagarPage() {
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold">
-                          <div className="rounded-2xl bg-white px-3 py-2">
-                            <p className="text-slate-400">Aberto</p>
+                          <div className="rounded-2xl bg-[#0A0A0A] px-3 py-2">
+                            <p className="text-zinc-500">Aberto</p>
                             <p className="mt-0.5 font-black text-red-600">
                               {formatCurrency(item.open)}
                             </p>
                           </div>
 
-                          <div className="rounded-2xl bg-white px-3 py-2">
-                            <p className="text-slate-400">Pago</p>
-                            <p className="mt-0.5 font-black text-emerald-600">
+                          <div className="rounded-2xl bg-[#0A0A0A] px-3 py-2">
+                            <p className="text-zinc-500">Pago</p>
+                            <p className="mt-0.5 font-black text-emerald-400">
                               {formatCurrency(item.paid)}
                             </p>
                           </div>
@@ -1421,17 +1421,17 @@ export default function ContasAPagarPage() {
         </div>
 
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm">
-            <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
-              <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] px-4 py-6 backdrop-blur-sm">
+            <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[28px] bg-[#0A0A0A] shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-400">
                     {isEditing ? "Editar conta" : "Nova conta"}
                   </p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                  <h2 className="mt-1 text-xl font-black text-white">
                     {isEditing ? "Atualizar conta a pagar" : "Cadastrar conta a pagar"}
                   </h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                  <p className="mt-1 text-sm font-semibold text-zinc-500">
                     Preencha valor, vencimento e categoria para entrar no controle mensal.
                   </p>
                 </div>
@@ -1439,7 +1439,7 @@ export default function ContasAPagarPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1450,7 +1450,7 @@ export default function ContasAPagarPage() {
                   <div className="p-5">
                     <div className="grid gap-4 md:grid-cols-2">
                       <label className="md:col-span-2">
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Descrição *
                         </span>
                         <input
@@ -1462,12 +1462,12 @@ export default function ContasAPagarPage() {
                             }))
                           }
                           placeholder="Ex: Aluguel, energia, imposto, sistema..."
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label>
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Categoria
                         </span>
                         <input
@@ -1479,12 +1479,12 @@ export default function ContasAPagarPage() {
                             }))
                           }
                           placeholder="Ex: Aluguel, água, luz, imposto"
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label>
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Fornecedor
                         </span>
                         <select
@@ -1495,7 +1495,7 @@ export default function ContasAPagarPage() {
                               supplier_id: event.target.value,
                             }))
                           }
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         >
                           <option value="">Sem fornecedor</option>
                           {activeSuppliers.map((supplier) => (
@@ -1507,7 +1507,7 @@ export default function ContasAPagarPage() {
                       </label>
 
                       <label>
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Valor *
                         </span>
                         <input
@@ -1520,12 +1520,12 @@ export default function ContasAPagarPage() {
                           }
                           placeholder="0,00"
                           inputMode="decimal"
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label>
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Vencimento *
                         </span>
                         <input
@@ -1537,12 +1537,12 @@ export default function ContasAPagarPage() {
                               due_date: event.target.value,
                             }))
                           }
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label>
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Status
                         </span>
                         <select
@@ -1553,7 +1553,7 @@ export default function ContasAPagarPage() {
                               status: event.target.value as PayableStatus,
                             }))
                           }
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         >
                           <option value="pending">Pendente</option>
                           <option value="paid">Pago</option>
@@ -1561,7 +1561,7 @@ export default function ContasAPagarPage() {
                       </label>
 
                       <label>
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Forma de pagamento
                         </span>
                         <select
@@ -1572,7 +1572,7 @@ export default function ContasAPagarPage() {
                               payment_method: event.target.value,
                             }))
                           }
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         >
                           <option value="">Não informado</option>
                           <option value="pix">Pix</option>
@@ -1584,7 +1584,7 @@ export default function ContasAPagarPage() {
                       </label>
 
                       <label className="md:col-span-2">
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Referência do pagamento
                         </span>
                         <input
@@ -1596,12 +1596,12 @@ export default function ContasAPagarPage() {
                             }))
                           }
                           placeholder="Ex: código do boleto, comprovante, parcela 1/3..."
-                          className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
 
                       <label className="md:col-span-2">
-                        <span className="text-sm font-black text-slate-700">
+                        <span className="text-sm font-black text-zinc-500">
                           Observações
                         </span>
                         <textarea
@@ -1614,16 +1614,16 @@ export default function ContasAPagarPage() {
                           }
                           placeholder="Ex: conta parcelada, negociação, vencimento alterado..."
                           rows={4}
-                          className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                          className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                         />
                       </label>
                     </div>
                   </div>
 
-                  <aside className="border-t border-slate-100 bg-slate-50 p-5 lg:border-l lg:border-t-0">
-                    <div className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
-                      <div className="flex items-center gap-2 text-blue-700">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-600 text-white">
+                  <aside className="border-t border-white/10 bg-[#111111] p-5 lg:border-l lg:border-t-0">
+                    <div className="rounded-3xl border border-yellow-400/30 bg-[#0A0A0A] p-5 shadow-sm">
+                      <div className="flex items-center gap-2 text-yellow-400">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-yellow-400 text-black">
                           <Wallet className="h-5 w-5" />
                         </div>
                         <p className="text-sm font-black uppercase tracking-wide">
@@ -1631,37 +1631,37 @@ export default function ContasAPagarPage() {
                         </p>
                       </div>
 
-                      <p className="mt-6 text-xs font-black uppercase tracking-wide text-slate-400">
+                      <p className="mt-6 text-xs font-black uppercase tracking-wide text-zinc-500">
                         Total da conta
                       </p>
 
-                      <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">
+                      <p className="mt-1 text-3xl font-black tracking-tight text-white">
                         {formatCurrency(parseMoney(form.amount))}
                       </p>
 
-                      <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
+                      <div className="mt-5 space-y-3 border-t border-white/10 pt-4">
                         <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="font-bold text-slate-500">Vencimento</span>
-                          <strong className="font-black text-slate-900">
+                          <span className="font-bold text-zinc-500">Vencimento</span>
+                          <strong className="font-black text-white">
                             {form.due_date ? formatDate(form.due_date) : "Não informado"}
                           </strong>
                         </div>
 
                         <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="font-bold text-slate-500">Categoria</span>
-                          <strong className="max-w-[150px] truncate font-black text-slate-900">
+                          <span className="font-bold text-zinc-500">Categoria</span>
+                          <strong className="max-w-[150px] truncate font-black text-white">
                             {form.category || "Sem categoria"}
                           </strong>
                         </div>
 
                         <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="font-bold text-slate-500">Status</span>
+                          <span className="font-bold text-zinc-500">Status</span>
                           <strong
                             className={cn(
                               "rounded-full px-2.5 py-1 text-xs font-black",
                               form.status === "paid"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-amber-50 text-amber-700",
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-yellow-400/10 text-yellow-400",
                             )}
                           >
                             {form.status === "paid" ? "Pago" : "Pendente"}
@@ -1670,11 +1670,11 @@ export default function ContasAPagarPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 rounded-3xl border border-orange-100 bg-orange-50 p-5">
-                      <p className="text-sm font-black text-orange-800">
+                    <div className="mt-4 rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-5">
+                      <p className="text-sm font-black text-yellow-400">
                         Uso recomendado
                       </p>
-                      <p className="mt-2 text-xs font-semibold leading-relaxed text-orange-700">
+                      <p className="mt-2 text-xs font-semibold leading-relaxed text-yellow-400">
                         No começo do mês, lance todas as contas previstas. Depois use
                         “Pagar” conforme for quitando cada uma.
                       </p>
@@ -1682,12 +1682,12 @@ export default function ContasAPagarPage() {
                   </aside>
                 </div>
 
-                <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-white px-5 py-4 sm:flex-row sm:justify-end">
+                <div className="flex flex-col-reverse gap-3 border-t border-white/10 bg-[#0A0A0A] px-5 py-4 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={closeModal}
                     disabled={saving}
-                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Cancelar
                   </button>
@@ -1695,7 +1695,7 @@ export default function ContasAPagarPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 text-sm font-black text-black shadow-lg shadow-yellow-400/20 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                     {isEditing ? "Salvar alterações" : "Cadastrar conta"}

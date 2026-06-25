@@ -21,8 +21,8 @@ export default function OrderSummaryCards({ summary, loading }: SummaryCardsProp
       label: "Total Faturado",
       value: formatBRL(summary.totalRevenue),
       icon: <DollarSign className="h-5 w-5" />,
-      color: "text-green-600",
-      bgIcon: "bg-green-100",
+      color: "text-emerald-400",
+      bgIcon: "bg-emerald-500/10",
     },
     {
       label: "Ticket Medio",

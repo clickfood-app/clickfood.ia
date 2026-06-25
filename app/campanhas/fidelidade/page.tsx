@@ -239,27 +239,27 @@ function getParticipantStatus(
   if (participant.reward_redeemed) {
     return {
       label: "Resgatado",
-      className: "bg-slate-100 text-slate-600",
+      className: "bg-[#111111] text-zinc-500",
     }
   }
 
   if (participant.reward_available || currentOrders >= requiredOrders) {
     return {
       label: "Prêmio liberado",
-      className: "bg-emerald-50 text-emerald-700",
+      className: "bg-emerald-500/10 text-emerald-400",
     }
   }
 
   if (requiredOrders - currentOrders <= 2) {
     return {
       label: "Quase ganhando",
-      className: "bg-orange-50 text-orange-700",
+      className: "bg-yellow-400/10 text-yellow-400",
     }
   }
 
   return {
     label: "Em andamento",
-    className: "bg-blue-50 text-blue-700",
+    className: "bg-yellow-400/10 text-yellow-400",
   }
 }
 
@@ -677,19 +677,19 @@ async function handleDeleteCampaign() {
   return (
     <AdminLayout title="Card Fidelidade">
       <div className="space-y-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#2563eb]">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-yellow-400">
                 <Trophy className="h-3.5 w-3.5" />
                 Fidelidade
               </div>
 
-              <h1 className="text-xl font-black tracking-tight text-slate-950">
+              <h1 className="text-xl font-black tracking-tight text-white">
                 Card Fidelidade
               </h1>
 
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
                 Crie campanhas simples para fazer o cliente voltar, acompanhar
                 progresso e medir se a recompensa está se pagando.
               </p>
@@ -698,7 +698,7 @@ async function handleDeleteCampaign() {
             <button
               type="button"
               onClick={() => setShowForm((current) => !current)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-bold text-black shadow-sm transition hover:bg-yellow-300"
             >
               {showForm ? <X className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
               {showForm ? "Fechar" : "Nova campanha"}
@@ -713,100 +713,100 @@ async function handleDeleteCampaign() {
         )}
 
         {successMessage && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-400">
             {successMessage}
           </div>
         )}
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Participantes
                 </p>
-                <strong className="mt-2 block text-2xl font-black text-slate-950">
+                <strong className="mt-2 block text-2xl font-black text-white">
                   {globalInsights.participantsCount}
                 </strong>
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                 <Users className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-2 text-xs font-medium text-slate-500">
+            <p className="mt-2 text-xs font-medium text-zinc-500">
               {campaigns.length} campanha{campaigns.length === 1 ? "" : "s"} criada
               {campaigns.length === 1 ? "" : "s"}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Receita gerada
                 </p>
-                <strong className="mt-2 block text-2xl font-black text-slate-950">
+                <strong className="mt-2 block text-2xl font-black text-white">
                   {formatCurrency(globalInsights.totalRevenue)}
                 </strong>
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                 <TrendingUp className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-2 text-xs font-medium text-slate-500">
+            <p className="mt-2 text-xs font-medium text-zinc-500">
               Pedidos válidos nas campanhas
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Custo realizado
                 </p>
-                <strong className="mt-2 block text-2xl font-black text-slate-950">
+                <strong className="mt-2 block text-2xl font-black text-white">
                   {formatCurrency(globalInsights.realizedCost)}
                 </strong>
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[#f97316]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                 <Wallet className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-2 text-xs font-medium text-slate-500">
+            <p className="mt-2 text-xs font-medium text-zinc-500">
               Prêmios já resgatados
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Retorno bruto
                 </p>
-                <strong className="mt-2 block text-2xl font-black text-emerald-700">
+                <strong className="mt-2 block text-2xl font-black text-emerald-400">
                   {formatCurrency(globalInsights.grossReturn)}
                 </strong>
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                 <DollarSign className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-2 text-xs font-medium text-slate-500">
+            <p className="mt-2 text-xs font-medium text-zinc-500">
               Receita menos custo realizado
             </p>
           </div>
         </section>
 
-        <section className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+        <section className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+          <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-400">
             <BadgeCheck className="h-4 w-4" />
             {activeCampaigns.length} ativa{activeCampaigns.length === 1 ? "" : "s"}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">
+          <span className="inline-flex items-center gap-2 rounded-xl bg-[#111111] px-3 py-2 text-xs font-black text-zinc-500">
             <Gift className="h-4 w-4" />
             {inactiveCampaigns.length} pausada{inactiveCampaigns.length === 1 ? "" : "s"}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-[#2563eb]">
+          <span className="inline-flex items-center gap-2 rounded-xl bg-yellow-400/10 px-3 py-2 text-xs font-black text-yellow-400">
             <ShoppingBag className="h-4 w-4" />
             {orders.length} pedido{orders.length === 1 ? "" : "s"} monitorado
             {orders.length === 1 ? "" : "s"}
@@ -814,13 +814,13 @@ async function handleDeleteCampaign() {
         </section>
 
         {showForm && (
-          <section className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <section className="rounded-2xl border border-yellow-400/30 bg-[#0A0A0A] p-4 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-base font-black text-slate-950">
+                <h2 className="text-base font-black text-white">
                   Nova campanha
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-zinc-500">
                   Configure uma regra objetiva. O restaurante precisa entender em
                   poucos segundos o que o cliente ganha e quando ganha.
                 </p>
@@ -832,7 +832,7 @@ async function handleDeleteCampaign() {
                   setForm(initialFormState)
                   setShowForm(false)
                 }}
-                className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                className="inline-flex h-9 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-xs font-bold text-zinc-500 transition hover:bg-[#111111]"
               >
                 Cancelar
               </button>
@@ -840,19 +840,19 @@ async function handleDeleteCampaign() {
 
             <form onSubmit={handleCreateCampaign} className="grid gap-3 lg:grid-cols-12">
               <div className="lg:col-span-5">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Nome da campanha
                 </label>
                 <input
                   value={form.title}
                   onChange={(event) => updateForm("title", event.target.value)}
                   placeholder="Ex: Compre 10 e ganhe 1"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div className="lg:col-span-4">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Recompensa
                 </label>
                 <input
@@ -861,12 +861,12 @@ async function handleDeleteCampaign() {
                     updateForm("reward_description", event.target.value)
                   }
                   placeholder="Ex: Pizza grande grátis"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div className="lg:col-span-3">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Tipo
                 </label>
                 <select
@@ -877,7 +877,7 @@ async function handleDeleteCampaign() {
                       event.target.value as LoyaltyCampaign["reward_type"]
                     )
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 >
                   <option value="custom">Personalizado</option>
                   <option value="free_item">Item grátis</option>
@@ -887,13 +887,13 @@ async function handleDeleteCampaign() {
               </div>
 
               <div className="lg:col-span-3">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Pedidos necessários
                 </label>
                 <select
                   value={form.required_orders}
                   onChange={(event) => updateForm("required_orders", event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 >
                   {Array.from({ length: 10 }).map((_, index) => {
                     const value = String(index + 1)
@@ -908,7 +908,7 @@ async function handleDeleteCampaign() {
               </div>
 
               <div className="lg:col-span-3">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Pedido mínimo
                 </label>
                 <input
@@ -920,12 +920,12 @@ async function handleDeleteCampaign() {
                     updateForm("minimum_order_amount", event.target.value)
                   }
                   placeholder="30,00"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div className="lg:col-span-3">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Custo do prêmio
                 </label>
                 <input
@@ -935,43 +935,43 @@ async function handleDeleteCampaign() {
                   value={form.reward_value}
                   onChange={(event) => updateForm("reward_value", event.target.value)}
                   placeholder="70,00"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div className="lg:col-span-3">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Início
                 </label>
                 <input
                   type="date"
                   value={form.starts_at}
                   onChange={(event) => updateForm("starts_at", event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div className="lg:col-span-3">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Fim
                 </label>
                 <input
                   type="date"
                   value={form.ends_at}
                   onChange={(event) => updateForm("ends_at", event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div className="lg:col-span-9">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-zinc-500">
                   Observação interna
                 </label>
                 <input
                   value={form.description}
                   onChange={(event) => updateForm("description", event.target.value)}
                   placeholder="Opcional. Ex: válida apenas para delivery ou produtos selecionados."
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-medium outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
 
@@ -979,7 +979,7 @@ async function handleDeleteCampaign() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-bold text-black shadow-sm transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -994,23 +994,23 @@ async function handleDeleteCampaign() {
         )}
 
         {isLoading ? (
-          <section className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
-            <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
-              <Loader2 className="h-5 w-5 animate-spin text-[#2563eb]" />
+          <section className="flex items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A] p-10 shadow-sm">
+            <div className="flex items-center gap-3 text-sm font-bold text-zinc-500">
+              <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
               Carregando campanhas...
             </div>
           </section>
         ) : campaigns.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#2563eb]">
+          <section className="rounded-2xl border border-dashed border-white/10 bg-[#0A0A0A] p-8 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
               <Gift className="h-6 w-6" />
             </div>
 
-            <h2 className="text-lg font-black text-slate-950">
+            <h2 className="text-lg font-black text-white">
               Nenhum card fidelidade criado ainda
             </h2>
 
-            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-500">
               Crie uma campanha simples, como “compre 10 pedidos acima de R$ 30
               e ganhe uma pizza”. Depois acompanhe clientes, prêmios e retorno.
             </p>
@@ -1031,7 +1031,7 @@ async function handleDeleteCampaign() {
               return (
                 <article
                   key={campaign.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm"
                 >
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="min-w-0 flex-1">
@@ -1039,28 +1039,28 @@ async function handleDeleteCampaign() {
                         <span
                           className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${
                             campaign.is_active
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : "bg-[#111111] text-zinc-500"
                           }`}
                         >
                           {campaign.is_active ? "Ativa" : "Pausada"}
                         </span>
 
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#2563eb]">
+                        <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-yellow-400">
                           {campaign.required_orders} pedido
                           {campaign.required_orders === 1 ? "" : "s"}
                         </span>
 
-                        <span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#f97316]">
+                        <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-yellow-400">
                           Mínimo {formatCurrency(campaign.minimum_order_amount)}
                         </span>
                       </div>
 
-                      <h2 className="mt-3 text-lg font-black tracking-tight text-slate-950">
+                      <h2 className="mt-3 text-lg font-black tracking-tight text-white">
                         {campaign.title}
                       </h2>
 
-                      <p className="mt-1 text-sm font-medium text-slate-500">
+                      <p className="mt-1 text-sm font-medium text-zinc-500">
                         {campaign.description || "Sem observação interna."}
                       </p>
                     </div>
@@ -1071,8 +1071,8 @@ async function handleDeleteCampaign() {
                         onClick={() => handleToggleCampaign(campaign)}
                         className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-bold transition ${
                           campaign.is_active
-                            ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                            : "bg-[#2563eb] text-white hover:bg-blue-700"
+                            ? "bg-[#111111] text-zinc-500 hover:bg-[#111111]"
+                            : "bg-yellow-400 text-black hover:bg-yellow-300"
                         }`}
                       >
                         {campaign.is_active ? "Pausar" : "Ativar"}
@@ -1090,40 +1090,40 @@ async function handleDeleteCampaign() {
                   </div>
 
                   <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                        <Trophy className="h-4 w-4 text-[#f97316]" />
+                    <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <Trophy className="h-4 w-4 text-yellow-400" />
                         Recompensa
                       </div>
-                      <p className="line-clamp-2 text-sm font-black text-slate-950">
+                      <p className="line-clamp-2 text-sm font-black text-white">
                         {campaign.reward_description}
                       </p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
+                      <p className="mt-1 text-xs font-medium text-zinc-500">
                         {getRewardTypeLabel(campaign.reward_type)} • {getRewardValueLabel(campaign)}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                        <Target className="h-4 w-4 text-[#2563eb]" />
+                    <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <Target className="h-4 w-4 text-yellow-400" />
                         Viabilidade
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                          <p className="font-bold text-slate-400">Receita mín.</p>
-                          <strong className="mt-1 block font-black text-slate-950">
+                          <p className="font-bold text-zinc-500">Receita mín.</p>
+                          <strong className="mt-1 block font-black text-white">
                             {formatCurrency(minimumRevenuePerReward)}
                           </strong>
                         </div>
                         <div>
-                          <p className="font-bold text-slate-400">Custo</p>
-                          <strong className="mt-1 block font-black text-slate-950">
+                          <p className="font-bold text-zinc-500">Custo</p>
+                          <strong className="mt-1 block font-black text-white">
                             {formatCurrency(rewardCost)}
                           </strong>
                         </div>
                         <div>
-                          <p className="font-bold text-slate-400">Retorno</p>
-                          <strong className="mt-1 block font-black text-emerald-700">
+                          <p className="font-bold text-zinc-500">Retorno</p>
+                          <strong className="mt-1 block font-black text-emerald-400">
                             {formatCurrency(estimatedReturnPerReward)}
                             {estimatedMargin > 0 ? ` • ${estimatedMargin}%` : ""}
                           </strong>
@@ -1131,79 +1131,79 @@ async function handleDeleteCampaign() {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                        <CalendarDays className="h-4 w-4 text-slate-500" />
+                    <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <CalendarDays className="h-4 w-4 text-zinc-500" />
                         Período
                       </div>
-                      <p className="text-sm font-black text-slate-950">
+                      <p className="text-sm font-black text-white">
                         {formatDate(campaign.starts_at)} até {formatDate(campaign.ends_at)}
                       </p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
+                      <p className="mt-1 text-xs font-medium text-zinc-500">
                         Criada em {formatDate(campaign.created_at)}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-                    <div className="rounded-xl border border-slate-200 bg-white p-3">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                         Participantes
                       </p>
-                      <strong className="mt-1 block text-lg font-black text-slate-950">
+                      <strong className="mt-1 block text-lg font-black text-white">
                         {insight?.participantsCount || 0}
                       </strong>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-white p-3">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                         Receita
                       </p>
-                      <strong className="mt-1 block text-lg font-black text-[#2563eb]">
+                      <strong className="mt-1 block text-lg font-black text-yellow-400">
                         {formatCurrency(insight?.totalRevenue || 0)}
                       </strong>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-white p-3">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                         Ticket médio
                       </p>
-                      <strong className="mt-1 block text-lg font-black text-slate-950">
+                      <strong className="mt-1 block text-lg font-black text-white">
                         {formatCurrency(insight?.averageTicket || 0)}
                       </strong>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-white p-3">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                         Prêmios liberados
                       </p>
-                      <strong className="mt-1 block text-lg font-black text-[#f97316]">
+                      <strong className="mt-1 block text-lg font-black text-yellow-400">
                         {insight?.availableRewards || 0}
                       </strong>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-white p-3">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                         Retorno bruto
                       </p>
-                      <strong className="mt-1 block text-lg font-black text-emerald-700">
+                      <strong className="mt-1 block text-lg font-black text-emerald-400">
                         {formatCurrency(insight?.grossReturn || 0)}
                       </strong>
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-                    <div className="flex flex-col gap-2 border-b border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mt-4 rounded-xl border border-white/10 bg-[#0A0A0A]">
+                    <div className="flex flex-col gap-2 border-b border-white/10 p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <h3 className="text-sm font-black text-slate-950">
+                        <h3 className="text-sm font-black text-white">
                           Clientes participando
                         </h3>
-                        <p className="text-xs font-medium text-slate-500">
+                        <p className="text-xs font-medium text-zinc-500">
                           Lista compacta com progresso, gasto e status do prêmio.
                         </p>
                       </div>
 
-                      <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-[#2563eb]">
+                      <span className="w-fit rounded-full bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-400">
                         {campaignParticipants.length} cliente
                         {campaignParticipants.length === 1 ? "" : "s"}
                       </span>
@@ -1211,32 +1211,32 @@ async function handleDeleteCampaign() {
 
                     {campaignParticipants.length === 0 ? (
                       <div className="p-5 text-center">
-                        <UserRound className="mx-auto mb-2 h-6 w-6 text-slate-300" />
-                        <p className="text-sm font-bold text-slate-600">
+                        <UserRound className="mx-auto mb-2 h-6 w-6 text-zinc-500" />
+                        <p className="text-sm font-bold text-zinc-500">
                           Nenhum cliente participando ainda.
                         </p>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="mt-1 text-xs text-zinc-500">
                           Quando um pedido válido entrar, o cliente aparece aqui.
                         </p>
                       </div>
                     ) : (
-                      <div className="divide-y divide-slate-100">
+                      <div className="divide-y divide-white/10">
                         {campaignParticipants.slice(0, 6).map((participant) => (
                           <div
                             key={participant.id}
                             className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,1fr)_120px_140px] lg:items-center"
                           >
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-slate-950">
+                              <p className="truncate text-sm font-black text-white">
                                 {participant.customer_name || "Cliente sem nome"}
                               </p>
-                              <p className="text-xs font-medium text-slate-400">
+                              <p className="text-xs font-medium text-zinc-500">
                                 {formatPhone(participant.customer_phone)}
                               </p>
                             </div>
 
                             <div>
-                              <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-500">
+                              <div className="mb-1 flex items-center justify-between text-xs font-bold text-zinc-500">
                                 <span>
                                   {participant.currentOrdersNumber}/
                                   {participant.requiredOrdersNumber} pedidos
@@ -1244,19 +1244,19 @@ async function handleDeleteCampaign() {
                                 <span>{participant.progressPercentage}%</span>
                               </div>
 
-                              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                              <div className="h-2 overflow-hidden rounded-full bg-[#111111]">
                                 <div
-                                  className="h-full rounded-full bg-gradient-to-r from-[#2563eb] to-[#f97316]"
+                                  className="h-full rounded-full bg-gradient-to-r from-yellow-400 to-yellow-300"
                                   style={{ width: `${participant.progressPercentage}%` }}
                                 />
                               </div>
                             </div>
 
                             <div>
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
                                 Total gasto
                               </p>
-                              <strong className="text-sm font-black text-slate-950">
+                              <strong className="text-sm font-black text-white">
                                 {formatCurrency(participant.totalSpent)}
                               </strong>
                             </div>
@@ -1267,7 +1267,7 @@ async function handleDeleteCampaign() {
                               >
                                 {participant.statusLabel}
                               </span>
-                              <p className="text-xs font-semibold text-slate-400">
+                              <p className="text-xs font-semibold text-zinc-500">
                                 Falta {participant.missingOrders} pedido
                                 {participant.missingOrders === 1 ? "" : "s"}
                               </p>
@@ -1276,7 +1276,7 @@ async function handleDeleteCampaign() {
                         ))}
 
                         {campaignParticipants.length > 6 && (
-                          <p className="p-3 text-center text-xs font-semibold text-slate-400">
+                          <p className="p-3 text-center text-xs font-semibold text-zinc-500">
                             Mostrando 6 de {campaignParticipants.length} participantes.
                           </p>
                         )}
@@ -1290,19 +1290,19 @@ async function handleDeleteCampaign() {
         )}
 
         {deleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-red-100 bg-white shadow-2xl">
-              <div className="bg-gradient-to-r from-red-50 via-white to-orange-50 p-5">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-red-100 bg-[#0A0A0A] shadow-2xl">
+              <div className="bg-gradient-to-r from-red-50 via-[#080808] to-yellow-400 p-5">
                 <div className="flex items-start gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 ring-1 ring-red-100">
                     <AlertTriangle className="h-6 w-6" />
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-black text-slate-950">
+                    <h2 className="text-lg font-black text-white">
                       Excluir campanha?
                     </h2>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                    <p className="mt-1 text-sm leading-6 text-zinc-500">
                       Essa ação remove a campanha e os participantes vinculados a
                       ela. Use somente quando tiver certeza de que não precisa mais
                       desse histórico.
@@ -1312,14 +1312,14 @@ async function handleDeleteCampaign() {
               </div>
 
               <div className="space-y-4 p-5">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                <div className="rounded-xl border border-white/10 bg-[#111111] p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                     Campanha selecionada
                   </p>
-                  <strong className="mt-1 block text-base font-black text-slate-950">
+                  <strong className="mt-1 block text-base font-black text-white">
                     {deleteTarget.title}
                   </strong>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
+                  <p className="mt-1 text-sm font-medium text-zinc-500">
                     {deleteTarget.reward_description}
                   </p>
                 </div>
@@ -1329,7 +1329,7 @@ async function handleDeleteCampaign() {
                     type="button"
                     onClick={() => setDeleteTarget(null)}
                     disabled={isDeleting}
-                    className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] px-5 text-sm font-bold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Cancelar
                   </button>

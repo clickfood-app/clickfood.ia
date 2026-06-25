@@ -1,6 +1,12 @@
 "use client"
 
-import { useMemo, useState, type FormEvent } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react"
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react"
 import { signIn } from "@/lib/auth"
 import { cn } from "@/lib/utils"
@@ -10,6 +16,9 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onForgotPassword }: LoginFormProps) {
+  const emailInputRef = useRef<HTMLInputElement | null>(null)
+  const passwordInputRef = useRef<HTMLInputElement | null>(null)
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -19,6 +28,29 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
     email: false,
     password: false,
   })
+
+  useEffect(() => {
+    const syncAutofillValues = () => {
+      const autofilledEmail = emailInputRef.current?.value ?? ""
+      const autofilledPassword = passwordInputRef.current?.value ?? ""
+
+      if (autofilledEmail) {
+        setEmail(autofilledEmail)
+      }
+
+      if (autofilledPassword) {
+        setPassword(autofilledPassword)
+      }
+    }
+
+    syncAutofillValues()
+
+    const timeout = window.setTimeout(syncAutofillValues, 300)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [])
 
   const cleanEmail = email.trim().toLowerCase()
 
@@ -58,10 +90,10 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         return
       }
 
-      window.location.href = "/financeiro"
+      window.location.href = "/pedidos"
     } catch (err) {
       console.error("LOGIN EXCEPTION:", err)
-      setError("Erro ao efetuar login")
+      setError("Erro ao acessar o painel")
     } finally {
       setIsLoading(false)
     }
@@ -69,16 +101,29 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {error && (
-        <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-200">
-          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+      <style>{`
+        .login-input:-webkit-autofill,
+        .login-input:-webkit-autofill:hover,
+        .login-input:-webkit-autofill:focus,
+        .login-input:-webkit-autofill:active {
+          -webkit-box-shadow: 0 0 0 1000px #050505 inset !important;
+          -webkit-text-fill-color: #ffffff !important;
+          caret-color: #ffffff !important;
+          border-color: rgba(250, 204, 21, 0.55) !important;
+          transition: background-color 9999s ease-in-out 0s !important;
+        }
+      `}</style>
 
-          <p className="text-sm font-medium text-red-600">{error}</p>
+      {error && (
+        <div className="flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
+
+          <p className="text-sm font-semibold text-red-300">{error}</p>
         </div>
       )}
 
       <div>
-        <label className="mb-2 block text-sm font-semibold text-slate-700">
+        <label className="mb-2 block text-sm font-black text-yellow-400">
           Email
         </label>
 
@@ -89,39 +134,42 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
                 "h-5 w-5 transition-colors",
                 touched.email && !validation.email
                   ? "text-red-400"
-                  : "text-slate-400 group-focus-within:text-[#0B56D9]"
+                  : "text-yellow-400"
               )}
             />
           </div>
 
           <input
+            ref={emailInputRef}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onInput={(e) => setEmail(e.currentTarget.value)}
             onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
             placeholder="seu@email.com"
+            autoComplete="email"
             disabled={isLoading}
             className={cn(
-              "w-full rounded-2xl border bg-slate-50 py-4 pl-12 pr-4 text-base font-medium text-slate-900",
-              "placeholder:text-slate-400 transition-all duration-200",
-              "focus:bg-white focus:outline-none focus:ring-4",
+              "login-input w-full rounded-2xl border bg-[#050505] py-4 pl-12 pr-4 text-base font-black text-white",
+              "placeholder:text-zinc-500 transition-all duration-200",
+              "focus:bg-[#050505] focus:outline-none focus:ring-4",
               "disabled:cursor-not-allowed disabled:opacity-50",
               touched.email && !validation.email
-                ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                : "border-slate-200 focus:border-[#0B56D9] focus:ring-[#0B56D9]/10"
+                ? "border-red-500 focus:border-red-400 focus:ring-red-500/10"
+                : "border-yellow-400/55 focus:border-yellow-400 focus:ring-yellow-400/15"
             )}
           />
         </div>
 
         {touched.email && !validation.email && cleanEmail.length > 0 && (
-          <p className="mt-2 animate-in fade-in text-xs font-medium text-red-500 duration-150">
+          <p className="mt-2 animate-in fade-in text-xs font-semibold text-red-400 duration-150">
             Informe um email válido
           </p>
         )}
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-semibold text-slate-700">
+        <label className="mb-2 block text-sm font-black text-yellow-400">
           Senha
         </label>
 
@@ -132,26 +180,29 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
                 "h-5 w-5 transition-colors",
                 touched.password && !validation.password
                   ? "text-red-400"
-                  : "text-slate-400 group-focus-within:text-[#0B56D9]"
+                  : "text-yellow-400"
               )}
             />
           </div>
 
           <input
+            ref={passwordInputRef}
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onInput={(e) => setPassword(e.currentTarget.value)}
             onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
             placeholder="Digite sua senha"
+            autoComplete="current-password"
             disabled={isLoading}
             className={cn(
-              "w-full rounded-2xl border bg-slate-50 py-4 pl-12 pr-12 text-base font-medium text-slate-900",
-              "placeholder:text-slate-400 transition-all duration-200",
-              "focus:bg-white focus:outline-none focus:ring-4",
+              "login-input w-full rounded-2xl border bg-[#050505] py-4 pl-12 pr-12 text-base font-black text-white",
+              "placeholder:text-zinc-500 transition-all duration-200",
+              "focus:bg-[#050505] focus:outline-none focus:ring-4",
               "disabled:cursor-not-allowed disabled:opacity-50",
               touched.password && !validation.password
-                ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                : "border-slate-200 focus:border-[#0B56D9] focus:ring-[#0B56D9]/10"
+                ? "border-red-500 focus:border-red-400 focus:ring-red-500/10"
+                : "border-yellow-400/55 focus:border-yellow-400 focus:ring-yellow-400/15"
             )}
           />
 
@@ -159,7 +210,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
             disabled={isLoading}
-            className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="absolute inset-y-0 right-0 flex items-center pr-4 text-yellow-400 transition-colors hover:text-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {showPassword ? (
               <EyeOff className="h-5 w-5" />
@@ -170,7 +221,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         </div>
 
         {touched.password && !validation.password && password.length > 0 && (
-          <p className="mt-2 animate-in fade-in text-xs font-medium text-red-500 duration-150">
+          <p className="mt-2 animate-in fade-in text-xs font-semibold text-red-400 duration-150">
             A senha deve ter pelo menos 6 caracteres
           </p>
         )}
@@ -181,7 +232,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
           <button
             type="button"
             onClick={onForgotPassword}
-            className="text-sm font-semibold text-[#0B56D9] transition-colors hover:text-[#0847B5]"
+            className="text-sm font-bold text-yellow-400 transition-colors hover:text-yellow-300"
           >
             Esqueceu sua senha?
           </button>
@@ -195,17 +246,17 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
           "flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-black transition-all duration-200",
           "active:scale-[0.98]",
           validation.canSubmit && !isLoading
-            ? "bg-[#0B56D9] text-white shadow-[0_18px_45px_rgba(11,86,217,0.28)] hover:bg-[#0847B5] hover:shadow-[0_22px_55px_rgba(11,86,217,0.34)]"
-            : "cursor-not-allowed bg-slate-200 text-slate-400 shadow-none"
+            ? "bg-yellow-400 text-black shadow-[0_18px_45px_rgba(250,204,21,0.28)] hover:bg-yellow-300"
+            : "cursor-not-allowed bg-yellow-400/35 text-black/45 shadow-none"
         )}
       >
         {isLoading ? (
           <>
             <Loader2 className="h-5 w-5 animate-spin" />
-            Entrando...
+            Acessando...
           </>
         ) : (
-          "Entrar"
+          "Acessar painel"
         )}
       </button>
     </form>

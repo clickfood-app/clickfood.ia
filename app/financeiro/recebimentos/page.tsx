@@ -326,17 +326,17 @@ export default function RecebimentosPage() {
   return (
     <AdminLayout>
       <div className="space-y-5">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
               <WalletCards className="h-5 w-5" />
             </div>
 
             <div>
-              <h1 className="text-xl font-semibold text-slate-950">
+              <h1 className="text-xl font-semibold text-white">
                 Recebimentos
               </h1>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-zinc-500">
                 Controle pedidos pagos, pendentes e formas de pagamento.
               </p>
             </div>
@@ -355,37 +355,37 @@ export default function RecebimentosPage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Recebido</p>
-            <strong className="mt-1 block text-2xl font-semibold text-emerald-600">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Recebido</p>
+            <strong className="mt-1 block text-2xl font-semibold text-emerald-400">
               {formatCurrency(totals.received)}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">A receber</p>
-            <strong className="mt-1 block text-2xl font-semibold text-orange-600">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">A receber</p>
+            <strong className="mt-1 block text-2xl font-semibold text-yellow-400">
               {formatCurrency(totals.pending)}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Pedidos pagos</p>
-            <strong className="mt-1 block text-2xl font-semibold text-slate-950">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Pedidos pagos</p>
+            <strong className="mt-1 block text-2xl font-semibold text-white">
               {totals.paidCount}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Pendentes</p>
-            <strong className="mt-1 block text-2xl font-semibold text-slate-950">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Pendentes</p>
+            <strong className="mt-1 block text-2xl font-semibold text-white">
               {totals.pendingCount}
             </strong>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Ticket médio pago</p>
-            <strong className="mt-1 block text-2xl font-semibold text-violet-700">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+            <p className="text-sm text-zinc-500">Ticket médio pago</p>
+            <strong className="mt-1 block text-2xl font-semibold text-yellow-400">
               {formatCurrency(averageTicket)}
             </strong>
           </div>
@@ -393,10 +393,10 @@ export default function RecebimentosPage() {
 
         <div className="grid gap-5 xl:grid-cols-[340px_1fr]">
           <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
-                <Filter className="h-4 w-4 text-violet-700" />
-                <h2 className="font-semibold text-slate-950">Filtros</h2>
+                <Filter className="h-4 w-4 text-yellow-400" />
+                <h2 className="font-semibold text-white">Filtros</h2>
               </div>
 
               <div className="space-y-3">
@@ -453,7 +453,7 @@ export default function RecebimentosPage() {
                 </div>
 
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                   <Input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
@@ -464,50 +464,50 @@ export default function RecebimentosPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="mb-4 font-semibold text-slate-950">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+              <h2 className="mb-4 font-semibold text-white">
                 Recebido por forma
               </h2>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                       <Smartphone className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">Pix</span>
+                    <span className="text-sm font-medium text-zinc-500">Pix</span>
                   </div>
                   <strong>{formatCurrency(totals.pix)}</strong>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                       <Banknote className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-medium text-zinc-500">
                       Dinheiro
                     </span>
                   </div>
                   <strong>{formatCurrency(totals.cash)}</strong>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
                       <CreditCard className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">Cartão</span>
+                    <span className="text-sm font-medium text-zinc-500">Cartão</span>
                   </div>
                   <strong>{formatCurrency(totals.card)}</strong>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between rounded-xl bg-[#111111] p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-200 text-slate-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                       <ReceiptText className="h-4 w-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">Outros</span>
+                    <span className="text-sm font-medium text-zinc-500">Outros</span>
                   </div>
                   <strong>{formatCurrency(totals.other)}</strong>
                 </div>
@@ -515,42 +515,42 @@ export default function RecebimentosPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
             <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="font-semibold text-white">
                   Lista de recebimentos
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Pedidos do período selecionado.
                 </p>
               </div>
 
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
+              <span className="rounded-full bg-[#111111] px-3 py-1 text-sm font-medium text-zinc-500">
                 {filteredOrders.length} pedidos
               </span>
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-12 text-sm text-slate-500">
+              <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Carregando recebimentos...
               </div>
             ) : filteredOrders.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center">
-                <ReceiptText className="mx-auto h-9 w-9 text-slate-300" />
-                <p className="mt-2 font-medium text-slate-800">
+              <div className="rounded-xl border border-dashed border-white/10 p-10 text-center">
+                <ReceiptText className="mx-auto h-9 w-9 text-zinc-500" />
+                <p className="mt-2 font-medium text-white">
                   Nenhum recebimento encontrado
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Ajuste os filtros ou aguarde novos pedidos.
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="overflow-hidden rounded-xl border border-white/10">
                 <div className="max-h-[640px] overflow-auto">
                   <table className="w-full min-w-[980px] text-sm">
-                    <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <thead className="sticky top-0 bg-[#111111] text-left text-xs uppercase tracking-wide text-zinc-500">
                       <tr>
                         <th className="px-4 py-3">Pedido</th>
                         <th className="px-4 py-3">Cliente</th>
@@ -563,28 +563,28 @@ export default function RecebimentosPage() {
                       </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-white/10 bg-[#0A0A0A]">
                       {filteredOrders.map((order) => (
-                        <tr key={order.id} className="hover:bg-slate-50">
+                        <tr key={order.id} className="hover:bg-[#111111]">
                           <td className="px-4 py-3">
-                            <p className="font-medium text-slate-950">
+                            <p className="font-medium text-white">
                               #{order.public_order_number}
                             </p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-zinc-500">
                               {order.order_type || "Pedido"}
                             </p>
                           </td>
 
                           <td className="px-4 py-3">
-                            <p className="font-medium text-slate-800">
+                            <p className="font-medium text-white">
                               {order.customer_name}
                             </p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-zinc-500">
                               {order.customer_phone}
                             </p>
                           </td>
 
-                          <td className="px-4 py-3 text-slate-700">
+                          <td className="px-4 py-3 text-zinc-500">
                             {getPaymentMethodLabel(order.payment_method)}
                           </td>
 
@@ -593,23 +593,23 @@ export default function RecebimentosPage() {
                               className={cn(
                                 "rounded-full px-2 py-1 text-xs font-medium",
                                 order.payment_status === "paid"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-orange-100 text-orange-700",
+                                  ? "bg-emerald-500/10 text-emerald-400"
+                                  : "bg-yellow-400/10 text-yellow-400",
                               )}
                             >
                               {getPaymentStatusLabel(order.payment_status)}
                             </span>
                           </td>
 
-                          <td className="px-4 py-3 text-slate-500">
+                          <td className="px-4 py-3 text-zinc-500">
                             {order.asaas_payment_status || "-"}
                           </td>
 
-                          <td className="px-4 py-3 text-slate-500">
+                          <td className="px-4 py-3 text-zinc-500">
                             {formatDateTime(order.created_at)}
                           </td>
 
-                          <td className="px-4 py-3 text-right font-semibold text-slate-950">
+                          <td className="px-4 py-3 text-right font-semibold text-white">
                             {formatCurrency(order.total)}
                           </td>
 

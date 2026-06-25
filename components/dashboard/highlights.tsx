@@ -18,25 +18,25 @@ export default function Highlights({
       {/* Top Product */}
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
-            <Trophy className="h-5 w-5 text-amber-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-400/10">
+            <Trophy className="h-5 w-5 text-yellow-400" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-card-foreground">Mais Vendido Hoje</h3>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Produto destaque</p>
           </div>
         </div>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <p className="text-lg font-bold text-amber-900">{topProduct.name}</p>
+        <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-4">
+          <p className="text-lg font-bold text-yellow-400">{topProduct.name}</p>
           <div className="mt-2 flex items-center gap-4">
             <div>
-              <p className="text-xs text-amber-700 uppercase">Quantidade</p>
-              <p className="text-xl font-bold text-amber-800">{topProduct.quantity}</p>
+              <p className="text-xs text-yellow-400 uppercase">Quantidade</p>
+              <p className="text-xl font-bold text-yellow-400">{topProduct.quantity}</p>
             </div>
-            <div className="h-8 w-px bg-amber-200" />
+            <div className="h-8 w-px bg-yellow-400/10" />
             <div>
-              <p className="text-xs text-amber-700 uppercase">Receita</p>
-              <p className="text-xl font-bold text-amber-800">{formatBRL(topProduct.revenue)}</p>
+              <p className="text-xs text-yellow-400 uppercase">Receita</p>
+              <p className="text-xl font-bold text-yellow-400">{formatBRL(topProduct.revenue)}</p>
             </div>
           </div>
         </div>
@@ -45,8 +45,8 @@ export default function Highlights({
       {/* Peak Hour */}
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100">
-            <Clock className="h-5 w-5 text-violet-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-400/10">
+            <Clock className="h-5 w-5 text-yellow-400" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-card-foreground">Horario de Pico</h3>
@@ -55,7 +55,7 @@ export default function Highlights({
         </div>
 
         <div className="flex items-center gap-3 mb-4">
-          <span className="rounded-lg bg-violet-100 px-3 py-1.5 text-lg font-bold text-violet-800">
+          <span className="rounded-lg bg-yellow-400/10 px-3 py-1.5 text-lg font-bold text-yellow-400">
             {peakHour.peakHour}
           </span>
           <span className="text-sm text-muted-foreground">
@@ -73,7 +73,7 @@ export default function Highlights({
                 <div
                   className={cn(
                     "w-full rounded-t transition-all",
-                    isPeak ? "bg-violet-500" : "bg-violet-200 group-hover:bg-violet-300"
+                    isPeak ? "bg-yellow-400" : "bg-yellow-400/10 group-hover:bg-yellow-300"
                   )}
                   style={{ height: `${h}%` }}
                 />

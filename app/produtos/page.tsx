@@ -1191,8 +1191,8 @@ export default function ProdutosPage() {
   if (loadingData) {
     return (
       <AdminLayout title="Produtos">
-        <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-slate-200 bg-white">
-          <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+        <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A]">
+          <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
             <Loader2 className="h-4 w-4 animate-spin" />
             Carregando catálogo...
           </div>
@@ -1204,16 +1204,16 @@ export default function ProdutosPage() {
   return (
     <AdminLayout title="Produtos">
       <div className="space-y-4">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
                 Cardápio
               </p>
-              <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
+              <h1 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">
                 Produtos e categorias
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              <p className="mt-1 max-w-2xl text-sm text-zinc-500">
                 Organize a ordem das categorias, cadastre produtos e mantenha o cardápio limpo para o cliente.
               </p>
             </div>
@@ -1223,7 +1223,7 @@ export default function ProdutosPage() {
                 type="button"
                 onClick={openCategoryOrderModal}
                 disabled={sortedCategories.length === 0}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Organizar categorias
@@ -1232,7 +1232,7 @@ export default function ProdutosPage() {
               <button
                 type="button"
                 onClick={openCreateCategoryModal}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
               >
                 <FolderPlus className="h-4 w-4" />
                 Nova categoria
@@ -1241,7 +1241,7 @@ export default function ProdutosPage() {
               <button
                 type="button"
                 onClick={() => openCreateProductSheet()}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black transition hover:bg-yellow-300"
               >
                 <Plus className="h-4 w-4" />
                 Novo produto
@@ -1250,86 +1250,86 @@ export default function ProdutosPage() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                   Total
                 </p>
-                <Package className="h-4 w-4 text-slate-400" />
+                <Package className="h-4 w-4 text-zinc-500" />
               </div>
-              <p className="mt-2 text-2xl font-black text-slate-950">
+              <p className="mt-2 text-2xl font-black text-white">
                 {products.length}
               </p>
-              <p className="text-xs font-semibold text-slate-500">produtos</p>
+              <p className="text-xs font-semibold text-zinc-500">produtos</p>
             </div>
 
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-400">
                   Ativos
                 </p>
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
               </div>
-              <p className="mt-2 text-2xl font-black text-emerald-900">
+              <p className="mt-2 text-2xl font-black text-emerald-400">
                 {activeProducts.length}
               </p>
-              <p className="text-xs font-semibold text-emerald-700">
+              <p className="text-xs font-semibold text-emerald-400">
                 visíveis no cardápio
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                   Sem foto
                 </p>
-                <ImageOff className="h-4 w-4 text-slate-400" />
+                <ImageOff className="h-4 w-4 text-zinc-500" />
               </div>
-              <p className="mt-2 text-2xl font-black text-slate-950">
+              <p className="mt-2 text-2xl font-black text-white">
                 {noImageProducts.length}
               </p>
-              <p className="text-xs font-semibold text-slate-500">para revisar</p>
+              <p className="text-xs font-semibold text-zinc-500">para revisar</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                   Sem custo
                 </p>
-                <DollarSign className="h-4 w-4 text-slate-400" />
+                <DollarSign className="h-4 w-4 text-zinc-500" />
               </div>
-              <p className="mt-2 text-2xl font-black text-slate-950">
+              <p className="mt-2 text-2xl font-black text-white">
                 {noCostProducts.length}
               </p>
-              <p className="text-xs font-semibold text-slate-500">sem CMV</p>
+              <p className="text-xs font-semibold text-zinc-500">sem CMV</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                   Margem média
                 </p>
-                <Percent className="h-4 w-4 text-slate-400" />
+                <Percent className="h-4 w-4 text-zinc-500" />
               </div>
-              <p className="mt-2 text-2xl font-black text-slate-950">
+              <p className="mt-2 text-2xl font-black text-white">
                 {averageMargin.toFixed(1)}%
               </p>
-              <p className="text-xs font-semibold text-slate-500">
+              <p className="text-xs font-semibold text-zinc-500">
                 {inactiveProducts.length} inativo(s)
               </p>
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_240px_190px]">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar produto por nome ou descrição..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+                className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 text-sm text-zinc-500 outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
               />
             </div>
 
@@ -1348,7 +1348,7 @@ export default function ProdutosPage() {
                   )
                 }
               }}
-              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              className="h-11 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
             >
               <option value="all">Todas categorias</option>
               {sortedCategories.map((category) => (
@@ -1363,7 +1363,7 @@ export default function ProdutosPage() {
               onChange={(event) =>
                 setAvailabilityFilter(event.target.value as AvailabilityFilter)
               }
-              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              className="h-11 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
             >
               <option value="all">Todos status</option>
               <option value="active">Ativos</option>
@@ -1372,13 +1372,13 @@ export default function ProdutosPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-white/10 bg-[#0A0A0A] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-black text-slate-950">
+              <h2 className="text-base font-black text-white">
                 Categorias do cardápio
               </h2>
-              <p className="text-sm font-semibold text-slate-500">
+              <p className="text-sm font-semibold text-zinc-500">
                 Clique na categoria para abrir os produtos. A ordem abaixo é a hierarquia do cardápio público.
               </p>
             </div>
@@ -1388,7 +1388,7 @@ export default function ProdutosPage() {
                 type="button"
                 onClick={openCategoryOrderModal}
                 disabled={sortedCategories.length === 0}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Reordenar
@@ -1397,7 +1397,7 @@ export default function ProdutosPage() {
               <button
                 type="button"
                 onClick={openCreateCategoryModal}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
               >
                 <FolderPlus className="h-4 w-4" />
                 Nova categoria
@@ -1407,15 +1407,15 @@ export default function ProdutosPage() {
 
           {visibleCategories.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-sm font-black text-slate-700">
+              <p className="text-sm font-black text-zinc-500">
                 Nenhum produto encontrado
               </p>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-zinc-500">
                 Ajuste a busca ou os filtros para ver os produtos.
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-white/10">
               {visibleCategories.map((category, index) => {
                 const categoryProducts = productsByCategory.get(category.id) ?? []
                 const totalProductsInCategory = products.filter(
@@ -1425,11 +1425,11 @@ export default function ProdutosPage() {
                 const isDeletingCategory = deletingId === category.id
 
                 return (
-                  <div key={category.id} className="bg-white">
+                  <div key={category.id} className="bg-[#0A0A0A]">
                     <div
                       className={cn(
                         "flex flex-col gap-3 px-4 py-3 transition sm:flex-row sm:items-center sm:justify-between",
-                        isExpanded ? "bg-blue-50/40" : "hover:bg-slate-50"
+                        isExpanded ? "bg-yellow-400/10" : "hover:bg-[#111111]"
                       )}
                     >
                       <button
@@ -1439,10 +1439,10 @@ export default function ProdutosPage() {
                       >
                         <span
                           className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-slate-600 transition",
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-zinc-500 transition",
                             isExpanded
-                              ? "border-blue-200 bg-white text-blue-700"
-                              : "border-slate-200 bg-slate-50"
+                              ? "border-yellow-400/30 bg-[#0A0A0A] text-yellow-400"
+                              : "border-white/10 bg-[#111111]"
                           )}
                         >
                           {isExpanded ? (
@@ -1452,28 +1452,28 @@ export default function ProdutosPage() {
                           )}
                         </span>
 
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-500">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#111111] text-xs font-black text-zinc-500">
                           {index + 1}
                         </span>
 
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="truncate text-sm font-black uppercase tracking-wide text-slate-950">
+                            <span className="truncate text-sm font-black uppercase tracking-wide text-white">
                               {category.name}
                             </span>
 
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-600 ring-1 ring-slate-200">
+                            <span className="rounded-full bg-[#111111] px-2 py-0.5 text-xs font-black text-zinc-500 ring-1 ring-yellow-400/20">
                               {totalProductsInCategory}
                             </span>
 
                             {!category.active && (
-                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-700">
+                              <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-xs font-black text-yellow-400">
                                 Oculta
                               </span>
                             )}
                           </span>
 
-                          <span className="mt-0.5 block text-xs font-semibold text-slate-500">
+                          <span className="mt-0.5 block text-xs font-semibold text-zinc-500">
                             {isExpanded
                               ? "Produtos visíveis abaixo"
                               : "Clique para abrir os produtos dessa categoria"}
@@ -1485,7 +1485,7 @@ export default function ProdutosPage() {
                         <button
                           type="button"
                           onClick={() => openCreateProductSheet(category.id)}
-                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-100"
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           Produto
@@ -1494,7 +1494,7 @@ export default function ProdutosPage() {
                         <button
                           type="button"
                           onClick={() => openEditCategoryModal(category)}
-                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-100"
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
                         >
                           <Edit3 className="h-3.5 w-3.5" />
                           Editar
@@ -1517,20 +1517,20 @@ export default function ProdutosPage() {
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t border-slate-100 bg-slate-50/60">
+                      <div className="border-t border-white/10 bg-[#111111]">
                         {categoryProducts.length === 0 ? (
                           <div className="p-4">
-                            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
-                              <p className="text-sm font-black text-slate-700">
+                            <div className="rounded-xl border border-dashed border-white/10 bg-[#0A0A0A] p-6 text-center">
+                              <p className="text-sm font-black text-zinc-500">
                                 Nenhum produto nessa categoria
                               </p>
-                              <p className="mt-1 text-sm text-slate-500">
+                              <p className="mt-1 text-sm text-zinc-500">
                                 Adicione produtos para montar essa seção do cardápio.
                               </p>
                               <button
                                 type="button"
                                 onClick={() => openCreateProductSheet(category.id)}
-                                className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
+                                className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black transition hover:bg-yellow-300"
                               >
                                 <Plus className="h-4 w-4" />
                                 Adicionar produto
@@ -1538,7 +1538,7 @@ export default function ProdutosPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="divide-y divide-slate-200">
+                          <div className="divide-y divide-white/10">
                             {categoryProducts.map((product) => {
                               const finalPrice = getProductFinalPrice(product)
                               const profit = getProfit(finalPrice, product.cost)
@@ -1549,10 +1549,10 @@ export default function ProdutosPage() {
                               return (
                                 <div
                                   key={product.id}
-                                  className="grid gap-3 bg-white px-4 py-3 transition hover:bg-slate-50 xl:grid-cols-[minmax(0,1.7fr)_150px_145px_210px] xl:items-center"
+                                  className="grid gap-3 bg-[#0A0A0A] px-4 py-3 transition hover:bg-[#111111] xl:grid-cols-[minmax(0,1.7fr)_150px_145px_210px] xl:items-center"
                                 >
                                   <div className="flex min-w-0 gap-3">
-                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#111111]">
                                       {product.image ? (
                                         <img
                                           src={product.image}
@@ -1560,36 +1560,36 @@ export default function ProdutosPage() {
                                           className="h-full w-full object-cover"
                                         />
                                       ) : (
-                                        <ImageOff className="h-5 w-5 text-slate-400" />
+                                        <ImageOff className="h-5 w-5 text-zinc-500" />
                                       )}
                                     </div>
 
                                     <div className="min-w-0 flex-1">
                                       <div className="flex flex-wrap items-center gap-2">
-                                        <p className="truncate text-sm font-black text-slate-950">
+                                        <p className="truncate text-sm font-black text-white">
                                           {product.name}
                                         </p>
 
                                         {product.promotionActive && (
-                                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-black text-orange-700">
+                                          <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-black text-yellow-400">
                                             Promoção
                                           </span>
                                         )}
 
                                         {!hasImage(product) && (
-                                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">
+                                          <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[11px] font-black text-zinc-500">
                                             Sem foto
                                           </span>
                                         )}
 
                                         {!hasRegisteredCost(product) && (
-                                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-700">
+                                          <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[11px] font-black text-yellow-400">
                                             Sem custo
                                           </span>
                                         )}
                                       </div>
 
-                                      <p className="mt-1 line-clamp-1 text-sm text-slate-500">
+                                      <p className="mt-1 line-clamp-1 text-sm text-zinc-500">
                                         {product.description || "Sem descrição cadastrada."}
                                       </p>
                                     </div>
@@ -1597,43 +1597,43 @@ export default function ProdutosPage() {
 
                                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:block">
                                     <div>
-                                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                         Preço
                                       </p>
 
                                       {product.promotionActive ? (
                                         <div className="mt-1">
-                                          <p className="text-sm font-black text-emerald-600">
+                                          <p className="text-sm font-black text-emerald-400">
                                             {formatCurrency(finalPrice)}
                                           </p>
-                                          <p className="text-xs font-bold text-slate-400 line-through">
+                                          <p className="text-xs font-bold text-zinc-500 line-through">
                                             {formatCurrency(product.price)}
                                           </p>
                                         </div>
                                       ) : (
-                                        <p className="mt-1 text-sm font-black text-slate-950">
+                                        <p className="mt-1 text-sm font-black text-white">
                                           {formatCurrency(product.price)}
                                         </p>
                                       )}
                                     </div>
 
                                     <div className="xl:mt-2">
-                                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                         Custo
                                       </p>
-                                      <p className="mt-1 text-sm font-black text-slate-950">
+                                      <p className="mt-1 text-sm font-black text-white">
                                         {formatCurrency(product.cost)}
                                       </p>
                                     </div>
 
                                     <div className="xl:hidden">
-                                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                         Margem
                                       </p>
                                       <p
                                         className={cn(
                                           "mt-1 text-sm font-black",
-                                          margin >= 20 ? "text-emerald-600" : "text-amber-600"
+                                          margin >= 20 ? "text-emerald-400" : "text-yellow-400"
                                         )}
                                       >
                                         {margin.toFixed(1)}%
@@ -1642,13 +1642,13 @@ export default function ProdutosPage() {
                                   </div>
 
                                   <div className="hidden xl:block">
-                                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                    <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                                       Resultado
                                     </p>
                                     <p
                                       className={cn(
                                         "mt-1 text-sm font-black",
-                                        profit >= 0 ? "text-emerald-600" : "text-red-600"
+                                        profit >= 0 ? "text-emerald-400" : "text-red-600"
                                       )}
                                     >
                                       {formatCurrency(profit)}
@@ -1656,7 +1656,7 @@ export default function ProdutosPage() {
                                     <p
                                       className={cn(
                                         "text-xs font-bold",
-                                        margin >= 20 ? "text-emerald-600" : "text-amber-600"
+                                        margin >= 20 ? "text-emerald-400" : "text-yellow-400"
                                       )}
                                     >
                                       {margin.toFixed(1)}% margem
@@ -1671,8 +1671,8 @@ export default function ProdutosPage() {
                                       className={cn(
                                         "inline-flex h-9 items-center gap-2 rounded-full px-3 text-xs font-black transition disabled:opacity-50",
                                         product.active
-                                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                          ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"
+                                          : "bg-[#111111] text-zinc-500 hover:bg-[#111111]"
                                       )}
                                     >
                                       {isSaving ? (
@@ -1688,7 +1688,7 @@ export default function ProdutosPage() {
                                     <button
                                       type="button"
                                       onClick={() => openEditProductSheet(product.id)}
-                                      className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                                      className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                                     >
                                       <Edit3 className="h-4 w-4" />
                                       Editar
@@ -1723,16 +1723,16 @@ export default function ProdutosPage() {
         </section>
 
         {categoryModal.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111] p-4">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[#0A0A0A] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
-                  <h2 className="text-base font-black text-slate-950">
+                  <h2 className="text-base font-black text-white">
                     {categoryModal.mode === "create"
                       ? "Nova categoria"
                       : "Editar categoria"}
                   </h2>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     Organize a estrutura do cardápio.
                   </p>
                 </div>
@@ -1740,7 +1740,7 @@ export default function ProdutosPage() {
                 <button
                   type="button"
                   onClick={closeCategoryModal}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-[#111111]"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1748,19 +1748,19 @@ export default function ProdutosPage() {
 
               <div className="space-y-4 px-5 py-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-black text-slate-700">
+                  <label className="mb-1.5 block text-sm font-black text-zinc-500">
                     Nome da categoria
                   </label>
                   <input
                     value={categoryName}
                     onChange={(event) => setCategoryName(event.target.value)}
                     placeholder="Ex: Lanches"
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                    className="h-11 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm text-zinc-500 outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-black text-slate-700">
+                  <label className="mb-1.5 block text-sm font-black text-zinc-500">
                     Status
                   </label>
 
@@ -1771,8 +1771,8 @@ export default function ProdutosPage() {
                       className={cn(
                         "h-10 rounded-xl border text-sm font-black transition",
                         categoryActive
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
+                          : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                       )}
                     >
                       Ativa
@@ -1784,8 +1784,8 @@ export default function ProdutosPage() {
                       className={cn(
                         "h-10 rounded-xl border text-sm font-black transition",
                         !categoryActive
-                          ? "border-amber-300 bg-amber-50 text-amber-700"
-                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                          : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                       )}
                     >
                       Inativa
@@ -1794,11 +1794,11 @@ export default function ProdutosPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-white/10 bg-[#111111] px-5 py-4">
                 <button
                   type="button"
                   onClick={closeCategoryModal}
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                  className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                 >
                   Cancelar
                 </button>
@@ -1807,7 +1807,7 @@ export default function ProdutosPage() {
                   type="button"
                   onClick={() => void saveCategory()}
                   disabled={!categoryName.trim() || savingCategory}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingCategory && <Loader2 className="h-4 w-4 animate-spin" />}
                   Salvar
@@ -1818,14 +1818,14 @@ export default function ProdutosPage() {
         )}
 
         {categoryOrderModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111] p-4">
+            <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-[#0A0A0A] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
-                  <h2 className="text-base font-black text-slate-950">
+                  <h2 className="text-base font-black text-white">
                     Organizar categorias
                   </h2>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-500">
                     Arraste as categorias para definir a hierarquia do cardápio público.
                   </p>
                 </div>
@@ -1833,7 +1833,7 @@ export default function ProdutosPage() {
                 <button
                   type="button"
                   onClick={closeCategoryOrderModal}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-[#111111]"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1854,26 +1854,26 @@ export default function ProdutosPage() {
                         }
                         onDragEnd={handleCategoryDragEnd}
                         className={cn(
-                          "flex cursor-grab items-center gap-3 rounded-xl border bg-white p-3 transition active:cursor-grabbing",
+                          "flex cursor-grab items-center gap-3 rounded-xl border bg-[#0A0A0A] p-3 transition active:cursor-grabbing",
                           isDragging
-                            ? "border-blue-300 bg-blue-50 opacity-70 shadow-md ring-2 ring-blue-500/10"
-                            : "border-slate-200 hover:border-blue-200 hover:bg-slate-50"
+                            ? "border-yellow-400/30 bg-yellow-400/10 opacity-70 shadow-md ring-2 ring-yellow-400/20"
+                            : "border-white/10 hover:border-yellow-400/30 hover:bg-[#111111]"
                         )}
                       >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                           <GripVertical className="h-4 w-4" />
                         </div>
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-400">
+                            <span className="text-xs font-black text-zinc-500">
                               {index + 1}.
                             </span>
-                            <p className="truncate text-sm font-black text-slate-900">
+                            <p className="truncate text-sm font-black text-white">
                               {category.name}
                             </p>
                           </div>
-                          <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                          <p className="mt-0.5 text-xs font-semibold text-zinc-500">
                             {
                               products.filter(
                                 (product) => product.category === category.id
@@ -1883,7 +1883,7 @@ export default function ProdutosPage() {
                           </p>
                         </div>
 
-                        <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500 sm:inline-flex">
+                        <span className="hidden rounded-full bg-[#111111] px-3 py-1 text-xs font-black text-zinc-500 sm:inline-flex">
                           Arraste
                         </span>
                       </div>
@@ -1892,11 +1892,11 @@ export default function ProdutosPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-white/10 bg-[#111111] px-5 py-4">
                 <button
                   type="button"
                   onClick={closeCategoryOrderModal}
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                  className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                 >
                   Cancelar
                 </button>
@@ -1905,7 +1905,7 @@ export default function ProdutosPage() {
                   type="button"
                   onClick={() => void saveCategoryOrder()}
                   disabled={savingCategoryOrder}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingCategoryOrder && (
                     <Loader2 className="h-4 w-4 animate-spin" />

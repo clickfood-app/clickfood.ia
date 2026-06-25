@@ -867,18 +867,18 @@ function MetricCard({
   tone: "blue" | "green" | "amber" | "red" | "slate"
 }) {
   const toneClass = {
-    blue: "border-blue-100 bg-blue-50 text-blue-700",
-    green: "border-emerald-100 bg-emerald-50 text-emerald-700",
-    amber: "border-orange-100 bg-orange-50 text-orange-700",
+    blue: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
+    green: "border-emerald-400/30 bg-emerald-500/10 text-emerald-400",
+    amber: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400",
     red: "border-red-100 bg-red-50 text-red-700",
-    slate: "border-slate-200 bg-slate-50 text-slate-600",
+    slate: "border-white/10 bg-[#111111] text-zinc-500",
   }[tone]
 
   return (
-    <div className="min-h-[118px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="min-h-[118px] rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex h-full flex-col justify-between gap-3">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
             {title}
           </p>
 
@@ -893,10 +893,10 @@ function MetricCard({
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-2xl font-semibold tabular-nums text-slate-950">
+          <p className="truncate text-2xl font-semibold tabular-nums text-white">
             {value}
           </p>
-          <p className="mt-2 truncate text-xs font-medium text-slate-500">
+          <p className="mt-2 truncate text-xs font-medium text-zinc-500">
             {subtitle}
           </p>
         </div>
@@ -924,17 +924,17 @@ function Panel({
     <section
       id={id}
       className={cn(
-        "rounded-xl border border-slate-200 bg-white p-4 shadow-sm",
+        "rounded-xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm",
         className
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight text-slate-950">
+          <h2 className="text-sm font-semibold tracking-tight text-white">
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+            <p className="mt-1 text-xs font-medium leading-5 text-zinc-500">
               {subtitle}
             </p>
           )}
@@ -950,7 +950,7 @@ function Panel({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-medium text-slate-500">
+    <div className="rounded-xl border border-dashed border-white/10 bg-[#111111] px-4 py-8 text-center text-sm font-medium text-zinc-500">
       {message}
     </div>
   )
@@ -968,10 +968,10 @@ function MoneyInput({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="block rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <span className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+    <label className="block rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+      <span className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
         {label}
-        <span className="font-semibold text-blue-700">
+        <span className="font-semibold text-yellow-400">
           Esperado: {formatCurrency(expected)}
         </span>
       </span>
@@ -981,7 +981,7 @@ function MoneyInput({
         onChange={(event) => onChange(event.target.value)}
         inputMode="decimal"
         placeholder="0,00"
-        className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold tabular-nums text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        className="mt-2 h-10 w-full rounded-lg border border-white/10 bg-[#111111] px-3 text-sm font-semibold tabular-nums text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
       />
     </label>
   )
@@ -991,10 +991,10 @@ function StatusBadge({ order }: { order: OrderRow }) {
   const bucket = getStatusBucket(order.status)
 
   const className = {
-    analysis: "bg-blue-50 text-blue-700 ring-blue-100",
-    open: "bg-orange-50 text-orange-700 ring-orange-100",
-    route: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    finished: "bg-slate-100 text-slate-600 ring-slate-200",
+    analysis: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    open: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+    route: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
+    finished: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
     cancelled: "bg-red-50 text-red-700 ring-red-100",
   }[bucket]
 
@@ -1018,9 +1018,9 @@ function PaymentBadge({ order }: { order: OrderRow }) {
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold ring-1",
-        paid && "bg-emerald-50 text-emerald-700 ring-emerald-100",
-        pendingPix && "bg-orange-50 text-orange-700 ring-orange-100",
-        !paid && !pendingPix && "bg-slate-100 text-slate-600 ring-slate-200"
+        paid && "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
+        pendingPix && "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
+        !paid && !pendingPix && "bg-[#111111] text-zinc-500 ring-yellow-400/20"
       )}
     >
       {getPaymentStatusLabel(order)}
@@ -1042,21 +1042,21 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
   const totalSales = data.reduce((sum, point) => sum + point.sales, 0)
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
           Visualização do gráfico
         </div>
 
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+        <div className="inline-flex rounded-lg border border-white/10 bg-[#0A0A0A] p-1">
           <button
             type="button"
             onClick={() => setMode("orders")}
             className={cn(
               "h-8 rounded-md px-3 text-xs font-semibold transition",
               mode === "orders"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-50"
+                ? "bg-yellow-400 text-black shadow-sm"
+                : "text-zinc-500 hover:bg-[#111111]"
             )}
           >
             Pedidos
@@ -1067,8 +1067,8 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
             className={cn(
               "h-8 rounded-md px-3 text-xs font-semibold transition",
               mode === "sales"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-50"
+                ? "bg-yellow-400 text-black shadow-sm"
+                : "text-zinc-500 hover:bg-[#111111]"
             )}
           >
             Vendas
@@ -1076,7 +1076,7 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
         </div>
       </div>
 
-      <div className="relative h-[230px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3">
+      <div className="relative h-[230px] overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
         <div className="pointer-events-none absolute inset-3 rounded-lg bg-[linear-gradient(to_right,rgba(148,163,184,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.18)_1px,transparent_1px)] bg-[size:36px_28px]" />
         <div className="relative flex h-[170px] items-end gap-1">
           {data.map((point, index) => {
@@ -1091,14 +1091,14 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
                 key={point.hour}
                 className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
               >
-                <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-20 w-max -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left text-[11px] text-slate-500 opacity-0 shadow-xl transition duration-150 group-hover:opacity-100">
-                  <p className="font-semibold tabular-nums text-slate-950">
+                <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-20 w-max -translate-x-1/2 rounded-lg border border-white/10 bg-[#0A0A0A] px-2.5 py-2 text-left text-[11px] text-zinc-500 opacity-0 shadow-xl transition duration-150 group-hover:opacity-100">
+                  <p className="font-semibold tabular-nums text-white">
                     {point.hour}
                   </p>
                   <p className="mt-0.5 tabular-nums">
                     {point.orders} pedido(s)
                   </p>
-                  <p className="tabular-nums font-semibold text-emerald-700">
+                  <p className="tabular-nums font-semibold text-emerald-400">
                     {formatCurrency(point.sales)}
                   </p>
                 </div>
@@ -1107,14 +1107,14 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
                   className={cn(
                     "w-full max-w-8 origin-bottom rounded-t-md transition-all duration-200 ease-out group-hover:scale-y-105",
                     rawValue > 0
-                      ? "bg-blue-600 group-hover:bg-blue-500 group-hover:shadow-md"
-                      : "bg-slate-200 group-hover:bg-slate-300"
+                      ? "bg-yellow-400 group-hover:bg-yellow-300/100 group-hover:shadow-md"
+                      : "bg-[#111111] group-hover:bg-[#111111]"
                   )}
                   style={{ height: `${height}%` }}
                 />
                 <span
                   className={cn(
-                    "mt-2 text-[10px] font-semibold text-slate-400 transition-colors group-hover:text-slate-700",
+                    "mt-2 text-[10px] font-semibold text-zinc-500 transition-colors group-hover:text-zinc-500",
                     index % 2 !== 0 && data.length > 12 && "opacity-0"
                   )}
                 >
@@ -1125,7 +1125,7 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
           })}
         </div>
 
-        <div className="relative mt-3 flex items-center justify-between border-t border-slate-200 pt-2 text-[11px] font-semibold tabular-nums text-slate-500">
+        <div className="relative mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[11px] font-semibold tabular-nums text-zinc-500">
           <span>{formatNumber(totalOrders)} pedido(s)</span>
           <span>{formatCurrency(totalSales)}</span>
         </div>
@@ -1147,10 +1147,10 @@ function PaymentDonut({
   total: number
 }) {
   const colors: Record<PaymentGroup, string> = {
-    pix: "#2563eb",
+    pix: "#facc15",
     cash: "#22c55e",
-    card: "#f97316",
-    other: "#64748b",
+    card: "#facc15",
+    other: "#71717a",
   }
 
   let cursor = 0
@@ -1167,7 +1167,7 @@ function PaymentDonut({
   const background =
     total > 0 && segments.length > 0
       ? `conic-gradient(${segments.join(", ")})`
-      : "conic-gradient(#e2e8f0 0% 100%)"
+      : "conic-gradient(#111111 0% 100%)"
 
   return (
     <div className="grid gap-5 md:grid-cols-[190px_1fr] md:items-center">
@@ -1176,12 +1176,12 @@ function PaymentDonut({
           className="absolute inset-0 rounded-full transition duration-300 hover:scale-[1.03]"
           style={{ background }}
         />
-        <div className="absolute inset-5 rounded-full bg-white shadow-inner" />
+        <div className="absolute inset-5 rounded-full bg-[#0A0A0A] shadow-inner" />
         <div className="relative text-center">
-          <p className="text-sm font-semibold tabular-nums text-slate-950">
+          <p className="text-sm font-semibold tabular-nums text-white">
             {formatCurrency(total)}
           </p>
-          <p className="mt-1 text-[11px] font-medium text-slate-500">Total</p>
+          <p className="mt-1 text-[11px] font-medium text-zinc-500">Total</p>
         </div>
       </div>
 
@@ -1189,7 +1189,7 @@ function PaymentDonut({
         {rows.map((row) => (
           <div
             key={row.key}
-            className="group rounded-lg px-2 py-1.5 transition hover:bg-slate-50"
+            className="group rounded-lg px-2 py-1.5 transition hover:bg-[#111111]"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -1197,15 +1197,15 @@ function PaymentDonut({
                   className="h-2.5 w-2.5 shrink-0 rounded-sm"
                   style={{ backgroundColor: colors[row.key] }}
                 />
-                <span className="truncate text-sm font-semibold text-slate-700">
+                <span className="truncate text-sm font-semibold text-zinc-500">
                   {row.label}
                 </span>
               </div>
-              <span className="text-sm font-semibold tabular-nums text-slate-950 transition group-hover:text-emerald-700">
+              <span className="text-sm font-semibold tabular-nums text-white transition group-hover:text-emerald-400">
                 {row.percent}%
               </span>
             </div>
-            <p className="mt-1 pl-4 text-[11px] font-semibold tabular-nums text-slate-500">
+            <p className="mt-1 pl-4 text-[11px] font-semibold tabular-nums text-zinc-500">
               {formatCurrency(row.amount)}
             </p>
           </div>
@@ -1225,16 +1225,16 @@ function SmallTile({
   tone?: "slate" | "green" | "red" | "amber" | "blue"
 }) {
   const toneClass = {
-    slate: "text-slate-950",
-    green: "text-emerald-700",
+    slate: "text-white",
+    green: "text-emerald-400",
     red: "text-red-700",
-    amber: "text-orange-700",
-    blue: "text-blue-700",
+    amber: "text-yellow-400",
+    blue: "text-yellow-400",
   }[tone]
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
         {label}
       </p>
       <p className={cn("mt-1 truncate text-sm font-semibold tabular-nums", toneClass)}>{value}</p>
@@ -2085,39 +2085,39 @@ export default function GestaoPage() {
 
   return (
     <AdminLayout title="Gestão">
-      <div className="space-y-4 text-slate-950">
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-gradient-to-br from-white via-white to-slate-50 p-5">
+      <div className="space-y-4 text-white">
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+          <div className="border-b border-white/10 bg-gradient-to-br from-[#050505] via-[#080808] to-[#111111] p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-700">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-yellow-400">
                     Gestão diária
                   </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Caixa aberto
                   </span>
                 </div>
 
-                <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+                <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white">
                   Gestão
                 </h1>
-                <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-zinc-500">
                   Resumo financeiro, pedidos, pagamentos e fechamento do dia em uma visão limpa.
                 </p>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
-                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 tabular-nums shadow-sm">
-                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-zinc-500">
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 tabular-nums shadow-sm">
+                    <CalendarDays className="h-4 w-4 text-zinc-500" />
                     {formatDate(today.start)}
                   </span>
-                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 tabular-nums shadow-sm">
-                    <Clock3 className="h-4 w-4 text-slate-400" />
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 tabular-nums shadow-sm">
+                    <Clock3 className="h-4 w-4 text-zinc-500" />
                     Aberto desde {formatTime(data.sessionStartISO)}
                   </span>
-                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 tabular-nums shadow-sm">
-                    <ReceiptText className="h-4 w-4 text-slate-400" />
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 tabular-nums shadow-sm">
+                    <ReceiptText className="h-4 w-4 text-zinc-500" />
                     {data.closingsToday.length} fechamento(s) hoje
                   </span>
                 </div>
@@ -2127,7 +2127,7 @@ export default function GestaoPage() {
                 <button
                   type="button"
                   onClick={() => void loadGestao()}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-[#111111] hover:shadow-md"
                 >
                   <RefreshCcw className="h-4 w-4" />
                   Atualizar
@@ -2136,7 +2136,7 @@ export default function GestaoPage() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-[#111111] hover:shadow-md"
                 >
                   <Printer className="h-4 w-4" />
                   Imprimir
@@ -2146,7 +2146,7 @@ export default function GestaoPage() {
                   type="button"
                   onClick={openClosingModal}
                   disabled={isLoading}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-yellow-400 px-5 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <ShieldCheck className="h-4 w-4" />
                   Fechar dia
@@ -2183,8 +2183,8 @@ export default function GestaoPage() {
         </section>
 
         {isLoading ? (
-          <div className="flex min-h-[520px] items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex min-h-[520px] items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando gestão...
             </div>
@@ -2239,7 +2239,7 @@ export default function GestaoPage() {
                 subtitle="Leitura visual do movimento do dia. Alterne entre pedidos e faturamento."
                 action={
                   peakActivity && peakActivity.orders > 0 ? (
-                    <div className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold tabular-nums text-blue-700">
+                    <div className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-xs font-semibold tabular-nums text-yellow-400">
                       <BarChart3 className="h-4 w-4" />
                       Pico {peakActivity.hour}: {peakActivity.orders} pedido(s)
                     </div>
@@ -2287,19 +2287,19 @@ export default function GestaoPage() {
                     activeOrders.slice(0, 5).map((order) => (
                       <div
                         key={order.id}
-                        className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 transition hover:bg-white hover:shadow-sm"
+                        className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-white/10 bg-[#111111] px-3 py-2.5 transition hover:bg-[#0A0A0A] hover:shadow-sm"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold tabular-nums text-slate-950">
+                          <p className="truncate text-sm font-semibold tabular-nums text-white">
                             #{order.public_order_number || order.id.slice(0, 6)}
                           </p>
-                          <p className="mt-0.5 text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-zinc-500">
                             {getStatusLabel(order.status)} • {formatTime(order.created_at)}
                           </p>
                         </div>
 
-                        <div className="inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200">
-                          <Timer className="h-4 w-4 text-slate-400" />
+                        <div className="inline-flex items-center gap-2 rounded-lg bg-[#0A0A0A] px-2.5 py-1.5 text-xs font-semibold tabular-nums text-zinc-500 ring-1 ring-yellow-400/20">
+                          <Timer className="h-4 w-4 text-zinc-500" />
                           {formatMinutes(getOrderAgeMinutes(order.created_at))}
                         </div>
                       </div>
@@ -2312,29 +2312,29 @@ export default function GestaoPage() {
                 title="Alertas do dia"
                 subtitle="Pontos que o dono precisa olhar antes de fechar."
               >
-                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+                <div className="divide-y divide-white/10 overflow-hidden rounded-xl border border-white/10">
                   {attentionRows.map((item) => (
                     <div
                       key={item.title}
-                      className="grid grid-cols-[auto_1fr_auto] items-center gap-3 bg-white px-3 py-3 transition hover:bg-slate-50"
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-3 bg-[#0A0A0A] px-3 py-3 transition hover:bg-[#111111]"
                     >
                       <div
                         className={cn(
                           "flex h-9 w-9 items-center justify-center rounded-xl",
                           item.tone === "red" && "bg-red-50 text-red-700",
-                          item.tone === "amber" && "bg-orange-50 text-orange-700",
-                          item.tone === "blue" && "bg-blue-50 text-blue-700",
-                          item.tone === "slate" && "bg-slate-100 text-slate-600"
+                          item.tone === "amber" && "bg-yellow-400/10 text-yellow-400",
+                          item.tone === "blue" && "bg-yellow-400/10 text-yellow-400",
+                          item.tone === "slate" && "bg-[#111111] text-zinc-500"
                         )}
                       >
                         {item.icon}
                       </div>
 
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-950">
+                        <p className="truncate text-sm font-semibold text-white">
                           {item.title}
                         </p>
-                        <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                        <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
                           {item.detail}
                         </p>
                       </div>
@@ -2343,9 +2343,9 @@ export default function GestaoPage() {
                         className={cn(
                           "inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-semibold tabular-nums",
                           item.tone === "red" && "bg-red-50 text-red-700 ring-1 ring-red-100",
-                          item.tone === "amber" && "bg-orange-50 text-orange-700 ring-1 ring-orange-100",
-                          item.tone === "blue" && "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
-                          item.tone === "slate" && "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                          item.tone === "amber" && "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20",
+                          item.tone === "blue" && "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20",
+                          item.tone === "slate" && "bg-[#111111] text-zinc-500 ring-1 ring-yellow-400/20"
                         )}
                       >
                         {typeof item.value === "number"
@@ -2366,15 +2366,15 @@ export default function GestaoPage() {
                   {closingRows.map((row) => (
                     <div
                       key={row.label}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#111111] px-3 py-3 text-sm"
                     >
-                      <span className="font-semibold text-slate-600">{row.label}</span>
+                      <span className="font-semibold text-zinc-500">{row.label}</span>
                       <span
                         className={cn(
                           "font-semibold tabular-nums",
-                          row.tone === "white" && "text-slate-950",
-                          row.tone === "green" && "text-emerald-700",
-                          row.tone === "amber" && "text-orange-700",
+                          row.tone === "white" && "text-white",
+                          row.tone === "green" && "text-emerald-400",
+                          row.tone === "amber" && "text-yellow-400",
                           row.tone === "red" && "text-red-700"
                         )}
                       >
@@ -2384,17 +2384,17 @@ export default function GestaoPage() {
                   ))}
                 </div>
 
-                <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <div className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-700">
+                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-400">
                         Resultado do dia
                       </p>
-                      <p className="mt-1 text-xs font-medium text-emerald-700/80">
+                      <p className="mt-1 text-xs font-medium text-emerald-400">
                         Recebido menos saídas
                       </p>
                     </div>
-                    <span className="text-xl font-semibold tabular-nums text-emerald-700">
+                    <span className="text-xl font-semibold tabular-nums text-emerald-400">
                       {formatCurrency(data.dayEstimatedBalance)}
                     </span>
                   </div>
@@ -2407,35 +2407,35 @@ export default function GestaoPage() {
                 title="Movimentação financeira"
                 subtitle="Entradas, saídas, pendências e resultado consolidado do dia."
               >
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <div className="grid grid-cols-[1fr_auto] border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <div className="overflow-hidden rounded-xl border border-white/10">
+                  <div className="grid grid-cols-[1fr_auto] border-b border-white/10 bg-[#111111] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
                     <span>Descrição</span>
                     <span>Valor</span>
                   </div>
 
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-white/10">
                     {movementRows.map((row) => (
                       <div
                         key={row.label}
                         className={cn(
                           "grid grid-cols-[1fr_auto] gap-3 px-3 py-3 text-sm",
-                          row.strong && "bg-slate-50"
+                          row.strong && "bg-[#111111]"
                         )}
                       >
                         <span
                           className={cn(
-                            "font-semibold text-slate-600",
-                            row.strong && "text-slate-950"
+                            "font-semibold text-zinc-500",
+                            row.strong && "text-white"
                           )}
                         >
                           {row.label}
                         </span>
                         <span
                           className={cn(
-                            "font-semibold tabular-nums text-slate-950",
-                            row.tone === "green" && "text-emerald-700",
+                            "font-semibold tabular-nums text-white",
+                            row.tone === "green" && "text-emerald-400",
                             row.tone === "red" && "text-red-700",
-                            row.tone === "amber" && "text-orange-700"
+                            row.tone === "amber" && "text-yellow-400"
                           )}
                         >
                           {row.value}
@@ -2454,24 +2454,24 @@ export default function GestaoPage() {
                   {sectorSummary.map((sector) => (
                     <div
                       key={sector.title}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+                      className="rounded-2xl border border-white/10 bg-[#111111] p-4 transition hover:-translate-y-0.5 hover:bg-[#0A0A0A] hover:shadow-sm"
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
                         {sector.title}
                       </p>
                       <p
                         className={cn(
                           "mt-2 truncate text-base font-semibold tabular-nums",
-                          sector.tone === "green" && "text-emerald-700",
+                          sector.tone === "green" && "text-emerald-400",
                           sector.tone === "red" && "text-red-700",
-                          sector.tone === "amber" && "text-amber-700",
-                          sector.tone === "blue" && "text-blue-700",
-                          sector.tone === "slate" && "text-slate-950"
+                          sector.tone === "amber" && "text-yellow-400",
+                          sector.tone === "blue" && "text-yellow-400",
+                          sector.tone === "slate" && "text-white"
                         )}
                       >
                         {sector.value}
                       </p>
-                      <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
+                      <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-zinc-500">
                         {sector.detail}
                       </p>
                     </div>
@@ -2492,20 +2492,20 @@ export default function GestaoPage() {
                     {data.topItems.map((item, index) => (
                       <div
                         key={item.id}
-                        className="grid grid-cols-[36px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition hover:bg-white hover:shadow-sm"
+                        className="grid grid-cols-[36px_1fr_auto] items-center gap-3 rounded-xl border border-white/10 bg-[#111111] px-3 py-3 transition hover:bg-[#0A0A0A] hover:shadow-sm"
                       >
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-xs font-semibold tabular-nums text-slate-500 ring-1 ring-slate-200">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A0A0A] text-xs font-semibold tabular-nums text-zinc-500 ring-1 ring-yellow-400/20">
                           {index + 1}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-950">
+                          <p className="truncate text-sm font-semibold text-white">
                             {item.name}
                           </p>
-                          <p className="mt-0.5 text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-zinc-500">
                             {formatNumber(item.quantity)} un.
                           </p>
                         </div>
-                        <p className="text-sm font-semibold tabular-nums text-slate-950">
+                        <p className="text-sm font-semibold tabular-nums text-white">
                           {formatCurrency(item.revenue)}
                         </p>
                       </div>
@@ -2518,7 +2518,7 @@ export default function GestaoPage() {
                 title="Upsell"
                 subtitle="Adicionais, combos e itens vendidos por regra de upsell."
                 action={
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold tabular-nums text-emerald-700">
+                  <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold tabular-nums text-emerald-400">
                     {formatCurrency(data.upsellRevenue)}
                   </div>
                 }
@@ -2536,18 +2536,18 @@ export default function GestaoPage() {
                     {data.upsellItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-3"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-950">
+                          <p className="truncate text-sm font-semibold text-white">
                             {item.name}
                           </p>
-                          <p className="mt-0.5 text-xs font-medium text-emerald-700">
+                          <p className="mt-0.5 text-xs font-medium text-emerald-400">
                             {formatNumber(item.quantity)} item(ns)
                           </p>
                         </div>
 
-                        <p className="shrink-0 text-sm font-semibold tabular-nums text-emerald-700">
+                        <p className="shrink-0 text-sm font-semibold tabular-nums text-emerald-400">
                           {formatCurrency(item.revenue)}
                         </p>
                       </div>
@@ -2555,8 +2555,8 @@ export default function GestaoPage() {
                   </div>
                 )}
 
-                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
-                  Item campeão: <span className="text-slate-950">{upsellChampion}</span>
+                <div className="mt-3 rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-semibold text-zinc-500">
+                  Item campeão: <span className="text-white">{upsellChampion}</span>
                 </div>
               </Panel>
             </section>
@@ -2573,31 +2573,31 @@ export default function GestaoPage() {
                     {data.closingsToday.map((closing, index) => (
                       <div
                         key={String(readString(closing, ["id"]) || index)}
-                        className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr]"
+                        className="grid gap-3 rounded-xl border border-white/10 bg-[#111111] p-3 sm:grid-cols-[1fr_1fr_1fr]"
                       >
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
                             Período
                           </p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-slate-950">
+                          <p className="mt-1 text-sm font-semibold tabular-nums text-white">
                             {formatTime(getClosingOpenedAt(closing))} até {formatTime(getClosingClosedAt(closing))}
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
                             Entrada
                           </p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-emerald-700">
+                          <p className="mt-1 text-sm font-semibold tabular-nums text-emerald-400">
                             {formatCurrency(getClosingReceived(closing))}
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
                             Tipo
                           </p>
-                          <p className="mt-1 text-sm font-semibold text-slate-950">
+                          <p className="mt-1 text-sm font-semibold text-white">
                             {getClosingType(closing)}
                           </p>
                         </div>
@@ -2618,13 +2618,13 @@ export default function GestaoPage() {
                     {data.dayExpenses.slice(0, 8).map((expense) => (
                       <div
                         key={`${expense.source}-${expense.id}`}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition hover:bg-white hover:shadow-sm"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#111111] px-3 py-3 transition hover:bg-[#0A0A0A] hover:shadow-sm"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-950">
+                          <p className="truncate text-sm font-semibold text-white">
                             {expense.title}
                           </p>
-                          <p className="mt-0.5 text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-zinc-500">
                             {expense.source} • {formatTime(expense.paidAt)}
                           </p>
                         </div>
@@ -2644,12 +2644,12 @@ export default function GestaoPage() {
               subtitle="Pedidos usados na análise diária da gestão."
               action={
                 <div className="relative w-full sm:w-72">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                   <input
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder="Buscar pedido..."
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-9 pr-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </div>
               }
@@ -2657,8 +2657,8 @@ export default function GestaoPage() {
               {filteredOrders.length === 0 ? (
                 <EmptyState message="Nenhum pedido encontrado." />
               ) : (
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <div className="hidden grid-cols-[120px_1fr_130px_130px_130px_110px] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 lg:grid">
+                <div className="overflow-hidden rounded-xl border border-white/10">
+                  <div className="hidden grid-cols-[120px_1fr_130px_130px_130px_110px] gap-3 border-b border-white/10 bg-[#111111] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500 lg:grid">
                     <span>Pedido</span>
                     <span>Cliente</span>
                     <span>Pagamento</span>
@@ -2667,28 +2667,28 @@ export default function GestaoPage() {
                     <span className="text-right">Total</span>
                   </div>
 
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-white/10">
                     {filteredOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="grid gap-3 bg-white px-3 py-3 text-sm transition hover:bg-slate-50 lg:grid-cols-[120px_1fr_130px_130px_130px_110px] lg:items-center"
+                        className="grid gap-3 bg-[#0A0A0A] px-3 py-3 text-sm transition hover:bg-[#111111] lg:grid-cols-[120px_1fr_130px_130px_130px_110px] lg:items-center"
                       >
                         <div>
-                          <p className="font-semibold tabular-nums text-slate-950">
+                          <p className="font-semibold tabular-nums text-white">
                             #{order.public_order_number || order.id.slice(0, 6)}
                           </p>
-                          <p className="mt-0.5 text-xs font-medium text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-zinc-500">
                             {formatTime(order.created_at)}
                           </p>
                         </div>
 
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-800">
+                          <p className="truncate font-semibold text-white">
                             {order.customer_name || "Cliente não informado"}
                           </p>
                         </div>
 
-                        <div className="font-semibold text-slate-700">
+                        <div className="font-semibold text-zinc-500">
                           {getPaymentMethodLabel(order.payment_method)}
                         </div>
 
@@ -2700,7 +2700,7 @@ export default function GestaoPage() {
                           <PaymentBadge order={order} />
                         </div>
 
-                        <div className="font-semibold tabular-nums text-slate-950 lg:text-right">
+                        <div className="font-semibold tabular-nums text-white lg:text-right">
                           {formatCurrency(Number(order.total || 0))}
                         </div>
                       </div>
@@ -2714,14 +2714,14 @@ export default function GestaoPage() {
       </div>
 
       {isClosingModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-[#0A0A0A] shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/10 bg-[#0A0A0A] p-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-950">
+                <h2 className="text-lg font-semibold text-white">
                   Fechar dia
                 </h2>
-                <p className="mt-1 text-sm font-medium text-slate-500">
+                <p className="mt-1 text-sm font-medium text-zinc-500">
                   Período aberto de {formatTime(data.sessionStartISO)} até agora.
                 </p>
               </div>
@@ -2729,7 +2729,7 @@ export default function GestaoPage() {
               <button
                 type="button"
                 onClick={() => setIsClosingModalOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+                className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -2755,20 +2755,20 @@ export default function GestaoPage() {
                 />
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">
+              <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500">
                   Divisão por setor
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                   {sectorSummary.map((sector) => (
-                    <div key={sector.title} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                    <div key={sector.title} className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-500">
                         {sector.title}
                       </p>
-                      <p className="mt-1 truncate text-sm font-semibold tabular-nums text-slate-950">
+                      <p className="mt-1 truncate text-sm font-semibold tabular-nums text-white">
                         {sector.value}
                       </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-500">
+                      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-zinc-500">
                         {sector.detail}
                       </p>
                     </div>
@@ -2834,7 +2834,7 @@ export default function GestaoPage() {
               </div>
 
               <label className="block">
-                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">
+                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500">
                   Observação
                 </span>
                 <textarea
@@ -2847,12 +2847,12 @@ export default function GestaoPage() {
                   }
                   rows={3}
                   placeholder="Diferença, conferência ou observação interna"
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="mt-2 w-full rounded-lg border border-white/10 bg-[#111111] p-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 />
               </label>
 
               {Math.abs(receivedDifference) > 0 && (
-                <div className="flex gap-3 rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800">
+                <div className="flex gap-3 rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-4 text-sm font-semibold leading-6 text-yellow-400">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   Existe diferença entre o valor esperado e o valor conferido.
                   Se estiver correto, salve com observação.
@@ -2860,11 +2860,11 @@ export default function GestaoPage() {
               )}
             </div>
 
-            <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white p-4 sm:flex-row sm:justify-end">
+            <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-white/10 bg-[#0A0A0A] p-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setIsClosingModalOpen(false)}
-                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-white/10 bg-[#0A0A0A] px-4 text-sm font-medium text-zinc-500 transition hover:bg-[#111111]"
               >
                 Cancelar
               </button>
@@ -2873,7 +2873,7 @@ export default function GestaoPage() {
                 type="button"
                 onClick={() => void handleSaveClosing()}
                 disabled={isClosing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-yellow-400 px-4 text-sm font-semibold text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isClosing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -29,35 +29,35 @@ function buildCards(kpis: DashboardKPIs): KPICard[] {
       value: formatBRL(kpis.faturamentoHoje),
       variation: kpis.faturamentoVar,
       icon: <DollarSign className="h-5 w-5" />,
-      iconBg: "bg-blue-100 text-blue-600",
+      iconBg: "bg-yellow-400/10 text-yellow-400",
     },
     {
       label: "Pedidos Hoje",
       value: kpis.pedidosHoje.toString(),
       variation: kpis.pedidosVar,
       icon: <ShoppingCart className="h-5 w-5" />,
-      iconBg: "bg-emerald-100 text-emerald-600",
+      iconBg: "bg-emerald-500/10 text-emerald-400",
     },
     {
       label: "Ticket Medio",
       value: formatBRL(kpis.ticketMedio),
       variation: kpis.ticketVar,
       icon: <Receipt className="h-5 w-5" />,
-      iconBg: "bg-violet-100 text-violet-600",
+      iconBg: "bg-yellow-400/10 text-yellow-400",
     },
     {
       label: "Em Preparo",
       value: kpis.emAndamento.toString(),
       variation: 0,
       icon: <Loader2 className="h-5 w-5" />,
-      iconBg: "bg-amber-100 text-amber-600",
+      iconBg: "bg-yellow-400/10 text-yellow-400",
     },
     {
       label: "Atrasados",
       value: kpis.atrasados.toString(),
       variation: 0,
       icon: <AlertTriangle className="h-5 w-5" />,
-      iconBg: kpis.atrasados > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600",
+      iconBg: kpis.atrasados > 0 ? "bg-red-100 text-red-600" : "bg-emerald-500/10 text-emerald-400",
       isAlert: kpis.atrasados > 0,
     },
     {
@@ -68,7 +68,7 @@ function buildCards(kpis: DashboardKPIs): KPICard[] {
         ? <TrendingUp className="h-5 w-5" />
         : <TrendingDown className="h-5 w-5" />,
       iconBg: kpis.faturamentoVar >= 0
-        ? "bg-emerald-100 text-emerald-600"
+        ? "bg-emerald-500/10 text-emerald-400"
         : "bg-red-100 text-red-600",
     },
   ]
@@ -86,7 +86,7 @@ function VariationBadge({ value }: { value: number }) {
   const isPositive = value > 0
   // For cancelamentos, positive variation is BAD (inverted logic handled via the label "vs Ontem")
   return (
-    <span className={cn("flex items-center gap-0.5 text-xs font-semibold", isPositive ? "text-emerald-600" : "text-red-600")}>
+    <span className={cn("flex items-center gap-0.5 text-xs font-semibold", isPositive ? "text-emerald-400" : "text-red-600")}>
       {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
       {isPositive ? "+" : ""}{value}%
     </span>

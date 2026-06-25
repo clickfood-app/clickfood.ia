@@ -1580,24 +1580,24 @@ export default function NovoPedidoPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 p-2 sm:p-3 lg:p-4">
+      <div className="min-h-screen bg-[#111111] p-2 sm:p-3 lg:p-4">
         <div className="mx-auto max-w-[1800px] space-y-4">
-          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+              <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
                 <span>Gestão</span>
                 <span>/</span>
-                <span className="text-slate-900">PDV</span>
+                <span className="text-white">PDV</span>
               </div>
 
               <div className="mt-1 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400 text-black shadow-sm">
                   <Receipt className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <h1 className="text-lg font-bold text-slate-950">PDV</h1>
-                  <p className="text-sm text-slate-500">
+                  <h1 className="text-lg font-bold text-white">PDV</h1>
+                  <p className="text-sm text-zinc-500">
                     Venda rápida para balcão, mesa e entrega.
                   </p>
                 </div>
@@ -1605,18 +1605,18 @@ export default function NovoPedidoPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-sm font-semibold text-zinc-500">
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 Caixa aberto
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
-                <Printer className="h-4 w-4 text-slate-500" />
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-sm font-semibold text-zinc-500">
+                <Printer className="h-4 w-4 text-zinc-500" />
                 Impressora online
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
-                <User className="h-4 w-4 text-slate-500" />
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-sm font-semibold text-zinc-500">
+                <User className="h-4 w-4 text-zinc-500" />
                 Atendente: Administrador
               </div>
             </div>
@@ -1624,7 +1624,7 @@ export default function NovoPedidoPage() {
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
             <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                   {orderTypeOptions.map((option) => {
                     const Icon = option.icon;
@@ -1638,8 +1638,8 @@ export default function NovoPedidoPage() {
                         className={cn(
                           "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-all",
                           active
-                            ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-slate-50",
+                            ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 shadow-sm"
+                            : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-[#111111]",
                         )}
                       >
                         <Icon className="h-5 w-5" />
@@ -1662,24 +1662,24 @@ export default function NovoPedidoPage() {
                   type="button"
                   onClick={() => setShowCustomerPanel((prev) => !prev)}
                   className={cn(
-                    "flex items-center justify-between rounded-2xl border bg-white px-3 py-3 text-left shadow-sm transition hover:border-blue-200",
+                    "flex items-center justify-between rounded-2xl border bg-[#0A0A0A] px-3 py-3 text-left shadow-sm transition hover:border-yellow-400/30",
                     showCustomerPanel || customer.name || customer.phone
-                      ? "border-blue-200 ring-2 ring-blue-50"
-                      : "border-slate-200",
+                      ? "border-yellow-400/30 ring-2 ring-yellow-400/20"
+                      : "border-white/10",
                   )}
                 >
                   <span className="flex items-center gap-3">
-                    <User className="h-5 w-5 text-slate-500" />
+                    <User className="h-5 w-5 text-zinc-500" />
                     <span>
-                      <span className="block text-sm font-semibold text-slate-800">
+                      <span className="block text-sm font-semibold text-white">
                         {customer.name || "Cliente opcional"}
                       </span>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-zinc-500">
                         {customer.phone || "Nome e telefone"}
                       </span>
                     </span>
                   </span>
-                  <Plus className="h-4 w-4 text-slate-400" />
+                  <Plus className="h-4 w-4 text-zinc-500" />
                 </button>
 
                 <button
@@ -1694,24 +1694,24 @@ export default function NovoPedidoPage() {
                     }
                   }}
                   className={cn(
-                    "flex items-center justify-between rounded-2xl border bg-white px-4 py-4 text-left shadow-sm transition hover:border-blue-200",
+                    "flex items-center justify-between rounded-2xl border bg-[#0A0A0A] px-4 py-4 text-left shadow-sm transition hover:border-yellow-400/30",
                     showTablePanel ||
                       showAddressPanel ||
                       selectedTable ||
                       address.street
-                      ? "border-blue-200 ring-2 ring-blue-50"
-                      : "border-slate-200",
+                      ? "border-yellow-400/30 ring-2 ring-yellow-400/20"
+                      : "border-white/10",
                   )}
                 >
                   <span className="flex items-center gap-3">
                     {orderType === "delivery" ? (
-                      <MapPin className="h-5 w-5 text-slate-500" />
+                      <MapPin className="h-5 w-5 text-zinc-500" />
                     ) : (
-                      <Utensils className="h-5 w-5 text-slate-500" />
+                      <Utensils className="h-5 w-5 text-zinc-500" />
                     )}
 
                     <span>
-                      <span className="block text-sm font-semibold text-slate-800">
+                      <span className="block text-sm font-semibold text-white">
                         {orderType === "delivery"
                           ? selectedDeliveryNeighborhood
                             ? `${selectedDeliveryNeighborhood.neighborhood} - ${formatCurrency(
@@ -1722,7 +1722,7 @@ export default function NovoPedidoPage() {
                             ? `Mesa ${selectedTableNumber}`
                             : "Mesa / comanda"}
                       </span>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-zinc-500">
                         {orderType === "delivery"
                           ? selectedDeliveryNeighborhood
                             ? selectedDeliveryNeighborhood.label
@@ -1733,31 +1733,31 @@ export default function NovoPedidoPage() {
                       </span>
                     </span>
                   </span>
-                  <Plus className="h-4 w-4 text-slate-400" />
+                  <Plus className="h-4 w-4 text-zinc-500" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowObservationPanel((prev) => !prev)}
                   className={cn(
-                    "flex items-center justify-between rounded-2xl border bg-white px-4 py-4 text-left shadow-sm transition hover:border-blue-200",
+                    "flex items-center justify-between rounded-2xl border bg-[#0A0A0A] px-4 py-4 text-left shadow-sm transition hover:border-yellow-400/30",
                     showObservationPanel || customer.observation
-                      ? "border-blue-200 ring-2 ring-blue-50"
-                      : "border-slate-200",
+                      ? "border-yellow-400/30 ring-2 ring-yellow-400/20"
+                      : "border-white/10",
                   )}
                 >
                   <span className="flex items-center gap-3">
-                    <MessageSquare className="h-5 w-5 text-slate-500" />
+                    <MessageSquare className="h-5 w-5 text-zinc-500" />
                     <span>
-                      <span className="block text-sm font-semibold text-slate-800">
+                      <span className="block text-sm font-semibold text-white">
                         Observação
                       </span>
-                      <span className="block max-w-[180px] truncate text-xs text-slate-500">
+                      <span className="block max-w-[180px] truncate text-xs text-zinc-500">
                         {customer.observation || "Observação geral do pedido"}
                       </span>
                     </span>
                   </span>
-                  <Plus className="h-4 w-4 text-slate-400" />
+                  <Plus className="h-4 w-4 text-zinc-500" />
                 </button>
               </div>
 
@@ -1767,11 +1767,11 @@ export default function NovoPedidoPage() {
                 showTablePanel ||
                 orderType === "local" ||
                 orderType === "delivery") && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                   {showCustomerPanel && (
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                           Nome do cliente
                         </label>
                         <input
@@ -1784,12 +1784,12 @@ export default function NovoPedidoPage() {
                             })
                           }
                           placeholder="Cliente balcão"
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                           Telefone
                         </label>
                         <input
@@ -1802,7 +1802,7 @@ export default function NovoPedidoPage() {
                             })
                           }
                           placeholder="(00) 00000-0000"
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
                     </div>
@@ -1817,10 +1817,10 @@ export default function NovoPedidoPage() {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h2 className="text-sm font-bold text-slate-950">
+                          <h2 className="text-sm font-bold text-white">
                             Mesas
                           </h2>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-zinc-500">
                             Selecione a mesa para abrir a comanda.
                           </p>
                         </div>
@@ -1828,7 +1828,7 @@ export default function NovoPedidoPage() {
                         <button
                           type="button"
                           onClick={() => setIsTableModalOpen(true)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+                          className="inline-flex items-center gap-2 rounded-xl bg-yellow-400/10 px-3 py-2 text-sm font-bold text-yellow-400 transition hover:bg-yellow-300/10"
                         >
                           <Plus className="h-4 w-4" />
                           Nova mesa
@@ -1852,14 +1852,14 @@ export default function NovoPedidoPage() {
                               className={cn(
                                 "rounded-2xl border p-3 text-center transition",
                                 active
-                                  ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm ring-2 ring-blue-100"
-                                  : "border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-200 hover:bg-white",
+                                  ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 shadow-sm ring-2 ring-yellow-400/20"
+                                  : "border-white/10 bg-[#111111] text-zinc-500 hover:border-yellow-400/30 hover:bg-[#0A0A0A]",
                               )}
                             >
                               <span className="block text-lg font-black">
                                 {number}
                               </span>
-                              <span className="mt-1 flex items-center justify-center gap-1 text-xs text-slate-500">
+                              <span className="mt-1 flex items-center justify-center gap-1 text-xs text-zinc-500">
                                 <Users className="h-3 w-3" />
                                 {(table as unknown as { capacity?: number })
                                   .capacity || 4}
@@ -1869,13 +1869,13 @@ export default function NovoPedidoPage() {
                         })}
                       </div>
 
-                      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#111111] p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                            <Users className="h-4 w-4 text-slate-500" />
+                          <label className="flex items-center gap-2 text-sm font-bold text-white">
+                            <Users className="h-4 w-4 text-zinc-500" />
                             Pessoas na mesa
                           </label>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-zinc-500">
                             Usado para calcular ticket médio por pessoa.
                           </p>
                         </div>
@@ -1886,7 +1886,7 @@ export default function NovoPedidoPage() {
                             onClick={() =>
                               setGuestCount((prev) => Math.max(1, prev - 1))
                             }
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100"
+                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111]"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
@@ -1900,13 +1900,13 @@ export default function NovoPedidoPage() {
                                 Math.max(1, Number(event.target.value || 1)),
                               )
                             }
-                            className="h-10 w-20 rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-black outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            className="h-10 w-20 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-center text-sm font-black outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                           />
 
                           <button
                             type="button"
                             onClick={() => setGuestCount((prev) => prev + 1)}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100"
+                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111]"
                           >
                             <Plus className="h-4 w-4" />
                           </button>
@@ -1923,7 +1923,7 @@ export default function NovoPedidoPage() {
                       )}
                     >
                       <div className="md:col-span-2">
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                           Rua <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -1936,12 +1936,12 @@ export default function NovoPedidoPage() {
                             })
                           }
                           placeholder="Nome da rua"
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                           Número <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -1954,12 +1954,12 @@ export default function NovoPedidoPage() {
                             })
                           }
                           placeholder="123"
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                           Complemento
                         </label>
                         <input
@@ -1972,12 +1972,12 @@ export default function NovoPedidoPage() {
                             })
                           }
                           placeholder="Apto, bloco..."
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                           Bairro <span className="text-red-500">*</span>
                         </label>
                         <select
@@ -1986,7 +1986,7 @@ export default function NovoPedidoPage() {
                             handleSelectDeliveryNeighborhood(event.target.value)
                           }
                           disabled={deliveryNeighborhoodOptions.length === 0}
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <option value="">Selecione o bairro</option>
                           {deliveryNeighborhoodOptions.map((option) => (
@@ -1998,13 +1998,13 @@ export default function NovoPedidoPage() {
                         </select>
 
                         {deliveryNeighborhoodOptions.length === 0 && (
-                          <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                          <p className="mt-2 rounded-xl bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-400">
                             Nenhuma área de entrega ativa cadastrada.
                           </p>
                         )}
 
                         {selectedDeliveryNeighborhood && (
-                          <p className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
+                          <p className="mt-2 rounded-xl bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-400">
                             Taxa aplicada:{" "}
                             {formatCurrency(selectedDeliveryNeighborhood.fee)} •{" "}
                             {selectedDeliveryNeighborhood.label}
@@ -2013,7 +2013,7 @@ export default function NovoPedidoPage() {
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                           Cidade
                         </label>
                         <input
@@ -2026,7 +2026,7 @@ export default function NovoPedidoPage() {
                             })
                           }
                           placeholder="Cidade"
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
                     </div>
@@ -2042,7 +2042,7 @@ export default function NovoPedidoPage() {
                           : "",
                       )}
                     >
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Observação geral do pedido
                       </label>
                       <textarea
@@ -2055,31 +2055,31 @@ export default function NovoPedidoPage() {
                         }
                         placeholder="Ex: sem cebola, entregar no portão, pedido para viagem..."
                         rows={3}
-                        className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                        className="w-full resize-none rounded-xl border border-white/10 bg-[#111111] px-3 py-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_120px]">
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder="Buscar produto..."
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                      className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
 
                   <button
                     type="button"
-                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700 transition hover:bg-white"
+                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] text-sm font-bold text-zinc-500 transition hover:bg-[#0A0A0A]"
                   >
-                    <Barcode className="h-5 w-5 text-slate-500" />
+                    <Barcode className="h-5 w-5 text-zinc-500" />
                     Código
                   </button>
                 </div>
@@ -2096,8 +2096,8 @@ export default function NovoPedidoPage() {
                         className={cn(
                           "whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition",
                           active
-                            ? "border-blue-600 bg-blue-600 text-white shadow-sm"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50",
+                            ? "border-yellow-400/30 bg-yellow-400 text-black shadow-sm"
+                            : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-yellow-400/10",
                         )}
                       >
                         {category.name}
@@ -2115,9 +2115,9 @@ export default function NovoPedidoPage() {
                         key={product.id}
                         type="button"
                         onClick={() => openProductCustomization(product)}
-                        className="group flex min-h-[92px] rounded-xl border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+                        className="group flex min-h-[92px] rounded-xl border border-white/10 bg-[#0A0A0A] p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-yellow-400/30 hover:shadow-md"
                       >
-                        <div className="h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                        <div className="h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-[#111111]">
                           <img
                             src={getProductImage(product)}
                             alt={product.name}
@@ -2132,29 +2132,29 @@ export default function NovoPedidoPage() {
                           <div>
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <h3 className="truncate text-sm font-black text-slate-950">
+                                <h3 className="truncate text-sm font-black text-white">
                                   {product.name}
                                 </h3>
-                                <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">
+                                <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
                                   {product.description ||
                                     product.category ||
                                     "Produto"}
                                 </p>
                               </div>
 
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm transition group-hover:bg-blue-700">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-black shadow-sm transition group-hover:bg-yellow-300">
                                 <Plus className="h-3.5 w-3.5" />
                               </span>
                             </div>
 
                             {groups.length > 0 && (
-                              <span className="mt-2 inline-flex rounded-full bg-orange-50 px-2 py-1 text-[11px] font-bold text-orange-700">
+                              <span className="mt-2 inline-flex rounded-full bg-yellow-400/10 px-2 py-1 text-[11px] font-bold text-yellow-400">
                                 Tem opções
                               </span>
                             )}
                           </div>
 
-                          <div className="mt-1 text-xs font-black text-slate-950">
+                          <div className="mt-1 text-xs font-black text-white">
                             {formatCurrency(Number(product.price || 0))}
                           </div>
                         </div>
@@ -2164,35 +2164,35 @@ export default function NovoPedidoPage() {
                 </div>
 
                 {filteredProducts.length === 0 && (
-                  <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
-                    <Search className="h-10 w-10 text-slate-300" />
-                    <h3 className="mt-3 text-sm font-bold text-slate-800">
+                  <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#111111] text-center">
+                    <Search className="h-10 w-10 text-zinc-500" />
+                    <h3 className="mt-3 text-sm font-bold text-white">
                       Nenhum produto encontrado
                     </h3>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-zinc-500">
                       Tente buscar por outro nome ou categoria.
                     </p>
                   </div>
                 )}
 
-                <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
                   <span>
                     Exibindo{" "}
-                    <strong className="text-slate-800">
+                    <strong className="text-white">
                       {filteredProducts.length}
                     </strong>{" "}
                     de{" "}
-                    <strong className="text-slate-800">
+                    <strong className="text-white">
                       {products.length}
                     </strong>{" "}
                     produtos
                   </span>
 
                   <div className="flex items-center gap-2">
-                    <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                    <span className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-bold text-zinc-500">
                       PDV rápido
                     </span>
-                    <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                    <span className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-bold text-zinc-500">
                       Cardápio real
                     </span>
                   </div>
@@ -2201,13 +2201,13 @@ export default function NovoPedidoPage() {
             </div>
 
             <aside className="xl:sticky xl:top-4 xl:h-[calc(100vh-32px)]">
-              <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-100 p-4">
+              <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                <div className="flex items-center justify-between border-b border-white/10 p-4">
                   <div>
-                    <h2 className="text-base font-black text-slate-950">
+                    <h2 className="text-base font-black text-white">
                       Resumo do Pedido
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-zinc-500">
                       {orderType === "local"
                         ? selectedTableNumber
                           ? `Mesa ${selectedTableNumber}`
@@ -2231,7 +2231,7 @@ export default function NovoPedidoPage() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-[1fr_88px_92px] gap-2 border-b border-slate-100 px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-400">
+                <div className="grid grid-cols-[1fr_88px_92px] gap-2 border-b border-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wide text-zinc-500">
                   <span>Item</span>
                   <span className="text-center">Qtd.</span>
                   <span className="text-right">Valor</span>
@@ -2240,13 +2240,13 @@ export default function NovoPedidoPage() {
                 <div className="min-h-[220px] flex-1 overflow-y-auto p-4">
                   {items.length === 0 ? (
                     <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                        <ShoppingCart className="h-8 w-8 text-slate-400" />
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#111111]">
+                        <ShoppingCart className="h-8 w-8 text-zinc-500" />
                       </div>
-                      <h3 className="mt-4 text-sm font-bold text-slate-800">
+                      <h3 className="mt-4 text-sm font-bold text-white">
                         Nenhum item adicionado
                       </h3>
-                      <p className="mt-1 max-w-[240px] text-sm text-slate-500">
+                      <p className="mt-1 max-w-[240px] text-sm text-zinc-500">
                         Clique nos produtos à esquerda para montar o pedido.
                       </p>
                     </div>
@@ -2255,11 +2255,11 @@ export default function NovoPedidoPage() {
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          className="rounded-2xl border border-slate-100 bg-slate-50 p-3"
+                          className="rounded-2xl border border-white/10 bg-[#111111] p-3"
                         >
                           <div className="grid grid-cols-[1fr_88px_92px_24px] gap-2">
                             <div className="min-w-0">
-                              <h3 className="truncate text-xs font-black text-slate-950">
+                              <h3 className="truncate text-xs font-black text-white">
                                 {item.name}
                               </h3>
 
@@ -2268,7 +2268,7 @@ export default function NovoPedidoPage() {
                                   {item.modifiers.map((modifier, index) => (
                                     <div
                                       key={`${item.id}-${modifier.optionId}-${index}`}
-                                      className="flex items-center justify-between rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-800"
+                                      className="flex items-center justify-between rounded-lg bg-yellow-400/10 px-2 py-1 text-xs text-yellow-400"
                                     >
                                       <span className="truncate">
                                         • {modifier.optionName}
@@ -2287,14 +2287,14 @@ export default function NovoPedidoPage() {
                               )}
 
                               {item.observation && (
-                                <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                                <p className="mt-1 rounded-lg bg-yellow-400/10 px-2 py-1 text-xs text-yellow-400">
                                   Obs: {item.observation}
                                 </p>
                               )}
                             </div>
 
                             <div className="flex items-start justify-center">
-                              <div className="flex h-9 items-center rounded-xl border border-slate-200 bg-white">
+                              <div className="flex h-9 items-center rounded-xl border border-white/10 bg-[#0A0A0A]">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -2303,12 +2303,12 @@ export default function NovoPedidoPage() {
                                       item.quantity - 1,
                                     )
                                   }
-                                  className="flex h-9 w-8 items-center justify-center text-slate-500 transition hover:text-red-600"
+                                  className="flex h-9 w-8 items-center justify-center text-zinc-500 transition hover:text-red-600"
                                 >
                                   <Minus className="h-3.5 w-3.5" />
                                 </button>
 
-                                <span className="w-7 text-center text-sm font-black text-slate-900">
+                                <span className="w-7 text-center text-sm font-black text-white">
                                   {item.quantity}
                                 </span>
 
@@ -2320,28 +2320,28 @@ export default function NovoPedidoPage() {
                                       item.quantity + 1,
                                     )
                                   }
-                                  className="flex h-9 w-8 items-center justify-center text-slate-500 transition hover:text-blue-600"
+                                  className="flex h-9 w-8 items-center justify-center text-zinc-500 transition hover:text-yellow-400"
                                 >
                                   <Plus className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </div>
 
-                            <div className="text-right text-sm font-black text-slate-950">
+                            <div className="text-right text-sm font-black text-white">
                               {formatCurrency(item.price * item.quantity)}
                             </div>
 
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(item.id)}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
                             >
                               <MoreVertical className="h-4 w-4" />
                             </button>
                           </div>
 
                           <details className="mt-2">
-                            <summary className="cursor-pointer text-xs font-bold text-slate-500 transition hover:text-blue-700">
+                            <summary className="cursor-pointer text-xs font-bold text-zinc-500 transition hover:text-yellow-400">
                               Adicionar observação ao item
                             </summary>
                             <textarea
@@ -2354,7 +2354,7 @@ export default function NovoPedidoPage() {
                               }
                               placeholder="Ex: sem cebola, bem passado..."
                               rows={2}
-                              className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                              className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                             />
                           </details>
                         </div>
@@ -2363,24 +2363,24 @@ export default function NovoPedidoPage() {
                   )}
                 </div>
 
-                <div className="border-t border-slate-100 p-4">
+                <div className="border-t border-white/10 p-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">Subtotal</span>
-                      <span className="font-black text-slate-950">
+                      <span className="text-zinc-500">Subtotal</span>
+                      <span className="font-black text-white">
                         {formatCurrency(subtotal)}
                       </span>
                     </div>
 
                     {orderType === "delivery" && (
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-500">
+                        <span className="text-zinc-500">
                           Taxa de entrega
                           {selectedDeliveryNeighborhood
                             ? ` (${selectedDeliveryNeighborhood.neighborhood})`
                             : ""}
                         </span>
-                        <span className="font-black text-slate-950">
+                        <span className="font-black text-white">
                           {selectedDeliveryNeighborhood
                             ? formatCurrency(finalDeliveryFee)
                             : "Selecione"}
@@ -2389,13 +2389,13 @@ export default function NovoPedidoPage() {
                     )}
 
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="flex items-center gap-1 text-slate-500">
+                      <span className="flex items-center gap-1 text-zinc-500">
                         Desconto
                         <Percent className="h-3.5 w-3.5" />
                       </span>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400">R$</span>
+                        <span className="text-xs text-zinc-500">R$</span>
                         <input
                           type="number"
                           min={0}
@@ -2405,23 +2405,23 @@ export default function NovoPedidoPage() {
                               Math.max(0, Number(event.target.value || 0)),
                             )
                           }
-                          className="h-9 w-28 rounded-xl border border-slate-200 bg-slate-50 px-3 text-right text-sm font-bold outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="h-9 w-28 rounded-xl border border-white/10 bg-[#111111] px-3 text-right text-sm font-bold outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
                     </div>
 
-                    <div className="flex items-end justify-between border-t border-slate-100 pt-4">
-                      <span className="text-base font-black text-slate-950">
+                    <div className="flex items-end justify-between border-t border-white/10 pt-4">
+                      <span className="text-base font-black text-white">
                         Total
                       </span>
-                      <span className="text-2xl font-black text-blue-600">
+                      <span className="text-2xl font-black text-yellow-400">
                         {formatCurrency(total)}
                       </span>
                     </div>
                   </div>
 
                   {!canSubmit() && items.length > 0 && (
-                    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-700">
+                    <p className="mt-3 rounded-xl bg-yellow-400/10 px-3 py-2 text-center text-xs font-semibold text-yellow-400">
                       {orderType === "local" &&
                         !selectedTable &&
                         "Selecione uma mesa para continuar."}
@@ -2447,8 +2447,8 @@ export default function NovoPedidoPage() {
                     className={cn(
                       "mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black shadow-sm transition",
                       canSubmit() && !isSubmitting
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "cursor-not-allowed bg-slate-100 text-slate-400",
+                        ? "bg-yellow-400 text-black hover:bg-yellow-300"
+                        : "cursor-not-allowed bg-[#111111] text-zinc-500",
                     )}
                   >
                     <Wallet className="h-5 w-5" />
@@ -2462,8 +2462,8 @@ export default function NovoPedidoPage() {
                     className={cn(
                       "mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-sm font-black transition",
                       canSubmit() && !isSubmitting
-                        ? "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                        : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400",
+                        ? "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
+                        : "cursor-not-allowed border-white/10 bg-[#111111] text-zinc-500",
                     )}
                   >
                     <ChefHat className="h-5 w-5" />
@@ -2478,9 +2478,9 @@ export default function NovoPedidoPage() {
                         setIsPaymentModalOpen(true);
                       }}
                       disabled={!canSubmit()}
-                      className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#0A0A0A] text-xs font-bold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <QrCode className="h-4 w-4 text-emerald-600" />
+                      <QrCode className="h-4 w-4 text-emerald-400" />
                       Pix
                     </button>
 
@@ -2491,9 +2491,9 @@ export default function NovoPedidoPage() {
                         setIsPaymentModalOpen(true);
                       }}
                       disabled={!canSubmit()}
-                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] text-xs font-bold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Banknote className="h-4 w-4 text-emerald-600" />
+                      <Banknote className="h-4 w-4 text-emerald-400" />
                       Dinheiro
                     </button>
 
@@ -2504,9 +2504,9 @@ export default function NovoPedidoPage() {
                         setIsPaymentModalOpen(true);
                       }}
                       disabled={!canSubmit()}
-                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] text-xs font-bold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <CreditCard className="h-4 w-4 text-blue-600" />
+                      <CreditCard className="h-4 w-4 text-yellow-400" />
                       Cartão
                     </button>
                   </div>
@@ -2518,11 +2518,11 @@ export default function NovoPedidoPage() {
       </div>
 
       {customizingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-100 p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-[#0A0A0A] shadow-2xl">
+            <div className="flex items-start justify-between border-b border-white/10 p-5">
               <div className="flex gap-4">
-                <div className="h-20 w-24 overflow-hidden rounded-2xl bg-slate-100">
+                <div className="h-20 w-24 overflow-hidden rounded-2xl bg-[#111111]">
                   <img
                     src={getProductImage(customizingProduct)}
                     alt={customizingProduct.name}
@@ -2534,15 +2534,15 @@ export default function NovoPedidoPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-black text-slate-950">
+                  <h3 className="text-xl font-black text-white">
                     {customizingProduct.name}
                   </h3>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-zinc-500">
                     {customizingProduct.description ||
                       customizingProduct.category ||
                       "Configure o produto"}
                   </p>
-                  <p className="mt-2 text-lg font-black text-blue-600">
+                  <p className="mt-2 text-lg font-black text-yellow-400">
                     {formatCurrency(customProductUnitPrice)}
                   </p>
                 </div>
@@ -2551,7 +2551,7 @@ export default function NovoPedidoPage() {
               <button
                 type="button"
                 onClick={() => setCustomizingProduct(null)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 transition hover:bg-[#111111] hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2565,14 +2565,14 @@ export default function NovoPedidoPage() {
                   return (
                     <div
                       key={group.id}
-                      className="rounded-2xl border border-slate-200 p-4"
+                      className="rounded-2xl border border-white/10 p-4"
                     >
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
-                          <h4 className="font-black text-slate-950">
+                          <h4 className="font-black text-white">
                             {group.name}
                           </h4>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-zinc-500">
                             {group.required
                               ? `Obrigatório • escolha de ${group.minSelect} até ${group.maxSelect}`
                               : `Opcional • escolha até ${group.maxSelect}`}
@@ -2598,8 +2598,8 @@ export default function NovoPedidoPage() {
                               className={cn(
                                 "flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition",
                                 active
-                                  ? "border-blue-600 bg-blue-50 ring-2 ring-blue-100"
-                                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50",
+                                  ? "border-yellow-400/30 bg-yellow-400/10 ring-2 ring-yellow-400/20"
+                                  : "border-white/10 bg-[#0A0A0A] hover:border-yellow-400/30 hover:bg-[#111111]",
                               )}
                             >
                               <div className="flex items-center gap-3">
@@ -2607,19 +2607,19 @@ export default function NovoPedidoPage() {
                                   className={cn(
                                     "flex h-5 w-5 items-center justify-center rounded-full border",
                                     active
-                                      ? "border-blue-600 bg-blue-600 text-white"
-                                      : "border-slate-300 bg-white",
+                                      ? "border-yellow-400/30 bg-yellow-400 text-black"
+                                      : "border-white/10 bg-[#0A0A0A]",
                                   )}
                                 >
                                   {active && <Check className="h-3 w-3" />}
                                 </span>
 
-                                <span className="font-bold text-slate-800">
+                                <span className="font-bold text-white">
                                   {option.name}
                                 </span>
                               </div>
 
-                              <span className="font-black text-slate-950">
+                              <span className="font-black text-white">
                                 {Number(option.price || 0) > 0
                                   ? `+ ${formatCurrency(option.price)}`
                                   : "Grátis"}
@@ -2632,8 +2632,8 @@ export default function NovoPedidoPage() {
                   );
                 })}
 
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <label className="mb-2 block text-sm font-black text-slate-950">
+                <div className="rounded-2xl border border-white/10 p-4">
+                  <label className="mb-2 block text-sm font-black text-white">
                     Observação do item
                   </label>
                   <textarea
@@ -2643,32 +2643,32 @@ export default function NovoPedidoPage() {
                     }
                     placeholder="Ex: sem cebola, molho separado..."
                     rows={3}
-                    className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    className="w-full resize-none rounded-2xl border border-white/10 bg-[#111111] px-3 py-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-t border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
                     setCustomizingQuantity((prev) => Math.max(1, prev - 1))
                   }
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111]"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
 
-                <span className="flex h-11 w-16 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-lg font-black text-slate-950">
+                <span className="flex h-11 w-16 items-center justify-center rounded-xl border border-white/10 bg-[#111111] text-lg font-black text-white">
                   {customizingQuantity}
                 </span>
 
                 <button
                   type="button"
                   onClick={() => setCustomizingQuantity((prev) => prev + 1)}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111]"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -2681,8 +2681,8 @@ export default function NovoPedidoPage() {
                 className={cn(
                   "flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-black shadow-sm transition sm:flex-none",
                   canAddCustomProduct()
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "cursor-not-allowed bg-slate-100 text-slate-400",
+                    ? "bg-yellow-400 text-black hover:bg-yellow-300"
+                    : "cursor-not-allowed bg-[#111111] text-zinc-500",
                 )}
               >
                 <Plus className="h-5 w-5" />
@@ -2694,14 +2694,14 @@ export default function NovoPedidoPage() {
       )}
 
       {isTableModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-[#0A0A0A] p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-slate-950">
+                <h3 className="text-xl font-black text-white">
                   Nova mesa
                 </h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-500">
                   Cadastre uma mesa para usar no PDV.
                 </p>
               </div>
@@ -2709,7 +2709,7 @@ export default function NovoPedidoPage() {
               <button
                 type="button"
                 onClick={() => setIsTableModalOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 transition hover:bg-[#111111] hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2717,7 +2717,7 @@ export default function NovoPedidoPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Número da mesa
                 </label>
                 <input
@@ -2725,12 +2725,12 @@ export default function NovoPedidoPage() {
                   value={newTableNumber}
                   onChange={(event) => setNewTableNumber(event.target.value)}
                   placeholder="Ex: 7"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Nome
                 </label>
                 <input
@@ -2738,12 +2738,12 @@ export default function NovoPedidoPage() {
                   value={newTableName}
                   onChange={(event) => setNewTableName(event.target.value)}
                   placeholder="Ex: Mesa 7"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                   Capacidade
                 </label>
                 <input
@@ -2755,7 +2755,7 @@ export default function NovoPedidoPage() {
                       Math.max(1, Number(event.target.value || 1)),
                     )
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
                 />
               </div>
             </div>
@@ -2764,7 +2764,7 @@ export default function NovoPedidoPage() {
               <button
                 type="button"
                 onClick={() => setIsTableModalOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-100"
+                className="rounded-xl px-4 py-3 text-sm font-bold text-zinc-500 transition hover:bg-[#111111]"
               >
                 Cancelar
               </button>
@@ -2773,7 +2773,7 @@ export default function NovoPedidoPage() {
                 type="button"
                 onClick={saveNewTable}
                 disabled={!newTableNumber.trim()}
-                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500"
               >
                 Salvar mesa
               </button>
@@ -2783,14 +2783,14 @@ export default function NovoPedidoPage() {
       )}
 
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-100 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-3xl bg-[#0A0A0A] shadow-2xl">
+            <div className="flex items-start justify-between border-b border-white/10 p-6">
               <div>
-                <h3 className="text-2xl font-black text-slate-950">
+                <h3 className="text-2xl font-black text-white">
                   Cobrar pedido
                 </h3>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-zinc-500">
                   Escolha a forma de pagamento para finalizar.
                 </p>
               </div>
@@ -2798,18 +2798,18 @@ export default function NovoPedidoPage() {
               <button
                 type="button"
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 transition hover:bg-[#111111] hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="p-6">
-              <div className="mb-5 rounded-3xl border border-blue-100 bg-blue-50 p-6 text-center">
-                <span className="text-xs font-black uppercase tracking-wider text-blue-500">
+              <div className="mb-5 rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-6 text-center">
+                <span className="text-xs font-black uppercase tracking-wider text-zinc-4000">
                   Total a cobrar
                 </span>
-                <div className="mt-1 text-4xl font-black text-blue-700">
+                <div className="mt-1 text-4xl font-black text-yellow-400">
                   {formatCurrency(total)}
                 </div>
               </div>
@@ -2828,8 +2828,8 @@ export default function NovoPedidoPage() {
                     className={cn(
                       "flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-sm font-black transition",
                       paymentMethod === method.id
-                        ? "border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-100"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-slate-50",
+                        ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 ring-2 ring-yellow-400/20"
+                        : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-[#111111]",
                     )}
                   >
                     {method.icon}
@@ -2839,8 +2839,8 @@ export default function NovoPedidoPage() {
               </div>
 
               {paymentMethod === "dinheiro" && (
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <div className="mt-5 rounded-2xl border border-white/10 bg-[#111111] p-4">
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                     Valor recebido
                   </label>
 
@@ -2853,14 +2853,14 @@ export default function NovoPedidoPage() {
                         setReceivedAmount(event.target.value)
                       }
                       placeholder="0,00"
-                      className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-lg font-black outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      className="h-12 rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 text-lg font-black outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
                     />
 
-                    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4">
-                      <span className="text-sm font-bold text-slate-500">
+                    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0A0A0A] px-4">
+                      <span className="text-sm font-bold text-zinc-500">
                         Troco
                       </span>
-                      <span className="text-lg font-black text-emerald-600">
+                      <span className="text-lg font-black text-emerald-400">
                         {formatCurrency(changeAmount)}
                       </span>
                     </div>
@@ -2869,11 +2869,11 @@ export default function NovoPedidoPage() {
               )}
             </div>
 
-            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 p-6 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-3 border-t border-white/10 p-6 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="rounded-2xl px-5 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-100"
+                className="rounded-2xl px-5 py-3 text-sm font-bold text-zinc-500 transition hover:bg-[#111111]"
               >
                 Cancelar
               </button>
@@ -2882,7 +2882,7 @@ export default function NovoPedidoPage() {
                 type="button"
                 onClick={() => handleSubmit()}
                 disabled={isSubmitting}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-7 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-7 py-3 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>

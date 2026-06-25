@@ -27,7 +27,7 @@ export default function PlanTab() {
   return (
     <div className="space-y-8">
       {/* Plan Card */}
-      <div className="relative overflow-hidden rounded-2xl border border-[hsl(var(--primary))]/30 bg-gradient-to-br from-blue-50 via-card to-card p-8">
+      <div className="relative overflow-hidden rounded-2xl border border-[hsl(var(--primary))]/30 bg-gradient-to-br from-yellow-400 via-card to-card p-8">
         {/* Decorative */}
         <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-[hsl(var(--primary))]/5" />
         <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-[hsl(var(--primary))]/10" />
@@ -45,11 +45,11 @@ export default function PlanTab() {
                   className={cn(
                     "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold",
                     plan.status === "ativo"
-                      ? "bg-green-100 text-green-700"
+                      ? "bg-emerald-500/10 text-emerald-400"
                       : "bg-red-100 text-red-700"
                   )}
                 >
-                  <span className={cn("h-1.5 w-1.5 rounded-full", plan.status === "ativo" ? "bg-green-500" : "bg-red-500")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", plan.status === "ativo" ? "bg-emerald-500" : "bg-red-500")} />
                   {plan.status === "ativo" ? "Ativo" : "Inativo"}
                 </span>
                 <span className="rounded-full bg-[hsl(var(--primary))]/10 px-2.5 py-0.5 text-xs font-semibold text-[hsl(var(--primary))]">
@@ -77,7 +77,7 @@ export default function PlanTab() {
           <InfoCard
             label="Status"
             value={plan.status === "ativo" ? "Ativo" : "Inativo"}
-            valueClass={plan.status === "ativo" ? "text-green-600" : "text-red-600"}
+            valueClass={plan.status === "ativo" ? "text-emerald-400" : "text-red-600"}
           />
           <InfoCard label="Renovacao" value={formatDate(plan.renewalDate)} />
           <InfoCard label="Cobranca" value={billingLabels[plan.billingCycle]} />

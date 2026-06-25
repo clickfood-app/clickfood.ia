@@ -118,18 +118,18 @@ function getPaymentLabel(status: PaymentStatus) {
 
 function getPaymentBadgeClass(status: PaymentStatus) {
   if (status === "paid") {
-    return "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700"
+    return "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-black text-emerald-400"
   }
 
   if (status === "partial") {
-    return "rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700"
+    return "rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-black text-yellow-400"
   }
 
   if (status === "canceled") {
-    return "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500"
+    return "rounded-full bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500"
   }
 
-  return "rounded-full bg-orange-50 px-2.5 py-1 text-xs font-black text-orange-700"
+  return "rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-black text-yellow-400"
 }
 
 function getPurchaseStatusLabel(status: PurchaseStatus) {
@@ -140,14 +140,14 @@ function getPurchaseStatusLabel(status: PurchaseStatus) {
 
 function getPurchaseStatusBadgeClass(status: PurchaseStatus) {
   if (status === "closed") {
-    return "rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700"
+    return "rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-black text-yellow-400"
   }
 
   if (status === "canceled") {
-    return "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500"
+    return "rounded-full bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500"
   }
 
-  return "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600"
+  return "rounded-full bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500"
 }
 
 export default function ComprasFornecedoresPage() {
@@ -635,20 +635,20 @@ export default function ComprasFornecedoresPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-[calc(100vh-96px)] bg-slate-50 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="min-h-[calc(100vh-96px)] bg-[#111111] px-4 py-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-5 py-4 shadow-sm">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400 text-black">
                   <ShoppingBag className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <h1 className="text-xl font-black tracking-tight text-slate-950">
+                  <h1 className="text-xl font-black tracking-tight text-white">
                     Compras de fornecedores
                   </h1>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Lance compras rápido e veja quanto gastou com cada fornecedor.
                   </p>
                 </div>
@@ -658,7 +658,7 @@ export default function ComprasFornecedoresPage() {
                 <button
                   type="button"
                   onClick={openSupplierModal}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                 >
                   <Store className="h-4 w-4" />
                   Novo fornecedor
@@ -667,7 +667,7 @@ export default function ComprasFornecedoresPage() {
                 <button
                   type="button"
                   onClick={() => openExpenseModal()}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 text-sm font-black text-black transition hover:bg-yellow-300"
                 >
                   <Plus className="h-4 w-4" />
                   Registrar compra
@@ -677,54 +677,54 @@ export default function ComprasFornecedoresPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-5">
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Total gasto
               </p>
-              <p className="mt-1 text-lg font-black text-slate-950">
+              <p className="mt-1 text-lg font-black text-white">
                 {formatCurrency(totals.totalSpent)}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Pago
               </p>
-              <p className="mt-1 text-lg font-black text-emerald-700">
+              <p className="mt-1 text-lg font-black text-emerald-400">
                 {formatCurrency(totals.totalPaid)}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Pendente
               </p>
-              <p className="mt-1 text-lg font-black text-orange-600">
+              <p className="mt-1 text-lg font-black text-yellow-400">
                 {formatCurrency(totals.totalPending)}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Fornecedores
               </p>
-              <p className="mt-1 text-lg font-black text-slate-950">
+              <p className="mt-1 text-lg font-black text-white">
                 {totals.suppliersCount}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-black uppercase tracking-wide text-zinc-500">
                 Compras
               </p>
-              <p className="mt-1 text-lg font-black text-slate-950">
+              <p className="mt-1 text-lg font-black text-white">
                 {totals.purchasesCount}
               </p>
             </div>
           </div>
 
           {successMessage && (
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-400">
               {successMessage}
             </div>
           )}
@@ -735,46 +735,46 @@ export default function ComprasFornecedoresPage() {
             </div>
           )}
 
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-base font-black text-slate-950">
+                <h2 className="text-base font-black text-white">
                   Fornecedores
                 </h2>
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-sm font-medium text-zinc-500">
                   Cards compactos. O histórico fica separado embaixo.
                 </p>
               </div>
 
               <div className="relative w-full lg:max-w-sm">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar fornecedor, categoria ou compra..."
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-4 text-sm font-semibold outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                 />
               </div>
             </div>
 
             {loading ? (
               <div className="flex min-h-[240px] items-center justify-center">
-                <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
+                <div className="flex items-center gap-3 text-sm font-bold text-zinc-500">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Carregando fornecedores...
                 </div>
               </div>
             ) : filteredSupplierStats.length === 0 ? (
               <div className="flex min-h-[240px] flex-col items-center justify-center p-8 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                   <CircleAlert className="h-6 w-6" />
                 </div>
 
-                <h3 className="mt-4 text-lg font-black text-slate-950">
+                <h3 className="mt-4 text-lg font-black text-white">
                   Nenhum fornecedor encontrado
                 </h3>
 
-                <p className="mt-2 max-w-md text-sm font-medium text-slate-500">
+                <p className="mt-2 max-w-md text-sm font-medium text-zinc-500">
                   Cadastre um fornecedor para começar a lançar compras.
                 </p>
               </div>
@@ -788,66 +788,66 @@ export default function ComprasFornecedoresPage() {
         key={supplier.id}
         className={
           isSelected
-            ? "grid gap-3 rounded-xl border-2 border-blue-500 bg-blue-50/40 p-3 shadow-sm lg:grid-cols-[1.4fr_120px_90px_120px_120px_100px_190px] lg:items-center"
-            : "grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:bg-slate-50 lg:grid-cols-[1.4fr_120px_90px_120px_120px_100px_190px] lg:items-center"
+            ? "grid gap-3 rounded-xl border-2 border-yellow-400/30 bg-yellow-400/10 p-3 shadow-sm lg:grid-cols-[1.4fr_120px_90px_120px_120px_100px_190px] lg:items-center"
+            : "grid gap-3 rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm transition hover:bg-[#111111] lg:grid-cols-[1.4fr_120px_90px_120px_120px_100px_190px] lg:items-center"
         }
       >
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#111111] text-zinc-500">
             <Store className="h-4 w-4" />
           </div>
 
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-black text-slate-950">
+            <h3 className="truncate text-sm font-black text-white">
               {supplier.name}
             </h3>
-            <p className="truncate text-xs font-bold text-slate-400">
+            <p className="truncate text-xs font-bold text-zinc-500">
               {supplier.category || "Sem categoria"}
             </p>
           </div>
         </div>
 
         <div>
-          <p className="text-[10px] font-black uppercase text-slate-400">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Total
           </p>
-          <p className="text-sm font-black text-slate-950">
+          <p className="text-sm font-black text-white">
             {formatCurrency(supplier.total)}
           </p>
         </div>
 
         <div>
-          <p className="text-[10px] font-black uppercase text-slate-400">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Compras
           </p>
-          <p className="text-sm font-black text-slate-950">
+          <p className="text-sm font-black text-white">
             {supplier.count}
           </p>
         </div>
 
         <div>
-          <p className="text-[10px] font-black uppercase text-slate-400">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Pago
           </p>
-          <p className="text-sm font-black text-emerald-700">
+          <p className="text-sm font-black text-emerald-400">
             {formatCurrency(supplier.paid)}
           </p>
         </div>
 
         <div>
-          <p className="text-[10px] font-black uppercase text-slate-400">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Pendente
           </p>
-          <p className="text-sm font-black text-orange-600">
+          <p className="text-sm font-black text-yellow-400">
             {formatCurrency(supplier.pending)}
           </p>
         </div>
 
         <div>
-          <p className="text-[10px] font-black uppercase text-slate-400">
+          <p className="text-[10px] font-black uppercase text-zinc-500">
             Última
           </p>
-          <p className="text-sm font-black text-slate-700">
+          <p className="text-sm font-black text-zinc-500">
             {formatDate(supplier.lastPurchaseDate)}
           </p>
         </div>
@@ -856,7 +856,7 @@ export default function ComprasFornecedoresPage() {
           <button
             type="button"
             onClick={() => openExpenseModal(supplier.id)}
-            className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+            className="inline-flex h-9 items-center gap-1 rounded-lg bg-yellow-400 px-3 text-xs font-black text-black transition hover:bg-yellow-300"
           >
             <Plus className="h-3.5 w-3.5" />
             Gasto
@@ -869,7 +869,7 @@ export default function ComprasFornecedoresPage() {
                 current === supplier.id ? null : supplier.id,
               )
             }
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+            className="h-9 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
           >
             {isSelected ? "Ver todas" : "Compras"}
           </button>
@@ -881,13 +881,13 @@ export default function ComprasFornecedoresPage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-base font-black text-slate-950">
+                <h2 className="text-base font-black text-white">
                   {selectedSupplier ? `Compras de ${selectedSupplier.name}` : "Compras lançadas"}
                 </h2>
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-sm font-medium text-zinc-500">
                   {selectedSupplier
                     ? "Mostrando apenas as compras deste fornecedor."
                     : "Histórico geral das compras cadastradas."}
@@ -898,7 +898,7 @@ export default function ComprasFornecedoresPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedSupplierId(null)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                  className="rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-2 text-sm font-black text-zinc-500 transition hover:bg-[#111111]"
                 >
                   Limpar filtro
                 </button>
@@ -907,46 +907,46 @@ export default function ComprasFornecedoresPage() {
 
             {loading ? (
               <div className="flex min-h-[220px] items-center justify-center">
-                <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
+                <div className="flex items-center gap-3 text-sm font-bold text-zinc-500">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Carregando compras...
                 </div>
               </div>
             ) : filteredPurchases.length === 0 ? (
               <div className="flex min-h-[220px] flex-col items-center justify-center p-8 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                   <ReceiptText className="h-6 w-6" />
                 </div>
 
-                <h3 className="mt-4 text-lg font-black text-slate-950">
+                <h3 className="mt-4 text-lg font-black text-white">
                   Nenhuma compra lançada
                 </h3>
 
-                <p className="mt-2 max-w-md text-sm font-medium text-slate-500">
+                <p className="mt-2 max-w-md text-sm font-medium text-zinc-500">
                   Clique em “Registrar compra” ou “+ Gasto” dentro de um fornecedor.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/10">
                 {filteredPurchases.map((purchase) => (
                   <div
                     key={purchase.id}
-                    className="grid gap-3 px-5 py-4 transition hover:bg-slate-50 lg:grid-cols-[120px_1fr_150px_170px_170px]"
+                    className="grid gap-3 px-5 py-4 transition hover:bg-[#111111] lg:grid-cols-[120px_1fr_150px_170px_170px]"
                   >
                     <div>
-                      <p className="text-[11px] font-black uppercase text-slate-400">
+                      <p className="text-[11px] font-black uppercase text-zinc-500">
                         Data
                       </p>
-                      <p className="mt-1 text-sm font-black text-slate-700">
+                      <p className="mt-1 text-sm font-black text-zinc-500">
                         {formatDate(purchase.purchase_date)}
                       </p>
                     </div>
 
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-slate-950">
+                      <p className="truncate text-sm font-black text-white">
                         {purchase.description || "Gasto sem descrição"}
                       </p>
-                      <p className="mt-1 truncate text-xs font-bold text-slate-400">
+                      <p className="mt-1 truncate text-xs font-bold text-zinc-500">
                         {purchase.suppliers?.name || "Fornecedor não informado"}
                         {purchase.suppliers?.category
                           ? ` • ${purchase.suppliers.category}`
@@ -954,17 +954,17 @@ export default function ComprasFornecedoresPage() {
                       </p>
 
                       {purchase.notes && (
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
                           {purchase.notes}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <p className="text-[11px] font-black uppercase text-slate-400">
+                      <p className="text-[11px] font-black uppercase text-zinc-500">
                         Valor
                       </p>
-                      <p className="mt-1 text-sm font-black text-slate-950">
+                      <p className="mt-1 text-sm font-black text-white">
                         {formatCurrency(Number(purchase.total_amount || 0))}
                       </p>
                     </div>
@@ -985,7 +985,7 @@ export default function ComprasFornecedoresPage() {
                           <button
                             type="button"
                             onClick={() => markAsPaid(purchase)}
-                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                            className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-400 transition hover:bg-emerald-500/15"
                           >
                             Marcar pago
                           </button>
@@ -995,7 +995,7 @@ export default function ComprasFornecedoresPage() {
                         <button
                           type="button"
                           onClick={() => cancelPurchase(purchase)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs font-black text-zinc-500 transition hover:bg-[#111111]"
                         >
                           <Trash2 className="h-3 w-3" />
                           Cancelar
@@ -1010,14 +1010,14 @@ export default function ComprasFornecedoresPage() {
         </div>
 
         {isSupplierModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] px-4 py-6 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-[#0A0A0A] shadow-2xl">
+              <div className="flex items-start justify-between border-b border-white/10 px-6 py-5">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
                     Novo fornecedor
                   </p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                  <h2 className="mt-1 text-xl font-black text-white">
                     Cadastrar fornecedor
                   </h2>
                 </div>
@@ -1025,7 +1025,7 @@ export default function ComprasFornecedoresPage() {
                 <button
                   type="button"
                   onClick={closeSupplierModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#111111] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1039,22 +1039,22 @@ export default function ComprasFornecedoresPage() {
                 )}
 
                 <label className="block">
-                  <span className="text-sm font-black text-slate-700">Nome</span>
+                  <span className="text-sm font-black text-zinc-500">Nome</span>
                   <input
                     value={supplierName}
                     onChange={(event) => setSupplierName(event.target.value)}
                     placeholder="Ex: Supermercado BH"
-                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="text-sm font-black text-slate-700">Categoria</span>
+                  <span className="text-sm font-black text-zinc-500">Categoria</span>
                   <input
                     value={supplierCategory}
                     onChange={(event) => setSupplierCategory(event.target.value)}
                     placeholder="Ex: Mercado, açougue, bebidas"
-                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-4 text-sm font-semibold outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                   />
                 </label>
 
@@ -1063,7 +1063,7 @@ export default function ComprasFornecedoresPage() {
                     type="button"
                     onClick={closeSupplierModal}
                     disabled={supplierSaving}
-                    className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-xl border border-white/10 bg-[#0A0A0A] px-5 py-3 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Cancelar
                   </button>
@@ -1071,7 +1071,7 @@ export default function ComprasFornecedoresPage() {
                   <button
                     type="submit"
                     disabled={supplierSaving}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {supplierSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                     Salvar
@@ -1083,14 +1083,14 @@ export default function ComprasFornecedoresPage() {
         )}
 
         {isExpenseModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] px-4 py-6 backdrop-blur-sm">
+            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-yellow-400">
                     Lançamento rápido
                   </p>
-                  <h2 className="mt-1 text-lg font-black text-slate-950">
+                  <h2 className="mt-1 text-lg font-black text-white">
                     Registrar compra
                   </h2>
                 </div>
@@ -1098,7 +1098,7 @@ export default function ComprasFornecedoresPage() {
                 <button
                   type="button"
                   onClick={closeExpenseModal}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111111] text-zinc-500 transition hover:bg-[#111111] hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1113,7 +1113,7 @@ export default function ComprasFornecedoresPage() {
 
                 <div className="space-y-4">
                   <label className="block">
-                    <span className="text-sm font-black text-slate-700">Fornecedor</span>
+                    <span className="text-sm font-black text-zinc-500">Fornecedor</span>
                     <select
                       value={expenseForm.supplier_id}
                       onChange={(event) =>
@@ -1122,7 +1122,7 @@ export default function ComprasFornecedoresPage() {
                           supplier_id: event.target.value,
                         }))
                       }
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                     >
                       <option value="">Selecione</option>
                       {activeSuppliers.map((supplier) => (
@@ -1135,7 +1135,7 @@ export default function ComprasFornecedoresPage() {
 
                   <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
                     <label className="block">
-                      <span className="text-sm font-black text-slate-700">
+                      <span className="text-sm font-black text-zinc-500">
                         O que comprou?
                       </span>
                       <input
@@ -1147,12 +1147,12 @@ export default function ComprasFornecedoresPage() {
                           }))
                         }
                         placeholder="Ex: Carne, bebida, embalagem..."
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-semibold outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                       />
                     </label>
 
                     <label className="block">
-                      <span className="text-sm font-black text-slate-700">Valor</span>
+                      <span className="text-sm font-black text-zinc-500">Valor</span>
                       <input
                         value={expenseForm.amount}
                         onChange={(event) =>
@@ -1163,14 +1163,14 @@ export default function ComprasFornecedoresPage() {
                         }
                         placeholder="0,00"
                         inputMode="decimal"
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-black outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-black outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                       />
                     </label>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="block">
-                      <span className="text-sm font-black text-slate-700">Data</span>
+                      <span className="text-sm font-black text-zinc-500">Data</span>
                       <input
                         type="date"
                         value={expenseForm.purchase_date}
@@ -1180,12 +1180,12 @@ export default function ComprasFornecedoresPage() {
                             purchase_date: event.target.value,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                       />
                     </label>
 
                     <label className="block">
-                      <span className="text-sm font-black text-slate-700">Pagamento</span>
+                      <span className="text-sm font-black text-zinc-500">Pagamento</span>
                       <select
                         value={expenseForm.payment_status}
                         onChange={(event) =>
@@ -1194,7 +1194,7 @@ export default function ComprasFornecedoresPage() {
                             payment_status: event.target.value as PaymentStatus,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                       >
                         <option value="paid">Pago</option>
                         <option value="pending">Pendente</option>
@@ -1205,7 +1205,7 @@ export default function ComprasFornecedoresPage() {
 
                   {expenseForm.payment_status !== "paid" && (
                     <label className="block">
-                      <span className="text-sm font-black text-slate-700">Vencimento</span>
+                      <span className="text-sm font-black text-zinc-500">Vencimento</span>
                       <input
                         type="date"
                         value={expenseForm.due_date}
@@ -1215,13 +1215,13 @@ export default function ComprasFornecedoresPage() {
                             due_date: event.target.value,
                           }))
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-semibold outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                       />
                     </label>
                   )}
 
                   <label className="block">
-                    <span className="text-sm font-black text-slate-700">Observação</span>
+                    <span className="text-sm font-black text-zinc-500">Observação</span>
                     <input
                       value={expenseForm.notes}
                       onChange={(event) =>
@@ -1231,14 +1231,14 @@ export default function ComprasFornecedoresPage() {
                         }))
                       }
                       placeholder="Opcional"
-                      className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                      className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-semibold outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-4 focus:ring-yellow-400/20"
                     />
                   </label>
                 </div>
 
-                <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-                  <span className="text-sm font-bold text-slate-500">Total</span>
-                  <span className="text-lg font-black text-slate-950">
+                <div className="mt-5 flex items-center justify-between rounded-xl bg-[#111111] px-4 py-3">
+                  <span className="text-sm font-bold text-zinc-500">Total</span>
+                  <span className="text-lg font-black text-white">
                     {formatCurrency(parseMoney(expenseForm.amount))}
                   </span>
                 </div>
@@ -1248,7 +1248,7 @@ export default function ComprasFornecedoresPage() {
                     type="button"
                     onClick={closeExpenseModal}
                     disabled={saving}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-2.5 text-sm font-black text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Cancelar
                   </button>
@@ -1256,7 +1256,7 @@ export default function ComprasFornecedoresPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-black text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                     Salvar compra

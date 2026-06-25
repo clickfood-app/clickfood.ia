@@ -152,21 +152,21 @@ function getCmvStatus(cmv: number) {
   if (cmv <= 0) {
     return {
       label: "Sem preço/custo",
-      className: "bg-slate-100 text-slate-700 ring-slate-200",
+      className: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
     }
   }
 
   if (cmv <= 35) {
     return {
       label: "Bom",
-      className: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+      className: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
     }
   }
 
   if (cmv <= 45) {
     return {
       label: "Atenção",
-      className: "bg-amber-50 text-amber-700 ring-amber-200",
+      className: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
     }
   }
 
@@ -188,21 +188,21 @@ function SummaryBox({
   icon: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 sm:px-4">
+    <div className="rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-3 sm:px-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">
+          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500 sm:text-xs">
             {title}
           </p>
-          <p className="mt-1 truncate text-lg font-black text-slate-950 sm:text-xl">
+          <p className="mt-1 truncate text-lg font-black text-white sm:text-xl">
             {value}
           </p>
-          <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold text-slate-500 sm:text-xs">
+          <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold text-zinc-500 sm:text-xs">
             {description}
           </p>
         </div>
 
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 sm:h-9 sm:w-9">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#111111] text-zinc-500 sm:h-9 sm:w-9">
           {icon}
         </div>
       </div>
@@ -564,12 +564,12 @@ export default function FichaTecnicaPage() {
   return (
     <AdminLayout title="Ficha Técnica">
       <div className="space-y-4 pb-24 sm:pb-0">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
+            <h1 className="text-lg font-black tracking-tight text-white sm:text-xl">
               Ficha Técnica
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-zinc-500">
               Monte a composição dos produtos usando os itens do estoque.
             </p>
           </div>
@@ -577,7 +577,7 @@ export default function FichaTecnicaPage() {
           <button
             type="button"
             onClick={() => void loadPageData()}
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:w-auto"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-4 text-sm font-bold text-zinc-500 hover:bg-[#111111] sm:w-auto"
           >
             <RefreshCcw className="h-4 w-4" />
             Atualizar
@@ -591,58 +591,58 @@ export default function FichaTecnicaPage() {
         )}
 
         {success && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-400">
             {success}
           </div>
         )}
 
         {loading ? (
-          <div className="flex min-h-[380px] items-center justify-center rounded-xl border border-slate-200 bg-white">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex min-h-[380px] items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A]">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Carregando ficha técnica...
             </div>
           </div>
         ) : products.length === 0 ? (
-          <div className="flex min-h-[380px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-6 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+          <div className="flex min-h-[380px] flex-col items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] p-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
               <Package className="h-6 w-6" />
             </div>
 
-            <h2 className="mt-4 text-lg font-black text-slate-950">
+            <h2 className="mt-4 text-lg font-black text-white">
               Nenhum produto encontrado
             </h2>
 
-            <p className="mt-2 max-w-md text-sm font-semibold text-slate-500">
+            <p className="mt-2 max-w-md text-sm font-semibold text-zinc-500">
               Cadastre produtos no cardápio antes de montar ficha técnica.
             </p>
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-[340px_1fr]">
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 p-3 sm:p-4">
-                <h2 className="text-base font-black text-slate-950">
+            <section className="overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A]">
+              <div className="border-b border-white/10 p-3 sm:p-4">
+                <h2 className="text-base font-black text-white">
                   Produtos
                 </h2>
 
-                <p className="mt-1 text-sm font-semibold text-slate-500">
+                <p className="mt-1 text-sm font-semibold text-zinc-500">
                   Escolha o produto para montar a ficha.
                 </p>
 
-                <div className="mt-3 flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3">
-                  <Search className="h-4 w-4 text-slate-400" />
+                <div className="mt-3 flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3">
+                  <Search className="h-4 w-4 text-zinc-500" />
                   <input
                     value={productSearch}
                     onChange={(event) => setProductSearch(event.target.value)}
                     placeholder="Buscar produto..."
-                    className="h-full w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                    className="h-full w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-zinc-500"
                   />
                 </div>
               </div>
 
               <div className="max-h-[320px] overflow-y-auto p-3 xl:max-h-[690px]">
                 {filteredProducts.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                  <div className="rounded-lg border border-dashed border-white/10 bg-[#111111] px-3 py-8 text-center text-sm font-semibold text-zinc-500">
                     Nenhum produto encontrado.
                   </div>
                 ) : (
@@ -678,26 +678,26 @@ export default function FichaTecnicaPage() {
                           className={cn(
                             "w-full rounded-lg border p-3 text-left transition active:scale-[0.99]",
                             isSelected
-                              ? "border-blue-300 bg-blue-50"
-                              : "border-slate-200 bg-white hover:bg-slate-50"
+                              ? "border-yellow-400/30 bg-yellow-400/10"
+                              : "border-white/10 bg-[#0A0A0A] hover:bg-[#111111]"
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-slate-950">
+                              <p className="truncate text-sm font-black text-white">
                                 {getProductName(product)}
                               </p>
 
-                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                              <p className="mt-1 text-xs font-semibold text-zinc-500">
                                 {productRecipeItems.length} insumo(s)
                               </p>
                             </div>
 
                             <div className="text-right">
-                              <p className="text-xs font-black text-slate-950">
+                              <p className="text-xs font-black text-white">
                                 {formatCurrency(productCost)}
                               </p>
-                              <p className="mt-0.5 text-[11px] font-bold text-slate-500">
+                              <p className="mt-0.5 text-[11px] font-bold text-zinc-500">
                                 CMV {productCmv.toFixed(1)}%
                               </p>
                             </div>
@@ -751,22 +751,22 @@ export default function FichaTecnicaPage() {
               </div>
 
               {stockItems.length === 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm font-bold text-yellow-400">
                   Cadastre itens no Controle de Estoque antes de montar a ficha técnica.
                 </div>
               )}
 
               <section
                 id="recipe-form"
-                className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4"
+                className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 sm:p-4"
               >
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-base font-black text-slate-950">
+                    <h2 className="text-base font-black text-white">
                       {editingRecipeId ? "Editar insumo" : "Adicionar insumo"}
                     </h2>
 
-                    <p className="text-sm font-semibold text-slate-500">
+                    <p className="text-sm font-semibold text-zinc-500">
                       Use a mesma unidade cadastrada no estoque para evitar erro de cálculo.
                     </p>
                   </div>
@@ -775,7 +775,7 @@ export default function FichaTecnicaPage() {
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:w-auto"
+                      className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-bold text-zinc-500 hover:bg-[#111111] sm:w-auto"
                     >
                       <X className="h-4 w-4" />
                       Cancelar edição
@@ -786,7 +786,7 @@ export default function FichaTecnicaPage() {
                 <form onSubmit={handleSaveRecipeItem} className="space-y-3">
                   <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1.4fr_0.6fr_0.5fr_0.5fr_0.7fr]">
                     <div className="col-span-2 lg:col-span-1">
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Insumo do estoque
                       </label>
 
@@ -794,7 +794,7 @@ export default function FichaTecnicaPage() {
                         value={form.stock_item_id}
                         onChange={(event) => handleSelectStockItem(event.target.value)}
                         disabled={stockItems.length === 0}
-                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        className="mt-1 h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100 disabled:cursor-not-allowed disabled:bg-[#111111]"
                       >
                         <option value="">Selecione</option>
 
@@ -807,7 +807,7 @@ export default function FichaTecnicaPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Quantidade
                       </label>
 
@@ -820,12 +820,12 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="Ex: 0,2"
-                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Unidade
                       </label>
 
@@ -838,12 +838,12 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="kg"
-                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Perda %
                       </label>
 
@@ -856,12 +856,12 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="0"
-                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Custo manual
                       </label>
 
@@ -874,14 +874,14 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="Opcional"
-                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                       />
                     </div>
                   </div>
 
                   <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                         Observação
                       </label>
 
@@ -894,14 +894,14 @@ export default function FichaTecnicaPage() {
                           }))
                         }
                         placeholder="Ex: porção padrão, perda no preparo, molho separado..."
-                        className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-500"
+                        className="mt-1 h-11 w-full rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-white outline-none focus:border-white/100"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={saving || !selectedProductId || stockItems.length === 0}
-                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#050505] px-4 text-sm font-black text-white hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
                     >
                       {saving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -916,14 +916,14 @@ export default function FichaTecnicaPage() {
                   </div>
 
                   {form.stock_item_id && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                    <div className="rounded-lg border border-white/10 bg-[#111111] px-3 py-2 text-xs font-bold text-zinc-500">
                       Custo previsto dessa linha:{" "}
-                      <span className="text-slate-950">
+                      <span className="text-white">
                         {formatCurrency(formPreviewCost)}
                       </span>
 
                       {selectedStockCost <= 0 && formCostOverride === null && (
-                        <span className="ml-2 text-amber-700">
+                        <span className="ml-2 text-yellow-400">
                           Este insumo está sem custo no estoque. Informe custo manual para calcular CMV.
                         </span>
                       )}
@@ -932,28 +932,28 @@ export default function FichaTecnicaPage() {
                 </form>
               </section>
 
-              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-200 p-3 sm:p-4">
-                  <h2 className="text-base font-black text-slate-950">
+              <section className="overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A]">
+                <div className="border-b border-white/10 p-3 sm:p-4">
+                  <h2 className="text-base font-black text-white">
                     Composição do produto
                   </h2>
 
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                  <p className="mt-1 text-sm font-semibold text-zinc-500">
                     Lista dos insumos usados nesse produto.
                   </p>
                 </div>
 
                 {currentRecipeItems.length === 0 ? (
                   <div className="flex min-h-[220px] flex-col items-center justify-center p-6 text-center sm:min-h-[260px]">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
                       <ClipboardList className="h-6 w-6" />
                     </div>
 
-                    <h3 className="mt-4 text-base font-black text-slate-950">
+                    <h3 className="mt-4 text-base font-black text-white">
                       Ficha técnica vazia
                     </h3>
 
-                    <p className="mt-2 max-w-md text-sm font-semibold text-slate-500">
+                    <p className="mt-2 max-w-md text-sm font-semibold text-zinc-500">
                       Adicione os insumos usados neste produto para calcular custo, CMV e margem.
                     </p>
                   </div>
@@ -971,27 +971,27 @@ export default function FichaTecnicaPage() {
                         return (
                           <div
                             key={recipe.id}
-                            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                            className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="text-sm font-black text-slate-950">
+                                <p className="text-sm font-black text-white">
                                   {getStockName(stockItem)}
                                 </p>
 
-                                <p className="mt-1 text-xs font-bold text-slate-500">
+                                <p className="mt-1 text-xs font-bold text-zinc-500">
                                   {formatQuantity(Number(recipe.quantity || 0))}{" "}
                                   {recipe.unit || getStockUnit(stockItem)}
                                 </p>
                               </div>
 
-                              <div className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">
+                              <div className="shrink-0 rounded-full bg-[#111111] px-2.5 py-1 text-xs font-black text-zinc-500">
                                 {Number(recipe.waste_percentage || 0).toFixed(1)}% perda
                               </div>
                             </div>
 
                             {recipe.notes && (
-                              <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-xs font-semibold text-slate-500">
+                              <p className="mt-2 rounded-lg bg-[#111111] px-2 py-1.5 text-xs font-semibold text-zinc-500">
                                 {recipe.notes}
                               </p>
                             )}
@@ -1004,26 +1004,26 @@ export default function FichaTecnicaPage() {
                             )}
 
                             <div className="mt-3 grid grid-cols-2 gap-2">
-                              <div className="rounded-lg bg-slate-50 px-2.5 py-2">
-                                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                              <div className="rounded-lg bg-[#111111] px-2.5 py-2">
+                                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                                   Custo unitário
                                 </p>
-                                <p className="mt-0.5 text-sm font-black text-slate-800">
+                                <p className="mt-0.5 text-sm font-black text-white">
                                   {formatCurrency(unitCost)}
                                 </p>
 
                                 {hasManualCost && (
-                                  <p className="mt-0.5 text-[11px] font-semibold text-blue-700">
+                                  <p className="mt-0.5 text-[11px] font-semibold text-yellow-400">
                                     custo manual
                                   </p>
                                 )}
                               </div>
 
-                              <div className="rounded-lg bg-slate-50 px-2.5 py-2">
-                                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                              <div className="rounded-lg bg-[#111111] px-2.5 py-2">
+                                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                                   Custo total
                                 </p>
-                                <p className="mt-0.5 text-sm font-black text-slate-950">
+                                <p className="mt-0.5 text-sm font-black text-white">
                                   {formatCurrency(lineCost)}
                                 </p>
                               </div>
@@ -1033,7 +1033,7 @@ export default function FichaTecnicaPage() {
                               <button
                                 type="button"
                                 onClick={() => handleEditRecipeItem(recipe)}
-                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 hover:bg-[#111111]"
                               >
                                 <Edit3 className="h-4 w-4" />
                                 Editar
@@ -1060,7 +1060,7 @@ export default function FichaTecnicaPage() {
 
                     <div className="hidden overflow-x-auto md:block">
                       <table className="w-full min-w-[900px] text-left text-sm">
-                        <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+                        <thead className="bg-[#111111] text-xs font-black uppercase tracking-wide text-zinc-500">
                           <tr>
                             <th className="px-4 py-3">Insumo</th>
                             <th className="px-4 py-3">Quantidade usada</th>
@@ -1071,7 +1071,7 @@ export default function FichaTecnicaPage() {
                           </tr>
                         </thead>
 
-                        <tbody className="divide-y divide-slate-200">
+                        <tbody className="divide-y divide-white/10">
                           {currentRecipeItems.map((recipe) => {
                             const stockItem = stockById.get(recipe.stock_item_id)
                             const unitCost = getRecipeUnitCost(recipe, stockItem)
@@ -1081,14 +1081,14 @@ export default function FichaTecnicaPage() {
                               recipe.cost_override !== undefined
 
                             return (
-                              <tr key={recipe.id} className="hover:bg-slate-50">
+                              <tr key={recipe.id} className="hover:bg-[#111111]">
                                 <td className="px-4 py-3">
-                                  <p className="font-black text-slate-950">
+                                  <p className="font-black text-white">
                                     {getStockName(stockItem)}
                                   </p>
 
                                   {recipe.notes && (
-                                    <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                                    <p className="mt-0.5 text-xs font-semibold text-zinc-500">
                                       {recipe.notes}
                                     </p>
                                   )}
@@ -1101,29 +1101,29 @@ export default function FichaTecnicaPage() {
                                   )}
                                 </td>
 
-                                <td className="px-4 py-3 font-bold text-slate-700">
+                                <td className="px-4 py-3 font-bold text-zinc-500">
                                   {formatQuantity(Number(recipe.quantity || 0))}{" "}
                                   {recipe.unit || getStockUnit(stockItem)}
                                 </td>
 
                                 <td className="px-4 py-3">
-                                  <p className="font-bold text-slate-700">
+                                  <p className="font-bold text-zinc-500">
                                     {formatCurrency(unitCost)}
                                   </p>
 
                                   {hasManualCost && (
-                                    <p className="mt-0.5 text-xs font-semibold text-blue-700">
+                                    <p className="mt-0.5 text-xs font-semibold text-yellow-400">
                                       custo manual
                                     </p>
                                   )}
                                 </td>
 
-                                <td className="px-4 py-3 font-bold text-slate-700">
+                                <td className="px-4 py-3 font-bold text-zinc-500">
                                   {Number(recipe.waste_percentage || 0).toFixed(1)}%
                                 </td>
 
                                 <td className="px-4 py-3">
-                                  <p className="font-black text-slate-950">
+                                  <p className="font-black text-white">
                                     {formatCurrency(lineCost)}
                                   </p>
                                 </td>
@@ -1133,7 +1133,7 @@ export default function FichaTecnicaPage() {
                                     <button
                                       type="button"
                                       onClick={() => handleEditRecipeItem(recipe)}
-                                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/10 bg-[#0A0A0A] px-3 text-xs font-black text-zinc-500 hover:bg-[#111111]"
                                     >
                                       <Edit3 className="h-4 w-4" />
                                       Editar

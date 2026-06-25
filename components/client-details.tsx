@@ -46,11 +46,11 @@ interface ClientDetailsProps {
 function getOrderStatusStyle(status: string) {
   switch (status) {
     case "Entregue":
-      return "bg-green-100 text-green-700"
+      return "bg-emerald-500/10 text-emerald-400"
     case "Em trânsito":
-      return "bg-blue-100 text-blue-700"
+      return "bg-yellow-400/10 text-yellow-400"
     case "Pendente":
-      return "bg-amber-100 text-amber-700"
+      return "bg-yellow-400/10 text-yellow-400"
     case "Cancelado":
       return "bg-red-100 text-red-700"
     default:
@@ -107,13 +107,13 @@ export default function ClientDetails({
               </SheetTitle>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {client.isFavorite && (
-                  <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-700">
+                  <Badge variant="secondary" className="gap-1 bg-yellow-400/10 text-yellow-400">
                     <Star className="h-3 w-3 fill-current" />
                     Favorito
                   </Badge>
                 )}
                 {recurrent && (
-                  <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700">
+                  <Badge variant="secondary" className="gap-1 bg-yellow-400/10 text-yellow-400">
                     <RefreshCw className="h-3 w-3" />
                     Recorrente
                   </Badge>
@@ -143,7 +143,7 @@ export default function ClientDetails({
             onClick={handleToggleFavorite}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               client.isFavorite
-                ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                ? "bg-yellow-400/10 text-yellow-400 hover:bg-yellow-300/10"
                 : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
             }`}
           >

@@ -690,21 +690,21 @@ export default function RankingProdutosPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-[#111111] px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-5">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Medal className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <h1 className="text-xl font-bold text-slate-950">
+                    <h1 className="text-xl font-bold text-white">
                       Ranking de Produtos
                     </h1>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-zinc-500">
                       Veja quais produtos mais vendem, mais faturam e quais
                       entregam melhor margem.
                     </p>
@@ -712,7 +712,7 @@ export default function RankingProdutosPage() {
                 </div>
 
                 {restaurant?.name ? (
-                  <p className="text-xs font-medium text-slate-400">
+                  <p className="text-xs font-medium text-zinc-500">
                     Restaurante: {restaurant.name}
                   </p>
                 ) : null}
@@ -724,7 +724,7 @@ export default function RankingProdutosPage() {
                   onChange={(event) =>
                     setPeriodFilter(event.target.value as PeriodFilter)
                   }
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                 >
                   {periodOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -737,7 +737,7 @@ export default function RankingProdutosPage() {
                   type="button"
                   onClick={() => loadData(true)}
                   disabled={refreshing}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-4 text-sm font-semibold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {refreshing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -757,8 +757,8 @@ export default function RankingProdutosPage() {
           ) : null}
 
           {loading ? (
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-slate-200 bg-white">
-              <div className="flex flex-col items-center gap-3 text-slate-500">
+            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-white/10 bg-[#0A0A0A]">
+              <div className="flex flex-col items-center gap-3 text-zinc-500">
                 <Loader2 className="h-7 w-7 animate-spin" />
                 <p className="text-sm font-medium">
                   Carregando ranking de produtos...
@@ -768,49 +768,49 @@ export default function RankingProdutosPage() {
           ) : (
             <>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                       <ShoppingBag className="h-5 w-5" />
                     </div>
-                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">
+                    <span className="rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-black text-yellow-400">
                       Itens
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Quantidade vendida
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {formatNumber(summary.totalQuantity)}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                     <TrendingUp className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Faturamento em produtos
                   </p>
-                  <p className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="mt-1 text-2xl font-black text-white">
                     {formatMoney(summary.totalRevenue)}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Percent className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Margem média
                   </p>
                   <p
                     className={cn(
                       "mt-1 text-2xl font-black",
                       summary.averageMargin >= 40
-                        ? "text-emerald-600"
+                        ? "text-emerald-400"
                         : summary.averageMargin >= 25
-                          ? "text-amber-600"
+                          ? "text-yellow-400"
                           : "text-red-600",
                     )}
                   >
@@ -818,96 +818,96 @@ export default function RankingProdutosPage() {
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                     <Crown className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-zinc-500">
                     Produto líder
                   </p>
-                  <p className="mt-1 line-clamp-1 text-lg font-black text-slate-950">
+                  <p className="mt-1 line-clamp-1 text-lg font-black text-white">
                     {summary.topProduct?.name || "Sem vendas"}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-slate-700" />
-                    <h2 className="text-base font-bold text-slate-950">
+                    <BarChart3 className="h-5 w-5 text-zinc-500" />
+                    <h2 className="text-base font-bold text-white">
                       Resumo do ranking
                     </h2>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-4">
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    <div className="rounded-2xl bg-[#111111] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Produtos vendidos
                       </p>
-                      <p className="mt-1 text-lg font-black text-slate-950">
+                      <p className="mt-1 text-lg font-black text-white">
                         {summary.totalProducts}
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    <div className="rounded-2xl bg-[#111111] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Custo estimado
                       </p>
-                      <p className="mt-1 text-lg font-black text-orange-600">
+                      <p className="mt-1 text-lg font-black text-yellow-400">
                         {formatMoney(summary.totalCost)}
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    <div className="rounded-2xl bg-[#111111] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Lucro bruto
                       </p>
-                      <p className="mt-1 text-lg font-black text-emerald-600">
+                      <p className="mt-1 text-lg font-black text-emerald-400">
                         {formatMoney(summary.totalProfit)}
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    <div className="rounded-2xl bg-[#111111] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                         Ticket médio item
                       </p>
-                      <p className="mt-1 text-lg font-black text-slate-950">
+                      <p className="mt-1 text-lg font-black text-white">
                         {formatMoney(summary.averageTicket)}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-bold text-slate-950">
+                      <p className="text-sm font-bold text-white">
                         Alertas
                       </p>
-                      <p className="text-xs font-medium text-slate-500">
+                      <p className="text-xs font-medium text-zinc-500">
                         Pontos que podem distorcer o ranking.
                       </p>
                     </div>
 
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    <AlertTriangle className="h-5 w-5 text-yellow-400" />
                   </div>
 
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between rounded-2xl bg-amber-50 p-3">
-                      <span className="text-sm font-semibold text-amber-800">
+                    <div className="flex items-center justify-between rounded-2xl bg-yellow-400/10 p-3">
+                      <span className="text-sm font-semibold text-yellow-400">
                         Sem ficha técnica
                       </span>
-                      <span className="text-sm font-black text-amber-900">
+                      <span className="text-sm font-black text-yellow-400">
                         {summary.productsWithoutRecipe}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between rounded-2xl bg-slate-50 p-3">
-                      <span className="text-sm font-semibold text-slate-600">
+                    <div className="flex items-center justify-between rounded-2xl bg-[#111111] p-3">
+                      <span className="text-sm font-semibold text-zinc-500">
                         CMV médio
                       </span>
-                      <span className="text-sm font-black text-slate-950">
+                      <span className="text-sm font-black text-white">
                         {formatPercent(summary.averageCmv)}
                       </span>
                     </div>
@@ -915,14 +915,14 @@ export default function RankingProdutosPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-5">
+              <div className="rounded-3xl border border-white/10 bg-[#0A0A0A] shadow-sm">
+                <div className="border-b border-white/10 p-5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-base font-bold text-slate-950">
+                      <h2 className="text-base font-bold text-white">
                         Ranking detalhado
                       </h2>
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-zinc-500">
                         Ordene por faturamento, quantidade, lucro, margem ou
                         CMV.
                       </p>
@@ -930,14 +930,14 @@ export default function RankingProdutosPage() {
 
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                         <input
                           value={searchTerm}
                           onChange={(event) =>
                             setSearchTerm(event.target.value)
                           }
                           placeholder="Buscar produto..."
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 sm:w-64"
+                          className="h-10 w-full rounded-xl border border-white/10 bg-[#0A0A0A] pl-9 pr-3 text-sm font-medium outline-none transition placeholder:text-zinc-500 focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20 sm:w-64"
                         />
                       </div>
 
@@ -946,7 +946,7 @@ export default function RankingProdutosPage() {
                         onChange={(event) =>
                           setPaymentFilter(event.target.value as PaymentFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                       >
                         {paymentOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -960,7 +960,7 @@ export default function RankingProdutosPage() {
                         onChange={(event) =>
                           setSortFilter(event.target.value as SortFilter)
                         }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                        className="h-10 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-semibold text-zinc-500 outline-none transition focus:border-yellow-400/30 focus:ring-4 focus:ring-yellow-400/20"
                       >
                         {sortOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -975,7 +975,7 @@ export default function RankingProdutosPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[1080px] text-left">
                     <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-black uppercase tracking-wide text-slate-400">
+                      <tr className="border-b border-white/10 bg-[#111111] text-xs font-black uppercase tracking-wide text-zinc-500">
                         <th className="px-5 py-3">Rank</th>
                         <th className="px-5 py-3">Produto</th>
                         <th className="px-5 py-3">Qtd.</th>
@@ -993,7 +993,7 @@ export default function RankingProdutosPage() {
                         filteredRanking.map((product, index) => (
                           <tr
                             key={product.key}
-                            className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
+                            className="border-b border-white/10 last:border-0 hover:bg-[#111111]"
                           >
                             <td className="px-5 py-4">
                               <div
@@ -1002,10 +1002,10 @@ export default function RankingProdutosPage() {
                                   index === 0 &&
                                     "bg-yellow-100 text-yellow-700",
                                   index === 1 &&
-                                    "bg-slate-200 text-slate-700",
+                                    "bg-[#111111] text-zinc-500",
                                   index === 2 &&
-                                    "bg-orange-100 text-orange-700",
-                                  index > 2 && "bg-slate-100 text-slate-500",
+                                    "bg-yellow-400/10 text-yellow-400",
+                                  index > 2 && "bg-[#111111] text-zinc-500",
                                 )}
                               >
                                 {index === 0 ? (
@@ -1020,21 +1020,21 @@ export default function RankingProdutosPage() {
 
                             <td className="px-5 py-4">
                               <div>
-                                <p className="font-bold text-slate-950">
+                                <p className="font-bold text-white">
                                   {product.name}
                                 </p>
-                                <p className="mt-1 text-xs font-medium text-slate-400">
+                                <p className="mt-1 text-xs font-medium text-zinc-500">
                                   {product.ordersCount} pedido(s) • ticket médio{" "}
                                   {formatMoney(product.averagePrice)}
                                 </p>
                               </div>
                             </td>
 
-                            <td className="px-5 py-4 text-sm font-black text-slate-900">
+                            <td className="px-5 py-4 text-sm font-black text-white">
                               {formatNumber(product.quantitySold)}
                             </td>
 
-                            <td className="px-5 py-4 text-sm font-black text-slate-900">
+                            <td className="px-5 py-4 text-sm font-black text-white">
                               {formatMoney(product.revenue)}
                             </td>
 
@@ -1042,7 +1042,7 @@ export default function RankingProdutosPage() {
                               className={cn(
                                 "px-5 py-4 text-sm font-black",
                                 product.grossProfit >= 0
-                                  ? "text-emerald-600"
+                                  ? "text-emerald-400"
                                   : "text-red-600",
                               )}
                             >
@@ -1060,9 +1060,9 @@ export default function RankingProdutosPage() {
                                   className={cn(
                                     "text-sm font-black",
                                     product.marginPercentage >= 35
-                                      ? "text-emerald-600"
+                                      ? "text-emerald-400"
                                       : product.marginPercentage >= 25
-                                        ? "text-amber-600"
+                                        ? "text-yellow-400"
                                         : "text-red-600",
                                   )}
                                 >
@@ -1078,8 +1078,8 @@ export default function RankingProdutosPage() {
                                   product.cmvPercentage >= 45
                                     ? "bg-red-100 text-red-700"
                                     : product.cmvPercentage >= 35
-                                      ? "bg-amber-100 text-amber-700"
-                                      : "bg-emerald-100 text-emerald-700",
+                                      ? "bg-yellow-400/10 text-yellow-400"
+                                      : "bg-emerald-500/10 text-emerald-400",
                                 )}
                               >
                                 {formatPercent(product.cmvPercentage)}
@@ -1088,9 +1088,9 @@ export default function RankingProdutosPage() {
 
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
+                                <div className="h-2 w-24 overflow-hidden rounded-full bg-[#111111]">
                                   <div
-                                    className="h-full rounded-full bg-blue-500"
+                                    className="h-full rounded-full bg-yellow-400"
                                     style={{
                                       width: `${Math.min(
                                         product.revenueShare,
@@ -1100,7 +1100,7 @@ export default function RankingProdutosPage() {
                                   />
                                 </div>
 
-                                <span className="text-xs font-black text-slate-600">
+                                <span className="text-xs font-black text-zinc-500">
                                   {formatPercent(product.revenueShare)}
                                 </span>
                               </div>
@@ -1113,13 +1113,13 @@ export default function RankingProdutosPage() {
                                   product.status === "star" &&
                                     "bg-yellow-100 text-yellow-700",
                                   product.status === "high_margin" &&
-                                    "bg-emerald-100 text-emerald-700",
+                                    "bg-emerald-500/10 text-emerald-400",
                                   product.status === "low_margin" &&
                                     "bg-red-100 text-red-700",
                                   product.status === "no_recipe" &&
-                                    "bg-slate-100 text-slate-600",
+                                    "bg-[#111111] text-zinc-500",
                                   product.status === "attention" &&
-                                    "bg-blue-100 text-blue-700",
+                                    "bg-yellow-400/10 text-yellow-400",
                                 )}
                               >
                                 {product.statusLabel}
@@ -1131,7 +1131,7 @@ export default function RankingProdutosPage() {
                         <tr>
                           <td
                             colSpan={9}
-                            className="px-5 py-12 text-center text-sm font-medium text-slate-500"
+                            className="px-5 py-12 text-center text-sm font-medium text-zinc-500"
                           >
                             Nenhum produto encontrado para os filtros atuais.
                           </td>
@@ -1142,7 +1142,7 @@ export default function RankingProdutosPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+              <div className="rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-sm text-yellow-400">
                 <div className="flex gap-3">
                   <Package className="mt-0.5 h-5 w-5 flex-none" />
                   <div>

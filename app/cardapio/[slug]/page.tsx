@@ -483,7 +483,7 @@ function formatPrepTimeLabel(restaurant: PublicRestaurant) {
 
 function MenuSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#111111]">
       <style jsx>{`
         @keyframes shimmer {
           0% {
@@ -529,7 +529,7 @@ function MenuSkeleton() {
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="flex gap-3 rounded-2xl bg-white p-4 shadow-sm border border-gray-100"
+              className="flex gap-3 rounded-2xl bg-[#0A0A0A] p-4 shadow-sm border border-white/10"
               style={{ animationDelay: `${i * 0.15}s` }}
             >
               <div className="flex-1 space-y-2.5">
@@ -558,8 +558,8 @@ function ProductBadge({
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide",
         badge.type === "popular" && "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-100",
-        badge.type === "promo" && "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-        badge.type === "new" && "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
+        badge.type === "promo" && "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-400/20",
+        badge.type === "new" && "bg-[#111111] text-zinc-500 ring-1 ring-yellow-400/20"
       )}
     >
       {badge.type === "popular" && <Flame className="h-3 w-3" />}
@@ -667,10 +667,10 @@ function getPromotionLabel(discount: number) {
 
 function MenuImagePlaceholder({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-yellow-50 via-white to-neutral-50">
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-yellow-50 via-[#080808] to-neutral-50">
       <div
         className={cn(
-          "flex items-center justify-center rounded-full bg-white text-yellow-500 shadow-sm ring-1 ring-yellow-100",
+          "flex items-center justify-center rounded-full bg-[#0A0A0A] text-yellow-500 shadow-sm ring-1 ring-yellow-100",
           compact ? "h-10 w-10" : "h-14 w-14"
         )}
       >
@@ -731,7 +731,7 @@ function FeaturedOfferCard({
       onKeyDown={handleKeyDown}
       className="group min-w-[132px] max-w-[132px] cursor-pointer overflow-hidden rounded-xl border border-yellow-400/20 bg-[#101010] p-2 text-left shadow-sm transition-colors hover:border-yellow-400/50 active:scale-[0.99]"
     >
-      <div className="relative h-[96px] overflow-hidden rounded-lg bg-gray-100">
+      <div className="relative h-[96px] overflow-hidden rounded-lg bg-[#111111]">
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
@@ -746,7 +746,7 @@ function FeaturedOfferCard({
         )}
 
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-1.5 pt-7">
-          <span className="inline-flex rounded-md bg-white/95 px-1.5 py-0.5 text-[9px] font-black text-yellow-700 shadow-sm">
+          <span className="inline-flex rounded-md bg-[#0A0A0A] px-1.5 py-0.5 text-[9px] font-black text-yellow-700 shadow-sm">
             {discount > 0 ? getPromotionLabel(discount) : "Destaque"}
           </span>
         </div>
@@ -777,7 +777,7 @@ function FeaturedOfferCard({
         <div className="mt-1 flex items-end justify-between gap-2">
           <div className="min-w-0">
             {originalPrice && (
-              <p className="text-[10px] font-bold text-gray-400 line-through">
+              <p className="text-[10px] font-bold text-zinc-500 line-through">
                 {formatPrice(originalPrice)}
               </p>
             )}
@@ -909,14 +909,14 @@ function ProductCard({
 
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           {isPromotional && (
-            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
+            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
               -{getPromotionLabel(discount)}
             </span>
           )}
 
           <div className="flex min-w-0 items-baseline gap-2">
             {isPromotional && originalPrice && (
-              <span className="text-[11px] font-bold text-gray-400 line-through">
+              <span className="text-[11px] font-bold text-zinc-500 line-through">
                 {formatPrice(originalPrice)}
               </span>
             )}
@@ -957,7 +957,7 @@ function ProductCard({
           style={isAdding ? undefined : { backgroundColor: accentColor }}
           aria-label={`Adicionar ${product.name}`}
         >
-          {showRipple && <span className="absolute inset-0 animate-ping rounded-lg bg-white/30" />}
+          {showRipple && <span className="absolute inset-0 animate-ping rounded-lg bg-[#0A0A0A]" />}
 
           {isAdding ? (
             <Check className="h-4.5 w-4.5 text-white" strokeWidth={3} />
@@ -989,10 +989,10 @@ function ModifierGroupComponent({
   const reachedMax = !isRadio && totalSelected >= group.maxSelect
 
   return (
-    <div className="space-y-2.5 border-t border-gray-100 pt-4 first:border-t-0 first:pt-0">
+    <div className="space-y-2.5 border-t border-white/10 pt-4 first:border-t-0 first:pt-0">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h4 className="text-sm font-black text-gray-950">{group.name}</h4>
+          <h4 className="text-sm font-black text-white">{group.name}</h4>
 
           {group.required && (
             <span className="rounded-md bg-yellow-50 px-2 py-0.5 text-[10px] font-black text-black ring-1 ring-yellow-100">
@@ -1002,7 +1002,7 @@ function ModifierGroupComponent({
         </div>
 
         {!isRadio && group.maxSelect > 1 && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-zinc-500">
             {totalSelected}/{group.maxSelect}
           </span>
         )}
@@ -1022,7 +1022,7 @@ function ModifierGroupComponent({
                 onClick={() => onIncrease(option)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-all",
-                  isSelected ? "border-yellow-200 bg-yellow-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                  isSelected ? "border-yellow-200 bg-yellow-50" : "border-white/10 bg-[#0A0A0A] hover:bg-[#111111]"
                 )}
                 style={
                   isSelected
@@ -1037,7 +1037,7 @@ function ModifierGroupComponent({
                   <div
                     className={cn(
                       "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
-                      isSelected ? "border-transparent text-white" : "border-gray-300"
+                      isSelected ? "border-transparent text-white" : "border-white/10"
                     )}
                     style={
                       isSelected
@@ -1051,14 +1051,14 @@ function ModifierGroupComponent({
                   <span
                     className={cn(
                       "text-sm",
-                      isSelected ? "font-semibold text-gray-900" : "text-gray-700"
+                      isSelected ? "font-semibold text-white" : "text-zinc-500"
                     )}
                   >
                     {option.name}
                   </span>
                 </div>
 
-                <span className="text-xs font-black text-gray-900">
+                <span className="text-xs font-black text-white">
                   {option.price > 0 ? `+ ${formatPrice(option.price)}` : formatPrice(0)}
                 </span>
               </button>
@@ -1073,8 +1073,8 @@ function ModifierGroupComponent({
                 isSelected
                   ? "border-yellow-200 bg-yellow-50"
                   : isDisabled
-                    ? "border-gray-100 bg-gray-50 opacity-50"
-                    : "border-gray-200 bg-white hover:bg-gray-50"
+                    ? "border-white/10 bg-[#111111] opacity-50"
+                    : "border-white/10 bg-[#0A0A0A] hover:bg-[#111111]"
               )}
               style={
                 isSelected
@@ -1089,7 +1089,7 @@ function ModifierGroupComponent({
                 <div
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all",
-                    isSelected ? "border-transparent text-white" : "border-gray-300 text-gray-400"
+                    isSelected ? "border-transparent text-white" : "border-white/10 text-zinc-500"
                   )}
                   style={
                     isSelected
@@ -1104,7 +1104,7 @@ function ModifierGroupComponent({
                   <p
                     className={cn(
                       "truncate text-sm",
-                      isSelected ? "font-semibold text-gray-900" : "text-gray-700"
+                      isSelected ? "font-semibold text-white" : "text-zinc-500"
                     )}
                   >
                     {option.name}
@@ -1113,7 +1113,7 @@ function ModifierGroupComponent({
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <span className="mr-1 text-xs font-black text-gray-900">
+                <span className="mr-1 text-xs font-black text-white">
                   {option.price > 0 ? `+ ${formatPrice(option.price)}` : formatPrice(0)}
                 </span>
 
@@ -1121,12 +1121,12 @@ function ModifierGroupComponent({
                   type="button"
                   onClick={() => onDecrease(option)}
                   disabled={!isSelected}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#0A0A0A] text-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </button>
 
-                <span className="w-5 text-center text-sm font-black text-gray-900">
+                <span className="w-5 text-center text-sm font-black text-white">
                   {selectedCount}
                 </span>
 
@@ -1134,7 +1134,7 @@ function ModifierGroupComponent({
                   type="button"
                   onClick={() => onIncrease(option)}
                   disabled={reachedMax}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-white disabled:cursor-not-allowed disabled:bg-[#111111]"
                   style={reachedMax ? undefined : { backgroundColor: accentColor }}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -1259,18 +1259,18 @@ function ProductModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3 sm:items-center sm:p-6">
-      <div className="fixed inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-[#111111]5 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+      <div className="relative z-10 flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-[#0A0A0A] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-md ring-1 ring-gray-100 backdrop-blur-md transition-transform active:scale-95"
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-[#0A0A0A] text-zinc-500 shadow-md ring-1 ring-yellow-400/20 backdrop-blur-md transition-transform active:scale-95"
           aria-label="Fechar produto"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <div className="relative h-[228px] w-full flex-shrink-0 overflow-hidden bg-gray-100">
+        <div className="relative h-[228px] w-full flex-shrink-0 overflow-hidden bg-[#111111]">
           {product.imageUrl ? (
             <Image src={product.imageUrl} alt={product.name} fill className="object-cover" sizes="512px" />
           ) : (
@@ -1280,9 +1280,9 @@ function ProductModal({
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent" />
 
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-white shadow-sm" />
-            <span className="h-2 w-2 rounded-full bg-white/60" />
-            <span className="h-2 w-2 rounded-full bg-white/60" />
+            <span className="h-2 w-2 rounded-full bg-[#0A0A0A] shadow-sm" />
+            <span className="h-2 w-2 rounded-full bg-[#0A0A0A]" />
+            <span className="h-2 w-2 rounded-full bg-[#0A0A0A]" />
           </div>
         </div>
 
@@ -1291,7 +1291,7 @@ function ProductModal({
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
                 {productPromotion.isPromotional && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-2 py-1 text-[10px] font-black text-orange-700 ring-1 ring-orange-100">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-yellow-400/10 px-2 py-1 text-[10px] font-black text-yellow-400 ring-1 ring-yellow-400/20">
                     <Percent className="h-3 w-3" />
                     {getPromotionLabel(productPromotion.discount)}
                   </span>
@@ -1305,13 +1305,13 @@ function ProductModal({
                 )}
               </div>
 
-              <h3 className="text-2xl font-black leading-tight tracking-tight text-gray-950">
+              <h3 className="text-2xl font-black leading-tight tracking-tight text-white">
                 {product.name}
               </h3>
 
               <div className="mt-1 flex items-center gap-2">
                 {productPromotion.isPromotional && productPromotion.originalPrice ? (
-                  <p className="text-sm font-bold text-gray-400 line-through">
+                  <p className="text-sm font-bold text-zinc-500 line-through">
                     {formatPrice(productPromotion.originalPrice)}
                   </p>
                 ) : null}
@@ -1323,7 +1323,7 @@ function ProductModal({
                 )}
               </div>
 
-              <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-600">
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-zinc-500">
                 {formattedDescription}
               </p>
             </div>
@@ -1343,38 +1343,38 @@ function ProductModal({
               </div>
             )}
 
-            <div className="border-t border-gray-100 pt-4">
-              <label className="text-sm font-black text-gray-950">Alguma observação?</label>
+            <div className="border-t border-white/10 pt-4">
+              <label className="text-sm font-black text-white">Alguma observação?</label>
 
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ex: sem cebola, molho à parte..."
-                className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-4 py-3 text-sm font-semibold placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
                 rows={2}
               />
             </div>
           </div>
         </div>
 
-        <div className="flex-shrink-0 border-t border-gray-100 bg-white/95 p-4 backdrop-blur-xl">
+        <div className="flex-shrink-0 border-t border-white/10 bg-[#0A0A0A] p-4 backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-sm font-black text-gray-950">Quantidade</span>
+            <span className="text-sm font-black text-white">Quantidade</span>
 
-            <div className="flex h-10 items-center overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div className="flex h-10 items-center overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A]">
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="flex h-10 w-11 items-center justify-center text-gray-500 hover:text-gray-700"
+                className="flex h-10 w-11 items-center justify-center text-zinc-500 hover:text-zinc-500"
                 aria-label="Diminuir quantidade"
               >
                 <Minus className="h-4 w-4" />
               </button>
 
-              <span className="w-9 text-center text-sm font-black text-gray-950">{quantity}</span>
+              <span className="w-9 text-center text-sm font-black text-white">{quantity}</span>
 
               <button
                 onClick={() => setQuantity(quantity + 1)}
-                className="flex h-10 w-11 items-center justify-center text-gray-500 hover:text-gray-700"
+                className="flex h-10 w-11 items-center justify-center text-zinc-500 hover:text-zinc-500"
                 aria-label="Aumentar quantidade"
               >
                 <Plus className="h-4 w-4" />
@@ -1389,7 +1389,7 @@ function ProductModal({
               "flex h-12 w-full items-center justify-center rounded-xl px-4 text-sm font-black text-white transition-all",
               allRequiredSelected
                 ? "shadow-lg hover:opacity-95 active:scale-[0.98]"
-                : "cursor-not-allowed bg-gray-200 text-gray-400"
+                : "cursor-not-allowed bg-[#111111] text-zinc-500"
             )}
             style={
               allRequiredSelected
@@ -1434,20 +1434,20 @@ function UpsellModal({
   const offerPrice = Number(firstSuggestion.price || 0)
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 px-3 pb-3 backdrop-blur-sm sm:items-center sm:pb-0">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#111111]5 px-3 pb-3 backdrop-blur-sm sm:items-center sm:pb-0">
       <div className="absolute inset-0" onClick={onSkip} aria-hidden="true" />
 
-      <div className="relative w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-[0_28px_90px_-36px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-5 duration-300 sm:rounded-[30px]">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-[28px] bg-[#0A0A0A] shadow-[0_28px_90px_-36px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-5 duration-300 sm:rounded-[30px]">
         <button
           type="button"
           onClick={onSkip}
-          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-lg backdrop-blur-md active:scale-95"
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-[#0A0A0A] text-zinc-500 shadow-lg backdrop-blur-md active:scale-95"
           aria-label="Fechar oferta"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <div className="relative h-[185px] overflow-hidden bg-slate-950">
+        <div className="relative h-[185px] overflow-hidden bg-[#050505]">
           {firstSuggestion.imageUrl ? (
             <Image
               src={firstSuggestion.imageUrl}
@@ -1457,7 +1457,7 @@ function UpsellModal({
               sizes="512px"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 to-slate-700">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#050505] to-[#111111]">
               <Utensils className="h-12 w-12 text-white/35" />
             </div>
           )}
@@ -1465,7 +1465,7 @@ function UpsellModal({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
 
           <div className="absolute bottom-0 left-0 right-0 p-5 pr-14">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-700 shadow-lg">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0A0A0A] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-700 shadow-lg">
               <Sparkles className="h-3.5 w-3.5" />
               Sugestão da casa
             </span>
@@ -1481,30 +1481,30 @@ function UpsellModal({
         </div>
 
         <div className="p-4">
-          <div className="rounded-[22px] border border-gray-200 bg-gray-50 p-3.5">
+          <div className="rounded-[22px] border border-white/10 bg-[#111111] p-3.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-400">
                   Oferta no checkout
                 </p>
 
-                <h4 className="mt-1 line-clamp-2 text-[18px] font-black leading-tight text-gray-950">
+                <h4 className="mt-1 line-clamp-2 text-[18px] font-black leading-tight text-white">
                   {firstSuggestion.name}
                 </h4>
 
-                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-gray-500">
+                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-zinc-500">
                   {formatMenuProductDescription(firstSuggestion.description)}
                 </p>
               </div>
 
               <div className="shrink-0 text-right">
                 {suggestionPromotion.isPromotional && suggestionPromotion.originalPrice ? (
-                  <p className="text-xs font-bold text-gray-400 line-through">
+                  <p className="text-xs font-bold text-zinc-500 line-through">
                     {formatPrice(suggestionPromotion.originalPrice)}
                   </p>
                 ) : null}
 
-                <p className="text-2xl font-black text-gray-950">
+                <p className="text-2xl font-black text-white">
                   {formatPrice(offerPrice)}
                 </p>
               </div>
@@ -1518,9 +1518,9 @@ function UpsellModal({
                   key={product.id}
                   type="button"
                   onClick={() => onAdd(product)}
-                  className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left shadow-sm active:scale-95"
+                  className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2.5 text-left shadow-sm active:scale-95"
                 >
-                  <span className="max-w-[118px] truncate text-xs font-black text-gray-800">
+                  <span className="max-w-[118px] truncate text-xs font-black text-white">
                     {product.name}
                   </span>
 
@@ -1549,7 +1549,7 @@ function UpsellModal({
             <button
               type="button"
               onClick={onSkip}
-              className="w-full rounded-2xl border border-gray-200 bg-white py-3 text-xs font-black text-gray-500 active:scale-[0.98]"
+              className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] py-3 text-xs font-black text-zinc-500 active:scale-[0.98]"
             >
               Não, continuar sem esse item
             </button>
@@ -2193,23 +2193,23 @@ function LoyaltyProgressCard({
   )
 
   return (
-    <div className="relative overflow-hidden rounded-[28px] border border-orange-300/30 bg-[#111827] text-white shadow-[0_24px_70px_-35px_rgba(0,0,0,0.75)]">
-      <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-orange-500/25 blur-3xl" />
+    <div className="relative overflow-hidden rounded-[28px] border border-yellow-400/30 bg-[#111827] text-white shadow-[0_24px_70px_-35px_rgba(0,0,0,0.75)]">
+      <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-yellow-400/25 blur-3xl" />
       <div className="absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-black/20 blur-3xl" />
 
       <div className="relative p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0A0A0A] shadow-lg ring-1 ring-white/15 backdrop-blur-md">
               {rewardAvailable ? (
-                <Sparkles className="h-6 w-6 text-orange-300" />
+                <Sparkles className="h-6 w-6 text-yellow-400" />
               ) : (
-                <Receipt className="h-6 w-6 text-orange-300" />
+                <Receipt className="h-6 w-6 text-yellow-400" />
               )}
             </div>
 
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-300">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-yellow-400">
                 Card Fidelidade
               </p>
 
@@ -2229,7 +2229,7 @@ function LoyaltyProgressCard({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-right backdrop-blur-md">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] px-3 py-2 text-right backdrop-blur-md">
             <p className="text-[10px] font-bold uppercase text-white/50">
               Progresso
             </p>
@@ -2240,7 +2240,7 @@ function LoyaltyProgressCard({
           </div>
         </div>
 
-        <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-md">
+        <div className="mt-5 rounded-3xl border border-white/10 bg-[#0A0A0A] p-4 backdrop-blur-md">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-black uppercase tracking-wide text-white/45">
@@ -2252,18 +2252,18 @@ function LoyaltyProgressCard({
               </p>
             </div>
 
-            <div className="rounded-full bg-orange-400/15 px-3 py-1 text-xs font-black text-orange-300 ring-1 ring-orange-300/20">
+            <div className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-yellow-400 ring-1 ring-yellow-400/20">
               {currentOrders}/{requiredOrders}
             </div>
           </div>
 
-          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#0A0A0A]">
             <div
               className="h-full rounded-full shadow-[0_0_18px_rgba(249,115,22,0.65)] transition-all duration-700"
               style={{
                 width: `${progressPercentage}%`,
                 background: rewardAvailable
-                  ? "linear-gradient(to right, #facc15, #f97316)"
+                  ? "linear-gradient(to right, #facc15, #facc15)"
                   : `linear-gradient(to right, ${accentColor}, #fb923c)`,
               }}
             />
@@ -2280,13 +2280,13 @@ function LoyaltyProgressCard({
                 className={cn(
                   "relative flex aspect-square items-center justify-center rounded-2xl border text-sm font-black transition-all",
                   isFilled
-                    ? "border-orange-300/30 bg-orange-500 text-white shadow-[0_12px_28px_-14px_rgba(249,115,22,0.9)]"
-                    : "border-white/10 bg-white/[0.06] text-white/30"
+                    ? "border-yellow-400/30 bg-yellow-400 text-black shadow-[0_12px_28px_-14px_rgba(249,115,22,0.9)]"
+                    : "border-white/10 bg-[#0A0A0A] text-white/30"
                 )}
               >
                 {isFilled ? (
                   <>
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent" />
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#050505] to-transparent" />
                     <Check className="relative h-4 w-4" strokeWidth={3} />
                   </>
                 ) : (
@@ -2308,7 +2308,7 @@ function LoyaltyProgressCard({
             </p>
           </div>
         ) : (
-          <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.06] p-4 text-center">
+          <div className="mt-5 rounded-3xl border border-white/10 bg-[#0A0A0A] p-4 text-center">
             <p className="text-xs font-semibold text-white/60">
               Continue comprando para completar seu card e liberar sua recompensa.
             </p>
@@ -2435,7 +2435,7 @@ function OrderTrackingCard({
 
   return (
     <div className="mx-auto mt-3 max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="overflow-hidden rounded-[24px] border border-yellow-100 bg-white shadow-[0_20px_55px_-38px_rgba(15,23,42,0.85)]">
+      <div className="overflow-hidden rounded-[24px] border border-yellow-100 bg-[#0A0A0A] shadow-[0_20px_55px_-38px_rgba(15,23,42,0.85)]">
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
@@ -2447,33 +2447,33 @@ function OrderTrackingCard({
                 Pedido #{orderNumber}
               </p>
 
-              <h3 className="mt-1 text-base font-black leading-tight text-gray-950">
+              <h3 className="mt-1 text-base font-black leading-tight text-white">
                 {trackingMessage.title}
               </h3>
 
-              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-gray-500">
+              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-zinc-500">
                 {trackingMessage.description}
               </p>
             </div>
 
-            <div className="shrink-0 rounded-2xl bg-gray-50 px-3 py-2 text-right ring-1 ring-gray-100">
-              <p className="text-[9px] font-black uppercase text-gray-400">Total</p>
-              <p className="text-sm font-black text-gray-950">{formatPrice(Number(order.total || 0))}</p>
+            <div className="shrink-0 rounded-2xl bg-[#111111] px-3 py-2 text-right ring-1 ring-yellow-400/20">
+              <p className="text-[9px] font-black uppercase text-zinc-500">Total</p>
+              <p className="text-sm font-black text-white">{formatPrice(Number(order.total || 0))}</p>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100">
+          <div className="mt-4 rounded-2xl bg-[#111111] p-3 ring-1 ring-yellow-400/20">
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-xs font-black text-gray-950">
+              <p className="truncate text-xs font-black text-white">
                 {getOrderStatusLabel(order.status, orderType, order.customer_received_at)}
               </p>
 
-              <p className="shrink-0 text-[11px] font-bold text-gray-500">
+              <p className="shrink-0 text-[11px] font-bold text-zinc-500">
                 {orderType === "delivery" ? "Entrega" : "Retirada"} • {formatPaymentMethodLabel(order.payment_method)}
               </p>
             </div>
 
-            <div className="relative mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
+            <div className="relative mt-3 h-2 overflow-hidden rounded-full bg-[#111111]">
               <div
                 className="h-full rounded-full transition-all duration-700"
                 style={{
@@ -2490,7 +2490,7 @@ function OrderTrackingCard({
 
                 return (
                   <div key={step.key} className="min-w-0 text-center">
-                    <div className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-white ring-1 ring-gray-200">
+                    <div className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-[#0A0A0A] ring-1 ring-yellow-400/20">
                       <span
                         className={cn(
                           "h-3 w-3 rounded-full transition-all",
@@ -2503,7 +2503,7 @@ function OrderTrackingCard({
                     <p
                       className={cn(
                         "mt-1 text-[9px] font-black leading-tight",
-                        isDone ? "text-gray-950" : "text-gray-400"
+                        isDone ? "text-white" : "text-zinc-500"
                       )}
                     >
                       {step.label}
@@ -2516,24 +2516,24 @@ function OrderTrackingCard({
         </button>
 
         {expanded && (
-          <div className="border-t border-gray-100 px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="border-t border-white/10 px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
             {isCancelled ? (
               <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
                 Este pedido foi cancelado pelo restaurante.
               </div>
             ) : alreadyReceived ? (
-              <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+              <div className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
                 <div className="flex items-start gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
                     <Check className="h-4 w-4" strokeWidth={3} />
                   </div>
 
                   <div>
-                    <p className="text-xs font-black text-emerald-800">
+                    <p className="text-xs font-black text-emerald-400">
                       Recebimento confirmado
                     </p>
 
-                    <p className="mt-1 text-[11px] font-semibold leading-relaxed text-emerald-700">
+                    <p className="mt-1 text-[11px] font-semibold leading-relaxed text-emerald-400">
                       {hasActiveLoyaltyCampaign
                         ? "Seu selo de fidelidade será contado automaticamente na sua conta."
                         : "Obrigado por confirmar. Sua avaliação ajuda o restaurante a melhorar."}
@@ -2542,12 +2542,12 @@ function OrderTrackingCard({
                 </div>
               </div>
             ) : showReviewForm ? (
-              <div className="mt-3 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
-                <p className="text-sm font-black text-gray-950">
+              <div className="mt-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
+                <p className="text-sm font-black text-white">
                   {orderType === "pickup" ? "Como foi sua retirada?" : "Como foi seu pedido?"}
                 </p>
 
-                <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
                   Confirme o recebimento e avalie sua experiência.
                 </p>
 
@@ -2562,7 +2562,7 @@ function OrderTrackingCard({
                       <Star
                         className={cn(
                           "h-7 w-7",
-                          rating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                          rating >= star ? "fill-yellow-400 text-yellow-400" : "text-zinc-500"
                         )}
                       />
                     </button>
@@ -2574,7 +2574,7 @@ function OrderTrackingCard({
                   onChange={(event) => setReview(event.target.value)}
                   placeholder="Comentário opcional. Ex: chegou rápido, comida muito boa..."
                   rows={3}
-                  className="mt-3 w-full resize-none rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  className="mt-3 w-full resize-none rounded-2xl border border-yellow-400/30 bg-[#0A0A0A] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                 />
 
                 <button
@@ -2595,8 +2595,8 @@ function OrderTrackingCard({
                 </button>
               </div>
             ) : canConfirmReceived ? (
-              <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-black text-gray-950">
+              <div className="mt-3 rounded-2xl border border-white/10 bg-[#111111] p-3">
+                <p className="text-xs font-black text-white">
                   {orderType === "pickup" ? "Você já retirou seu pedido?" : "Seu pedido chegou?"}
                 </p>
 
@@ -2615,7 +2615,7 @@ function OrderTrackingCard({
                       href={`https://wa.me/${whatsappPhone}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-bold text-zinc-500 shadow-sm"
                     >
                       <MessageCircle className="h-4 w-4 text-green-500" />
                       Tive um problema
@@ -2628,7 +2628,7 @@ function OrderTrackingCard({
                 href={`https://wa.me/${whatsappPhone}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-bold text-zinc-500 shadow-sm"
               >
                 <MessageCircle className="h-4 w-4 text-green-500" />
                 Falar com o restaurante
@@ -2731,22 +2731,22 @@ function CustomerStartModal({
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[30px] bg-[#0A0A0A] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm transition-colors hover:bg-white hover:text-gray-700"
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-[#0A0A0A] text-zinc-500 shadow-sm transition-colors hover:bg-[#0A0A0A] hover:text-zinc-500"
           aria-label="Fechar"
         >
           <X className="h-4 w-4" />
         </button>
 
         <div className="relative bg-gradient-to-br from-black via-neutral-950 to-yellow-500 p-5 pr-14 text-white">
-          <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
+          <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#0A0A0A] blur-3xl" />
           <div className="absolute -bottom-20 -left-20 h-44 w-44 rounded-full bg-emerald-400/15 blur-3xl" />
 
           <div className="relative">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A0A0A] shadow-lg ring-1 ring-white/15 backdrop-blur-md">
               <UserRound className="h-6 w-6" />
             </div>
 
@@ -2763,18 +2763,18 @@ function CustomerStartModal({
         </div>
 
         <div className="p-5">
-          <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+          <div className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
                 <Check className="h-4 w-4" strokeWidth={3} />
               </div>
 
               <div>
-                <p className="text-xs font-black text-emerald-800">
+                <p className="text-xs font-black text-emerald-400">
                   Seus dados ficam salvos neste restaurante
                 </p>
 
-                <p className="mt-1 text-[11px] font-semibold leading-relaxed text-emerald-700">
+                <p className="mt-1 text-[11px] font-semibold leading-relaxed text-emerald-400">
                   Na próxima compra aqui, endereço e conta já aparecem preenchidos.
                 </p>
               </div>
@@ -2783,19 +2783,19 @@ function CustomerStartModal({
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="text-xs font-bold uppercase text-gray-500">Nome *</label>
+              <label className="text-xs font-bold uppercase text-zinc-500">Nome *</label>
 
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Seu nome"
-                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase text-gray-500">WhatsApp *</label>
+              <label className="text-xs font-bold uppercase text-zinc-500">WhatsApp *</label>
 
               <input
                 type="tel"
@@ -2803,18 +2803,18 @@ function CustomerStartModal({
                 onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
-                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between gap-2">
-                <label className="text-xs font-bold uppercase text-gray-500">
+                <label className="text-xs font-bold uppercase text-zinc-500">
                   CPF {requireDocument ? "*" : ""}
                 </label>
 
                 {!requireDocument && (
-                  <span className="text-[11px] font-semibold text-gray-400">opcional agora</span>
+                  <span className="text-[11px] font-semibold text-zinc-500">opcional agora</span>
                 )}
               </div>
 
@@ -2824,7 +2824,7 @@ function CustomerStartModal({
                 onChange={(event) => setDocument(formatCpfPreview(event.target.value))}
                 placeholder="000.000.000-00"
                 maxLength={14}
-                className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
               />
             </div>
 
@@ -2844,7 +2844,7 @@ function CustomerStartModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+              className="w-full rounded-2xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-bold text-zinc-500 transition-colors hover:bg-[#111111]"
             >
               Continuar vendo o cardápio
             </button>
@@ -2891,28 +2891,28 @@ function ProfileLoyaltyCoins({
   const hiddenCoins = Math.max(requiredOrders - visibleCoins, 0)
 
   return (
-    <div className="relative overflow-hidden rounded-[22px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-yellow-50 p-4 shadow-[0_18px_50px_-36px_rgba(249,115,22,0.75)]">
-      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-orange-300/25 blur-3xl" />
+    <div className="relative overflow-hidden rounded-[22px] border border-yellow-400/30 bg-gradient-to-br from-yellow-400 via-[#080808] to-yellow-50 p-4 shadow-[0_18px_50px_-36px_rgba(249,115,22,0.75)]">
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-yellow-400/10 blur-3xl" />
       <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-yellow-400/15 blur-3xl" />
 
       <div className="relative">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-300 via-orange-400 to-orange-500 text-white shadow-[0_14px_26px_-14px_rgba(249,115,22,0.95)]">
-              <div className="absolute inset-1 rounded-xl bg-white/20" />
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-4000 text-white shadow-[0_14px_26px_-14px_rgba(249,115,22,0.95)]">
+              <div className="absolute inset-1 rounded-xl bg-[#0A0A0A]" />
               <span className="relative text-xl font-black leading-none">$</span>
             </div>
 
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-yellow-400">
                 Card Fidelidade
               </p>
 
-              <h4 className="mt-1 text-lg font-black leading-tight text-gray-900">
+              <h4 className="mt-1 text-lg font-black leading-tight text-white">
                 {currentOrders}/{requiredOrders} moedas
               </h4>
 
-              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-gray-500">
+              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-zinc-500">
                 {rewardAvailable
                   ? "Recompensa liberada para resgate."
                   : loyalty
@@ -2924,18 +2924,18 @@ function ProfileLoyaltyCoins({
             </div>
           </div>
 
-          <div className="shrink-0 rounded-full border border-orange-100 bg-white/85 px-2.5 py-1 text-xs font-black text-orange-600 shadow-sm">
+          <div className="shrink-0 rounded-full border border-yellow-400/30 bg-[#0A0A0A] px-2.5 py-1 text-xs font-black text-yellow-400 shadow-sm">
             {progressPercentage}%
           </div>
         </div>
 
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white shadow-inner ring-1 ring-orange-100">
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#0A0A0A] shadow-inner ring-1 ring-yellow-400/20">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
               width: `${progressPercentage}%`,
               background: rewardAvailable
-                ? "linear-gradient(to right, #facc15, #f97316)"
+                ? "linear-gradient(to right, #facc15, #facc15)"
                 : `linear-gradient(to right, ${accentColor}, #facc15)`,
             }}
           />
@@ -2952,15 +2952,15 @@ function ProfileLoyaltyCoins({
                 className={cn(
                   "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-black transition-all",
                   isFilled
-                    ? "border-yellow-300 bg-gradient-to-br from-yellow-300 via-orange-400 to-orange-500 text-white shadow-[0_10px_20px_-12px_rgba(249,115,22,0.95)]"
+                    ? "border-yellow-300 bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-4000 text-white shadow-[0_10px_20px_-12px_rgba(249,115,22,0.95)]"
                     : isNext
-                      ? "animate-pulse border-orange-300 bg-white text-orange-400 shadow-[0_0_0_4px_rgba(249,115,22,0.08)]"
-                      : "border-gray-200 bg-white/80 text-gray-300"
+                      ? "animate-pulse border-yellow-400/30 bg-[#0A0A0A] text-yellow-400 shadow-[0_0_0_4px_rgba(249,115,22,0.08)]"
+                      : "border-white/10 bg-[#0A0A0A] text-zinc-500"
                 )}
               >
                 {isFilled ? (
                   <>
-                    <span className="absolute left-1.5 top-1 h-1.5 w-1.5 rounded-full bg-white/55" />
+                    <span className="absolute left-1.5 top-1 h-1.5 w-1.5 rounded-full bg-[#0A0A0A]" />
                     <span className="relative text-[11px] leading-none">$</span>
                   </>
                 ) : isNext ? (
@@ -2973,21 +2973,21 @@ function ProfileLoyaltyCoins({
           })}
 
           {hiddenCoins > 0 && (
-            <div className="flex h-7 shrink-0 items-center rounded-full border border-gray-200 bg-white/80 px-2 text-[10px] font-black text-gray-400">
+            <div className="flex h-7 shrink-0 items-center rounded-full border border-white/10 bg-[#0A0A0A] px-2 text-[10px] font-black text-zinc-500">
               +{hiddenCoins}
             </div>
           )}
         </div>
 
-        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-orange-100 bg-white/75 px-3 py-2">
-          <Sparkles className="h-4 w-4 shrink-0 text-orange-500" />
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-yellow-400/30 bg-[#0A0A0A] px-3 py-2">
+          <Sparkles className="h-4 w-4 shrink-0 text-yellow-400" />
 
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+            <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
               Recompensa
             </p>
 
-            <p className="truncate text-sm font-black text-gray-900">
+            <p className="truncate text-sm font-black text-white">
               {rewardDescription}
             </p>
           </div>
@@ -3027,7 +3027,7 @@ function getCustomerOrderStatusClasses(order: CustomerVisibleOrder) {
     normalizedLabel.includes("finalizado") ||
     normalizedLabel.includes("pago")
   ) {
-    return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+    return "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-400/20"
   }
 
   if (
@@ -3043,7 +3043,7 @@ function getCustomerOrderStatusClasses(order: CustomerVisibleOrder) {
     normalizedLabel.includes("pix") ||
     normalizedLabel.includes("pagamento")
   ) {
-    return "bg-orange-50 text-orange-700 ring-1 ring-orange-100"
+    return "bg-yellow-400/10 text-yellow-400 ring-1 ring-yellow-400/20"
   }
 
   return "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-100"
@@ -3091,18 +3091,18 @@ function CustomerProfileModal({
     : "0"
 
   return (
-    <div className="fixed inset-0 z-[65] flex items-end justify-center bg-black/55 px-3 pb-3 backdrop-blur-sm sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-[65] flex items-end justify-center bg-[#111111]5 px-3 pb-3 backdrop-blur-sm sm:items-center sm:p-6">
       <div
         className="absolute inset-0"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+      <div className="relative flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-[26px] bg-[#0A0A0A] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm ring-1 ring-gray-100 transition-colors hover:bg-white hover:text-gray-900"
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-[#0A0A0A] text-zinc-500 shadow-sm ring-1 ring-yellow-400/20 transition-colors hover:bg-[#0A0A0A] hover:text-white"
           aria-label="Fechar"
         >
           <X className="h-4 w-4" />
@@ -3112,7 +3112,7 @@ function CustomerProfileModal({
           <div>
             <div className="bg-gradient-to-br from-black via-neutral-950 to-yellow-500 px-5 pb-6 pt-6 text-white">
               <div className="flex items-center gap-3 pr-10">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-yellow-700 shadow-sm">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#0A0A0A] text-yellow-700 shadow-sm">
                   <UserRound className="h-7 w-7" />
                 </div>
 
@@ -3135,13 +3135,13 @@ function CustomerProfileModal({
             <div className="p-5">
               <div className="rounded-xl border border-yellow-100 bg-yellow-50 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-yellow-700 shadow-sm ring-1 ring-yellow-100">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0A0A0A] text-yellow-700 shadow-sm ring-1 ring-yellow-100">
                     <Sparkles className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <p className="text-sm font-black text-gray-950">Meus benefícios</p>
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-600">
+                    <p className="text-sm font-black text-white">Meus benefícios</p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
                       Seus pedidos podem liberar cashback, fidelidade e recompensas quando disponíveis.
                     </p>
                   </div>
@@ -3163,7 +3163,7 @@ function CustomerProfileModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-2 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-bold text-zinc-500"
               >
                 Continuar vendo o cardápio
               </button>
@@ -3173,7 +3173,7 @@ function CustomerProfileModal({
           <>
             <div className="shrink-0 bg-gradient-to-br from-black via-neutral-950 to-yellow-500 p-5 pr-14 text-white">
               <div className="flex items-center gap-3">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-yellow-700 shadow-sm">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#0A0A0A] text-yellow-700 shadow-sm">
                   <UserRound className="h-8 w-8" />
                 </div>
 
@@ -3194,7 +3194,7 @@ function CustomerProfileModal({
                 <button
                   type="button"
                   onClick={onEdit}
-                  className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-black text-white backdrop-blur-sm active:scale-[0.98]"
+                  className="rounded-full border border-white/25 bg-[#0A0A0A] px-3 py-1.5 text-xs font-black text-white backdrop-blur-sm active:scale-[0.98]"
                 >
                   Editar
                 </button>
@@ -3203,14 +3203,14 @@ function CustomerProfileModal({
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-4 scrollbar-hide">
               {activeOrder && !activeOrder.customer_received_at && (
-                <div className="mb-4 rounded-xl border border-yellow-100 bg-white p-3.5 shadow-sm">
+                <div className="mb-4 rounded-xl border border-yellow-100 bg-[#0A0A0A] p-3.5 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                         Pedido atual
                       </p>
 
-                      <p className="mt-1 text-base font-black text-gray-950">
+                      <p className="mt-1 text-base font-black text-white">
                         #{activeOrder.public_order_number || activeOrder.id.slice(0, 8)}
                       </p>
 
@@ -3220,7 +3220,7 @@ function CustomerProfileModal({
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <p className="text-xs font-bold text-gray-400">Total</p>
+                      <p className="text-xs font-bold text-zinc-500">Total</p>
                       <p className="mt-1 text-base font-black text-yellow-700">
                         {formatPrice(Number(activeOrder.total || 0))}
                       </p>
@@ -3238,44 +3238,44 @@ function CustomerProfileModal({
               )}
 
               <div className="mb-4">
-                <h3 className="mb-2 text-sm font-black text-gray-950">Meus benefícios</h3>
+                <h3 className="mb-2 text-sm font-black text-white">Meus benefícios</h3>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <Sparkles className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-gray-500">Cashback disponível</p>
-                    <p className="mt-0.5 text-sm font-black text-gray-950">
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Cashback disponível</p>
+                    <p className="mt-0.5 text-sm font-black text-white">
                       {formatPrice(cashbackBalance)}
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <ShoppingBag className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-gray-500">Pedidos feitos</p>
-                    <p className="mt-0.5 text-sm font-black text-gray-950">{orderHistory.length}</p>
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Pedidos feitos</p>
+                    <p className="mt-0.5 text-sm font-black text-white">{orderHistory.length}</p>
                   </div>
 
-                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <Receipt className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-gray-500">Último pedido</p>
-                    <p className="mt-0.5 truncate text-sm font-black text-gray-950">
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Último pedido</p>
+                    <p className="mt-0.5 truncate text-sm font-black text-white">
                       {latestOrder?.created_at ? formatOrderHistoryDate(latestOrder.created_at).slice(0, 10) : "0"}
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <Star className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-gray-500">Fidelidade</p>
-                    <p className="mt-0.5 truncate text-sm font-black text-gray-950">{loyaltySummary}</p>
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Fidelidade</p>
+                    <p className="mt-0.5 truncate text-sm font-black text-white">{loyaltySummary}</p>
                   </div>
                 </div>
               </div>
 
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-lg font-black text-gray-950">Histórico de pedidos</h3>
+                  <h3 className="text-lg font-black text-white">Histórico de pedidos</h3>
 
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-600">
+                  <span className="rounded-full bg-[#111111] px-3 py-1 text-xs font-black text-zinc-500">
                     Todos
                   </span>
                 </div>
@@ -3299,25 +3299,25 @@ function CustomerProfileModal({
                       return (
                         <div
                           key={order.id}
-                          className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm"
+                          className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3.5 shadow-sm"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-sm font-black text-gray-950">
+                              <p className="text-sm font-black text-white">
                                 #{order.public_order_number || order.id.slice(0, 8)}
                               </p>
 
-                              <p className="mt-0.5 text-xs font-semibold text-gray-500">
+                              <p className="mt-0.5 text-xs font-semibold text-zinc-500">
                                 {formatOrderHistoryDate(order.created_at)}
                               </p>
 
-                              <p className="mt-1 text-xs font-bold text-gray-500">
+                              <p className="mt-1 text-xs font-bold text-zinc-500">
                                 {orderType === "delivery" ? "Entrega" : "Retirada"} • {formatPaymentMethodLabel(order.payment_method)}
                               </p>
                             </div>
 
                             <div className="shrink-0 text-right">
-                              <p className="text-sm font-black text-gray-950">
+                              <p className="text-sm font-black text-white">
                                 {formatPrice(Number(order.total || 0))}
                               </p>
 
@@ -3328,7 +3328,7 @@ function CustomerProfileModal({
                           </div>
 
                           {itemsLabel && (
-                            <p className="mt-2 line-clamp-1 text-xs font-semibold text-gray-500">
+                            <p className="mt-2 line-clamp-1 text-xs font-semibold text-zinc-500">
                               {itemsLabel}
                               {orderItems.length > 2 ? ` +${orderItems.length - 2} item${orderItems.length - 2 === 1 ? "" : "s"}` : ""}
                             </p>
@@ -3348,14 +3348,14 @@ function CustomerProfileModal({
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center">
-                    <Receipt className="mx-auto h-8 w-8 text-gray-300" />
+                  <div className="rounded-xl border border-dashed border-white/10 bg-[#111111] p-5 text-center">
+                    <Receipt className="mx-auto h-8 w-8 text-zinc-500" />
 
-                    <p className="mt-2 text-sm font-black text-gray-600">
+                    <p className="mt-2 text-sm font-black text-zinc-500">
                       Nenhum pedido ainda
                     </p>
 
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-400">
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
                       Quando você fizer pedidos por aqui, eles vão aparecer nessa área.
                     </p>
                   </div>
@@ -3365,7 +3365,7 @@ function CustomerProfileModal({
               <button
                 type="button"
                 onClick={onLogout}
-                className="mt-5 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+                className="mt-5 w-full rounded-xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-bold text-zinc-500 transition-colors hover:bg-[#111111]"
               >
                 Sair da conta
               </button>
@@ -4279,17 +4279,17 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3 sm:items-center sm:p-6">
-      <div className="fixed inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-[#111111]5 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4">
+      <div className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-[#0A0A0A] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
             {step === "checkout" && (
               <button
                 onClick={() => setStep("cart")}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111111]"
               >
-                <ArrowLeft className="h-4 w-4 text-gray-600" />
+                <ArrowLeft className="h-4 w-4 text-zinc-500" />
               </button>
             )}
 
@@ -4300,7 +4300,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               <ShoppingBag className="h-4 w-4" />
             </div>
 
-            <h3 className="text-lg font-black text-gray-950">
+            <h3 className="text-lg font-black text-white">
               {step === "cart" ? "Seu pedido" : "Finalizar pedido"}
             </h3>
 
@@ -4313,9 +4313,9 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0A0A0A] text-zinc-500 ring-1 ring-yellow-400/20"
           >
-            <X className="h-4 w-4 text-gray-600" />
+            <X className="h-4 w-4 text-zinc-500" />
           </button>
         </div>
 
@@ -4327,17 +4327,17 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-yellow-50 text-yellow-600">
                     <ShoppingBag className="h-7 w-7" />
                   </div>
-                  <p className="mt-3 text-sm font-black text-gray-700">Carrinho vazio</p>
-                  <p className="mt-1 text-xs font-semibold text-gray-400">
+                  <p className="mt-3 text-sm font-black text-zinc-500">Carrinho vazio</p>
+                  <p className="mt-1 text-xs font-semibold text-zinc-500">
                     Escolha um item do cardápio para começar.
                   </p>
                 </div>
               ) : (
                 items.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div key={item.id} className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <div className="flex items-start gap-3">
                       {item.product.imageUrl ? (
-                        <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                        <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[#111111]">
                           <Image
                             src={item.product.imageUrl}
                             alt={item.product.name}
@@ -4347,23 +4347,23 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                           />
                         </div>
                       ) : (
-                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[#111111]">
                           <MenuImagePlaceholder compact />
                         </div>
                       )}
 
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-1 text-sm font-black text-gray-950">
+                        <p className="line-clamp-1 text-sm font-black text-white">
                           {item.product.name}
                         </p>
 
                         {item.modifiers.length > 0 && (
-                          <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-gray-500">
+                          <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-zinc-500">
                             {item.modifiers.map((m) => m.option.name).join(", ")}
                           </p>
                         )}
 
-                        <p className="mt-1 text-[11px] font-semibold text-gray-400">
+                        <p className="mt-1 text-[11px] font-semibold text-zinc-500">
                           {item.quantity}x {formatPrice(item.unitPrice)}
                         </p>
                       </div>
@@ -4378,30 +4378,30 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                       </button>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-                      <div className="flex h-9 items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                    <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+                      <div className="flex h-9 items-center overflow-hidden rounded-xl border border-white/10 bg-[#111111]">
                         <button
                           onClick={() =>
                             item.quantity <= 1 ? onRemove(item.id) : onUpdateQuantity(item.id, -1)
                           }
-                          className="flex h-9 w-9 items-center justify-center text-gray-500"
+                          className="flex h-9 w-9 items-center justify-center text-zinc-500"
                           aria-label="Diminuir item"
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
 
-                        <span className="w-8 text-center text-sm font-black text-gray-950">{item.quantity}</span>
+                        <span className="w-8 text-center text-sm font-black text-white">{item.quantity}</span>
 
                         <button
                           onClick={() => onUpdateQuantity(item.id, 1)}
-                          className="flex h-9 w-9 items-center justify-center text-gray-500"
+                          className="flex h-9 w-9 items-center justify-center text-zinc-500"
                           aria-label="Aumentar item"
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
 
-                      <p className="text-sm font-black text-gray-950">
+                      <p className="text-sm font-black text-white">
                         {formatPrice(item.unitPrice * item.quantity)}
                       </p>
                     </div>
@@ -4411,22 +4411,22 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
             </div>
 
             {items.length > 0 && (
-              <div className="flex-shrink-0 border-t border-gray-100 bg-white px-4 py-4">
+              <div className="flex-shrink-0 border-t border-white/10 bg-[#0A0A0A] px-4 py-4">
                 <div className="mb-4 space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-500">
+                  <div className="flex justify-between text-zinc-500">
                     <span>Subtotal</span>
-                    <span className="font-bold text-gray-900">{formatPrice(subtotal)}</span>
+                    <span className="font-bold text-white">{formatPrice(subtotal)}</span>
                   </div>
 
-                  <div className="flex justify-between text-gray-500">
+                  <div className="flex justify-between text-zinc-500">
                     <span>Entrega</span>
-                    <span className="font-bold text-gray-900">
+                    <span className="font-bold text-white">
                       {deliveryEnabled ? formatPrice(cartDeliveryPreview) : "Retirada"}
                     </span>
                   </div>
 
-                  <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-black">
-                    <span className="text-gray-950">Total</span>
+                  <div className="flex justify-between border-t border-white/10 pt-2 text-base font-black">
+                    <span className="text-white">Total</span>
                     <span className="text-yellow-700">{formatPrice(cartPreviewTotal)}</span>
                   </div>
                 </div>
@@ -4452,7 +4452,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                     setStep("checkout")
                   }}
                   disabled={!restaurantIsOpen}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500 disabled:shadow-none"
                   style={restaurantIsOpen ? {
                     backgroundColor: accentColor,
                     boxShadow: `0 14px 30px -10px ${accentColor}`,
@@ -4465,14 +4465,14 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                 <button
                   type="button"
                   onClick={onClose}
-                  className="mt-2 w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 active:scale-[0.98]"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-black text-zinc-500 active:scale-[0.98]"
                 >
                   Adicionar mais itens
                 </button>
 
                 <div className="mt-4 text-center">
-                  <p className="text-xs font-black text-gray-700">Ambiente 100% seguro</p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-gray-400">
+                  <p className="text-xs font-black text-zinc-500">Ambiente 100% seguro</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-zinc-500">
                     Seus dados estão protegidos
                   </p>
                 </div>
@@ -4482,15 +4482,15 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
         ) : (
           <>
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-              <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 p-4">
+              <div className="rounded-[22px] border border-emerald-400/30 bg-emerald-500/10 p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-sm">
                     <Check className="h-5 w-5" strokeWidth={3} />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-gray-950">Checkout seguro</p>
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">
+                    <p className="text-sm font-black text-white">Checkout seguro</p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-400">
                       Seus dados ficam salvos apenas neste restaurante. Na próxima compra, endereço e WhatsApp já aparecem preenchidos.
                     </p>
                   </div>
@@ -4507,7 +4507,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               )}
 
               <div>
-                <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                <label className="text-xs font-black uppercase tracking-wide text-zinc-500">
                   Tipo de pedido
                 </label>
 
@@ -4527,7 +4527,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                         "flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black transition-all active:scale-[0.98]",
                         orderType === type.id
                           ? "text-white shadow-md"
-                          : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                          : "border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                       )}
                       style={orderType === type.id ? { backgroundColor: accentColor } : undefined}
                     >
@@ -4538,18 +4538,18 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                 </div>
               </div>
 
-              <div className="rounded-[22px] border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-400">
                       Cliente deste restaurante
                     </p>
 
-                    <h4 className="mt-1 truncate text-lg font-black text-gray-950">
+                    <h4 className="mt-1 truncate text-lg font-black text-white">
                       {customer?.name ?? "Cliente"}
                     </h4>
 
-                    <div className="mt-2 grid gap-1 text-xs font-semibold text-gray-500">
+                    <div className="mt-2 grid gap-1 text-xs font-semibold text-zinc-500">
                       <p>{formatPhonePreview(customer?.phone ?? "")}</p>
 
                       {customer?.document ? (
@@ -4559,9 +4559,9 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                       )}
 
                       {hasSavedAddress ? (
-                        <p className="line-clamp-1 text-gray-700">Endereço salvo: {savedAddressLabel}</p>
+                        <p className="line-clamp-1 text-zinc-500">Endereço salvo: {savedAddressLabel}</p>
                       ) : (
-                        <p className="text-amber-600">Endereço será salvo após finalizar.</p>
+                        <p className="text-yellow-400">Endereço será salvo após finalizar.</p>
                       )}
                     </div>
                   </div>
@@ -4577,10 +4577,10 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               </div>
 
               {isLoadingCashback ? (
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <div className="rounded-2xl border border-white/10 bg-[#111111] p-4">
                   <div className="flex items-center gap-3">
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                    <p className="text-sm font-bold text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+                    <p className="text-sm font-bold text-zinc-500">
                       Verificando cashback...
                     </p>
                   </div>
@@ -4591,9 +4591,9 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                     "overflow-hidden rounded-[22px] border shadow-[0_18px_50px_-36px_rgba(15,23,42,0.55)]",
                     canUseCashback
                       ? useCashback
-                        ? "border-emerald-200 bg-emerald-50"
-                        : "border-emerald-100 bg-white"
-                      : "border-amber-100 bg-amber-50"
+                        ? "border-emerald-400/30 bg-emerald-500/10"
+                        : "border-emerald-400/30 bg-[#0A0A0A]"
+                      : "border-yellow-400/30 bg-yellow-400/10"
                   )}
                 >
                   <div className="p-4">
@@ -4601,7 +4601,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                       <div
                         className={cn(
                           "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm",
-                          canUseCashback ? "bg-emerald-500" : "bg-amber-500"
+                          canUseCashback ? "bg-emerald-500" : "bg-yellow-400"
                         )}
                       >
                         <Sparkles className="h-5 w-5" />
@@ -4613,13 +4613,13 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             <p
                               className={cn(
                                 "text-[10px] font-black uppercase tracking-[0.16em]",
-                                canUseCashback ? "text-emerald-700" : "text-amber-700"
+                                canUseCashback ? "text-emerald-400" : "text-yellow-400"
                               )}
                             >
                               Cashback disponível
                             </p>
 
-                            <h4 className="mt-1 text-sm font-black text-gray-900">
+                            <h4 className="mt-1 text-sm font-black text-white">
                               Você tem {formatPrice(cashbackWalletBalance)} de saldo
                             </h4>
                           </div>
@@ -4628,41 +4628,41 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             className={cn(
                               "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black",
                               canUseCashback
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-amber-100 text-amber-700"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-yellow-400/10 text-yellow-400"
                             )}
                           >
                             {canUseCashback ? "Liberado" : "Bloqueado"}
                           </span>
                         </div>
 
-                        <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-600">
+                        <p className="mt-2 text-xs font-semibold leading-relaxed text-zinc-500">
                           Use até {formatPrice(maxCashbackDiscount)} em pedidos acima de {formatPrice(cashbackRedeemMin)} em produtos.
-                          <span className="font-black text-gray-800"> A entrega não entra nessa conta.</span>
+                          <span className="font-black text-white"> A entrega não entra nessa conta.</span>
                         </p>
 
-                        <div className="mt-3 rounded-2xl bg-white/75 p-3 ring-1 ring-black/5">
-                          <div className="flex items-center justify-between text-[11px] font-black text-gray-500">
+                        <div className="mt-3 rounded-2xl bg-[#0A0A0A] p-3 ring-1 ring-black/5">
+                          <div className="flex items-center justify-between text-[11px] font-black text-zinc-500">
                             <span>Produtos</span>
                             <span>{formatPrice(subtotal)} / {formatPrice(cashbackRedeemMin)}</span>
                           </div>
 
-                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#111111]">
                             <div
                               className={cn(
                                 "h-full rounded-full transition-all duration-500",
-                                canUseCashback ? "bg-emerald-500" : "bg-amber-500"
+                                canUseCashback ? "bg-emerald-500" : "bg-yellow-400"
                               )}
                               style={{ width: `${cashbackProgressPercent}%` }}
                             />
                           </div>
 
                           {!canUseCashback && cashbackMissingAmount > 0 ? (
-                            <p className="mt-2 text-[11px] font-black text-amber-700">
+                            <p className="mt-2 text-[11px] font-black text-yellow-400">
                               Faltam {formatPrice(cashbackMissingAmount)} em produtos para liberar.
                             </p>
                           ) : (
-                            <p className="mt-2 text-[11px] font-black text-emerald-700">
+                            <p className="mt-2 text-[11px] font-black text-emerald-400">
                               Cashback liberado para este pedido.
                             </p>
                           )}
@@ -4677,8 +4677,8 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             useCashback
                               ? "bg-emerald-600 text-white"
                               : canUseCashback
-                                ? "border border-emerald-200 bg-white text-emerald-700"
-                                : "border border-amber-200 bg-white text-amber-700"
+                                ? "border border-emerald-400/30 bg-[#0A0A0A] text-emerald-400"
+                                : "border border-yellow-400/30 bg-[#0A0A0A] text-yellow-400"
                           )}
                         >
                           {useCashback
@@ -4694,20 +4694,20 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               ) : null}
 
               {orderType === "delivery" && (
-                <div className="rounded-[22px] border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
                         Entrega
                       </p>
 
-                      <h4 className="mt-1 text-base font-black text-gray-950">
+                      <h4 className="mt-1 text-base font-black text-white">
                         Endereço do pedido
                       </h4>
                     </div>
 
                     {hasSavedAddress && (
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
+                      <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
                         Salvo
                       </span>
                     )}
@@ -4716,12 +4716,12 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                   <div className="space-y-3">
                     {hasNeighborhoodRules && (
                       <div>
-                        <label className="text-xs font-bold uppercase text-gray-500">Bairro *</label>
+                        <label className="text-xs font-bold uppercase text-zinc-500">Bairro *</label>
 
                         <select
                           value={selectedNeighborhoodKey}
                           onChange={(e) => setSelectedNeighborhoodKey(e.target.value)}
-                          className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
                         >
                           <option value="">Selecione seu bairro</option>
 
@@ -4733,9 +4733,9 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                         </select>
 
                         {selectedNeighborhoodOption && (
-                          <p className="mt-2 text-xs font-semibold text-gray-500">
+                          <p className="mt-2 text-xs font-semibold text-zinc-500">
                             Taxa aplicada:{" "}
-                            <span className="font-black text-gray-900">
+                            <span className="font-black text-white">
                               {formatPrice(selectedNeighborhoodOption.fee)}
                             </span>
                           </p>
@@ -4744,7 +4744,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                     )}
 
                     <div>
-                      <label className="text-xs font-bold uppercase text-gray-500">
+                      <label className="text-xs font-bold uppercase text-zinc-500">
                         {hasNeighborhoodRules ? "Rua, número e complemento *" : "Endereço *"}
                       </label>
 
@@ -4757,10 +4757,10 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             : "Rua, número, bairro..."
                         }
                         rows={2}
-                        className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                        className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
                       />
 
-                      <p className="mt-2 text-[11px] font-semibold text-gray-400">
+                      <p className="mt-2 text-[11px] font-semibold text-zinc-500">
                         Esse endereço fica salvo somente para {restaurant.name}.
                       </p>
                     </div>
@@ -4768,19 +4768,19 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                 </div>
               )}
 
-              <div className="rounded-[22px] border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
                       Pagamento
                     </p>
 
-                    <h4 className="mt-1 text-base font-black text-gray-950">
+                    <h4 className="mt-1 text-base font-black text-white">
                       Escolha como vai pagar
                     </h4>
                   </div>
 
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
                     Seguro
                   </span>
                 </div>
@@ -4855,15 +4855,15 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                           "flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.99]",
                           isSelected
                             ? isPixMethod
-                              ? "border-emerald-200 bg-emerald-50 shadow-sm"
+                              ? "border-emerald-400/30 bg-emerald-500/10 shadow-sm"
                               : "border-yellow-200 bg-yellow-50 shadow-sm"
-                            : "border-gray-200 bg-gray-50 hover:bg-white"
+                            : "border-white/10 bg-[#111111] hover:bg-[#0A0A0A]"
                         )}
                       >
                         <div
                           className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                            isSelected ? "text-white" : "bg-white text-gray-400 ring-1 ring-gray-200"
+                            isSelected ? "text-white" : "bg-[#0A0A0A] text-zinc-500 ring-1 ring-yellow-400/20"
                           )}
                           style={isSelected ? { backgroundColor: methodColor } : undefined}
                         >
@@ -4875,20 +4875,20 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             <span
                               className={cn(
                                 "text-sm font-black",
-                                isSelected ? "text-gray-950" : "text-gray-700"
+                                isSelected ? "text-white" : "text-zinc-500"
                               )}
                             >
                               {method.label}
                             </span>
 
                             {isPixMethod && (
-                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black text-emerald-400">
                                 Pix
                               </span>
                             )}
                           </div>
 
-                          <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-gray-500">
+                          <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-zinc-500">
                             {method.helper}
                           </p>
                         </div>
@@ -4901,18 +4901,18 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               </div>
 
               {isCashPayment && (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
                       <Banknote className="h-5 w-5" />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-black text-gray-900">
+                      <p className="text-sm font-black text-white">
                         Precisa de troco?
                       </p>
 
-                      <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+                      <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
                         Total do pedido: {formatPrice(pixPaymentAmount)}
                       </p>
 
@@ -4927,7 +4927,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             "rounded-xl px-3 py-2.5 text-xs font-black transition-all active:scale-[0.98]",
                             !needsChange
                               ? "bg-emerald-600 text-white shadow-sm"
-                              : "border border-emerald-200 bg-white text-emerald-700"
+                              : "border border-emerald-400/30 bg-[#0A0A0A] text-emerald-400"
                           )}
                         >
                           Não preciso
@@ -4940,7 +4940,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             "rounded-xl px-3 py-2.5 text-xs font-black transition-all active:scale-[0.98]",
                             needsChange
                               ? "bg-emerald-600 text-white shadow-sm"
-                              : "border border-emerald-200 bg-white text-emerald-700"
+                              : "border border-emerald-400/30 bg-[#0A0A0A] text-emerald-400"
                           )}
                         >
                           Sim, preciso
@@ -4949,7 +4949,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
                       {needsChange && (
                         <div className="mt-3">
-                          <label className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                          <label className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
                             Troco para quanto?
                           </label>
 
@@ -4959,11 +4959,11 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             value={changeFor}
                             onChange={(event) => setChangeFor(event.target.value)}
                             placeholder="Ex: 100,00"
-                            className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="mt-2 w-full rounded-xl border border-emerald-400/30 bg-[#0A0A0A] px-4 py-3 text-sm font-bold text-white placeholder:text-zinc-500 focus:border-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
                           />
 
                           {changeForAmount !== null && changeForAmount >= total && (
-                            <p className="mt-2 text-xs font-bold text-emerald-700">
+                            <p className="mt-2 text-xs font-bold text-emerald-400">
                               Troco estimado: {formatPrice(changeForAmount - total)}
                             </p>
                           )}
@@ -4978,7 +4978,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                 <button
                   type="button"
                   onClick={() => setPixCardOpen(true)}
-                  className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-left transition-colors hover:bg-emerald-100/70"
+                  className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-left transition-colors hover:bg-emerald-500/15"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
@@ -4986,11 +4986,11 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-gray-900">
+                      <p className="text-sm font-black text-white">
                         {pixPayment ? "Comprovante Pix pendente" : "Pix selecionado"}
                       </p>
 
-                      <p className="truncate text-xs font-semibold text-emerald-700">
+                      <p className="truncate text-xs font-semibold text-emerald-400">
                         {pixPayment
                           ? "Toque para anexar o comprovante."
                           : "Abra o QR Code e pague direto ao restaurante."}
@@ -4998,7 +4998,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                     </div>
                   </div>
 
-                  <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
+                  <span className="shrink-0 rounded-full bg-[#0A0A0A] px-3 py-1 text-xs font-black text-emerald-400 ring-1 ring-emerald-400/20">
                     Abrir
                   </span>
                 </button>
@@ -5009,7 +5009,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white py-3 text-sm font-black text-green-700 shadow-sm active:scale-[0.98]"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-[#0A0A0A] py-3 text-sm font-black text-emerald-400 shadow-sm active:scale-[0.98]"
                 >
                   <MessageCircle className="h-4 w-4" />
                   Precisa de ajuda? Chamar no WhatsApp
@@ -5017,42 +5017,42 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               )}
             </div>
 
-            <div className="flex-shrink-0 space-y-3 border-t border-gray-100 bg-white px-5 py-4">
+            <div className="flex-shrink-0 space-y-3 border-t border-white/10 bg-[#0A0A0A] px-5 py-4">
               <div className="space-y-1 text-sm">
-                <div className="flex justify-between text-gray-500">
+                <div className="flex justify-between text-zinc-500">
                   <span>Subtotal</span>
                   <span>{formatPrice(subtotal)}</span>
                 </div>
 
                 {serviceFee > 0 && (
-                  <div className="flex justify-between text-gray-500">
+                  <div className="flex justify-between text-zinc-500">
                     <span>Taxa de serviço online</span>
                     <span>{formatPrice(serviceFee)}</span>
                   </div>
                 )}
 
                 {orderType === "delivery" && selectedNeighborhoodOption && (
-                  <div className="flex justify-between text-gray-500">
+                  <div className="flex justify-between text-zinc-500">
                     <span>Bairro</span>
                     <span>{selectedNeighborhoodOption.neighborhood}</span>
                   </div>
                 )}
 
                 {orderType === "delivery" && (
-                  <div className="flex justify-between text-gray-500">
+                  <div className="flex justify-between text-zinc-500">
                     <span>Entrega</span>
                     <span>{formatPrice(deliveryFee)}</span>
                   </div>
                 )}
 
                 {cashbackDiscount > 0 && (
-                  <div className="flex justify-between font-bold text-emerald-600">
+                  <div className="flex justify-between font-bold text-emerald-400">
                     <span>Cashback aplicado</span>
                     <span>-{formatPrice(cashbackDiscount)}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between border-t border-gray-100 pt-1 text-base font-bold text-gray-900">
+                <div className="flex justify-between border-t border-white/10 pt-1 text-base font-bold text-white">
                   <span>Total</span>
                   <span>{formatPrice(pixPaymentAmount)}</span>
                 </div>
@@ -5078,7 +5078,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
   void createManualPaymentOrder()
 }}
                 disabled={isProcessing || !restaurantIsOpen}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:opacity-100"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500 disabled:shadow-none disabled:opacity-100"
                 style={restaurantIsOpen ? {
                   backgroundColor: checkoutActionColor,
                   boxShadow: `0 16px 30px -14px ${checkoutActionColor}`,
@@ -5112,12 +5112,12 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
       aria-hidden="true"
     />
 
-    <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+    <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-[#0A0A0A] p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
       <button
         type="button"
         onClick={() => setPixCardOpen(false)}
         disabled={isProcessing}
-        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 disabled:opacity-50"
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#111111] text-zinc-500 transition-colors hover:bg-[#111111] disabled:opacity-50"
         aria-label="Fechar Pix"
       >
         <X className="h-4 w-4" />
@@ -5129,8 +5129,8 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
       className={cn(
         "relative overflow-hidden rounded-[26px] border p-4",
         pixPaymentConfirmed
-          ? "border-emerald-200 bg-emerald-50"
-          : "border-emerald-100 bg-white"
+          ? "border-emerald-400/30 bg-emerald-500/10"
+          : "border-emerald-400/30 bg-[#0A0A0A]"
       )}
     >
       <div className="absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-300/25 blur-3xl" />
@@ -5150,17 +5150,17 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
           )}
         </div>
 
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
           Pix automático
         </p>
 
-        <h4 className="mt-1 text-2xl font-black leading-tight text-gray-950">
+        <h4 className="mt-1 text-2xl font-black leading-tight text-white">
           {pixPaymentConfirmed
             ? "Pagamento confirmado"
             : "Pague com Pix para confirmar"}
         </h4>
 
-        <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-600">
+        <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-500">
           {pixPaymentConfirmed
             ? "Recebemos a confirmação do pagamento. Seu pedido já foi enviado para preparo."
             : "Escaneie o QR Code ou copie o Pix copia e cola. A confirmação acontece automaticamente."}
@@ -5168,8 +5168,8 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
       </div>
 
       {pixPayment.publicOrderNumber && (
-        <div className="relative mt-4 rounded-2xl border border-emerald-100 bg-white/80 px-3 py-2 shadow-sm">
-          <p className="text-[9px] font-black uppercase tracking-wide text-emerald-600">
+        <div className="relative mt-4 rounded-2xl border border-emerald-400/30 bg-[#0A0A0A] px-3 py-2 shadow-sm">
+          <p className="text-[9px] font-black uppercase tracking-wide text-emerald-400">
             Pedido
           </p>
 
@@ -5181,12 +5181,12 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
     </div>
 
     <div className="mt-4 grid grid-cols-2 gap-2">
-      <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
-        <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+      <div className="rounded-2xl border border-white/10 bg-[#111111] px-3 py-3">
+        <p className="text-[9px] font-black uppercase tracking-wide text-zinc-500">
           Valor
         </p>
 
-        <p className="mt-1 text-lg font-black text-gray-950">
+        <p className="mt-1 text-lg font-black text-white">
           {formatPrice(pixPaymentAmount)}
         </p>
       </div>
@@ -5195,14 +5195,14 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
         className={cn(
           "rounded-2xl border px-3 py-3",
           pixPaymentConfirmed
-            ? "border-emerald-100 bg-emerald-50"
-            : "border-amber-100 bg-amber-50"
+            ? "border-emerald-400/30 bg-emerald-500/10"
+            : "border-yellow-400/30 bg-yellow-400/10"
         )}
       >
         <p
           className={cn(
             "text-[9px] font-black uppercase tracking-wide",
-            pixPaymentConfirmed ? "text-emerald-600" : "text-amber-600"
+            pixPaymentConfirmed ? "text-emerald-400" : "text-yellow-400"
           )}
         >
           Status
@@ -5211,7 +5211,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
         <p
           className={cn(
             "mt-1 text-sm font-black",
-            pixPaymentConfirmed ? "text-emerald-800" : "text-amber-800"
+            pixPaymentConfirmed ? "text-emerald-400" : "text-yellow-400"
           )}
         >
           {pixPaymentConfirmed ? "Confirmado" : "Aguardando"}
@@ -5221,12 +5221,12 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
     {!pixPaymentConfirmed ? (
       <>
-        <div className="mt-4 rounded-[26px] border border-emerald-100 bg-emerald-50/70 p-4 text-center">
-          <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+        <div className="mt-4 rounded-[26px] border border-emerald-400/30 bg-emerald-500/10 p-4 text-center">
+          <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
             Escaneie para pagar
           </p>
 
-          <div className="mt-3 rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mt-3 rounded-[24px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
             {automaticPixQrCodeImageUrl ? (
               <div className="flex justify-center">
                 <img
@@ -5243,9 +5243,9 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-3">
+        <div className="mt-4 rounded-2xl border border-white/10 bg-[#111111] p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+            <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
               Pix copia e cola
             </p>
 
@@ -5263,7 +5263,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
             readOnly
             value={pixPayment.pixCopyPaste || pixPayment.qrCode || ""}
             rows={3}
-            className="w-full resize-none rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+            className="w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs font-semibold text-zinc-500 focus:outline-none"
           />
         </div>
 
@@ -5273,13 +5273,13 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
           </p>
         )}
 
-        <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-black text-amber-700">
+        <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-3 text-center text-xs font-black text-yellow-400">
           <Loader2 className="h-4 w-4 animate-spin" />
           Aguardando confirmação automática do pagamento...
         </div>
       </>
     ) : (
-      <div className="mt-4 rounded-[26px] border border-emerald-100 bg-emerald-50 p-5 text-center">
+      <div className="mt-4 rounded-[26px] border border-emerald-400/30 bg-emerald-500/10 p-5 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg">
           <Check className="h-7 w-7" strokeWidth={3} />
         </div>
@@ -5288,7 +5288,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
           Pedido enviado para preparo
         </h5>
 
-        <p className="mt-1 text-sm font-semibold leading-relaxed text-emerald-700">
+        <p className="mt-1 text-sm font-semibold leading-relaxed text-emerald-400">
           Agora é só acompanhar o andamento do pedido pelo cardápio.
         </p>
 
@@ -5311,7 +5311,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
         href={whatsappUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-white py-3 text-sm font-black text-green-700"
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-[#0A0A0A] py-3 text-sm font-black text-emerald-400"
       >
         <MessageCircle className="h-4 w-4" />
         Problema no Pix? Chamar restaurante
@@ -5321,22 +5321,22 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
       ) : !pixPayment ? (
         <div className="pr-0">
           <div className="pr-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-400">
               Pagamento Pix
             </p>
 
-            <h4 className="mt-1 text-xl font-black text-gray-900">
+            <h4 className="mt-1 text-xl font-black text-white">
               Pague direto ao restaurante
             </h4>
 
-            <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+            <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
               Escaneie o QR Code ou copie o Pix copia e cola. Depois toque em
-              <span className="font-black text-gray-800"> Já paguei</span> para anexar o comprovante.
+              <span className="font-black text-white"> Já paguei</span> para anexar o comprovante.
             </p>
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-emerald-100 bg-emerald-50/70 p-3 text-center">
-            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+          <div className="mt-4 rounded-[24px] border border-emerald-400/30 bg-emerald-500/10 p-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
               Valor do Pix
             </p>
 
@@ -5344,7 +5344,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               {formatPrice(pixPaymentAmount)}
             </p>
 
-            <div className="mt-4 rounded-[22px] border border-gray-100 bg-white p-3">
+            <div className="mt-4 rounded-[22px] border border-white/10 bg-[#0A0A0A] p-3">
               {manualPixQrCodeUrl ? (
                 <div className="flex justify-center">
                   <img
@@ -5362,28 +5362,28 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-gray-50 px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+            <div className="rounded-xl bg-[#111111] px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                 Recebedor
               </p>
 
-              <p className="mt-1 truncate text-sm font-black text-gray-900">
+              <p className="mt-1 truncate text-sm font-black text-white">
                 {pixReceiverName}
               </p>
             </div>
 
-            <div className="rounded-xl bg-gray-50 px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+            <div className="rounded-xl bg-[#111111] px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
                 Cidade
               </p>
 
-              <p className="mt-1 truncate text-sm font-black text-gray-900">
+              <p className="mt-1 truncate text-sm font-black text-white">
                 {pixCity || "BRASIL"}
               </p>
             </div>
           </div>
 
-          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-zinc-500">
             Pix copia e cola
           </p>
 
@@ -5391,14 +5391,14 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
             readOnly
             value={manualPixCopyPaste}
             rows={3}
-            className="mt-1 w-full resize-none rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none"
+            className="mt-1 w-full resize-none rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-semibold text-zinc-500 focus:outline-none"
           />
 
-          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-gray-400">
+          <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-zinc-500">
             {pixKeyType}
           </p>
 
-          <p className="mt-1 break-all rounded-xl bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
+          <p className="mt-1 break-all rounded-xl bg-[#111111] px-3 py-2 text-sm font-bold text-white">
             {pixKey || "Chave Pix não cadastrada"}
           </p>
 
@@ -5407,7 +5407,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               type="button"
               onClick={handleCopyPixCode}
               disabled={!manualPixCopyPaste && !pixKey}
-              className="rounded-xl border border-gray-200 bg-white py-3 text-sm font-black text-gray-700 disabled:opacity-50"
+              className="rounded-xl border border-white/10 bg-[#0A0A0A] py-3 text-sm font-black text-zinc-500 disabled:opacity-50"
             >
               {pixCopied ? "Copiado" : "Copiar Pix"}
             </button>
@@ -5432,7 +5432,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-white py-3 text-sm font-black text-green-700"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-[#0A0A0A] py-3 text-sm font-black text-emerald-400"
             >
               <MessageCircle className="h-4 w-4" />
               Dúvida no Pix? Chamar restaurante
@@ -5442,39 +5442,39 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
       ) : (
         <div className="pr-0">
           <div className="pr-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-400">
               Comprovante Pix
             </p>
 
-            <h4 className="mt-1 text-xl font-black text-gray-900">
+            <h4 className="mt-1 text-xl font-black text-white">
               Agora anexe o print do pagamento
             </h4>
 
-            <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+            <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
               O restaurante vai conferir valor, data, horário e destinatário antes de iniciar o preparo.
             </p>
           </div>
 
           {pixPayment.publicOrderNumber && (
-            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2">
-              <p className="text-[9px] font-black uppercase text-emerald-600">
+            <div className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+              <p className="text-[9px] font-black uppercase text-emerald-400">
                 Pedido gerado
               </p>
 
-              <p className="text-sm font-black text-emerald-900">
+              <p className="text-sm font-black text-emerald-400">
                 #{pixPayment.publicOrderNumber}
               </p>
             </div>
           )}
 
-          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-6 text-center transition-colors hover:bg-emerald-50">
-            <Upload className="h-7 w-7 text-emerald-600" />
+          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-emerald-400/30 bg-emerald-500/10 px-4 py-6 text-center transition-colors hover:bg-emerald-500/15">
+            <Upload className="h-7 w-7 text-emerald-400" />
 
-            <span className="mt-2 text-sm font-black text-gray-900">
+            <span className="mt-2 text-sm font-black text-white">
               {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
             </span>
 
-            <span className="mt-1 text-xs font-semibold text-gray-400">
+            <span className="mt-1 text-xs font-semibold text-zinc-500">
               PNG, JPG ou WEBP até 5 MB
             </span>
 
@@ -5487,7 +5487,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
           </label>
 
           {pixProofPreview && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-100 bg-white">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-400/30 bg-[#0A0A0A]">
               <img
                 src={pixProofPreview}
                 alt="Comprovante Pix"
@@ -5521,7 +5521,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-white py-3 text-sm font-black text-green-700"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-[#0A0A0A] py-3 text-sm font-black text-emerald-400"
             >
               <MessageCircle className="h-4 w-4" />
               Precisa de ajuda? Chamar restaurante
@@ -5578,11 +5578,11 @@ function FloatingCartButton({
       style={{ backgroundColor: bgColor, boxShadow: `0 16px 34px -12px ${bgColor}` }}
     >
       <div className="flex items-center gap-3" style={{ color: textColor }}>
-        <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+        <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#0A0A0A] backdrop-blur-sm">
           <ShoppingBag className="h-4 w-4" />
 
           <span
-            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold"
+            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#0A0A0A] text-[10px] font-bold"
             style={{ color: numberColor }}
           >
             {count}
@@ -5605,7 +5605,7 @@ function FloatingCartButton({
           </span>
         </div>
 
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0A0A0A]">
           <ChevronUp className="h-5 w-5" />
         </div>
       </div>
@@ -5687,9 +5687,9 @@ function WhatsAppFloatingButton({ whatsapp }: { whatsapp?: string | null }) {
       rel="noopener noreferrer"
       className="group fixed bottom-24 right-4 z-40"
     >
-      <span className="absolute inset-0 animate-ping rounded-full bg-green-500/40" />
+      <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/40" />
 
-      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-green-500 shadow-lg">
+      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 shadow-lg">
         <MessageCircle className="h-6 w-6 text-white" />
       </span>
     </a>
@@ -6351,11 +6351,11 @@ export default function CardapioPublicoPage() {
 
   if (!restaurant) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-[#111111]">
         <div className="p-8 text-center">
-          <Store className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-          <h1 className="text-xl font-bold text-gray-900">Restaurante nao encontrado</h1>
-          <p className="mt-2 text-gray-500">Verifique o endereco e tente novamente</p>
+          <Store className="mx-auto mb-4 h-16 w-16 text-zinc-500" />
+          <h1 className="text-xl font-bold text-white">Restaurante nao encontrado</h1>
+          <p className="mt-2 text-zinc-500">Verifique o endereco e tente novamente</p>
         </div>
       </div>
     )
@@ -6600,48 +6600,48 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           background: #070707;
         }
 
-        .clickfood-public-menu .bg-white,
-        .clickfood-public-menu .bg-white\/95,
-        .clickfood-public-menu .bg-white\/90,
-        .clickfood-public-menu .bg-gray-50,
-        .clickfood-public-menu .bg-gray-100 {
+        .clickfood-public-menu .bg-[#0A0A0A],
+        .clickfood-public-menu .bg-[#0A0A0A]\/95,
+        .clickfood-public-menu .bg-[#0A0A0A]\/90,
+        .clickfood-public-menu .bg-[#111111],
+        .clickfood-public-menu .bg-[#111111] {
           background-color: #111111 !important;
         }
 
-        .clickfood-public-menu .bg-gray-200,
-        .clickfood-public-menu .bg-gray-300 {
+        .clickfood-public-menu .bg-[#111111],
+        .clickfood-public-menu .bg-[#111111] {
           background-color: #262626 !important;
         }
 
-        .clickfood-public-menu .border-gray-100,
-        .clickfood-public-menu .border-gray-200,
-        .clickfood-public-menu .border-gray-300 {
+        .clickfood-public-menu .border-white/10,
+        .clickfood-public-menu .border-white/10,
+        .clickfood-public-menu .border-white/10 {
           border-color: rgba(250, 204, 21, 0.18) !important;
         }
 
-        .clickfood-public-menu .ring-gray-100,
-        .clickfood-public-menu .ring-gray-200 {
+        .clickfood-public-menu .ring-yellow-400/20,
+        .clickfood-public-menu .ring-yellow-400/20 {
           --tw-ring-color: rgba(250, 204, 21, 0.18) !important;
         }
 
-        .clickfood-public-menu .text-gray-950,
-        .clickfood-public-menu .text-gray-900,
-        .clickfood-public-menu .text-gray-800,
-        .clickfood-public-menu .text-gray-700,
-        .clickfood-public-menu .text-gray-600 {
+        .clickfood-public-menu .text-white,
+        .clickfood-public-menu .text-white,
+        .clickfood-public-menu .text-white,
+        .clickfood-public-menu .text-zinc-500,
+        .clickfood-public-menu .text-zinc-500 {
           color: #f8fafc !important;
         }
 
-        .clickfood-public-menu .text-gray-500,
-        .clickfood-public-menu .text-gray-400,
+        .clickfood-public-menu .text-zinc-500,
+        .clickfood-public-menu .text-zinc-500,
         .clickfood-public-menu .text-neutral-400,
         .clickfood-public-menu .text-neutral-500 {
           color: #a3a3a3 !important;
         }
 
-        .clickfood-public-menu .text-blue-700,
-        .clickfood-public-menu .text-blue-600,
-        .clickfood-public-menu .text-orange-700,
+        .clickfood-public-menu .text-yellow-400,
+        .clickfood-public-menu .text-yellow-400,
+        .clickfood-public-menu .text-yellow-400,
         .clickfood-public-menu .text-yellow-700,
         .clickfood-public-menu .text-yellow-600 {
           color: #facc15 !important;
@@ -6707,15 +6707,15 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
         .clickfood-public-menu .bg-yellow-50,
         .clickfood-public-menu .bg-yellow-100,
-        .clickfood-public-menu .bg-blue-50,
-        .clickfood-public-menu .bg-blue-100 {
+        .clickfood-public-menu .bg-yellow-400/10,
+        .clickfood-public-menu .bg-yellow-400/10 {
           background-color: rgba(250, 204, 21, 0.12) !important;
         }
 
-        .clickfood-public-menu .bg-emerald-50,
-        .clickfood-public-menu .bg-orange-50,
+        .clickfood-public-menu .bg-emerald-500/10,
+        .clickfood-public-menu .bg-yellow-400/10,
         .clickfood-public-menu .bg-red-50,
-        .clickfood-public-menu .bg-amber-50 {
+        .clickfood-public-menu .bg-yellow-400/10 {
           background-color: rgba(23, 23, 23, 0.95) !important;
         }
 
@@ -6786,7 +6786,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
             <div className="relative px-4 pb-4 text-center">
               <div className="-mt-10 flex justify-center">
-                <div className="cf-logo-shell flex h-[86px] w-[86px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 shadow-md ring-1 ring-gray-200">
+                <div className="cf-logo-shell flex h-[86px] w-[86px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 shadow-md ring-1 ring-yellow-400/20">
                   {restaurant.logoUrl && !logoFailedToLoad ? (
                     <Image
                       src={restaurant.logoUrl}
@@ -6813,7 +6813,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
               <p className="mt-1 text-sm font-semibold text-neutral-400">
                 {deliveryEnabled ? "Delivery" : pickupEnabled ? "Retirada" : "Cardápio"} •{" "}
-                <span className={restaurantIsOpen ? "text-emerald-600" : "text-red-600"}>
+                <span className={restaurantIsOpen ? "text-emerald-400" : "text-red-600"}>
                   {restaurantIsOpen ? "Aberto agora" : "Fechado agora"}
                 </span>
               </p>
@@ -6920,7 +6920,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                       "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-all active:scale-[0.99]",
                       activeCategory === cat.id
                         ? "cf-yellow-action shadow-[0_14px_30px_-22px_rgba(250,204,21,0.9)]"
-                        : "text-neutral-300 hover:bg-white/5 hover:text-yellow-300"
+                        : "text-neutral-300 hover:bg-[#0A0A0A] hover:text-yellow-300"
                     )}
                   >
                     <span className="truncate text-sm font-black">{cat.name}</span>
@@ -6929,7 +6929,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                         "cf-count-pill rounded-full px-2 py-0.5 text-[10px] font-black",
                         activeCategory === cat.id
                           ? ""
-                          : "!bg-white/10 !text-yellow-300"
+                          : "!bg-[#0A0A0A] !text-yellow-300"
                       )}
                     >
                       {cat.products.length}
@@ -7050,7 +7050,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 </h2>
               </div>
 
-              <span className="shrink-0 rounded-lg bg-white/10 px-3 py-1 text-xs font-black text-yellow-300 ring-1 ring-white/10">
+              <span className="shrink-0 rounded-lg bg-[#0A0A0A] px-3 py-1 text-xs font-black text-yellow-300 ring-1 ring-white/10">
                 {category.products.length}{" "}
                 {category.products.length === 1 ? "item" : "itens"}
               </span>
@@ -7083,9 +7083,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
         {filteredCategories.length === 0 && searchQuery && (
           <div className="py-12 text-center">
-            <Search className="mx-auto mb-3 h-12 w-12 text-gray-200" />
-            <p className="text-sm font-medium text-gray-400">Nenhum produto encontrado</p>
-            <p className="mt-1 text-xs text-gray-300">Tente buscar por outro termo</p>
+            <Search className="mx-auto mb-3 h-12 w-12 text-zinc-500" />
+            <p className="text-sm font-medium text-zinc-500">Nenhum produto encontrado</p>
+            <p className="mt-1 text-xs text-zinc-500">Tente buscar por outro termo</p>
           </div>
         )}
       </div>

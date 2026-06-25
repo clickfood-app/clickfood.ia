@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import {
-  Bike,
   CheckCircle2,
-  Clock3,
   Copy,
   Loader2,
   MessageCircle,
@@ -12,7 +10,6 @@ import {
   Plus,
   RefreshCcw,
   Search,
-  ShieldCheck,
   Trash2,
   UserRound,
   Wallet,
@@ -48,6 +45,7 @@ type OrderRow = {
   delivered_at: string | null
   cancelled_at: string | null
 }
+
 type DeliverySettlementRow = {
   id: string
   restaurant_id: string
@@ -62,8 +60,6 @@ type DeliverySettlementRow = {
   notes: string | null
   created_at: string
 }
-
-type CourierFilter = "all" | "active" | "inactive"
 
 type CourierOrderItem = {
   id: string
@@ -81,7 +77,7 @@ type DeliveryPersonWithStats = DeliveryPersonRow & {
   onRouteOrders: number
   deliveredToday: number
   totalToReceiveToday: number
-  lastRouteAt: string | null
+  pendingToReceiveToday: number
   ordersToday: CourierOrderItem[]
   settlementToday: DeliverySettlementRow | null
   isPaidToday: boolean
@@ -121,18 +117,16 @@ function isDeliveredStatus(status: string | null | undefined) {
     value === "delivered" ||
     value === "entregue" ||
     value === "finished" ||
-    value === "completed"
+    value === "completed" ||
+    value === "concluido" ||
+    value === "concluído"
   )
 }
 
 function isCancelledStatus(status: string | null | undefined) {
   const value = normalizeStatus(status)
 
-  return (
-    value === "cancelled" ||
-    value === "canceled" ||
-    value === "cancelado"
-  )
+  return value === "cancelled" || value === "canceled" || value === "cancelado"
 }
 
 function isOpenStatus(status: string | null | undefined) {
@@ -170,7 +164,7 @@ function formatPixKeyType(type: string | null) {
   if (type === "email") return "E-mail"
   if (type === "random") return "Aleatória"
 
-  return "Não informado"
+  return "Pix"
 }
 
 function normalizeWhatsappPhone(phone: string | null) {
@@ -179,7 +173,6 @@ function normalizeWhatsappPhone(phone: string | null) {
   const digits = phone.replace(/\D/g, "")
 
   if (!digits) return null
-
   if (digits.startsWith("55")) return digits
 
   return `55${digits}`
@@ -191,14 +184,6 @@ function getWhatsappUrl(phone: string | null) {
   if (!normalizedPhone) return null
 
   return `https://wa.me/${normalizedPhone}`
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value))
 }
 
 function formatTime(value: string) {
@@ -267,10 +252,10 @@ function getStatusLabel(status: string | null | undefined) {
 }
 
 function getStatusTone(status: string | null | undefined) {
-  if (isOnRouteStatus(status)) return "bg-emerald-100 text-emerald-700"
-  if (isDeliveredStatus(status)) return "bg-blue-100 text-blue-700"
-  if (isCancelledStatus(status)) return "bg-red-100 text-red-700"
-  return "bg-amber-100 text-amber-700"
+  if (isOnRouteStatus(status)) return "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
+  if (isDeliveredStatus(status)) return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+  if (isCancelledStatus(status)) return "border-red-200 bg-red-50 text-red-700"
+  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
 }
 
 export default function EntregadoresPage() {
@@ -290,9 +275,8 @@ export default function EntregadoresPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState<CourierFilter>("all")
+  const [showForm, setShowForm] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
-  const [selectedCourierId, setSelectedCourierId] = useState<string | null>(null)
 
   const [editingCourierId, setEditingCourierId] = useState<string | null>(null)
   const [name, setName] = useState("")
@@ -308,6 +292,7 @@ export default function EntregadoresPage() {
     setPixKeyType("")
     setPixKey("")
     setNotes("")
+    setShowForm(false)
   }
 
   async function loadDeliveryPeople(showRefresh = false) {
@@ -387,45 +372,48 @@ export default function EntregadoresPage() {
   }
 
   async function loadSettlementsToday() {
-  if (!restaurant?.id) return
+    if (!restaurant?.id) return
 
-  try {
-    setSettlementsLoading(true)
+    try {
+      setSettlementsLoading(true)
 
-    const session = await ensureSupabaseSession()
+      const session = await ensureSupabaseSession()
 
-    if (!session) {
+      if (!session) {
+        setSettlementsLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("delivery_settlements")
+        .select(
+          "id, restaurant_id, delivery_person_id, settlement_date, total_amount, total_orders, order_ids, payment_method, status, paid_at, notes, created_at"
+        )
+        .eq("restaurant_id", restaurant.id)
+        .eq("settlement_date", getTodayDateString())
+        .eq("status", "paid")
+
+      if (error) throw error
+
+      setSettlements((data || []) as DeliverySettlementRow[])
+    } catch (err) {
+      console.error("Erro ao carregar repasses pagos:", err)
+      setError(getErrorMessage(err, "Erro ao carregar repasses pagos."))
+    } finally {
       setSettlementsLoading(false)
-      return
     }
-
-    const { data, error } = await supabase
-      .from("delivery_settlements")
-      .select(
-        "id, restaurant_id, delivery_person_id, settlement_date, total_amount, total_orders, order_ids, payment_method, status, paid_at, notes, created_at"
-      )
-      .eq("restaurant_id", restaurant.id)
-      .eq("settlement_date", getTodayDateString())
-      .eq("status", "paid")
-
-    if (error) throw error
-
-    setSettlements((data || []) as DeliverySettlementRow[])
-  } catch (err) {
-    console.error("Erro ao carregar repasses pagos:", err)
-    setError(getErrorMessage(err, "Erro ao carregar repasses pagos."))
-  } finally {
-    setSettlementsLoading(false)
   }
-}
 
   async function loadInitialData() {
     if (!restaurant?.id) return
 
     setError(null)
-    await loadDeliveryPeople()
-    void loadOrdersToday()
-    void loadSettlementsToday()
+
+    await Promise.all([
+      loadDeliveryPeople(),
+      loadOrdersToday(),
+      loadSettlementsToday(),
+    ])
   }
 
   async function refreshAll() {
@@ -435,11 +423,12 @@ export default function EntregadoresPage() {
     setRefreshing(true)
 
     try {
-await Promise.all([
-  loadDeliveryPeople(true),
-  loadOrdersToday(),
-  loadSettlementsToday(),
-])    } finally {
+      await Promise.all([
+        loadDeliveryPeople(true),
+        loadOrdersToday(),
+        loadSettlementsToday(),
+      ])
+    } finally {
       setRefreshing(false)
     }
   }
@@ -561,10 +550,6 @@ await Promise.all([
 
       if (error) throw error
 
-      if (selectedCourierId === courier.id) {
-        setSelectedCourierId(null)
-      }
-
       if (editingCourierId === courier.id) {
         resetForm()
       }
@@ -594,58 +579,58 @@ await Promise.all([
   }
 
   async function handleMarkSettlementPaid(courier: DeliveryPersonWithStats) {
-  if (!restaurant?.id) return
+    if (!restaurant?.id) return
 
-  if (courier.isPaidToday) {
-    setError("Esse repasse já foi marcado como pago hoje.")
-    return
-  }
-
-  if (courier.ordersToday.length === 0 || courier.totalToReceiveToday <= 0) {
-    setError("Esse motoboy não tem valor para repassar hoje.")
-    return
-  }
-
-  const confirmed = window.confirm(
-    `Marcar ${formatCurrency(courier.totalToReceiveToday)} como pago para ${courier.name}?`
-  )
-
-  if (!confirmed) return
-
-  try {
-    setSettlingCourierId(courier.id)
-    setError(null)
-
-    const orderIds = courier.ordersToday.map((order) => order.id)
-
-    const { error } = await supabase.from("delivery_settlements").insert({
-      restaurant_id: restaurant.id,
-      delivery_person_id: courier.id,
-      settlement_date: getTodayDateString(),
-      total_amount: courier.totalToReceiveToday,
-      total_orders: courier.ordersToday.length,
-      order_ids: orderIds,
-      payment_method: "pix",
-      status: "paid",
-      paid_at: new Date().toISOString(),
-    })
-
-    if (error) {
-      if (error.code === "23505") {
-        throw new Error("Esse repasse já foi marcado como pago hoje.")
-      }
-
-      throw error
+    if (courier.isPaidToday) {
+      setError("Esse repasse já foi marcado como pago hoje.")
+      return
     }
 
-    await loadSettlementsToday()
-  } catch (err) {
-    console.error("Erro ao marcar repasse como pago:", err)
-    setError(getErrorMessage(err, "Erro ao marcar repasse como pago."))
-  } finally {
-    setSettlingCourierId(null)
+    if (courier.ordersToday.length === 0 || courier.totalToReceiveToday <= 0) {
+      setError("Esse motoboy não tem valor para repassar hoje.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Marcar ${formatCurrency(courier.totalToReceiveToday)} como pago para ${courier.name}?`
+    )
+
+    if (!confirmed) return
+
+    try {
+      setSettlingCourierId(courier.id)
+      setError(null)
+
+      const orderIds = courier.ordersToday.map((order) => order.id)
+
+      const { error } = await supabase.from("delivery_settlements").insert({
+        restaurant_id: restaurant.id,
+        delivery_person_id: courier.id,
+        settlement_date: getTodayDateString(),
+        total_amount: courier.totalToReceiveToday,
+        total_orders: courier.ordersToday.length,
+        order_ids: orderIds,
+        payment_method: "pix",
+        status: "paid",
+        paid_at: new Date().toISOString(),
+      })
+
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("Esse repasse já foi marcado como pago hoje.")
+        }
+
+        throw error
+      }
+
+      await loadSettlementsToday()
+    } catch (err) {
+      console.error("Erro ao marcar repasse como pago:", err)
+      setError(getErrorMessage(err, "Erro ao marcar repasse como pago."))
+    } finally {
+      setSettlingCourierId(null)
+    }
   }
-}
 
   function handleEditCourier(courier: DeliveryPersonRow) {
     setEditingCourierId(courier.id)
@@ -654,6 +639,7 @@ await Promise.all([
     setPixKeyType(courier.pix_key_type || "")
     setPixKey(courier.pix_key || "")
     setNotes(courier.notes || "")
+    setShowForm(true)
   }
 
   useEffect(() => {
@@ -665,6 +651,7 @@ await Promise.all([
     if (!user || !restaurant?.id) {
       setDeliveryPeople([])
       setOrders([])
+      setSettlements([])
       setLoadingPage(false)
       setOrdersLoading(false)
       setRefreshing(false)
@@ -676,7 +663,7 @@ await Promise.all([
 
     const ordersRefreshInterval = window.setInterval(() => {
       void loadOrdersToday()
-    }, 20000)
+    }, 15000)
 
     const deliveryPeopleChannel = supabase
       .channel(`delivery-people-page-${restaurant.id}`)
@@ -710,10 +697,27 @@ await Promise.all([
       )
       .subscribe()
 
+    const settlementsChannel = supabase
+      .channel(`delivery-settlements-page-${restaurant.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "delivery_settlements",
+          filter: `restaurant_id=eq.${restaurant.id}`,
+        },
+        () => {
+          void loadSettlementsToday()
+        }
+      )
+      .subscribe()
+
     return () => {
       window.clearInterval(ordersRefreshInterval)
       void supabase.removeChannel(deliveryPeopleChannel)
       void supabase.removeChannel(ordersChannel)
+      void supabase.removeChannel(settlementsChannel)
     }
   }, [authLoading, restaurant?.id, user?.id])
 
@@ -722,14 +726,12 @@ await Promise.all([
 
     const handlePageBack = () => {
       if (document.visibilityState === "visible") {
-        void loadDeliveryPeople(true)
-        void loadOrdersToday()
+        void refreshAll()
       }
     }
 
     const handleWindowFocus = () => {
-      void loadDeliveryPeople(true)
-      void loadOrdersToday()
+      void refreshAll()
     }
 
     document.addEventListener("visibilitychange", handlePageBack)
@@ -774,216 +776,175 @@ await Promise.all([
           0
         )
 
-        const sortedRouteDates = courierOrders
-          .map((order) => order.out_for_delivery_at)
-          .filter(Boolean)
-          .sort((a, b) => new Date(b as string).getTime() - new Date(a as string).getTime())
-
         const settlementToday =
-  settlements.find(
-    (settlement) =>
-      settlement.delivery_person_id === courier.id &&
-      settlement.status === "paid"
-  ) || null
+          settlements.find(
+            (settlement) =>
+              settlement.delivery_person_id === courier.id &&
+              settlement.status === "paid"
+          ) || null
 
-return {
-  ...courier,
-  openOrders,
-  onRouteOrders,
-  deliveredToday,
-  totalToReceiveToday,
-  lastRouteAt: (sortedRouteDates[0] as string | undefined) || null,
-  ordersToday: courierOrders,
-  settlementToday,
-  isPaidToday: Boolean(settlementToday),
-}
+        const isPaidToday = Boolean(settlementToday)
+
+        return {
+          ...courier,
+          openOrders,
+          onRouteOrders,
+          deliveredToday,
+          totalToReceiveToday,
+          pendingToReceiveToday: isPaidToday ? 0 : totalToReceiveToday,
+          ordersToday: courierOrders,
+          settlementToday,
+          isPaidToday,
+        }
       })
       .sort((a, b) => {
-        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
-        if (a.totalToReceiveToday !== b.totalToReceiveToday) {
-          return b.totalToReceiveToday - a.totalToReceiveToday
-        }
         if (a.onRouteOrders !== b.onRouteOrders) return b.onRouteOrders - a.onRouteOrders
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        if (a.pendingToReceiveToday !== b.pendingToReceiveToday) {
+          return b.pendingToReceiveToday - a.pendingToReceiveToday
+        }
+        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
+        return a.name.localeCompare(b.name, "pt-BR")
       })
-}, [deliveryPeople, orders, settlements])
+  }, [deliveryPeople, orders, settlements])
 
   const filteredCouriers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
+    if (!normalizedSearch) return deliveryPeopleWithStats
+
     return deliveryPeopleWithStats.filter((courier) => {
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "active" && courier.is_active) ||
-        (filter === "inactive" && !courier.is_active)
-
-      if (!matchesFilter) return false
-
-      if (!normalizedSearch) return true
-
       return (
         courier.name.toLowerCase().includes(normalizedSearch) ||
         (courier.phone || "").toLowerCase().includes(normalizedSearch) ||
         (courier.pix_key || "").toLowerCase().includes(normalizedSearch) ||
-        (courier.notes || "").toLowerCase().includes(normalizedSearch)
+        courier.ordersToday.some((order) =>
+          getOrderNumber(order).toLowerCase().includes(normalizedSearch)
+        )
       )
     })
-  }, [deliveryPeopleWithStats, filter, search])
+  }, [deliveryPeopleWithStats, search])
 
-  useEffect(() => {
-    if (filteredCouriers.length === 0) {
-      setSelectedCourierId(null)
-      return
-    }
+  const activeCouriers = deliveryPeopleWithStats.filter((item) => item.is_active).length
+  const onRouteOrders = deliveryPeopleWithStats.reduce(
+    (sum, item) => sum + item.onRouteOrders,
+    0
+  )
+  const totalOrdersToday = deliveryPeopleWithStats.reduce(
+    (sum, item) => sum + item.ordersToday.length,
+    0
+  )
+  const totalPendingToday = deliveryPeopleWithStats.reduce(
+    (sum, item) => sum + item.pendingToReceiveToday,
+    0
+  )
 
-    const stillExists = filteredCouriers.some(
-      (courier) => courier.id === selectedCourierId
-    )
-
-    if (!stillExists) {
-      setSelectedCourierId(filteredCouriers[0].id)
-    }
-  }, [filteredCouriers, selectedCourierId])
-
-  const totalCouriers = deliveryPeopleWithStats.length
-const activeCouriers = deliveryPeopleWithStats.filter((item) => item.is_active).length
-const onRouteCouriers = deliveryPeopleWithStats.filter(
-  (item) => item.onRouteOrders > 0
-).length
-const totalOrdersToday = deliveryPeopleWithStats.reduce(
-  (sum, item) => sum + item.ordersToday.length,
-  0
-)
-const totalToPayToday = deliveryPeopleWithStats.reduce(
-  (sum, item) => sum + item.totalToReceiveToday,
-  0
-)
-const couriersWithoutPix = deliveryPeopleWithStats.filter(
-  (item) => item.is_active && !item.pix_key
-).length
-
-return (
-  <AdminLayout>
-    <div className="space-y-4 p-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">
-            Entregadores
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Controle os motoboys, pedidos vinculados e repasses do dia em uma tela só.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-            <Clock3 className="h-4 w-4" />
-            {lastUpdatedAt
-              ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}`
-              : "Aguardando dados"}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void refreshAll()}
-            disabled={refreshing}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {refreshing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCcw className="h-4 w-4" />
-            )}
-            Atualizar
-          </button>
-        </div>
-      </div>
-
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700/70">
-              Total a repassar
+  return (
+    <AdminLayout>
+      <div className="space-y-4 p-4 sm:p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-foreground">
+              Entregadores
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Veja quem está com pedido, quanto falta repassar e marque o pagamento do dia.
             </p>
-            <Wallet className="h-4 w-4 text-emerald-700" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-700">
-            {ordersLoading ? "..." : formatCurrency(totalToPayToday)}
-          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetForm()
+                setShowForm(true)
+              }}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              Novo motoboy
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void refreshAll()}
+              disabled={refreshing}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {refreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="h-4 w-4" />
+              )}
+              Atualizar
+            </button>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Motoboys
-          </p>
-          <p className="mt-2 text-2xl font-black text-foreground">
-            {loadingPage ? "..." : totalCouriers}
-          </p>
-        </div>
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {error}
+          </div>
+        ) : null}
 
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Ativos
-          </p>
-          <p className="mt-2 text-2xl font-black text-foreground">
-            {loadingPage ? "..." : activeCouriers}
-          </p>
-        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-400">
+                A repassar hoje
+              </p>
+              <Wallet className="h-4 w-4 text-emerald-400" />
+            </div>
+            <p className="mt-2 text-2xl font-black text-emerald-400">
+              {ordersLoading ? "..." : formatCurrency(totalPendingToday)}
+            </p>
+          </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Pedidos vinculados
-          </p>
-          <p className="mt-2 text-2xl font-black text-foreground">
-            {ordersLoading ? "..." : totalOrdersToday}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Em rota
-          </p>
-          <p className="mt-2 text-2xl font-black text-foreground">
-            {ordersLoading ? "..." : onRouteCouriers}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <div className="space-y-4">
           <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+              Motoboys ativos
+            </p>
+            <p className="mt-2 text-2xl font-black text-foreground">
+              {loadingPage ? "..." : activeCouriers}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+              Pedidos com motoboy
+            </p>
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <p className="text-2xl font-black text-foreground">
+                {ordersLoading ? "..." : totalOrdersToday}
+              </p>
+              <p className="text-xs font-bold text-muted-foreground">
+                {ordersLoading ? "" : `${onRouteOrders} em rota`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {showForm ? (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-black text-foreground">
-                  {editingCourierId ? "Editar motoboy" : "Novo motoboy"}
+                  {editingCourierId ? "Editar motoboy" : "Cadastrar motoboy"}
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Dados usados no fechamento e contato rápido.
+                  Preencha só o necessário. Pix pode ficar vazio e ser editado depois.
                 </p>
               </div>
 
-              {editingCourierId ? (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-xl border border-border px-3 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
-                >
-                  Cancelar
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={resetForm}
+                className="h-9 rounded-xl border border-border px-3 text-xs font-bold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+              >
+                Cancelar
+              </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_0.8fr_1.2fr]">
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   Nome
@@ -1006,61 +967,56 @@ return (
                   inputMode="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Ex: 31999999999"
+                  placeholder="31999999999"
                   className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)] xl:grid-cols-1">
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    Tipo Pix
-                  </label>
-                  <select
-                    value={pixKeyType}
-                    onChange={(e) => setPixKeyType(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  >
-                    <option value="">Selecione</option>
-                    <option value="cpf">CPF</option>
-                    <option value="phone">Telefone</option>
-                    <option value="email">E-mail</option>
-                    <option value="random">Aleatória</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    Chave Pix
-                  </label>
-                  <input
-                    type="text"
-                    value={pixKey}
-                    onChange={(e) => setPixKey(e.target.value)}
-                    placeholder="CPF, telefone, e-mail ou aleatória"
-                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Tipo Pix
+                </label>
+                <select
+                  value={pixKeyType}
+                  onChange={(e) => setPixKeyType(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                >
+                  <option value="">Selecione</option>
+                  <option value="cpf">CPF</option>
+                  <option value="phone">Telefone</option>
+                  <option value="email">E-mail</option>
+                  <option value="random">Aleatória</option>
+                </select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  Observação
+                  Chave Pix
                 </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Ex: atende só à noite, bairros próximos..."
-                  rows={2}
-                  className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                <input
+                  type="text"
+                  value={pixKey}
+                  onChange={(e) => setPixKey(e.target.value)}
+                  placeholder="CPF, telefone, e-mail ou aleatória"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
               </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto]">
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Observação opcional"
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
 
               <button
                 type="button"
                 onClick={() => void handleSaveCourier()}
                 disabled={saving}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1069,126 +1025,71 @@ return (
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                {editingCourierId ? "Salvar alterações" : "Cadastrar motoboy"}
+                {editingCourierId ? "Salvar" : "Cadastrar"}
               </button>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-600" />
-              <div>
-                <p className="text-sm font-bold text-foreground">
-                  Regra do fechamento
-                </p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  O total de cada motoboy é calculado pela soma das taxas dos pedidos vinculados a ele hoje.
-                </p>
-                {couriersWithoutPix > 0 ? (
-                  <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-                    {couriersWithoutPix} motoboy(s) ativo(s) sem Pix cadastrado.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
+        ) : null}
 
         <div className="rounded-2xl border border-border bg-card">
           <div className="border-b border-border p-4">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="relative w-full xl:max-w-md">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative w-full lg:max-w-md">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nome, telefone, Pix ou observação..."
+                  placeholder="Buscar motoboy ou número do pedido..."
                   className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
               </div>
 
-              <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1">
-                <button
-                  type="button"
-                  onClick={() => setFilter("all")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                    filter === "all"
-                      ? "bg-foreground text-white"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Todos
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFilter("active")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                    filter === "active"
-                      ? "bg-foreground text-white"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Ativos
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFilter("inactive")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                    filter === "inactive"
-                      ? "bg-foreground text-white"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Inativos
-                </button>
-              </div>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {lastUpdatedAt
+                  ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`
+                  : "Aguardando dados"}
+              </p>
             </div>
           </div>
 
           <div className="p-4">
             {loadingPage ? (
-              <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-dashed border-border bg-background text-sm text-muted-foreground">
+              <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-border bg-background text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Carregando motoboys...
+                Carregando entregadores...
               </div>
             ) : filteredCouriers.length === 0 ? (
-              <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background px-6 text-center">
-                <Bike className="mb-3 h-8 w-8 text-muted-foreground" />
+              <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background px-6 text-center">
                 <p className="text-sm font-bold text-foreground">
-                  Nenhum motoboy encontrado
+                  Nenhum entregador encontrado
                 </p>
                 <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-                  Cadastre um motoboy ou altere o filtro de busca para visualizar os repasses.
+                  Cadastre um motoboy ou limpe a busca para ver a lista completa.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {filteredCouriers.map((courier) => {
                   const whatsappUrl = getWhatsappUrl(courier.phone)
-                  const isSelected = selectedCourierId === courier.id
                   const isBusy = busyCourierId === courier.id
 
                   return (
                     <div
                       key={courier.id}
-                      onClick={() => setSelectedCourierId(courier.id)}
-                      className={`rounded-2xl border bg-background p-4 transition ${
-                        isSelected
-                          ? "border-primary/40 ring-2 ring-primary/10"
-                          : "border-border hover:border-primary/25"
-                      }`}
+                      className="rounded-2xl border border-border bg-background p-4"
                     >
-                      <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-sm font-black text-primary">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-black text-primary">
                               {getInitials(courier.name) || "MB"}
                             </div>
 
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="truncate text-lg font-black text-foreground">
                                   {courier.name}
@@ -1197,10 +1098,10 @@ return (
                                 <span
                                   className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
                                     courier.onRouteOrders > 0
-                                      ? "bg-emerald-100 text-emerald-700"
+                                      ? "bg-emerald-500/10 text-emerald-400"
                                       : courier.is_active
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-zinc-100 text-zinc-600"
+                                        ? "bg-yellow-400/10 text-yellow-400"
+                                        : "bg-[#111111] text-zinc-500"
                                   }`}
                                 >
                                   {courier.onRouteOrders > 0
@@ -1209,212 +1110,195 @@ return (
                                       ? "Ativo"
                                       : "Inativo"}
                                 </span>
+
+                                {courier.isPaidToday ? (
+                                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-black text-emerald-400">
+                                    Pago hoje
+                                  </span>
+                                ) : null}
                               </div>
 
                               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                 <span className="inline-flex items-center gap-1">
                                   <Phone className="h-3.5 w-3.5" />
-                                  {courier.phone ? formatPhone(courier.phone) : "Sem telefone"}
+                                  {formatPhone(courier.phone)}
                                 </span>
                                 <span>
                                   Pix: {courier.pix_key ? formatPixKeyType(courier.pix_key_type) : "não cadastrado"}
                                 </span>
-                                <span>
-                                  Desde {formatDate(courier.created_at)}
-                                </span>
                               </div>
+
+                              {courier.notes ? (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  {courier.notes}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
-
-                          {courier.notes ? (
-                            <p className="mt-3 rounded-xl bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                              {courier.notes}
-                            </p>
-                          ) : null}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                          {whatsappUrl ? (
-                            <a
-                              href={whatsappUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(event) => event.stopPropagation()}
-                              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
-                            >
-                              <MessageCircle className="h-4 w-4" />
-                              WhatsApp
-                            </a>
-                          ) : null}
+                        <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[360px]">
+                          <div className="rounded-xl border border-border bg-card px-3 py-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Pedidos
+                            </p>
+                            <p className="text-lg font-black text-foreground">
+                              {ordersLoading ? "..." : courier.ordersToday.length}
+                            </p>
+                          </div>
 
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              void handleCopyPix(courier)
-                            }}
-                            disabled={!courier.pix_key}
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Copy className="h-4 w-4" />
-                            Pix
-                          </button>
+                          <div className="rounded-xl border border-border bg-card px-3 py-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Em rota
+                            </p>
+                            <p className="text-lg font-black text-foreground">
+                              {ordersLoading ? "..." : courier.onRouteOrders}
+                            </p>
+                          </div>
 
-                          <button
-  type="button"
-  onClick={(event) => {
-    event.stopPropagation()
-    void handleMarkSettlementPaid(courier)
-  }}
-  disabled={
-    courier.isPaidToday ||
-    settlingCourierId === courier.id ||
-    settlementsLoading ||
-    courier.totalToReceiveToday <= 0
-  }
-  className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-    courier.isPaidToday
-      ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-      : "border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-  }`}
->
-  {settlingCourierId === courier.id ? (
-    <Loader2 className="h-4 w-4 animate-spin" />
-  ) : (
-    <CheckCircle2 className="h-4 w-4" />
-  )}
-  {courier.isPaidToday ? "Pago" : "Marcar pago"}
-</button>
-
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              handleEditCourier(courier)
-                            }}
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                          >
-                            <UserRound className="h-4 w-4" />
-                            Editar
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              void handleToggleActive(courier)
-                            }}
-                            disabled={isBusy}
-                            className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                              courier.is_active
-                                ? "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
-                                : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                            }`}
-                          >
-                            {isBusy ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : courier.is_active ? (
-                              <XCircle className="h-4 w-4" />
-                            ) : (
-                              <CheckCircle2 className="h-4 w-4" />
-                            )}
-                            {courier.is_active ? "Desativar" : "Ativar"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              void handleDeleteCourier(courier)
-                            }}
-                            disabled={isBusy}
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isBusy ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                            Excluir
-                          </button>
+                          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-400">
+                              A pagar
+                            </p>
+                            <p className="text-lg font-black text-emerald-400">
+                              {ordersLoading ? "..." : formatCurrency(courier.pendingToReceiveToday)}
+                            </p>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-xl border border-border bg-card p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                            Pedidos hoje
-                          </p>
-                          <p className="mt-1 text-xl font-black text-foreground">
-                            {ordersLoading ? "..." : courier.ordersToday.length}
-                          </p>
-                        </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {whatsappUrl ? (
+                          <a
+                            href={whatsappUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/15"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            WhatsApp
+                          </a>
+                        ) : null}
 
-                        <div className="rounded-xl border border-border bg-card p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                            Em rota
-                          </p>
-                          <p className="mt-1 text-xl font-black text-foreground">
-                            {ordersLoading ? "..." : courier.onRouteOrders}
-                          </p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyPix(courier)}
+                          disabled={!courier.pix_key}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Copy className="h-4 w-4" />
+                          Copiar Pix
+                        </button>
 
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/70">
-                            A receber
-                          </p>
-                          <p className="mt-1 text-xl font-black text-emerald-700">
-                            {ordersLoading ? "..." : formatCurrency(courier.totalToReceiveToday)}
-                          </p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkSettlementPaid(courier)}
+                          disabled={
+                            courier.isPaidToday ||
+                            settlingCourierId === courier.id ||
+                            settlementsLoading ||
+                            courier.totalToReceiveToday <= 0
+                          }
+                          className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            courier.isPaidToday
+                              ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
+                              : "border border-emerald-400/30 bg-[#0A0A0A] text-emerald-400 hover:bg-emerald-500/15"
+                          }`}
+                        >
+                          {settlingCourierId === courier.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          {courier.isPaidToday ? "Pago" : "Marcar pago"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleEditCourier(courier)}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                        >
+                          <UserRound className="h-4 w-4" />
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleActive(courier)}
+                          disabled={isBusy}
+                          className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            courier.is_active
+                              ? "border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
+                              : "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"
+                          }`}
+                        >
+                          {isBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : courier.is_active ? (
+                            <XCircle className="h-4 w-4" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          {courier.is_active ? "Desativar" : "Ativar"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteCourier(courier)}
+                          disabled={isBusy}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                          Excluir
+                        </button>
                       </div>
 
                       <div className="mt-4 rounded-xl border border-border bg-card p-3">
-                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
-                              Pedidos vinculados
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Número do pedido e taxa de entrega para conferência do fechamento.
-                            </p>
-                          </div>
-
-                          <p className="text-xs text-muted-foreground">
-                            Última saída: {ordersLoading
-                              ? "..."
-                              : courier.lastRouteAt
-                                ? formatTime(courier.lastRouteAt)
-                                : "—"}
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                            Pedidos vinculados hoje
+                          </p>
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            Taxa de entrega do motoboy
                           </p>
                         </div>
 
                         {ordersLoading ? (
-                          <div className="mt-3 rounded-xl border border-dashed border-border bg-background px-3 py-6 text-center text-xs text-muted-foreground">
+                          <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
                             Carregando pedidos...
                           </div>
                         ) : courier.ordersToday.length === 0 ? (
-                          <div className="mt-3 rounded-xl border border-dashed border-border bg-background px-3 py-6 text-center text-xs text-muted-foreground">
+                          <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
                             Nenhum pedido vinculado hoje.
                           </div>
                         ) : (
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                             {courier.ordersToday.map((order) => (
                               <div
                                 key={order.id}
-                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs"
+                                className="grid gap-2 bg-background px-3 py-2 text-xs sm:grid-cols-[120px_minmax(0,1fr)_110px_110px] sm:items-center"
                               >
-                                <span className="font-black text-foreground">
+                                <p className="font-black text-foreground">
                                   #{getOrderNumber(order)}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {formatCurrency(order.delivery_fee)}
-                                </span>
+                                </p>
+
+                                <p className="truncate text-muted-foreground">
+                                  {order.customer_name || "Cliente não informado"}
+                                </p>
+
                                 <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getStatusTone(order.status)}`}
+                                  className={`inline-flex w-fit items-center justify-center rounded-full border px-2 py-1 text-[10px] font-bold ${getStatusTone(order.status)}`}
                                 >
                                   {getStatusLabel(order.status)}
                                 </span>
+
+                                <p className="font-black text-foreground sm:text-right">
+                                  {formatCurrency(order.delivery_fee)}
+                                </p>
                               </div>
                             ))}
                           </div>
@@ -1428,7 +1312,6 @@ return (
           </div>
         </div>
       </div>
-    </div>
-  </AdminLayout>
-)
+    </AdminLayout>
+  )
 }

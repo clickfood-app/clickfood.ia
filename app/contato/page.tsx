@@ -27,31 +27,31 @@ export default function ContatoPage() {
   const isValid = name.trim() && email.trim() && message.trim()
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-yellow-400 to-[#080808]">
       {/* Header */}
-      <header className="border-b border-blue-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-yellow-400/30 bg-[#0A0A0A] backdrop-blur-sm sticky top-0 z-10">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-yellow-400 hover:text-yellow-400 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar ao site
           </Link>
-          <span className="text-lg font-bold text-blue-600">ClickFood</span>
+          <span className="text-lg font-bold text-yellow-400">ClickFood</span>
         </div>
       </header>
 
       {/* Content */}
       <main className="mx-auto max-w-2xl px-4 py-12">
-        <div className="rounded-2xl border border-blue-100 bg-white p-8 md:p-12 shadow-sm">
+        <div className="rounded-2xl border border-yellow-400/30 bg-[#0A0A0A] p-8 md:p-12 shadow-sm">
           {/* Title */}
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
-              <Mail className="h-7 w-7 text-blue-600" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10">
+              <Mail className="h-7 w-7 text-yellow-400" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Fale Conosco</h1>
-            <p className="mt-2 text-gray-600">
+            <h1 className="text-3xl font-bold text-white">Fale Conosco</h1>
+            <p className="mt-2 text-zinc-500">
               Estamos aqui para ajudar. Envie sua mensagem e responderemos o mais breve possivel.
             </p>
           </div>
@@ -59,11 +59,11 @@ export default function ContatoPage() {
           {sent ? (
             /* Success State */
             <div className="text-center py-8">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
+                <CheckCircle2 className="h-8 w-8 text-emerald-400" />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Mensagem enviada!</h2>
-              <p className="text-gray-600 mb-6">
+              <h2 className="text-xl font-semibold text-white mb-2">Mensagem enviada!</h2>
+              <p className="text-zinc-500 mb-6">
                 Obrigado por entrar em contato. Responderemos em ate 48 horas uteis.
               </p>
               <button
@@ -74,7 +74,7 @@ export default function ContatoPage() {
                   setSubject("")
                   setMessage("")
                 }}
-                className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                className="text-yellow-400 hover:text-yellow-400 hover:underline font-medium"
               >
                 Enviar outra mensagem
               </button>
@@ -84,7 +84,7 @@ export default function ContatoPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                   Seu nome *
                 </label>
                 <input
@@ -92,13 +92,13 @@ export default function ContatoPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Como podemos te chamar?"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                   Seu e-mail *
                 </label>
                 <input
@@ -106,13 +106,13 @@ export default function ContatoPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                 />
               </div>
 
               {/* Subject */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                   Assunto
                 </label>
                 <input
@@ -120,13 +120,13 @@ export default function ContatoPage() {
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Sobre o que voce quer falar?"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
                 />
               </div>
 
               {/* Message */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-zinc-500 mb-1.5">
                   Mensagem *
                 </label>
                 <textarea
@@ -134,7 +134,7 @@ export default function ContatoPage() {
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Escreva sua mensagem aqui..."
                   rows={5}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  className="w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white placeholder:text-zinc-500 transition-all focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-yellow-400/20 resize-none"
                 />
               </div>
 
@@ -145,8 +145,8 @@ export default function ContatoPage() {
                 className={cn(
                   "w-full flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold transition-all",
                   isValid && !sending
-                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    ? "bg-yellow-400 text-black hover:bg-yellow-300 shadow-sm"
+                    : "bg-[#111111] text-zinc-500 cursor-not-allowed"
                 )}
               >
                 {sending ? (
@@ -165,19 +165,19 @@ export default function ContatoPage() {
           )}
 
           {/* Response Time */}
-          <div className="mt-8 flex items-center justify-center gap-2 rounded-xl bg-blue-50 px-4 py-3">
-            <Clock className="h-4 w-4 text-blue-600" />
-            <span className="text-sm text-blue-700">
+          <div className="mt-8 flex items-center justify-center gap-2 rounded-xl bg-yellow-400/10 px-4 py-3">
+            <Clock className="h-4 w-4 text-yellow-400" />
+            <span className="text-sm text-yellow-400">
               Respondemos em ate <strong>48 horas uteis</strong>
             </span>
           </div>
 
           {/* Direct Email */}
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500 mb-2">Ou envie diretamente para:</p>
+            <p className="text-sm text-zinc-500 mb-2">Ou envie diretamente para:</p>
             <a
               href="mailto:goeatscentral@gmail.com"
-              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline font-semibold"
+              className="inline-flex items-center gap-2 text-yellow-400 hover:text-yellow-400 hover:underline font-semibold"
             >
               <Mail className="h-4 w-4" />
               goeatscentral@gmail.com
@@ -187,11 +187,11 @@ export default function ContatoPage() {
 
         {/* Footer Links */}
         <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm">
-          <Link href="/privacidade" className="text-blue-600 hover:text-blue-700 hover:underline">
+          <Link href="/privacidade" className="text-yellow-400 hover:text-yellow-400 hover:underline">
             Politica de Privacidade
           </Link>
-          <span className="text-gray-300">|</span>
-          <Link href="/termos" className="text-blue-600 hover:text-blue-700 hover:underline">
+          <span className="text-zinc-500">|</span>
+          <Link href="/termos" className="text-yellow-400 hover:text-yellow-400 hover:underline">
             Termos de Servico
           </Link>
         </div>
