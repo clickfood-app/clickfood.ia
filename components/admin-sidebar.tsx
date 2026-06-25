@@ -62,6 +62,81 @@ type AdminSidebarProps = {
   onToggleCollapse?: () => void
 }
 
+const RESTAURANT_BRAND_CACHE_KEY = "clickfood_admin_sidebar_brand"
+
+let cachedRestaurantBrand: RestaurantBrand | null = null
+
+function getDefaultRestaurantBrand(): RestaurantBrand {
+  return {
+    name: "Sistema",
+    logoUrl: null,
+    openTime: null,
+    closeTime: null,
+    closedToday: false,
+    activeDays: null,
+  }
+}
+
+function readCachedRestaurantBrand() {
+  if (cachedRestaurantBrand) return cachedRestaurantBrand
+  if (typeof window === "undefined") return null
+
+  try {
+    const rawBrand = window.localStorage.getItem(RESTAURANT_BRAND_CACHE_KEY)
+
+    if (!rawBrand) return null
+
+    const parsedBrand = JSON.parse(rawBrand) as Partial<RestaurantBrand>
+
+    const nextBrand: RestaurantBrand = {
+      name:
+        typeof parsedBrand.name === "string" && parsedBrand.name.trim()
+          ? parsedBrand.name
+          : "Sistema",
+      logoUrl:
+        typeof parsedBrand.logoUrl === "string" && parsedBrand.logoUrl.trim()
+          ? parsedBrand.logoUrl
+          : null,
+      openTime:
+        typeof parsedBrand.openTime === "string" && parsedBrand.openTime.trim()
+          ? parsedBrand.openTime
+          : null,
+      closeTime:
+        typeof parsedBrand.closeTime === "string" && parsedBrand.closeTime.trim()
+          ? parsedBrand.closeTime
+          : null,
+      closedToday: Boolean(parsedBrand.closedToday),
+      activeDays: Array.isArray(parsedBrand.activeDays)
+        ? parsedBrand.activeDays.filter(
+            (day): day is string => typeof day === "string" && Boolean(day),
+          )
+        : null,
+    }
+
+    cachedRestaurantBrand = nextBrand
+
+    return nextBrand
+  } catch (error) {
+    console.error("Erro ao ler cache do menu lateral:", error)
+    return null
+  }
+}
+
+function saveCachedRestaurantBrand(brand: RestaurantBrand) {
+  cachedRestaurantBrand = brand
+
+  if (typeof window === "undefined") return
+
+  try {
+    window.localStorage.setItem(
+      RESTAURANT_BRAND_CACHE_KEY,
+      JSON.stringify(brand),
+    )
+  } catch (error) {
+    console.error("Erro ao salvar cache do menu lateral:", error)
+  }
+}
+
 const navItems: NavItem[] = [
   {
     label: "Novo Pedido",
@@ -380,14 +455,12 @@ export default function AdminSidebar({
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
 
-  const [brand, setBrand] = useState<RestaurantBrand>({
-    name: "Sistema",
-    logoUrl: null,
-    openTime: null,
-    closeTime: null,
-    closedToday: false,
-    activeDays: null,
-  })
+  const [brand, setBrand] = useState<RestaurantBrand>(
+    () => readCachedRestaurantBrand() ?? getDefaultRestaurantBrand(),
+  )
+  const [isBrandLoaded, setIsBrandLoaded] = useState(
+    () => Boolean(cachedRestaurantBrand),
+  )
   const [logoFailed, setLogoFailed] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
@@ -409,9 +482,15 @@ export default function AdminSidebar({
         data: { user },
       } = await supabase.auth.getUser()
 
-      if (!user) return
+      if (!user) {
+        if (isMounted) {
+          setIsBrandLoaded(true)
+        }
 
-      const { data } = await supabase
+        return
+      }
+
+      const { data, error } = await supabase
         .from("restaurants")
         .select(
           "name, logo_url, open_time, close_time, closed_today, active_days",
@@ -419,16 +498,31 @@ export default function AdminSidebar({
         .eq("owner_id", user.id)
         .maybeSingle()
 
-      if (!isMounted || !data) return
+      if (!isMounted) return
 
-      setBrand({
+      if (error) {
+        console.error("Erro ao carregar dados do menu lateral:", error.message)
+        setIsBrandLoaded(true)
+        return
+      }
+
+      if (!data) {
+        setIsBrandLoaded(true)
+        return
+      }
+
+      const nextBrand = {
         name: data.name || "Sistema",
         logoUrl: data.logo_url || null,
         openTime: data.open_time || null,
         closeTime: data.close_time || null,
         closedToday: Boolean(data.closed_today),
         activeDays: Array.isArray(data.active_days) ? data.active_days : null,
-      })
+      }
+
+      setBrand(nextBrand)
+      saveCachedRestaurantBrand(nextBrand)
+      setIsBrandLoaded(true)
     }
 
     void loadRestaurantBrand()
@@ -555,47 +649,58 @@ export default function AdminSidebar({
         </div>
 
         {!isCollapsed && (
-          <div
-            className={cn(
-              "mt-3 rounded-2xl border px-3 py-2.5",
-              operationStatus.isOpen
-                ? "border-emerald-400/30 bg-emerald-400/10"
-                : "border-yellow-400/30 bg-yellow-400/10",
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <span
+          <>
+            {isBrandLoaded ? (
+              <div
                 className={cn(
-                  "h-2.5 w-2.5 shrink-0 rounded-full",
-                  operationStatus.isOpen ? "bg-emerald-500" : "bg-yellow-400",
+                  "mt-3 rounded-2xl border px-3 py-2.5",
+                  operationStatus.isOpen
+                    ? "border-emerald-400/30 bg-emerald-400/10"
+                    : "border-yellow-400/30 bg-yellow-400/10",
                 )}
-              />
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-2.5 w-2.5 shrink-0 rounded-full",
+                      operationStatus.isOpen
+                        ? "bg-emerald-500"
+                        : "bg-yellow-400",
+                    )}
+                  />
 
-              <div className="min-w-0">
-                <p
-                  className={cn(
-                    "truncate text-xs font-black uppercase tracking-[0.12em]",
-                    operationStatus.isOpen
-                      ? "text-emerald-300"
-                      : "text-yellow-300",
-                  )}
-                >
-                  {operationStatus.label}
-                </p>
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "truncate text-xs font-black uppercase tracking-[0.12em]",
+                        operationStatus.isOpen
+                          ? "text-emerald-300"
+                          : "text-yellow-300",
+                      )}
+                    >
+                      {operationStatus.label}
+                    </p>
 
-                <p
-                  className={cn(
-                    "mt-0.5 truncate text-xs font-semibold",
-                    operationStatus.isOpen
-                      ? "text-emerald-100"
-                      : "text-yellow-100",
-                  )}
-                >
-                  {operationStatus.description}
-                </p>
+                    <p
+                      className={cn(
+                        "mt-0.5 truncate text-xs font-semibold",
+                        operationStatus.isOpen
+                          ? "text-emerald-100"
+                          : "text-yellow-100",
+                      )}
+                    >
+                      {operationStatus.description}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            ) : (
+              <div
+                className="mt-3 h-[62px] rounded-2xl border border-transparent px-3 py-2.5"
+                aria-hidden="true"
+              />
+            )}
+          </>
         )}
       </div>
 
