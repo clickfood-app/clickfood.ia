@@ -99,7 +99,6 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const [brandLogoFailed, setBrandLogoFailed] = useState(false)
 
   const [restaurantId, setRestaurantId] = useState<string | null>(
     restaurantFromAuth?.id ?? null,
@@ -116,14 +115,6 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
   const userEmail = user?.email || "admin@empresa.com"
   const userInitials = getInitials(userName)
-
-  const brandName =
-    restaurantFromAuth?.name ||
-    restaurantFromAuth?.restaurant_name ||
-    "Sistema do restaurante"
-
-  const brandLogoUrl = restaurantFromAuth?.logo_url || restaurantFromAuth?.logoUrl || null
-  const brandInitials = getInitials(brandName)
 
   const currentPage =
     title ||
@@ -196,10 +187,6 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       setIsLoggingOut(false)
     }
   }
-
-  useEffect(() => {
-    setBrandLogoFailed(false)
-  }, [brandLogoUrl])
 
   useEffect(() => {
     soundAlertsEnabledRef.current = soundAlertsEnabled
@@ -350,50 +337,19 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="hidden min-w-0 items-center gap-4 sm:flex">
+              <div className="hidden min-w-0 items-center gap-2 sm:flex">
                 <Link
                   href="/pedidos"
-                  className="flex min-w-0 items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-2 shadow-sm shadow-black/20 transition hover:border-yellow-400 hover:bg-zinc-900"
+                  className="text-sm font-bold text-zinc-400 transition hover:text-yellow-300"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-yellow-400/40 bg-yellow-400 text-xs font-black text-black">
-                    {brandLogoUrl && !brandLogoFailed ? (
-                      <img
-                        src={brandLogoUrl}
-                        alt={brandName}
-                        className="h-full w-full object-cover"
-                        onError={() => setBrandLogoFailed(true)}
-                      />
-                    ) : (
-                      <span>{brandInitials}</span>
-                    )}
-                  </div>
-
-                  <div className="hidden min-w-0 lg:block">
-                    <p className="truncate text-sm font-black leading-none text-white">
-                      {brandName}
-                    </p>
-                    <p className="mt-1 truncate text-xs font-semibold leading-none text-zinc-400">
-                      Sistema operacional
-                    </p>
-                  </div>
+                  Painel
                 </Link>
 
-                <div className="hidden h-7 w-px bg-zinc-800 lg:block" />
+                <ChevronRight className="h-4 w-4 text-zinc-700" />
 
-                <div className="hidden min-w-0 items-center gap-2 lg:flex">
-                  <Link
-                    href="/pedidos"
-                    className="text-sm font-bold text-zinc-400 transition hover:text-yellow-300"
-                  >
-                    Painel
-                  </Link>
-
-                  <ChevronRight className="h-4 w-4 text-zinc-700" />
-
-                  <span className="truncate text-sm font-black text-white">
-                    {currentPage}
-                  </span>
-                </div>
+                <span className="truncate text-sm font-black text-white">
+                  {currentPage}
+                </span>
               </div>
 
               <div className="min-w-0 sm:hidden">
