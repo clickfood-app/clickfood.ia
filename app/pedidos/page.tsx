@@ -8,13 +8,19 @@ import {
   CheckCircle2,
   ChefHat,
   Clock3,
+  CreditCard,
+  Eye,
+  History,
   Loader2,
+  MapPin,
   Package,
+  Phone,
   Printer,
   RefreshCcw,
   Search,
   Settings2,
   Truck,
+  User,
   Volume2,
   XCircle,
 } from "lucide-react"
@@ -122,6 +128,18 @@ type NewOrderAlert = {
 }
 
 type BoardStatus = "analysis" | "preparation" | "ready"
+type ViewMode = "operation" | "history"
+type HistoryStatusFilter = "all" | "open" | "finished" | "cancelled"
+type HistoryPaymentStatusFilter = "all" | "paid" | "pending" | "cancelled"
+
+type HistoryFilters = {
+  dateFrom: string
+  dateTo: string
+  status: HistoryStatusFilter
+  paymentStatus: HistoryPaymentStatusFilter
+  paymentMethod: string
+  deliveryPersonId: string
+}
 
 const supabase = createClient()
 
@@ -146,6 +164,15 @@ const OPEN_ORDER_STATUSES = [
   "aguardando_confirmacao_pix",
   "aguardando confirmação pix",
 ]
+
+const DEFAULT_HISTORY_FILTERS: HistoryFilters = {
+  dateFrom: "",
+  dateTo: "",
+  status: "all",
+  paymentStatus: "all",
+  paymentMethod: "all",
+  deliveryPersonId: "all",
+}
 
 const columnStyles = {
   analysis: {
@@ -285,7 +312,6 @@ function isReadyStatus(status: string | null | undefined) {
   )
 }
 
-
 function getBoardStatus(status: string | null | undefined): BoardStatus | null {
   if (isAnalysisStatus(status)) return "analysis"
   if (isPreparationStatus(status)) return "preparation"
@@ -404,6 +430,56 @@ function formatTimeOnly(value: string) {
   }).format(new Date(value))
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Não informado"
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return "Não informado"
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)
+}
+
+function formatInputDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
+function getTodayInputDate() {
+  return formatInputDate(new Date())
+}
+
+function getYesterdayInputDate() {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+
+  return formatInputDate(date)
+}
+
+function getLastSevenDaysInputDate() {
+  const date = new Date()
+  date.setDate(date.getDate() - 6)
+
+  return formatInputDate(date)
+}
+
+function getDateStartIso(value: string) {
+  return new Date(`${value}T00:00:00`).toISOString()
+}
+
+function getDateEndIso(value: string) {
+  return new Date(`${value}T23:59:59.999`).toISOString()
+}
+
 function formatElapsedTime(value: string, nowMs: number) {
   const createdAt = new Date(value).getTime()
   const diffInMinutes = Math.max(0, Math.floor((nowMs - createdAt) / 60000))
@@ -471,6 +547,16 @@ function getOrderCpf(order: OrderRow) {
   ])
 }
 
+function getOrderNeighborhood(order: OrderRow) {
+  return getOrderTextField(order, [
+    "customer_neighborhood",
+    "delivery_neighborhood",
+    "shipping_neighborhood",
+    "neighborhood",
+    "bairro",
+  ])
+}
+
 function getOrderAddress(order: OrderRow) {
   const directAddress = getOrderTextField(order, [
     "customer_address",
@@ -495,12 +581,7 @@ function getOrderAddress(order: OrderRow) {
     "address_number",
     "number",
   ])
-  const neighborhood = getOrderTextField(order, [
-    "customer_neighborhood",
-    "delivery_neighborhood",
-    "neighborhood",
-    "bairro",
-  ])
+  const neighborhood = getOrderNeighborhood(order)
   const complement = getOrderTextField(order, [
     "customer_complement",
     "delivery_complement",
@@ -606,7 +687,7 @@ function getPaymentLabel(paymentMethod: string | null) {
   if (normalized === "waiting_payment" || normalized === "awaiting_payment") return "Aguardando pagamento"
   if (normalized === "waiting_customer_payment") return "Aguardando pagamento"
 
-  return "Não informado"
+  return paymentMethod
 }
 
 function isCashPaymentMethod(paymentMethod: string | null | undefined) {
@@ -676,7 +757,123 @@ function getPaymentStatusLabel(paymentStatus: string | null) {
   if (normalized === "cancelled" || normalized === "canceled" || normalized === "cancelado") return "Cancelado"
   if (normalized === "refunded" || normalized === "reembolsado") return "Reembolsado"
 
-  return "Não informado"
+  return paymentStatus
+}
+
+function isFinishedOrderStatus(status: string | null | undefined) {
+  const normalized = normalizeStatus(status)
+
+  return (
+    normalized === "delivered" ||
+    normalized === "completed" ||
+    normalized === "finalizado" ||
+    normalized === "finalizada" ||
+    normalized === "finished"
+  )
+}
+
+function isCancelledOrderStatus(status: string | null | undefined) {
+  const normalized = normalizeStatus(status)
+
+  return (
+    normalized === "cancelled" ||
+    normalized === "canceled" ||
+    normalized === "cancelado" ||
+    normalized === "cancelada"
+  )
+}
+
+function isPaidPaymentStatus(paymentStatus: string | null | undefined) {
+  const normalized = normalizeStatus(paymentStatus)
+
+  return (
+    normalized === "paid" ||
+    normalized === "pago" ||
+    normalized === "approved" ||
+    normalized === "confirmed"
+  )
+}
+
+function isCancelledPaymentStatus(paymentStatus: string | null | undefined) {
+  const normalized = normalizeStatus(paymentStatus)
+
+  return (
+    normalized === "cancelled" ||
+    normalized === "canceled" ||
+    normalized === "cancelado" ||
+    normalized === "cancelada" ||
+    normalized === "failed" ||
+    normalized === "falhou"
+  )
+}
+
+function isPendingPaymentStatus(paymentStatus: string | null | undefined) {
+  return !isPaidPaymentStatus(paymentStatus) && !isCancelledPaymentStatus(paymentStatus)
+}
+
+function getOrderStatusLabel(status: string | null | undefined) {
+  const normalized = normalizeStatus(status)
+
+  if (isAnalysisStatus(normalized)) return "Pendente"
+  if (isPreparationStatus(normalized)) return "Em preparo"
+  if (isReadyStatus(normalized)) return "Pronto"
+  if (normalized === "out_for_delivery" || normalized === "em_rota" || normalized === "em rota") return "Em rota"
+  if (isFinishedOrderStatus(normalized)) return "Finalizado"
+  if (isCancelledOrderStatus(normalized)) return "Cancelado"
+  if (normalized === "waiting_payment" || normalized === "awaiting_payment") return "Aguardando pagamento"
+
+  return status || "Não informado"
+}
+
+function getOrderStatusBadgeClasses(status: string | null | undefined) {
+  if (isFinishedOrderStatus(status)) {
+    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
+  }
+
+  if (isCancelledOrderStatus(status)) {
+    return "border-red-500/30 bg-red-500/10 text-red-300"
+  }
+
+  if (isReadyStatus(status)) {
+    return "border-yellow-500/30 bg-yellow-400/10 text-yellow-300"
+  }
+
+  if (isPreparationStatus(status)) {
+    return "border-blue-400/30 bg-blue-500/10 text-blue-300"
+  }
+
+  return "border-white/10 bg-[#050505] text-zinc-400"
+}
+
+function matchesHistoryStatus(order: OrderRow, filter: HistoryStatusFilter) {
+  if (filter === "all") return true
+  if (filter === "open") return getBoardStatus(order.status) !== null
+  if (filter === "finished") return isFinishedOrderStatus(order.status)
+  if (filter === "cancelled") return isCancelledOrderStatus(order.status)
+
+  return true
+}
+
+function matchesHistoryPaymentStatus(order: OrderRow, filter: HistoryPaymentStatusFilter) {
+  if (filter === "all") return true
+  if (filter === "paid") return isPaidPaymentStatus(order.payment_status)
+  if (filter === "pending") return isPendingPaymentStatus(order.payment_status)
+  if (filter === "cancelled") return isCancelledPaymentStatus(order.payment_status)
+
+  return true
+}
+
+function formatHistoryItemsSummary(items: OrderItem[]) {
+  if (items.length === 0) return "Itens não carregados"
+
+  const preview = items
+    .slice(0, 2)
+    .map((item) => `${item.quantity}x ${item.name}`)
+    .join(", ")
+
+  if (items.length <= 2) return preview
+
+  return `${preview} +${items.length - 2}`
 }
 
 function isDeliveryOrder(order: OrderRow) {
@@ -724,39 +921,6 @@ function getOrderTypeLabel(order: OrderRow) {
 
 function isPaidOrder(order: OrderRow) {
   return normalizeStatus(order.payment_status) === "paid"
-}
-
-function getPaymentBadgeClasses(paymentStatus: string | null) {
-  const normalized = normalizeStatus(paymentStatus)
-
-  if (normalized === "paid") {
-    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
-  }
-
-  if (normalized === "awaiting_review" || normalized === "waiting_customer_payment") {
-    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
-  }
-
-  if (normalized === "failed" || normalized === "cancelled") {
-    return "border-red-200 bg-red-50 text-red-700"
-  }
-
-  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
-}
-
-function getOrderTypeClasses(order: OrderRow) {
-  const paymentMethod = normalizeStatus(order.payment_method)
-  const customerName = normalizeStatus(order.customer_name)
-
-  if (paymentMethod === "mesa" || customerName.includes("mesa")) {
-    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
-  }
-
-  if (isDeliveryOrder(order)) {
-    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
-  }
-
-  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
 }
 
 function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
@@ -876,12 +1040,7 @@ function buildThermalOrderPayload(
     "number",
   ])
 
-  const neighborhood = getOrderTextField(order, [
-    "customer_neighborhood",
-    "delivery_neighborhood",
-    "neighborhood",
-    "bairro",
-  ])
+  const neighborhood = getOrderNeighborhood(order)
 
   const complement = getOrderTextField(order, [
     "customer_complement",
@@ -1018,9 +1177,7 @@ function OrderCard({
         : "Aceitar"
       : status === "preparation"
         ? "Pronto"
-        : isDelivery
-          ? "Enviar"
-          : "Finalizar"
+        : "Finalizar"
 
   const showCashChange =
     isCashPaymentMethod(order.payment_method) &&
@@ -1604,7 +1761,7 @@ function OrderCard({
                       ) : (
                         <CheckCircle2 className="h-4 w-4" />
                       )}
-                      {isDelivery ? "Enviar" : "Finalizar"}
+                      Finalizar
                     </button>
                   )}
                 </div>
@@ -1750,7 +1907,301 @@ function BoardColumn({
   )
 }
 
+type HistoryOrderDetailsModalProps = {
+  order: OrderRow
+  items: OrderItem[]
+  deliveryPeople: DeliveryPerson[]
+  onClose: () => void
+}
 
+function HistoryOrderDetailsModal({
+  order,
+  items,
+  deliveryPeople,
+  onClose,
+}: HistoryOrderDetailsModalProps) {
+  const deliveryAddress = getOrderAddress(order)
+  const neighborhood = getOrderNeighborhood(order)
+  const deliveryPersonName = getDeliveryPersonName(deliveryPeople, order.delivery_person_id)
+  const subtotal = Number(order.subtotal || 0)
+  const discount = Number(order.discount || 0)
+  const deliveryFee = Number(order.delivery_fee || 0)
+  const total = Number(order.total || 0)
+  const calculatedItemsTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0)
+  const shownSubtotal = subtotal > 0 ? subtotal : calculatedItemsTotal
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm">
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+
+      <div className="relative z-10 flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b] shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-[#0d0d0d] px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">
+              Histórico do pedido
+            </p>
+
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-black text-white">
+                Pedido #{getOrderNumber(order)}
+              </h3>
+
+              <span
+                className={[
+                  "inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide",
+                  getOrderStatusBadgeClasses(order.status),
+                ].join(" ")}
+              >
+                {getOrderStatusLabel(order.status)}
+              </span>
+            </div>
+
+            <p className="mt-1 text-xs font-semibold text-zinc-500">
+              Criado em {formatDateTime(order.created_at)}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#080808] text-zinc-500 transition hover:border-yellow-400/50 hover:text-white"
+            aria-label="Fechar histórico"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-black p-3">
+              <div className="flex items-center gap-2 text-zinc-500">
+                <User className="h-4 w-4 text-yellow-300" />
+                <p className="text-[10px] font-black uppercase tracking-wide">
+                  Cliente
+                </p>
+              </div>
+              <p className="mt-2 text-sm font-black text-white">
+                {getCustomerName(order)}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                {getCustomerPhone(order)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black p-3">
+              <div className="flex items-center gap-2 text-zinc-500">
+                <CreditCard className="h-4 w-4 text-yellow-300" />
+                <p className="text-[10px] font-black uppercase tracking-wide">
+                  Pagamento
+                </p>
+              </div>
+              <p className="mt-2 text-sm font-black text-white">
+                {getPaymentLabel(order.payment_method)}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                {getPaymentStatusLabel(order.payment_status)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black p-3">
+              <div className="flex items-center gap-2 text-zinc-500">
+                <Truck className="h-4 w-4 text-yellow-300" />
+                <p className="text-[10px] font-black uppercase tracking-wide">
+                  Entrega
+                </p>
+              </div>
+              <p className="mt-2 text-sm font-black text-white">
+                {getOrderTypeLabel(order)}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                Taxa: {formatBRL(order.delivery_fee)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="rounded-xl border border-white/10 bg-black p-3">
+              <div className="flex items-center gap-2 text-zinc-500">
+                <MapPin className="h-4 w-4 text-yellow-300" />
+                <p className="text-[10px] font-black uppercase tracking-wide">
+                  Endereço e bairro
+                </p>
+              </div>
+
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-400">
+                <span className="font-black text-white">Endereço:</span>{" "}
+                {deliveryAddress || "Não informado"}
+              </p>
+
+              <p className="mt-1 text-sm font-semibold leading-relaxed text-zinc-400">
+                <span className="font-black text-white">Bairro:</span>{" "}
+                {neighborhood || "Não informado"}
+              </p>
+
+              {deliveryPersonName && (
+                <p className="mt-1 text-sm font-semibold leading-relaxed text-zinc-400">
+                  <span className="font-black text-white">Motoboy:</span>{" "}
+                  {deliveryPersonName}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                Datas do pedido
+              </p>
+
+              <div className="mt-2 space-y-1.5 text-xs font-semibold text-zinc-500">
+                <p>Entrada: {formatDateTime(order.created_at)}</p>
+                {order.accepted_at && <p>Aceito: {formatDateTime(order.accepted_at)}</p>}
+                {order.preparation_started_at && <p>Preparo: {formatDateTime(order.preparation_started_at)}</p>}
+                {order.out_for_delivery_at && <p>Rota: {formatDateTime(order.out_for_delivery_at)}</p>}
+                {order.delivered_at && <p>Finalizado: {formatDateTime(order.delivered_at)}</p>}
+                {order.cancelled_at && <p>Cancelado: {formatDateTime(order.cancelled_at)}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black">
+            <div className="flex items-center justify-between border-b border-white/10 px-3 py-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                Itens do pedido
+              </p>
+              <span className="text-xs font-black text-zinc-500">
+                {formatItemCount(items.length)}
+              </span>
+            </div>
+
+            {items.length === 0 ? (
+              <p className="p-4 text-sm font-semibold text-zinc-500">
+                Nenhum item carregado para esse pedido.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px]">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-[#050505]">
+                      <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Produto
+                      </th>
+                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Qtd
+                      </th>
+                      <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Unitário
+                      </th>
+                      <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Subtotal
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {items.map((item) => {
+                      const unitPrice = item.quantity > 0 ? item.total / item.quantity : item.total
+
+                      return (
+                        <tr key={item.id} className="border-b border-white/10 last:border-0">
+                          <td className="px-3 py-3">
+                            <p className="text-sm font-black text-white">
+                              {item.name}
+                            </p>
+
+                            {getSafeOrderItemModifiers(item).map((modifier, index) => (
+                              <p
+                                key={`${modifier.groupId ?? modifier.groupName}-${modifier.optionId ?? modifier.optionName}-${index}`}
+                                className="mt-0.5 text-xs font-semibold text-zinc-500"
+                              >
+                                · {formatOrderItemModifier(modifier)}
+                              </p>
+                            ))}
+
+                            {item.notes && (
+                              <p className="mt-1 text-xs font-semibold text-yellow-300">
+                                Obs: {item.notes}
+                              </p>
+                            )}
+                          </td>
+
+                          <td className="px-3 py-3 text-center text-sm font-bold text-zinc-400">
+                            {item.quantity}
+                          </td>
+
+                          <td className="px-3 py-3 text-right text-sm font-semibold text-zinc-500">
+                            {formatBRL(unitPrice)}
+                          </td>
+
+                          <td className="px-3 py-3 text-right text-sm font-black text-white">
+                            {formatBRL(item.total)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="rounded-xl border border-white/10 bg-black p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                Observações
+              </p>
+
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-400">
+                {buildPrintNotes(order) || "Nenhuma observação registrada."}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-yellow-500/25 bg-yellow-400/10 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-yellow-300">
+                Resumo financeiro
+              </p>
+
+              <div className="mt-3 space-y-2 text-sm font-semibold">
+                <div className="flex justify-between gap-3 text-zinc-300">
+                  <span>Subtotal</span>
+                  <span>{formatBRL(shownSubtotal)}</span>
+                </div>
+
+                <div className="flex justify-between gap-3 text-zinc-300">
+                  <span>Taxa de entrega</span>
+                  <span>{formatBRL(deliveryFee)}</span>
+                </div>
+
+                {discount > 0 && (
+                  <div className="flex justify-between gap-3 text-zinc-300">
+                    <span>Desconto</span>
+                    <span>-{formatBRL(discount)}</span>
+                  </div>
+                )}
+
+                <div className="border-t border-yellow-500/20 pt-2">
+                  <div className="flex justify-between gap-3 text-base font-black text-white">
+                    <span>Total</span>
+                    <span>{formatBRL(total)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {order.pix_proof_url && (
+            <a
+              href={order.pix_proof_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex h-10 items-center justify-center rounded-xl border border-yellow-500/25 bg-yellow-400/10 px-4 text-sm font-black text-yellow-300 transition hover:bg-yellow-300/15"
+            >
+              Ver comprovante Pix
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function PedidosPage() {
   const { restaurant, user, isLoading: authLoading } = useAuth()
@@ -1760,6 +2211,7 @@ export default function PedidosPage() {
     Record<string, OrderItem[]>
   >({})
   const [deliveryPeople, setDeliveryPeople] = useState<DeliveryPerson[]>([])
+  const [allDeliveryPeople, setAllDeliveryPeople] = useState<DeliveryPerson[]>([])
   const [averagePrepTimeMinutes, setAveragePrepTimeMinutes] = useState(30)
   const [restaurantPrintData, setRestaurantPrintData] =
     useState<RestaurantPrintData | null>(null)
@@ -1768,13 +2220,26 @@ export default function PedidosPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [activeView, setActiveView] = useState<ViewMode>("operation")
   const [search, setSearch] = useState("")
+  const [historySearch, setHistorySearch] = useState("")
+  const [historyOrders, setHistoryOrders] = useState<OrderRow[]>([])
+  const [historyOrderItemsByOrderId, setHistoryOrderItemsByOrderId] = useState<
+    Record<string, OrderItem[]>
+  >({})
+  const [historyFilters, setHistoryFilters] = useState<HistoryFilters>(
+    DEFAULT_HISTORY_FILTERS
+  )
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyRefreshing, setHistoryRefreshing] = useState(false)
+  const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<OrderRow | null>(null)
+
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
-const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
-const [savingPrepTime, setSavingPrepTime] = useState(false)
-const [savingAutoAcceptOrders, setSavingAutoAcceptOrders] = useState(false)
-const [autoAcceptOrders, setAutoAcceptOrders] = useState(false)
-const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
+  const [savingPrepTime, setSavingPrepTime] = useState(false)
+  const [savingAutoAcceptOrders, setSavingAutoAcceptOrders] = useState(false)
+  const [autoAcceptOrders, setAutoAcceptOrders] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [nowMs, setNowMs] = useState(Date.now())
   const [orderAlertsEnabled, setOrderAlertsEnabled] = useState(false)
   const [kdsEnabled, setKdsEnabled] = useState(true)
@@ -1961,6 +2426,33 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
     [orderAlertsEnabled, playNewOrderSound]
   )
 
+  async function fetchOrderItemsMap(orderIds: string[]) {
+    if (orderIds.length === 0) return {}
+
+    const { data, error } = await supabase
+      .from("order_items")
+      .select("*")
+      .in("order_id", orderIds)
+
+    if (error) throw error
+
+    const grouped: Record<string, OrderItem[]> = {}
+
+    for (const rawItem of (data || []) as Record<string, unknown>[]) {
+      const item = normalizeOrderItem(rawItem)
+
+      if (!item.order_id) continue
+
+      if (!grouped[item.order_id]) {
+        grouped[item.order_id] = []
+      }
+
+      grouped[item.order_id].push(item)
+    }
+
+    return grouped
+  }
+
   async function loadOrderItems(orderIds: string[]) {
     if (orderIds.length === 0) {
       setOrderItemsByOrderId({})
@@ -1968,35 +2460,26 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
     }
 
     try {
-      const { data, error } = await supabase
-        .from("order_items")
-        .select("*")
-        .in("order_id", orderIds)
-
-      if (error) {
-        console.warn("Itens dos pedidos não carregados:", error.message)
-        setOrderItemsByOrderId({})
-        return
-      }
-
-      const grouped: Record<string, OrderItem[]> = {}
-
-      for (const rawItem of (data || []) as Record<string, unknown>[]) {
-        const item = normalizeOrderItem(rawItem)
-
-        if (!item.order_id) continue
-
-        if (!grouped[item.order_id]) {
-          grouped[item.order_id] = []
-        }
-
-        grouped[item.order_id].push(item)
-      }
-
+      const grouped = await fetchOrderItemsMap(orderIds)
       setOrderItemsByOrderId(grouped)
     } catch (err) {
       console.warn("Erro inesperado ao carregar itens dos pedidos:", err)
       setOrderItemsByOrderId({})
+    }
+  }
+
+  async function loadHistoryOrderItems(orderIds: string[]) {
+    if (orderIds.length === 0) {
+      setHistoryOrderItemsByOrderId({})
+      return
+    }
+
+    try {
+      const grouped = await fetchOrderItemsMap(orderIds)
+      setHistoryOrderItemsByOrderId(grouped)
+    } catch (err) {
+      console.warn("Erro inesperado ao carregar itens do histórico:", err)
+      setHistoryOrderItemsByOrderId({})
     }
   }
 
@@ -2046,6 +2529,76 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
     }
   }
 
+  async function loadHistoryOrders(showRefresh = false) {
+    if (!restaurant?.id) return
+
+    try {
+      if (showRefresh) {
+        setHistoryRefreshing(true)
+      } else {
+        setHistoryLoading(true)
+      }
+
+      setError(null)
+
+      const session = await ensureSupabaseSession()
+
+      if (!session) {
+        setHistoryLoading(false)
+        setHistoryRefreshing(false)
+        return
+      }
+
+      let query = supabase
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", restaurant.id)
+        .order("created_at", { ascending: false })
+        .limit(500)
+
+      if (historyFilters.dateFrom) {
+        query = query.gte("created_at", getDateStartIso(historyFilters.dateFrom))
+      }
+
+      if (historyFilters.dateTo) {
+        query = query.lte("created_at", getDateEndIso(historyFilters.dateTo))
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      const filteredRows = ((data || []) as OrderRow[]).filter((order) => {
+        const paymentMethodMatches =
+          historyFilters.paymentMethod === "all" ||
+          normalizeStatus(order.payment_method) === normalizeStatus(historyFilters.paymentMethod)
+
+        const deliveryPersonMatches =
+          historyFilters.deliveryPersonId === "all" ||
+          order.delivery_person_id === historyFilters.deliveryPersonId
+
+        return (
+          matchesHistoryStatus(order, historyFilters.status) &&
+          matchesHistoryPaymentStatus(order, historyFilters.paymentStatus) &&
+          paymentMethodMatches &&
+          deliveryPersonMatches
+        )
+      })
+
+      setHistoryOrders(filteredRows)
+
+      void loadHistoryOrderItems(filteredRows.map((order) => order.id))
+    } catch (err) {
+      console.error("Erro ao buscar histórico:", err)
+      setError(getErrorMessage(err, "Erro ao buscar histórico de pedidos."))
+      setHistoryOrders([])
+      setHistoryOrderItemsByOrderId({})
+    } finally {
+      setHistoryLoading(false)
+      setHistoryRefreshing(false)
+    }
+  }
+
   async function loadDeliveryPeople() {
     if (!restaurant?.id) return
 
@@ -2058,12 +2611,14 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
         .from("delivery_people")
         .select("id, name, phone, is_active, created_at")
         .eq("restaurant_id", restaurant.id)
-        .eq("is_active", true)
         .order("name", { ascending: true })
 
       if (error) throw error
 
-      setDeliveryPeople((data || []) as DeliveryPerson[])
+      const people = (data || []) as DeliveryPerson[]
+
+      setAllDeliveryPeople(people)
+      setDeliveryPeople(people.filter((person) => person.is_active))
     } catch (err) {
       console.error("Erro ao carregar entregadores:", err)
       setError(getErrorMessage(err, "Erro ao carregar entregadores."))
@@ -2126,52 +2681,52 @@ const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   }
 
   async function createDesktopPrintJob(orderId: string, forceReprint = false) {
-  const { data, error } = await supabase.rpc("create_order_print_job_for_order", {
-    p_order_id: orderId,
-    p_force_reprint: forceReprint,
-  })
-
-  if (error) throw error
-
-  const result = data as {
-    success?: boolean
-    error?: string
-    jobId?: string
-    status?: string
-    alreadyExists?: boolean
-  } | null
-
-  if (result?.success === false) {
-    throw new Error(result.error || "Erro ao criar job de impressão.")
-  }
-
-  return result
-}
-
-async function updateAutoAcceptOrders(nextValue: boolean) {
-  if (!restaurant?.id) return
-
-  const previousValue = autoAcceptOrders
-
-  try {
-    setSavingAutoAcceptOrders(true)
-    setAutoAcceptOrders(nextValue)
-    setError(null)
-
-    const { error } = await supabase
-      .from("restaurants")
-      .update({ auto_accept_orders: nextValue })
-      .eq("id", restaurant.id)
+    const { data, error } = await supabase.rpc("create_order_print_job_for_order", {
+      p_order_id: orderId,
+      p_force_reprint: forceReprint,
+    })
 
     if (error) throw error
-  } catch (err) {
-    console.error("Erro ao salvar aceite automático:", err)
-    setAutoAcceptOrders(previousValue)
-    setError(getErrorMessage(err, "Erro ao salvar aceite automático."))
-  } finally {
-    setSavingAutoAcceptOrders(false)
+
+    const result = data as {
+      success?: boolean
+      error?: string
+      jobId?: string
+      status?: string
+      alreadyExists?: boolean
+    } | null
+
+    if (result?.success === false) {
+      throw new Error(result.error || "Erro ao criar job de impressão.")
+    }
+
+    return result
   }
-}
+
+  async function updateAutoAcceptOrders(nextValue: boolean) {
+    if (!restaurant?.id) return
+
+    const previousValue = autoAcceptOrders
+
+    try {
+      setSavingAutoAcceptOrders(true)
+      setAutoAcceptOrders(nextValue)
+      setError(null)
+
+      const { error } = await supabase
+        .from("restaurants")
+        .update({ auto_accept_orders: nextValue })
+        .eq("id", restaurant.id)
+
+      if (error) throw error
+    } catch (err) {
+      console.error("Erro ao salvar aceite automático:", err)
+      setAutoAcceptOrders(previousValue)
+      setError(getErrorMessage(err, "Erro ao salvar aceite automático."))
+    } finally {
+      setSavingAutoAcceptOrders(false)
+    }
+  }
 
   async function loadInitialData() {
     if (!restaurant?.id) return
@@ -2373,6 +2928,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
       console.error("Erro ao notificar cliente sobre status do pedido IA:", error)
     }
   }
+
   async function updateOrder(
     order: OrderRow,
     action: "accept" | "cancel" | "ready" | "route" | "finish"
@@ -2397,6 +2953,7 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
       if (action === "cancel") {
         payload = {
           status: "cancelled",
+          payment_status: "cancelled",
           cancelled_at: nowIso,
         }
       }
@@ -2408,27 +2965,23 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
       }
 
       if (action === "route") {
-        if (!isDeliveryOrder(order)) {
-          payload = {
-            status: "delivered",
-            delivered_at: nowIso,
-          }
-        } else {
-          if (!order.delivery_person_id) {
-            setError("Selecione um motoboy antes de enviar o pedido para entrega.")
-            return
-          }
+        if (isDeliveryOrder(order) && !order.delivery_person_id) {
+          setError("Selecione um motoboy antes de finalizar a entrega.")
+          return
+        }
 
-          payload = {
-            status: "out_for_delivery",
-            out_for_delivery_at: nowIso,
-          }
+        payload = {
+          status: "delivered",
+          payment_status: "paid",
+          out_for_delivery_at: order.out_for_delivery_at || nowIso,
+          delivered_at: nowIso,
         }
       }
 
       if (action === "finish") {
         payload = {
           status: "delivered",
+          payment_status: "paid",
           delivered_at: nowIso,
         }
       }
@@ -2445,46 +2998,43 @@ async function updateAutoAcceptOrders(nextValue: boolean) {
       )
 
       const { error } = await supabase
-  .from("orders")
-  .update(payload)
-  .eq("id", order.id)
-  .eq("restaurant_id", restaurant?.id)
+        .from("orders")
+        .update(payload)
+        .eq("id", order.id)
+        .eq("restaurant_id", restaurant?.id)
 
-if (error) throw error
+      if (error) throw error
 
-if (typeof payload.status === "string" && payload.status.trim()) {
-  await notifyAiOrderStatus(order.id, payload.status)
-}
+      if (typeof payload.status === "string" && payload.status.trim()) {
+        await notifyAiOrderStatus(order.id, payload.status)
+      }
 
-if (action === "accept") {
-  try {
-    await deductStockForOrder(order.id)
-  } catch (stockError) {
-    console.error("Pedido aceito, mas estoque não foi baixado:", stockError)
+      if (action === "accept") {
+        try {
+          await deductStockForOrder(order.id)
+        } catch (stockError) {
+          console.error("Pedido aceito, mas estoque não foi baixado:", stockError)
 
-    setError(
-      getErrorMessage(
-        stockError,
-        "Pedido aceito, mas não foi possível baixar o estoque automaticamente."
-      )
-    )
-  }
+          setError(
+            getErrorMessage(
+              stockError,
+              "Pedido aceito, mas não foi possível baixar o estoque automaticamente."
+            )
+          )
+        }
 
-  try {
-    await createDesktopPrintJob(order.id)
-  } catch (printJobError) {
-    console.error("Pedido aceito, mas impressão desktop não foi gerada:", printJobError)
+        try {
+          await createDesktopPrintJob(order.id)
+        } catch (printJobError) {
+          console.error("Pedido aceito, mas impressão desktop não foi gerada:", printJobError)
 
-    setError(
-      getErrorMessage(
-        printJobError,
-        "Pedido aceito, mas não foi possível enviar para a fila de impressão desktop."
-      )
-    )
-  }
-}
-      if (payload.status) {
-        void notifyAiOrderStatus(order.id, String(payload.status))
+          setError(
+            getErrorMessage(
+              printJobError,
+              "Pedido aceito, mas não foi possível enviar para a fila de impressão desktop."
+            )
+          )
+        }
       }
 
       if (payload.status === "delivered") {
@@ -2514,89 +3064,89 @@ if (action === "accept") {
   }
 
   async function confirmPixPayment(order: OrderRow) {
-  const previousOrders = orders
-  const nowIso = new Date().toISOString()
+    const previousOrders = orders
+    const nowIso = new Date().toISOString()
 
-  try {
-    setBusyOrderId(order.id)
-    setError(null)
+    try {
+      setBusyOrderId(order.id)
+      setError(null)
 
-    const shouldAcceptAutomatically = autoAcceptOrders
+      const shouldAcceptAutomatically = autoAcceptOrders
 
-    let payload: Partial<OrderRow> = {
-      payment_status: "paid",
-      status: "pending",
-      pix_confirmed_at: nowIso,
-      pix_confirmed_by: user?.id ?? null,
-    }
-
-    if (shouldAcceptAutomatically) {
-      payload = {
-        ...payload,
-        status: "accepted",
-        accepted_at: nowIso,
-        preparation_started_at: nowIso,
+      let payload: Partial<OrderRow> = {
+        payment_status: "paid",
+        status: "pending",
+        pix_confirmed_at: nowIso,
+        pix_confirmed_by: user?.id ?? null,
       }
-    }
 
-    setOrders((current) =>
-      current.map((item) =>
-        item.id === order.id
-          ? {
-              ...item,
-              ...payload,
-            }
-          : item
+      if (shouldAcceptAutomatically) {
+        payload = {
+          ...payload,
+          status: "accepted",
+          accepted_at: nowIso,
+          preparation_started_at: nowIso,
+        }
+      }
+
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                ...payload,
+              }
+            : item
+        )
       )
-    )
 
-    const { error } = await supabase
-  .from("orders")
-  .update(payload)
-  .eq("id", order.id)
-  .eq("restaurant_id", restaurant?.id)
+      const { error } = await supabase
+        .from("orders")
+        .update(payload)
+        .eq("id", order.id)
+        .eq("restaurant_id", restaurant?.id)
 
-if (error) throw error
+      if (error) throw error
 
-if (typeof payload.status === "string" && payload.status.trim()) {
-  await notifyAiOrderStatus(order.id, payload.status)
-}
-
-if (shouldAcceptAutomatically) {
-      try {
-        await deductStockForOrder(order.id)
-      } catch (stockError) {
-        console.error("Pix confirmado, mas estoque não foi baixado:", stockError)
-
-        setError(
-          getErrorMessage(
-            stockError,
-            "Pix confirmado, mas não foi possível baixar o estoque automaticamente."
-          )
-        )
+      if (typeof payload.status === "string" && payload.status.trim()) {
+        await notifyAiOrderStatus(order.id, payload.status)
       }
 
-      try {
-        await createDesktopPrintJob(order.id)
-      } catch (printJobError) {
-        console.error("Pix confirmado, mas impressão desktop não foi gerada:", printJobError)
+      if (shouldAcceptAutomatically) {
+        try {
+          await deductStockForOrder(order.id)
+        } catch (stockError) {
+          console.error("Pix confirmado, mas estoque não foi baixado:", stockError)
 
-        setError(
-          getErrorMessage(
-            printJobError,
-            "Pix confirmado, mas não foi possível enviar para a fila de impressão desktop."
+          setError(
+            getErrorMessage(
+              stockError,
+              "Pix confirmado, mas não foi possível baixar o estoque automaticamente."
+            )
           )
-        )
+        }
+
+        try {
+          await createDesktopPrintJob(order.id)
+        } catch (printJobError) {
+          console.error("Pix confirmado, mas impressão desktop não foi gerada:", printJobError)
+
+          setError(
+            getErrorMessage(
+              printJobError,
+              "Pix confirmado, mas não foi possível enviar para a fila de impressão desktop."
+            )
+          )
+        }
       }
+    } catch (err) {
+      console.error("Erro ao confirmar Pix:", err)
+      setOrders(previousOrders)
+      setError(getErrorMessage(err, "Erro ao confirmar pagamento Pix."))
+    } finally {
+      setBusyOrderId(null)
     }
-  } catch (err) {
-    console.error("Erro ao confirmar Pix:", err)
-    setOrders(previousOrders)
-    setError(getErrorMessage(err, "Erro ao confirmar pagamento Pix."))
-  } finally {
-    setBusyOrderId(null)
   }
-}
 
   function handlePrintOrder(
     order: OrderRow,
@@ -2645,6 +3195,46 @@ if (shouldAcceptAutomatically) {
         buildThermalOrderPayload(order, orderItemsByOrderId[order.id] || [])
       ),
     })
+  }
+
+  function updateHistoryFilter(partial: Partial<HistoryFilters>) {
+    setHistoryFilters((current) => ({
+      ...current,
+      ...partial,
+    }))
+  }
+
+  function setHistoryToday() {
+    const today = getTodayInputDate()
+
+    setHistoryFilters((current) => ({
+      ...current,
+      dateFrom: today,
+      dateTo: today,
+    }))
+  }
+
+  function setHistoryYesterday() {
+    const yesterday = getYesterdayInputDate()
+
+    setHistoryFilters((current) => ({
+      ...current,
+      dateFrom: yesterday,
+      dateTo: yesterday,
+    }))
+  }
+
+  function setHistoryLastSevenDays() {
+    setHistoryFilters((current) => ({
+      ...current,
+      dateFrom: getLastSevenDaysInputDate(),
+      dateTo: getTodayInputDate(),
+    }))
+  }
+
+  function clearHistoryFilters() {
+    setHistoryFilters(DEFAULT_HISTORY_FILTERS)
+    setHistorySearch("")
   }
 
   useEffect(() => {
@@ -2725,13 +3315,18 @@ if (shouldAcceptAutomatically) {
     if (!user || !restaurant?.id) {
       setOrders([])
       setOrderItemsByOrderId({})
+      setHistoryOrders([])
+      setHistoryOrderItemsByOrderId({})
       setDeliveryPeople([])
+      setAllDeliveryPeople([])
       setNewOrderAlert(null)
       previousVisibleOrderIdsRef.current = new Set()
       notifiedOrderIdsRef.current = new Set()
       hasSeededVisibleOrdersRef.current = false
       setLoading(false)
       setRefreshing(false)
+      setHistoryLoading(false)
+      setHistoryRefreshing(false)
       setError(null)
       return
     }
@@ -2754,6 +3349,10 @@ if (shouldAcceptAutomatically) {
         },
         () => {
           void loadOrders(true)
+
+          if (activeView === "history") {
+            void loadHistoryOrders(true)
+          }
         }
       )
       .subscribe()
@@ -2779,7 +3378,7 @@ if (shouldAcceptAutomatically) {
       void supabase.removeChannel(ordersChannel)
       void supabase.removeChannel(deliveryPeopleChannel)
     }
-  }, [authLoading, restaurant?.id, user?.id])
+  }, [authLoading, restaurant?.id, user?.id, activeView])
 
   useEffect(() => {
     if (!restaurant?.id || !user?.id) return
@@ -2789,6 +3388,10 @@ if (shouldAcceptAutomatically) {
         void loadOrders(true)
         void loadDeliveryPeople()
         void loadRestaurantSettings()
+
+        if (activeView === "history") {
+          void loadHistoryOrders(true)
+        }
       }
     }
 
@@ -2796,6 +3399,10 @@ if (shouldAcceptAutomatically) {
       void loadOrders(true)
       void loadDeliveryPeople()
       void loadRestaurantSettings()
+
+      if (activeView === "history") {
+        void loadHistoryOrders(true)
+      }
     }
 
     document.addEventListener("visibilitychange", handlePageBack)
@@ -2805,7 +3412,24 @@ if (shouldAcceptAutomatically) {
       document.removeEventListener("visibilitychange", handlePageBack)
       window.removeEventListener("focus", handleWindowFocus)
     }
-  }, [restaurant?.id, user?.id])
+  }, [restaurant?.id, user?.id, activeView])
+
+  useEffect(() => {
+    if (authLoading || activeView !== "history" || !user || !restaurant?.id) return
+
+    void loadHistoryOrders()
+  }, [
+    activeView,
+    authLoading,
+    user?.id,
+    restaurant?.id,
+    historyFilters.dateFrom,
+    historyFilters.dateTo,
+    historyFilters.status,
+    historyFilters.paymentStatus,
+    historyFilters.paymentMethod,
+    historyFilters.deliveryPersonId,
+  ])
 
   const openOrders = useMemo(() => {
     return orders.filter((order) => getBoardStatus(order.status) !== null)
@@ -2828,6 +3452,69 @@ if (shouldAcceptAutomatically) {
       )
     })
   }, [openOrders, search])
+
+  const filteredHistoryOrders = useMemo(() => {
+    const normalizedSearch = historySearch.trim().toLowerCase()
+
+    return historyOrders.filter((order) => {
+      if (!normalizedSearch) return true
+
+      const items = historyOrderItemsByOrderId[order.id] || []
+      const customerName = getCustomerName(order).toLowerCase()
+      const customerPhone = getCustomerPhone(order).toLowerCase()
+      const orderNumber = getOrderNumber(order).toLowerCase()
+      const address = String(getOrderAddress(order) || "").toLowerCase()
+      const neighborhood = String(getOrderNeighborhood(order) || "").toLowerCase()
+      const itemNames = items.map((item) => item.name.toLowerCase()).join(" ")
+
+      return (
+        customerName.includes(normalizedSearch) ||
+        customerPhone.includes(normalizedSearch) ||
+        orderNumber.includes(normalizedSearch) ||
+        address.includes(normalizedSearch) ||
+        neighborhood.includes(normalizedSearch) ||
+        itemNames.includes(normalizedSearch)
+      )
+    })
+  }, [historyOrders, historySearch, historyOrderItemsByOrderId])
+
+  const historyStats = useMemo(() => {
+    const totalOrders = filteredHistoryOrders.length
+    const revenue = filteredHistoryOrders.reduce(
+      (sum, order) => sum + Number(order.total || 0),
+      0
+    )
+    const deliveryFees = filteredHistoryOrders.reduce(
+      (sum, order) => sum + Number(order.delivery_fee || 0),
+      0
+    )
+    const finishedOrders = filteredHistoryOrders.filter((order) =>
+      isFinishedOrderStatus(order.status)
+    ).length
+    const cancelledOrders = filteredHistoryOrders.filter((order) =>
+      isCancelledOrderStatus(order.status)
+    ).length
+
+    return {
+      totalOrders,
+      revenue,
+      deliveryFees,
+      finishedOrders,
+      cancelledOrders,
+    }
+  }, [filteredHistoryOrders])
+
+  const uniquePaymentMethods = useMemo(() => {
+    const methods = new Set<string>()
+
+    historyOrders.forEach((order) => {
+      if (order.payment_method) {
+        methods.add(order.payment_method)
+      }
+    })
+
+    return Array.from(methods).sort((a, b) => a.localeCompare(b))
+  }, [historyOrders])
 
   const selectedOrderIdSet = useMemo(() => {
     return new Set(selectedOrderIds)
@@ -2855,9 +3542,6 @@ if (shouldAcceptAutomatically) {
     [filteredOrders]
   )
 
-
-
-
   return (
     <AdminLayout title="Pedidos" description="Central operacional do restaurante">
       <div className="min-h-[calc(100vh-90px)] rounded-[2rem] bg-black p-2 sm:p-4">
@@ -2873,215 +3557,451 @@ if (shouldAcceptAutomatically) {
                     Pedidos
                   </h1>
                   <p className="mt-1 text-sm font-semibold text-zinc-500">
-                    Recebimento limpo, rápido e focado na ação do restaurante.
+                    Recebimento, operação e histórico completo dos pedidos.
                   </p>
                 </div>
 
-                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-black px-3 py-1.5 text-xs font-black text-zinc-500">
-                  <span className="h-2 w-2 rounded-full bg-yellow-400" />
-                  Operação em tempo real
-                </div>
-              </div>
-
-              <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
-                <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
-                  <div className="relative min-w-0">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-
-                    <input
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Buscar cliente, telefone ou pedido..."
-                      className="h-10 w-full rounded-xl border border-white/10 bg-black pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
-                    />
-                  </div>
-
-                  <div className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-black px-3">
-                    <Settings2 className="h-4 w-4 shrink-0 text-yellow-300" />
-
-                    <span className="whitespace-nowrap text-sm font-semibold text-zinc-500">
-                      Tempo:
-                    </span>
-
-                    <select
-                      value={averagePrepTimeMinutes}
-                      onChange={(event) =>
-                        updateAveragePrepTime(Number(event.target.value))
-                      }
-                      disabled={savingPrepTime}
-                      className="h-8 flex-1 rounded-lg border border-white/10 bg-[#050505] px-2 text-sm font-black text-white outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
-                    >
-                      <option value={10}>10 min</option>
-                      <option value={15}>15 min</option>
-                      <option value={20}>20 min</option>
-                      <option value={25}>25 min</option>
-                      <option value={30}>30 min</option>
-                      <option value={35}>35 min</option>
-                      <option value={40}>40 min</option>
-                      <option value={45}>45 min</option>
-                      <option value={50}>50 min</option>
-                      <option value={60}>60 min</option>
-                    </select>
-
-                    {savingPrepTime && (
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-yellow-300" />
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
-                  <p className="rounded-lg border border-white/10 bg-black px-3 py-2 text-xs font-semibold text-zinc-500">
-                    {lastUpdatedAt
-                      ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}`
-                      : "Aguardando dados..."}
-                  </p>
-
+                <div className="flex w-fit rounded-xl border border-white/10 bg-black p-1">
                   <button
                     type="button"
-                    onClick={() => void refreshAll()}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-black px-4 text-sm font-black text-white transition hover:border-yellow-400/50 hover:bg-[#050505]"
+                    onClick={() => setActiveView("operation")}
+                    className={[
+                      "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition",
+                      activeView === "operation"
+                        ? "bg-yellow-400 text-black"
+                        : "text-zinc-500 hover:bg-[#050505] hover:text-white",
+                    ].join(" ")}
                   >
-                    {refreshing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCcw className="h-4 w-4" />
-                    )}
-                    Atualizar
+                    <Package className="h-4 w-4" />
+                    Operação
                   </button>
 
                   <button
                     type="button"
-                    onClick={toggleKdsEnabled}
+                    onClick={() => setActiveView("history")}
                     className={[
-                      "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition",
-                      kdsEnabled
-                        ? "border-yellow-500/30 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-300/15"
-                        : "border-white/10 bg-[#050505] text-zinc-500 hover:border-yellow-400/50",
+                      "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition",
+                      activeView === "history"
+                        ? "bg-yellow-400 text-black"
+                        : "text-zinc-500 hover:bg-[#050505] hover:text-white",
                     ].join(" ")}
-                    title={
-                      kdsEnabled
-                        ? "KDS ativo: a cozinha controla quando o pedido fica pronto."
-                        : "KDS desativado: a aba Pedidos controla envio/finalização."
-                    }
                   >
-                    <ChefHat className="h-4 w-4" />
-                    {kdsEnabled ? "KDS ativo" : "KDS desativado"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => void updateAutoAcceptOrders(!autoAcceptOrders)}
-                    disabled={savingAutoAcceptOrders}
-                    className={[
-                      "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60",
-                      autoAcceptOrders
-                        ? "border-yellow-500/30 bg-yellow-400 text-black hover:bg-yellow-300"
-                        : "border-white/10 bg-black text-white hover:border-yellow-400/50 hover:bg-[#050505]",
-                    ].join(" ")}
-                    title={
-                      autoAcceptOrders
-                        ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
-                        : "Pedidos serão impressos somente depois do aceite manual do restaurante."
-                    }
-                  >
-                    {savingAutoAcceptOrders ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4" />
-                    )}
-
-                    {autoAcceptOrders ? "Aceite ligado" : "Aceite automático"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (orderAlertsEnabled) {
-                        disableOrderAlerts()
-                        return
-                      }
-
-                      void enableOrderAlerts()
-                    }}
-                    className={[
-                      "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition",
-                      orderAlertsEnabled
-                        ? "border-yellow-500/30 bg-yellow-400 text-black hover:bg-yellow-300"
-                        : "border-yellow-500/30 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-300/15",
-                    ].join(" ")}
-                    title={
-                      notificationPermission === "denied"
-                        ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
-                        : undefined
-                    }
-                  >
-                    {orderAlertsEnabled ? (
-                      <Volume2 className="h-4 w-4" />
-                    ) : (
-                      <BellRing className="h-4 w-4" />
-                    )}
-                    {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
+                    <History className="h-4 w-4" />
+                    Histórico
                   </button>
                 </div>
               </div>
 
-              {filteredOrders.length > 0 && (
-                <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black p-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="text-sm font-black text-white">
-                      Impressão
-                    </p>
+              {activeView === "operation" ? (
+                <>
+                  <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
+                      <div className="relative min-w-0">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
 
-                    <p className="mt-0.5 text-xs font-semibold text-zinc-500">
-                      {selectedVisibleOrders.length > 0
-                        ? `${selectedVisibleOrders.length} ${selectedVisibleOrders.length === 1 ? "pedido selecionado" : "pedidos selecionados"} de ${filteredOrders.length} ${filteredOrders.length === 1 ? "visível" : "visíveis"}.`
-                        : "Selecione os pedidos que deseja imprimir."}
-                    </p>
+                        <input
+                          value={search}
+                          onChange={(event) => setSearch(event.target.value)}
+                          placeholder="Buscar cliente, telefone ou pedido..."
+                          className="h-10 w-full rounded-xl border border-white/10 bg-black pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+                        />
+                      </div>
+
+                      <div className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-black px-3">
+                        <Settings2 className="h-4 w-4 shrink-0 text-yellow-300" />
+
+                        <span className="whitespace-nowrap text-sm font-semibold text-zinc-500">
+                          Tempo:
+                        </span>
+
+                        <select
+                          value={averagePrepTimeMinutes}
+                          onChange={(event) =>
+                            updateAveragePrepTime(Number(event.target.value))
+                          }
+                          disabled={savingPrepTime}
+                          className="h-8 flex-1 rounded-lg border border-white/10 bg-[#050505] px-2 text-sm font-black text-white outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+                        >
+                          <option value={10}>10 min</option>
+                          <option value={15}>15 min</option>
+                          <option value={20}>20 min</option>
+                          <option value={25}>25 min</option>
+                          <option value={30}>30 min</option>
+                          <option value={35}>35 min</option>
+                          <option value={40}>40 min</option>
+                          <option value={45}>45 min</option>
+                          <option value={50}>50 min</option>
+                          <option value={60}>60 min</option>
+                        </select>
+
+                        {savingPrepTime && (
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-yellow-300" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
+                      <p className="rounded-lg border border-white/10 bg-black px-3 py-2 text-xs font-semibold text-zinc-500">
+                        {lastUpdatedAt
+                          ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}`
+                          : "Aguardando dados..."}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => void refreshAll()}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-black px-4 text-sm font-black text-white transition hover:border-yellow-400/50 hover:bg-[#050505]"
+                      >
+                        {refreshing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="h-4 w-4" />
+                        )}
+                        Atualizar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={toggleKdsEnabled}
+                        className={[
+                          "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition",
+                          kdsEnabled
+                            ? "border-yellow-500/30 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-300/15"
+                            : "border-white/10 bg-[#050505] text-zinc-500 hover:border-yellow-400/50",
+                        ].join(" ")}
+                        title={
+                          kdsEnabled
+                            ? "KDS ativo: a cozinha controla quando o pedido fica pronto."
+                            : "KDS desativado: a aba Pedidos controla envio/finalização."
+                        }
+                      >
+                        <ChefHat className="h-4 w-4" />
+                        {kdsEnabled ? "KDS ativo" : "KDS desativado"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void updateAutoAcceptOrders(!autoAcceptOrders)}
+                        disabled={savingAutoAcceptOrders}
+                        className={[
+                          "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60",
+                          autoAcceptOrders
+                            ? "border-yellow-500/30 bg-yellow-400 text-black hover:bg-yellow-300"
+                            : "border-white/10 bg-black text-white hover:border-yellow-400/50 hover:bg-[#050505]",
+                        ].join(" ")}
+                        title={
+                          autoAcceptOrders
+                            ? "Pedidos confirmados pelo cliente serão aceitos automaticamente e enviados para impressão desktop."
+                            : "Pedidos serão impressos somente depois do aceite manual do restaurante."
+                        }
+                      >
+                        {savingAutoAcceptOrders ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+
+                        {autoAcceptOrders ? "Aceite ligado" : "Aceite automático"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (orderAlertsEnabled) {
+                            disableOrderAlerts()
+                            return
+                          }
+
+                          void enableOrderAlerts()
+                        }}
+                        className={[
+                          "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition",
+                          orderAlertsEnabled
+                            ? "border-yellow-500/30 bg-yellow-400 text-black hover:bg-yellow-300"
+                            : "border-yellow-500/30 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-300/15",
+                        ].join(" ")}
+                        title={
+                          notificationPermission === "denied"
+                            ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
+                            : undefined
+                        }
+                      >
+                        {orderAlertsEnabled ? (
+                          <Volume2 className="h-4 w-4" />
+                        ) : (
+                          <BellRing className="h-4 w-4" />
+                        )}
+                        {orderAlertsEnabled ? "Alertas ativos" : "Ativar alertas"}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-[#050505] px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50"
-                    >
-                      Selecionar pedidos
-                    </button>
+                  {filteredOrders.length > 0 && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black p-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-sm font-black text-white">
+                          Impressão
+                        </p>
 
-                    <button
-                      type="button"
-                      onClick={() => handlePrintSelectedOrders("kitchen")}
-                      disabled={selectedVisibleOrders.length === 0}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-yellow-500/25 bg-yellow-400/10 px-3 text-xs font-black text-yellow-300 transition hover:bg-yellow-300/15 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <ChefHat className="h-4 w-4" />
-                      Cozinha ({selectedVisibleOrders.length})
-                    </button>
+                        <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                          {selectedVisibleOrders.length > 0
+                            ? `${selectedVisibleOrders.length} ${selectedVisibleOrders.length === 1 ? "pedido selecionado" : "pedidos selecionados"} de ${filteredOrders.length} ${filteredOrders.length === 1 ? "visível" : "visíveis"}.`
+                            : "Selecione os pedidos que deseja imprimir."}
+                        </p>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handlePrintSelectedOrders("receipt")}
-                      disabled={selectedVisibleOrders.length === 0}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#050505] px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <Printer className="h-4 w-4" />
-                      Recibos ({selectedVisibleOrders.length})
-                    </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => selectVisibleOrders(filteredOrders.map((order) => order.id))}
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-[#050505] px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50"
+                        >
+                          Selecionar pedidos
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={clearSelectedOrders}
-                      disabled={selectedVisibleOrders.length === 0}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-[#050505] px-3 text-xs font-black text-zinc-500 transition hover:border-yellow-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      Limpar
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePrintSelectedOrders("kitchen")}
+                          disabled={selectedVisibleOrders.length === 0}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-yellow-500/25 bg-yellow-400/10 px-3 text-xs font-black text-yellow-300 transition hover:bg-yellow-300/15 disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          <ChefHat className="h-4 w-4" />
+                          Cozinha ({selectedVisibleOrders.length})
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handlePrintSelectedOrders("receipt")}
+                          disabled={selectedVisibleOrders.length === 0}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#050505] px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50 disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          <Printer className="h-4 w-4" />
+                          Recibos ({selectedVisibleOrders.length})
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={clearSelectedOrders}
+                          disabled={selectedVisibleOrders.length === 0}
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-[#050505] px-3 text-xs font-black text-zinc-500 transition hover:border-yellow-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3">
+  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.5fr)_150px_150px_170px_170px_190px]">
+    <div className="relative min-w-0">
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+
+      <input
+        value={historySearch}
+        onChange={(event) => setHistorySearch(event.target.value)}
+        placeholder="Buscar pedido, cliente, telefone, bairro ou item..."
+        className="h-10 w-full rounded-xl border border-white/10 bg-black pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+      />
+    </div>
+
+    <input
+      type="date"
+      value={historyFilters.dateFrom}
+      onChange={(event) => updateHistoryFilter({ dateFrom: event.target.value })}
+      className="h-10 w-full rounded-xl border border-white/10 bg-black px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+    />
+
+    <input
+      type="date"
+      value={historyFilters.dateTo}
+      onChange={(event) => updateHistoryFilter({ dateTo: event.target.value })}
+      className="h-10 w-full rounded-xl border border-white/10 bg-black px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+    />
+
+    <select
+      value={historyFilters.status}
+      onChange={(event) =>
+        updateHistoryFilter({
+          status: event.target.value as HistoryStatusFilter,
+        })
+      }
+      className="h-10 w-full rounded-xl border border-white/10 bg-black px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+    >
+      <option value="all">Todos status</option>
+      <option value="open">Em aberto</option>
+      <option value="finished">Finalizados</option>
+      <option value="cancelled">Cancelados</option>
+    </select>
+
+    <select
+      value={historyFilters.paymentStatus}
+      onChange={(event) =>
+        updateHistoryFilter({
+          paymentStatus: event.target.value as HistoryPaymentStatusFilter,
+        })
+      }
+      className="h-10 w-full rounded-xl border border-white/10 bg-black px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+    >
+      <option value="all">Todos pagamentos</option>
+      <option value="paid">Pago</option>
+      <option value="pending">Pendente</option>
+      <option value="cancelled">Cancelado/Falhou</option>
+    </select>
+
+    <select
+      value={historyFilters.deliveryPersonId}
+      onChange={(event) =>
+        updateHistoryFilter({
+          deliveryPersonId: event.target.value,
+        })
+      }
+      className="h-10 w-full rounded-xl border border-white/10 bg-black px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/10"
+    >
+      <option value="all">Todos motoboys</option>
+      {allDeliveryPeople.map((person) => (
+        <option key={person.id} value={person.id}>
+          {person.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={setHistoryToday}
+        className="inline-flex h-9 items-center justify-center rounded-xl border border-white/10 bg-black px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50"
+      >
+        Hoje
+      </button>
+
+      <button
+        type="button"
+        onClick={setHistoryYesterday}
+        className="inline-flex h-9 items-center justify-center rounded-xl border border-white/10 bg-black px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50"
+      >
+        Ontem
+      </button>
+
+      <button
+        type="button"
+        onClick={setHistoryLastSevenDays}
+        className="inline-flex h-9 items-center justify-center rounded-xl border border-white/10 bg-black px-3 text-xs font-black text-zinc-100 transition hover:border-yellow-400/50"
+      >
+        7 dias
+      </button>
+
+      <button
+        type="button"
+        onClick={clearHistoryFilters}
+        className="inline-flex h-9 items-center justify-center rounded-xl border border-white/10 bg-black px-3 text-xs font-black text-zinc-500 transition hover:border-yellow-400/50 hover:text-white"
+      >
+        Limpar
+      </button>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => void loadHistoryOrders(true)}
+      className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-400/10 px-4 text-sm font-black text-yellow-300 transition hover:bg-yellow-300/15 sm:w-auto"
+    >
+      {historyRefreshing ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <RefreshCcw className="h-4 w-4" />
+      )}
+      Atualizar histórico
+    </button>
+  </div>
+</div>
+
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                    <div className="rounded-xl border border-white/10 bg-black p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Pedidos
+                      </p>
+                      <p className="mt-1 text-xl font-black text-white">
+                        {historyStats.totalOrders}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Total vendido
+                      </p>
+                      <p className="mt-1 text-xl font-black text-yellow-300">
+                        {formatBRL(historyStats.revenue)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Taxas de entrega
+                      </p>
+                      <p className="mt-1 text-xl font-black text-white">
+                        {formatBRL(historyStats.deliveryFees)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Finalizados
+                      </p>
+                      <p className="mt-1 text-xl font-black text-emerald-400">
+                        {historyStats.finishedOrders}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                        Cancelados
+                      </p>
+                      <p className="mt-1 text-xl font-black text-red-300">
+                        {historyStats.cancelledOrders}
+                      </p>
+                    </div>
                   </div>
-                </div>
+
+                  {uniquePaymentMethods.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateHistoryFilter({ paymentMethod: "all" })}
+                        className={[
+                          "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                          historyFilters.paymentMethod === "all"
+                            ? "border-yellow-500/30 bg-yellow-400 text-black"
+                            : "border-white/10 bg-black text-zinc-500 hover:border-yellow-400/50 hover:text-white",
+                        ].join(" ")}
+                      >
+                        Todos
+                      </button>
+
+                      {uniquePaymentMethods.map((method) => (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => updateHistoryFilter({ paymentMethod: method })}
+                          className={[
+                            "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                            historyFilters.paymentMethod === method
+                              ? "border-yellow-500/30 bg-yellow-400 text-black"
+                              : "border-white/10 bg-black text-zinc-500 hover:border-yellow-400/50 hover:text-white",
+                          ].join(" ")}
+                        >
+                          {getPaymentLabel(method)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
               {error && (
@@ -3090,7 +4010,7 @@ if (shouldAcceptAutomatically) {
                 </div>
               )}
 
-              {newOrderAlert && (
+              {activeView === "operation" && newOrderAlert && (
                 <div className="overflow-hidden rounded-xl border border-yellow-500/30 bg-yellow-400/10 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -3123,90 +4043,263 @@ if (shouldAcceptAutomatically) {
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-[#0b0b0b] py-20 shadow-sm">
-              <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
-                <Loader2 className="h-4 w-4 animate-spin text-yellow-300" />
-                Carregando operação...
+          {activeView === "operation" ? (
+            loading ? (
+              <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-[#0b0b0b] py-20 shadow-sm">
+                <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
+                  <Loader2 className="h-4 w-4 animate-spin text-yellow-300" />
+                  Carregando operação...
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="overflow-x-auto pb-2">
+                <div className="grid min-w-[1080px] grid-cols-3 gap-4">
+                  <BoardColumn
+                    status="analysis"
+                    orders={analysisOrders}
+                    orderItemsByOrderId={orderItemsByOrderId}
+                    deliveryPeople={deliveryPeople}
+                    averagePrepTimeMinutes={averagePrepTimeMinutes}
+                    nowMs={nowMs}
+                    busyOrderId={busyOrderId}
+                    kdsEnabled={kdsEnabled}
+                    selectedOrderIds={selectedOrderIdSet}
+                    onToggleSelected={toggleOrderSelection}
+                    onAccept={(order) => void updateOrder(order, "accept")}
+                    onCancel={(order) => void updateOrder(order, "cancel")}
+                    onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                    onMarkReady={(order) => void updateOrder(order, "ready")}
+                    onSendToRoute={(order) => void updateOrder(order, "route")}
+                    onFinish={(order) => void updateOrder(order, "finish")}
+                    onPrint={handlePrintOrder}
+                    onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                      void assignDeliveryPerson(orderId, deliveryPersonId)
+                    }
+                  />
+
+                  <BoardColumn
+                    status="preparation"
+                    orders={preparationOrders}
+                    orderItemsByOrderId={orderItemsByOrderId}
+                    deliveryPeople={deliveryPeople}
+                    averagePrepTimeMinutes={averagePrepTimeMinutes}
+                    nowMs={nowMs}
+                    busyOrderId={busyOrderId}
+                    kdsEnabled={kdsEnabled}
+                    selectedOrderIds={selectedOrderIdSet}
+                    onToggleSelected={toggleOrderSelection}
+                    onAccept={(order) => void updateOrder(order, "accept")}
+                    onCancel={(order) => void updateOrder(order, "cancel")}
+                    onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                    onMarkReady={(order) => void updateOrder(order, "ready")}
+                    onSendToRoute={(order) => void updateOrder(order, "route")}
+                    onFinish={(order) => void updateOrder(order, "finish")}
+                    onPrint={handlePrintOrder}
+                    onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                      void assignDeliveryPerson(orderId, deliveryPersonId)
+                    }
+                  />
+
+                  <BoardColumn
+                    status="ready"
+                    orders={readyOrders}
+                    orderItemsByOrderId={orderItemsByOrderId}
+                    deliveryPeople={deliveryPeople}
+                    averagePrepTimeMinutes={averagePrepTimeMinutes}
+                    nowMs={nowMs}
+                    busyOrderId={busyOrderId}
+                    kdsEnabled={kdsEnabled}
+                    selectedOrderIds={selectedOrderIdSet}
+                    onToggleSelected={toggleOrderSelection}
+                    onAccept={(order) => void updateOrder(order, "accept")}
+                    onCancel={(order) => void updateOrder(order, "cancel")}
+                    onConfirmPixPayment={(order) => void confirmPixPayment(order)}
+                    onMarkReady={(order) => void updateOrder(order, "ready")}
+                    onSendToRoute={(order) => void updateOrder(order, "route")}
+                    onFinish={(order) => void updateOrder(order, "finish")}
+                    onPrint={handlePrintOrder}
+                    onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
+                      void assignDeliveryPerson(orderId, deliveryPersonId)
+                    }
+                  />
+                </div>
+              </div>
+            )
           ) : (
-            <div className="overflow-x-auto pb-2">
-              <div className="grid min-w-[1080px] grid-cols-3 gap-4">
-                <BoardColumn
-                  status="analysis"
-                  orders={analysisOrders}
-                  orderItemsByOrderId={orderItemsByOrderId}
-                  deliveryPeople={deliveryPeople}
-                  averagePrepTimeMinutes={averagePrepTimeMinutes}
-                  nowMs={nowMs}
-                  busyOrderId={busyOrderId}
-                  kdsEnabled={kdsEnabled}
-                  selectedOrderIds={selectedOrderIdSet}
-                  onToggleSelected={toggleOrderSelection}
-                  onAccept={(order) => void updateOrder(order, "accept")}
-                  onCancel={(order) => void updateOrder(order, "cancel")}
-                  onConfirmPixPayment={(order) => void confirmPixPayment(order)}
-                  onMarkReady={(order) => void updateOrder(order, "ready")}
-                  onSendToRoute={(order) => void updateOrder(order, "route")}
-                  onFinish={(order) => void updateOrder(order, "finish")}
-                  onPrint={handlePrintOrder}
-                  onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                    void assignDeliveryPerson(orderId, deliveryPersonId)
-                  }
-                />
+            <div className="rounded-2xl border border-white/10 bg-[#0b0b0b] shadow-sm">
+              {historyLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500">
+                    <Loader2 className="h-4 w-4 animate-spin text-yellow-300" />
+                    Carregando histórico...
+                  </div>
+                </div>
+              ) : filteredHistoryOrders.length === 0 ? (
+                <div className="flex items-center justify-center py-20 text-center">
+                  <div>
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black text-zinc-500">
+                      <History className="h-6 w-6" />
+                    </div>
+                    <p className="text-sm font-black text-white">
+                      Nenhum pedido encontrado
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-zinc-500">
+                      Ajuste os filtros ou escolha outro período.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-hidden">
+  <table className="w-full table-fixed">
+    <colgroup>
+                    <col className="w-[17%]" />
+                    <col className="w-[32%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[11%]" />
+                  </colgroup>
+                    <thead>
+  <tr className="border-b border-white/10 bg-[#0d0d0d]">
+    <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
+      Pedido / Cliente
+    </th>
 
-                <BoardColumn
-                  status="preparation"
-                  orders={preparationOrders}
-                  orderItemsByOrderId={orderItemsByOrderId}
-                  deliveryPeople={deliveryPeople}
-                  averagePrepTimeMinutes={averagePrepTimeMinutes}
-                  nowMs={nowMs}
-                  busyOrderId={busyOrderId}
-                  kdsEnabled={kdsEnabled}
-                  selectedOrderIds={selectedOrderIdSet}
-                  onToggleSelected={toggleOrderSelection}
-                  onAccept={(order) => void updateOrder(order, "accept")}
-                  onCancel={(order) => void updateOrder(order, "cancel")}
-                  onConfirmPixPayment={(order) => void confirmPixPayment(order)}
-                  onMarkReady={(order) => void updateOrder(order, "ready")}
-                  onSendToRoute={(order) => void updateOrder(order, "route")}
-                  onFinish={(order) => void updateOrder(order, "finish")}
-                  onPrint={handlePrintOrder}
-                  onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                    void assignDeliveryPerson(orderId, deliveryPersonId)
-                  }
-                />
+    <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
+      Entrega
+    </th>
 
-                <BoardColumn
-                  status="ready"
-                  orders={readyOrders}
-                  orderItemsByOrderId={orderItemsByOrderId}
-                  deliveryPeople={deliveryPeople}
-                  averagePrepTimeMinutes={averagePrepTimeMinutes}
-                  nowMs={nowMs}
-                  busyOrderId={busyOrderId}
-                  kdsEnabled={kdsEnabled}
-                  selectedOrderIds={selectedOrderIdSet}
-                  onToggleSelected={toggleOrderSelection}
-                  onAccept={(order) => void updateOrder(order, "accept")}
-                  onCancel={(order) => void updateOrder(order, "cancel")}
-                  onConfirmPixPayment={(order) => void confirmPixPayment(order)}
-                  onMarkReady={(order) => void updateOrder(order, "ready")}
-                  onSendToRoute={(order) => void updateOrder(order, "route")}
-                  onFinish={(order) => void updateOrder(order, "finish")}
-                  onPrint={handlePrintOrder}
-                  onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                    void assignDeliveryPerson(orderId, deliveryPersonId)
-                  }
-                />
-              </div>
+    <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
+      Itens
+    </th>
+
+    <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
+      Pagamento
+    </th>
+
+    <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wide text-zinc-500">
+      Valor
+    </th>
+  </tr>
+</thead>
+
+                    <tbody>
+                      {filteredHistoryOrders.map((order) => {
+                        const items = historyOrderItemsByOrderId[order.id] || []
+                        const address = getOrderAddress(order)
+                        const neighborhood = getOrderNeighborhood(order)
+                        const deliveryPersonName = getDeliveryPersonName(
+                          allDeliveryPeople,
+                          order.delivery_person_id
+                        )
+
+                        return (
+                          <tr
+                            key={order.id}
+                            className="border-b border-white/10 last:border-0 transition hover:bg-[#050505]"
+                          >
+                            <td className="px-2.5 py-2 align-top">
+                              <p className="truncate text-xs font-black text-yellow-300">
+                                #{getOrderNumber(order)}
+                              </p>
+
+                              <p className="mt-0.5 truncate text-xs font-black text-white">
+                                {getCustomerName(order)}
+                              </p>
+
+                              <p className="truncate text-[10px] font-semibold text-zinc-500">
+                                {getCustomerPhone(order)}
+                              </p>
+
+                              <p className="mt-0.5 truncate text-[10px] font-semibold text-zinc-600">
+                                {getOrderTypeLabel(order)}
+                              </p>
+                            </td>
+
+                            <td className="px-2.5 py-2 align-top">
+                              <p className="truncate text-xs font-semibold text-zinc-400">
+                                {address || "Sem endereço"}
+                              </p>
+
+                              <p className="truncate text-[10px] font-black uppercase text-zinc-500">
+                                {neighborhood || "Bairro não informado"}
+                              </p>
+
+                              <p className="truncate text-[10px] font-semibold text-zinc-600">
+                                Motoboy: {deliveryPersonName || "Não informado"}
+                              </p>
+                            </td>
+
+                            <td className="px-2.5 py-2 align-top">
+                              <p className="truncate text-xs font-semibold text-zinc-400">
+                                {formatHistoryItemsSummary(items)}
+                              </p>
+
+                              <p className="truncate text-[10px] font-semibold text-zinc-500">
+                                {formatItemCount(items.length)}
+                              </p>
+                            </td>
+
+                            <td className="px-2.5 py-2 align-top">
+                              <span
+                                className={[
+                                  "inline-flex rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide",
+                                  getOrderStatusBadgeClasses(order.status),
+                                ].join(" ")}
+                              >
+                                {getOrderStatusLabel(order.status)}
+                              </span>
+
+                              <p className="mt-0.5 truncate text-xs font-semibold text-zinc-400">
+                                {getPaymentLabel(order.payment_method)}
+                              </p>
+
+                              <p className="truncate text-[10px] font-semibold text-zinc-500">
+                                {getPaymentStatusLabel(order.payment_status)}
+                              </p>
+
+                              <p className="truncate text-[10px] font-semibold text-zinc-600">
+                                {formatDateTime(order.created_at)}
+                              </p>
+                            </td>
+
+                            <td className="px-2.5 py-2 text-right align-top">
+                              <p className="text-xs font-black text-white">
+                                {formatBRL(order.total)}
+                              </p>
+
+                              <p className="text-[10px] font-semibold text-zinc-500">
+                                Taxa {formatBRL(order.delivery_fee)}
+                              </p>
+
+                              <button
+                                type="button"
+                                onClick={() => setSelectedHistoryOrder(order)}
+                                className="mt-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-black text-zinc-500 transition hover:border-yellow-400/50 hover:text-yellow-300"
+                                aria-label={`Ver histórico do pedido ${getOrderNumber(order)}`}
+                              >
+                                <Eye className="h-3 w-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {selectedHistoryOrder && (
+        <HistoryOrderDetailsModal
+          order={selectedHistoryOrder}
+          items={historyOrderItemsByOrderId[selectedHistoryOrder.id] || []}
+          deliveryPeople={allDeliveryPeople}
+          onClose={() => setSelectedHistoryOrder(null)}
+        />
+      )}
     </AdminLayout>
   )
 }
-
