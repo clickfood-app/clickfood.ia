@@ -202,6 +202,30 @@ function normalizeSearchText(value: string) {
     .toLowerCase()
 }
 
+function normalizeNeighborhoodKey(value: string | null | undefined) {
+  return normalizeSearchText(value || "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+}
+
+function isValidDeliveryNeighborhood(value: string | null | undefined) {
+  const normalizedValue = normalizeNeighborhoodKey(value)
+
+  if (!normalizedValue) return false
+
+  return ![
+    "bairro",
+    "padrao",
+    "bairro_padrao",
+    "default",
+    "selecione",
+    "selecione_seu_bairro",
+    "selecionar_bairro",
+    "nao_informado",
+    "nao_informada",
+  ].includes(normalizedValue)
+}
+
 function normalizePhone(value: unknown) {
   return String(value || "").replace(/\D/g, "")
 }
@@ -780,9 +804,9 @@ async function createOrderLegacy({
       neighborhood
     )
 
-    if (deliveryRules.length > 0 && !matchedRule) {
-      return jsonError("Bairro nÃ£o atendido por este restaurante.", 400)
-    }
+    if (orderType === "delivery" && !isValidDeliveryNeighborhood(neighborhood)) {
+  return jsonError("Selecione seu bairro para calcular a taxa de entrega.", 400)
+}
 
     deliveryFee = matchedRule
       ? normalizeNumber(matchedRule.fee, 0)
@@ -1227,6 +1251,7 @@ export async function POST(request: Request) {  try {
       Boolean(requestedCashbackCampaignId)
 
     const canUseFastPath =
+  orderType !== "delivery" &&
   !hasCashback &&
   !tableId &&
   !needsChange &&

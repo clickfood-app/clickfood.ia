@@ -267,12 +267,35 @@ const productMeta: Record<
 
 const WEEK_DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
 
-function normalizeNeighborhood(value: string) {
-  return value
+function normalizeNeighborhood(value: string | null | undefined) {
+  return (value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
+}
+
+function normalizeNeighborhoodKey(value: string | null | undefined) {
+  return normalizeNeighborhood(value)
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+}
+
+function isValidNeighborhoodName(value: string | null | undefined) {
+  const normalizedValue = normalizeNeighborhoodKey(value)
+
+  if (!normalizedValue) return false
+
+  return ![
+    "bairro",
+    "padrao",
+    "bairro_padrao",
+    "default",
+    "selecione",
+    "selecione_seu_bairro",
+    "selecionar_bairro",
+    "nao_informado",
+  ].includes(normalizedValue)
 }
 
 function getActiveDeliveryRules(restaurant: PublicRestaurant) {
@@ -3456,13 +3479,15 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
 
   const neighborhoodOptions = useMemo<NeighborhoodOption[]>(() => {
     return deliveryRules.flatMap((rule) =>
-      rule.neighborhoods.map((neighborhood) => ({
-        key: `${rule.id}:${normalizeNeighborhood(neighborhood)}`,
-        neighborhood,
-        fee: Number(rule.fee || 0),
-        ruleId: rule.id,
-        ruleLabel: rule.label,
-      }))
+      rule.neighborhoods
+        .filter((neighborhood) => isValidNeighborhoodName(neighborhood))
+        .map((neighborhood) => ({
+          key: `${rule.id}:${normalizeNeighborhood(neighborhood)}`,
+          neighborhood,
+          fee: Number(rule.fee || 0),
+          ruleId: rule.id,
+          ruleLabel: rule.label,
+        }))
     )
   }, [deliveryRules])
 
@@ -3490,14 +3515,14 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
       return
     }
 
-    if (!hasNeighborhoodRules) return
+    if (!hasNeighborhoodRules || !selectedNeighborhoodKey) return
 
     const optionStillExists = neighborhoodOptions.some(
       (option) => option.key === selectedNeighborhoodKey
     )
 
     if (!optionStillExists) {
-      setSelectedNeighborhoodKey(neighborhoodOptions[0]?.key ?? "")
+      setSelectedNeighborhoodKey("")
     }
   }, [hasNeighborhoodRules, neighborhoodOptions, orderType, selectedNeighborhoodKey])
 
@@ -3521,7 +3546,7 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
     if (!open || !customer?.address) return
 
     setCustomerAddress(customer.address.customerAddress ?? "")
-    setSelectedNeighborhoodKey(customer.address.selectedNeighborhoodKey ?? "")
+    setSelectedNeighborhoodKey("")
   }, [open, customer?.address])
 
 useEffect(() => {
@@ -3607,8 +3632,9 @@ useEffect(() => {
         ? selectedNeighborhoodOption?.fee ?? 0
         : restaurant.deliveryFee
       : 0
-  const cartDeliveryPreview = deliveryEnabled ? getStartingDeliveryFee(restaurant) : 0
-  const cartPreviewTotal = subtotal + cartDeliveryPreview
+  const cartDeliveryPreview = 0
+const cartDeliveryPreviewLabel = deliveryEnabled ? "Escolha no checkout" : "Retirada"
+const cartPreviewTotal = subtotal
   const cashbackWalletBalance = Number(cashbackStatus?.wallet?.balance ?? 0)
 const cashbackRedeemAmount = Number(cashbackStatus?.campaign?.redeemAmount ?? 0)
 const cashbackRedeemMin = Number(cashbackStatus?.campaign?.redeemMinimumOrderAmount ?? 0)
@@ -3696,14 +3722,20 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
     normalizeOrderStatus(String(pixPayment?.status ?? ""))
   )
 const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
+const checkoutBlockedByNeighborhood =
+  orderType === "delivery" && hasNeighborhoodRules && !selectedNeighborhoodOption
+const checkoutButtonDisabled =
+  isProcessing || !restaurantIsOpen || checkoutBlockedByNeighborhood
 
-  const primaryButtonLabel = isAutomaticPixPayment
-  ? "Gerar Pix automático"
-  : isPixPayment
-    ? pixPayment
-      ? "Enviar comprovante Pix"
-      : "Pagar com Pix"
-    : "Confirmar pedido"
+  const primaryButtonLabel = checkoutBlockedByNeighborhood
+  ? "Selecione seu bairro"
+  : isAutomaticPixPayment
+    ? "Gerar Pix automático"
+    : isPixPayment
+      ? pixPayment
+        ? "Enviar comprovante Pix"
+        : "Pagar com Pix"
+      : "Confirmar pedido"
 
   const formattedCustomerAddress =
     orderType !== "delivery"
@@ -3860,7 +3892,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
     }
 
     if (orderType === "delivery" && hasNeighborhoodRules && !selectedNeighborhoodOption) {
-      alert("Selecione o bairro de entrega")
+      alert("Selecione seu bairro para calcular a taxa de entrega.")
       return false
     }
 
@@ -4421,8 +4453,8 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                   <div className="flex justify-between text-zinc-500">
                     <span>Entrega</span>
                     <span className="font-bold text-white">
-                      {deliveryEnabled ? formatPrice(cartDeliveryPreview) : "Retirada"}
-                    </span>
+  {cartDeliveryPreviewLabel}
+</span>
                   </div>
 
                   <div className="flex justify-between border-t border-white/10 pt-2 text-base font-black">
@@ -4693,80 +4725,145 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                 </div>
               ) : null}
 
-              {orderType === "delivery" && (
-                <div className="rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                        Entrega
-                      </p>
+{orderType === "delivery" && (
+  <div
+    className={cn(
+      "rounded-[22px] border p-4 shadow-sm transition-all",
+      checkoutBlockedByNeighborhood
+        ? "border-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/20"
+        : "border-white/10 bg-[#0A0A0A]"
+    )}
+  >
+    <div className="mb-3 flex items-start justify-between gap-3">
+      <div>
+        <p
+          className={cn(
+            "text-[10px] font-black uppercase tracking-[0.16em]",
+            checkoutBlockedByNeighborhood ? "text-yellow-400" : "text-zinc-500"
+          )}
+        >
+          Entrega
+        </p>
 
-                      <h4 className="mt-1 text-base font-black text-white">
-                        Endereço do pedido
-                      </h4>
-                    </div>
+        <h4 className="mt-1 text-base font-black text-white">
+          Endereço do pedido
+        </h4>
 
-                    {hasSavedAddress && (
-                      <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
-                        Salvo
-                      </span>
-                    )}
-                  </div>
+        <p
+          className={cn(
+            "mt-1 text-xs font-semibold",
+            checkoutBlockedByNeighborhood ? "text-yellow-300" : "text-zinc-500"
+          )}
+        >
+          Preencha essa etapa para liberar a finalização do pedido.
+        </p>
+      </div>
 
-                  <div className="space-y-3">
-                    {hasNeighborhoodRules && (
-                      <div>
-                        <label className="text-xs font-bold uppercase text-zinc-500">Bairro *</label>
+      <div className="flex gap-2">
+        {checkoutBlockedByNeighborhood && (
+          <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black text-black">
+            Obrigatório
+          </span>
+        )}
 
-                        <select
-                          value={selectedNeighborhoodKey}
-                          onChange={(e) => setSelectedNeighborhoodKey(e.target.value)}
-                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
-                        >
-                          <option value="">Selecione seu bairro</option>
+        {hasSavedAddress && (
+          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
+            Salvo
+          </span>
+        )}
+      </div>
+    </div>
 
-                          {neighborhoodOptions.map((option) => (
-                            <option key={option.key} value={option.key}>
-                              {option.neighborhood} • {formatPrice(option.fee)}
-                            </option>
-                          ))}
-                        </select>
+    {checkoutBlockedByNeighborhood && (
+      <div className="mb-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-3">
+        <p className="text-xs font-black text-yellow-300">
+          Selecione o bairro e confirme o endereço para calcular a taxa de entrega corretamente.
+        </p>
+      </div>
+    )}
 
-                        {selectedNeighborhoodOption && (
-                          <p className="mt-2 text-xs font-semibold text-zinc-500">
-                            Taxa aplicada:{" "}
-                            <span className="font-black text-white">
-                              {formatPrice(selectedNeighborhoodOption.fee)}
-                            </span>
-                          </p>
-                        )}
-                      </div>
-                    )}
+    <div className="space-y-3">
+      {hasNeighborhoodRules && (
+        <div>
+          <label
+            className={cn(
+              "text-xs font-bold uppercase",
+              !selectedNeighborhoodKey ? "text-yellow-400" : "text-zinc-500"
+            )}
+          >
+            Bairro *
+          </label>
 
-                    <div>
-                      <label className="text-xs font-bold uppercase text-zinc-500">
-                        {hasNeighborhoodRules ? "Rua, número e complemento *" : "Endereço *"}
-                      </label>
+          <select
+            value={selectedNeighborhoodKey}
+            onChange={(e) => setSelectedNeighborhoodKey(e.target.value)}
+            className={cn(
+              "mt-2 w-full rounded-2xl bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white focus:outline-none",
+              !selectedNeighborhoodKey
+                ? "border border-yellow-400 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/20"
+                : "border border-white/10 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-100"
+            )}
+          >
+            <option value="" disabled>
+              Selecione seu bairro
+            </option>
 
-                      <textarea
-                        value={customerAddress}
-                        onChange={(e) => setCustomerAddress(e.target.value)}
-                        placeholder={
-                          hasNeighborhoodRules
-                            ? "Rua, número, complemento e referência"
-                            : "Rua, número, bairro..."
-                        }
-                        rows={2}
-                        className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
-                      />
+            {neighborhoodOptions.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.neighborhood} • {formatPrice(option.fee)}
+              </option>
+            ))}
+          </select>
 
-                      <p className="mt-2 text-[11px] font-semibold text-zinc-500">
-                        Esse endereço fica salvo somente para {restaurant.name}.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+          {!selectedNeighborhoodKey ? (
+            <p className="mt-2 text-xs font-black text-yellow-300">
+              Campo obrigatório para calcular a entrega.
+            </p>
+          ) : selectedNeighborhoodOption ? (
+            <p className="mt-2 text-xs font-semibold text-emerald-400">
+              Taxa aplicada:{" "}
+              <span className="font-black">
+                {formatPrice(selectedNeighborhoodOption.fee)}
+              </span>
+            </p>
+          ) : null}
+        </div>
+      )}
+
+      <div>
+        <label
+          className={cn(
+            "text-xs font-bold uppercase",
+            checkoutBlockedByNeighborhood ? "text-yellow-400" : "text-zinc-500"
+          )}
+        >
+          {hasNeighborhoodRules ? "Rua, número e complemento *" : "Endereço *"}
+        </label>
+
+        <textarea
+          value={customerAddress}
+          onChange={(e) => setCustomerAddress(e.target.value)}
+          placeholder={
+            hasNeighborhoodRules
+              ? "Rua, número, complemento e referência"
+              : "Rua, número, bairro..."
+          }
+          rows={2}
+          className={cn(
+            "mt-2 w-full resize-none rounded-2xl bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:outline-none",
+            checkoutBlockedByNeighborhood
+              ? "border border-yellow-400/40 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/20"
+              : "border border-white/10 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-100"
+          )}
+        />
+
+        <p className="mt-2 text-[11px] font-semibold text-zinc-500">
+          Esse endereço fica salvo somente para {restaurant.name}.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
 
               <div className="rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                 <div className="mb-3 flex items-start justify-between gap-3">
@@ -4845,11 +4942,7 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                             setChangeFor("")
                           }
 
-                          if (method.value === "pix") {
-                            setPixCardOpen(true)
-                          } else {
-                            setPixCardOpen(false)
-                          }
+                          setPixCardOpen(false)
                         }}
                         className={cn(
                           "flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.99]",
@@ -4977,7 +5070,11 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
               {isPixPayment && (
                 <button
                   type="button"
-                  onClick={() => setPixCardOpen(true)}
+                  onClick={() => {
+                    if (validateForm()) {
+                      setPixCardOpen(true)
+                    }
+                  }}
                   className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-left transition-colors hover:bg-emerald-500/15"
                 >
                   <div className="flex min-w-0 items-center gap-3">
@@ -5041,7 +5138,11 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
                 {orderType === "delivery" && (
                   <div className="flex justify-between text-zinc-500">
                     <span>Entrega</span>
-                    <span>{formatPrice(deliveryFee)}</span>
+                    <span>
+                      {checkoutBlockedByNeighborhood
+                        ? "Selecione o bairro"
+                        : formatPrice(deliveryFee)}
+                    </span>
                   </div>
                 )}
 
@@ -5065,8 +5166,15 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
     return
   }
 
+  if (checkoutBlockedByNeighborhood) {
+    alert("Selecione seu bairro para calcular a taxa de entrega.")
+    return
+  }
+
   if (isPixPayment) {
-    setPixCardOpen(true)
+    if (validateForm()) {
+      setPixCardOpen(true)
+    }
     return
   }
 
@@ -5077,9 +5185,9 @@ const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
 
   void createManualPaymentOrder()
 }}
-                disabled={isProcessing || !restaurantIsOpen}
+                disabled={checkoutButtonDisabled}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500 disabled:shadow-none disabled:opacity-100"
-                style={restaurantIsOpen ? {
+                style={!checkoutButtonDisabled ? {
                   backgroundColor: checkoutActionColor,
                   boxShadow: `0 16px 30px -14px ${checkoutActionColor}`,
                 } : undefined}
