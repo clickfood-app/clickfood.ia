@@ -12,23 +12,19 @@ import {
   type PaymentMethod,
   type OrderItem,
   type OrderItemDraft,
-  type Table,
   type CustomerData,
   type DeliveryAddress,
-  initialTables,
 } from "@/lib/order-types";
 import {
   Banknote,
   Barcode,
   Check,
-  ChefHat,
   Clock,
   CreditCard,
   Loader2,
   MapPin,
   MessageSquare,
   Minus,
-  MoreVertical,
   Percent,
   Plus,
   Printer,
@@ -40,20 +36,9 @@ import {
   Trash2,
   Truck,
   User,
-  Users,
-  Utensils,
   Wallet,
   X,
 } from "lucide-react";
-
-type RestaurantTableRow = {
-  id: string;
-  restaurant_id: string;
-  number: string;
-  name: string | null;
-  capacity: number | null;
-  is_active: boolean | null;
-};
 
 type DeliveryFeeRuleRow = {
   id: string;
@@ -130,49 +115,6 @@ function getSupabaseErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
-}
-
-function isUuid(value: string | null | undefined) {
-  if (!value) return false;
-
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(
-    value,
-  );
-}
-
-function normalizeDefaultTables() {
-  return (initialTables || []).map((table, index) => {
-    const rawTable = table as unknown as {
-      id?: string;
-      number?: string | number;
-      name?: string;
-      capacity?: number;
-      status?: string;
-    };
-
-    const number = Number(rawTable.number || index + 1);
-
-    return {
-      ...table,
-      id: String(rawTable.id || `table-${number}`),
-      number,
-      name: rawTable.name || `Mesa ${number}`,
-      capacity: Number(rawTable.capacity || 4),
-      status: "available",
-    } as Table;
-  });
-}
-
-function mapRestaurantTableToTable(table: RestaurantTableRow): Table {
-  const number = Number(table.number);
-
-  return {
-    id: table.id,
-    number,
-    name: table.name || `Mesa ${number}`,
-    capacity: Number(table.capacity || 4),
-    status: "available",
-  } as Table;
 }
 
 function getStringField(
@@ -349,42 +291,6 @@ function getGroupProductId(group: RawModifierGroupRow) {
   return getStringField(group, ["product_id", "productId"]);
 }
 
-function mergeTables(defaultTables: Table[], databaseTables: Table[]) {
-  const map = new Map<string, Table>();
-
-  defaultTables.forEach((table) => {
-    const number = String(
-      (table as unknown as { number?: string | number }).number || table.id,
-    );
-
-    map.set(number, table);
-  });
-
-  databaseTables.forEach((table) => {
-    const number = String(
-      (table as unknown as { number?: string | number }).number || table.id,
-    );
-
-    map.set(number, table);
-  });
-
-  return Array.from(map.values()).sort((a, b) => {
-    const aNumber = Number(
-      (a as unknown as { number?: string | number }).number || 0,
-    );
-
-    const bNumber = Number(
-      (b as unknown as { number?: string | number }).number || 0,
-    );
-
-    if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
-      return aNumber - bNumber;
-    }
-
-    return String(a.number).localeCompare(String(b.number));
-  });
-}
-
 function getOrderItemKey(item: OrderItemDraft) {
   const modifiersKey = (item.modifiers || [])
     .map(
@@ -474,16 +380,11 @@ export default function NovoPedidoPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [orderType, setOrderType] = useState<OrderType>("pickup" as OrderType);
-  const [selectedTable, setSelectedTable] = useState<string>("");
-  const [tables, setTables] = useState<Table[]>(normalizeDefaultTables());
-  const [guestCount, setGuestCount] = useState(1);
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("pending");
   const [items, setItems] = useState<OrderItem[]>([]);
   const [discount, setDiscount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string>("");
 
   const [products, setProducts] = useState<ProductWithModifiers[]>([]);
@@ -497,15 +398,7 @@ export default function NovoPedidoPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  const [showCustomerPanel, setShowCustomerPanel] = useState(false);
   const [showObservationPanel, setShowObservationPanel] = useState(false);
-  const [showAddressPanel, setShowAddressPanel] = useState(false);
-  const [showTablePanel, setShowTablePanel] = useState(false);
-
-  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
-  const [newTableNumber, setNewTableNumber] = useState("");
-  const [newTableName, setNewTableName] = useState("");
-  const [newTableCapacity, setNewTableCapacity] = useState(4);
 
   const [customizingProduct, setCustomizingProduct] =
     useState<ProductWithModifiers | null>(null);
@@ -533,7 +426,7 @@ export default function NovoPedidoPage() {
   });
 
   useEffect(() => {
-    const fetchRestaurantProductsAndTables = async () => {
+    const fetchRestaurantProducts = async () => {
       const {
         data: { user },
         error: userError,
@@ -570,18 +463,12 @@ export default function NovoPedidoPage() {
 
       const [
         { data: productsData, error: productsError },
-        { data: tablesData, error: tablesError },
         { data: deliveryFeeRulesData, error: deliveryFeeRulesError },
       ] = await Promise.all([
         supabase
           .from("products")
           .select("*")
           .eq("restaurant_id", restaurant.id),
-        supabase
-          .from("restaurant_tables")
-          .select("id, restaurant_id, number, name, capacity, is_active")
-          .eq("restaurant_id", restaurant.id)
-          .eq("is_active", true),
         supabase
           .from("delivery_fee_rules")
           .select(
@@ -598,16 +485,6 @@ export default function NovoPedidoPage() {
         toast({
           title: "Erro ao carregar produtos",
           description: "Não foi possível buscar os produtos do cardápio.",
-          variant: "destructive",
-        });
-      }
-
-      if (tablesError) {
-        console.error("Erro ao buscar mesas:", tablesError);
-
-        toast({
-          title: "Erro ao carregar mesas",
-          description: "Não foi possível buscar as mesas salvas.",
           variant: "destructive",
         });
       }
@@ -917,10 +794,6 @@ export default function NovoPedidoPage() {
         order: 0,
       };
 
-      const databaseTables = ((tablesData || []) as RestaurantTableRow[]).map(
-        mapRestaurantTableToTable,
-      );
-
       setProducts(availableProducts);
 
       setCategories([
@@ -939,11 +812,9 @@ export default function NovoPedidoPage() {
           order: index + 1,
         })),
       ]);
-
-      setTables(mergeTables(normalizeDefaultTables(), databaseTables));
     };
 
-    fetchRestaurantProductsAndTables();
+    fetchRestaurantProducts();
   }, [supabase, toast]);
 
   const subtotal = items.reduce(
@@ -959,21 +830,6 @@ export default function NovoPedidoPage() {
     orderType === "delivery" ? selectedDeliveryNeighborhood?.fee || 0 : 0;
 
   const total = Math.max(0, subtotal + finalDeliveryFee - discount);
-
-  const selectedTableData = tables.find((table) => table.id === selectedTable);
-
-  const selectedTableId =
-    orderType === "local" && selectedTableData && isUuid(selectedTableData.id)
-      ? selectedTableData.id
-      : null;
-
-  const selectedTableNumber =
-    orderType === "local" && selectedTableData
-      ? String(
-          (selectedTableData as unknown as { number?: string | number })
-            .number || selectedTableData.id,
-        )
-      : null;
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -1017,25 +873,33 @@ export default function NovoPedidoPage() {
   const customProductTotal =
     customProductUnitPrice * Math.max(1, customizingQuantity);
 
+  const changeAmount = Math.max(0, Number(receivedAmount || 0) - total);
+
+  const selectedPaymentLabel =
+    paymentMethod === "pix"
+      ? "Pix"
+      : paymentMethod === "dinheiro"
+        ? "Dinheiro"
+        : paymentMethod === "credito"
+          ? "Crédito"
+          : paymentMethod === "debito"
+            ? "Débito"
+            : "Pendente";
+
   const changeOrderType = (type: OrderType) => {
     setOrderType(type);
 
-    if (type !== "local") {
-      setSelectedTable("");
-      setShowTablePanel(false);
-    } else {
-      setShowTablePanel(true);
-    }
-
     if (type !== "delivery") {
-      setShowAddressPanel(false);
       setSelectedDeliveryNeighborhoodId("");
       setAddress((currentAddress) => ({
         ...currentAddress,
+        street: "",
+        number: "",
+        complement: "",
         neighborhood: "",
+        city: "",
+        zipCode: "",
       }));
-    } else {
-      setShowAddressPanel(true);
     }
   };
 
@@ -1236,11 +1100,10 @@ export default function NovoPedidoPage() {
   const handleClearOrder = () => {
     setItems([]);
     setDiscount(0);
-    setSelectedTable("");
-    setGuestCount(1);
     setPaymentMethod("pending");
     setReceivedAmount("");
     setSelectedDeliveryNeighborhoodId("");
+    setShowObservationPanel(false);
     setCustomer({
       name: "",
       phone: "",
@@ -1256,92 +1119,8 @@ export default function NovoPedidoPage() {
     });
   };
 
-  const handleCreateTable = useCallback(
-    async (table: Omit<Table, "id">) => {
-      if (!restaurantId) {
-        toast({
-          title: "Restaurante não encontrado",
-          description: "Não foi possível salvar a mesa agora.",
-          variant: "destructive",
-        });
-
-        return;
-      }
-
-      const rawTable = table as unknown as {
-        number?: string | number;
-        name?: string;
-        capacity?: number;
-      };
-
-      const number = String(rawTable.number || "").trim();
-
-      if (!number) {
-        toast({
-          title: "Número da mesa obrigatório",
-          description: "Informe o número da mesa para cadastrar.",
-          variant: "destructive",
-        });
-
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("restaurant_tables")
-        .insert({
-          restaurant_id: restaurantId,
-          number,
-          name: rawTable.name || `Mesa ${number}`,
-          capacity: Number(rawTable.capacity || 4),
-          is_active: true,
-        })
-        .select("id, restaurant_id, number, name, capacity, is_active")
-        .single();
-
-      if (error) {
-        toast({
-          title: "Erro ao criar mesa",
-          description: getSupabaseErrorMessage(
-            error,
-            "Não foi possível salvar a nova mesa.",
-          ),
-          variant: "destructive",
-        });
-
-        return;
-      }
-
-      const newTable = mapRestaurantTableToTable(data as RestaurantTableRow);
-
-      setTables((prev) => mergeTables(prev, [newTable]));
-      setSelectedTable(newTable.id);
-
-      toast({
-        title: "Mesa criada",
-        description: `Mesa ${newTable.number} foi salva no sistema.`,
-      });
-    },
-    [restaurantId, supabase, toast],
-  );
-
-  const saveNewTable = async () => {
-    await handleCreateTable({
-      number: Number(newTableNumber),
-      name: newTableName || `Mesa ${newTableNumber}`,
-      capacity: newTableCapacity,
-      status: "available",
-    } as unknown as Omit<Table, "id">);
-
-    setNewTableNumber("");
-    setNewTableName("");
-    setNewTableCapacity(4);
-    setIsTableModalOpen(false);
-  };
-
   const canSubmit = () => {
     if (items.length === 0) return false;
-    if (orderType === "local" && !selectedTable) return false;
-    if (orderType === "local" && guestCount < 1) return false;
 
     if (orderType === "delivery") {
       if (!address.street || !address.number || !address.neighborhood) {
@@ -1371,7 +1150,6 @@ export default function NovoPedidoPage() {
 
     try {
       setIsSubmitting(true);
-      setIsPaymentModalOpen(false);
 
       const publicOrderNumber = Date.now().toString().slice(-6);
 
@@ -1385,13 +1163,7 @@ export default function NovoPedidoPage() {
           : "";
 
       const orderModeNote =
-        orderType === "local"
-          ? `Pedido de mesa | Mesa: ${
-              selectedTableNumber || selectedTable || "não informada"
-            } | Pessoas: ${guestCount}`
-          : orderType === "delivery"
-            ? "Pedido delivery"
-            : "Pedido balcão";
+        orderType === "delivery" ? "Pedido delivery" : "Pedido balcão";
 
       const deliveryFeeNote =
         orderType === "delivery" && selectedDeliveryNeighborhood
@@ -1437,9 +1209,9 @@ export default function NovoPedidoPage() {
           payment_status:
             selectedPaymentMethod === "pending" ? "pending" : "paid",
           notes: orderNotes || null,
-          table_id: selectedTableId,
-          table_number: selectedTableNumber,
-          guest_count: orderType === "local" ? guestCount : null,
+          table_id: null,
+          table_number: null,
+          guest_count: null,
         })
         .select("id, public_order_number")
         .single();
@@ -1527,543 +1299,300 @@ export default function NovoPedidoPage() {
     }
   };
 
-  const paymentOptions = [
-    {
-      id: "dinheiro",
-      name: "Dinheiro",
-      icon: <Banknote className="h-7 w-7" />,
-    },
-    {
-      id: "pix",
-      name: "Pix",
-      icon: <QrCode className="h-7 w-7" />,
-    },
-    {
-      id: "credito",
-      name: "Crédito",
-      icon: <CreditCard className="h-7 w-7" />,
-    },
-    {
-      id: "debito",
-      name: "Débito",
-      icon: <CreditCard className="h-7 w-7" />,
-    },
-    {
-      id: "pending",
-      name: "Pendente",
-      icon: <Clock className="h-7 w-7" />,
-    },
-  ];
-
   const orderTypeOptions = [
     {
       value: "pickup" as OrderType,
       label: "Balcão",
-      description: "Venda rápida",
       icon: Store,
-    },
-    {
-      value: "local" as OrderType,
-      label: "Mesa",
-      description: "Comanda local",
-      icon: Utensils,
     },
     {
       value: "delivery" as OrderType,
       label: "Entrega",
-      description: "Enviar endereço",
       icon: Truck,
     },
   ];
 
-  const changeAmount = Math.max(0, Number(receivedAmount || 0) - total);
+  const paymentOptions = [
+    {
+      id: "pix" as PaymentMethod,
+      name: "Pix",
+      icon: QrCode,
+    },
+    {
+      id: "dinheiro" as PaymentMethod,
+      name: "Dinheiro",
+      icon: Banknote,
+    },
+    {
+      id: "credito" as PaymentMethod,
+      name: "Crédito",
+      icon: CreditCard,
+    },
+    {
+      id: "debito" as PaymentMethod,
+      name: "Débito",
+      icon: CreditCard,
+    },
+    {
+      id: "pending" as PaymentMethod,
+      name: "Pendente",
+      icon: Clock,
+    },
+  ];
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-[#111111] p-2 sm:p-3 lg:p-4">
-        <div className="mx-auto max-w-[1800px] space-y-4">
-          <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
-                <span>Gestão</span>
-                <span>/</span>
-                <span className="text-white">PDV</span>
-              </div>
-
-              <div className="mt-1 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400 text-black shadow-sm">
+      <div className="min-h-screen bg-[#070707] p-2 text-white sm:p-3 lg:p-4">
+        <div className="mx-auto max-w-[1900px] space-y-3">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-400 text-black shadow-sm">
                   <Receipt className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <h1 className="text-lg font-bold text-white">PDV</h1>
-                  <p className="text-sm text-zinc-500">
-                    Venda rápida para balcão, mesa e entrega.
-                  </p>
+                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
+                    <span>Painel</span>
+                    <span>/</span>
+                    <span className="text-white">PDV</span>
+                  </div>
+                  <h1 className="text-xl font-black text-white">
+                    Atendimento rápido
+                  </h1>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-sm font-semibold text-zinc-500">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Caixa aberto
-              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[760px]">
+                {orderTypeOptions.map((option) => {
+                  const Icon = option.icon;
+                  const active = orderType === option.value;
 
-              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-sm font-semibold text-zinc-500">
-                <Printer className="h-4 w-4 text-zinc-500" />
-                Impressora online
-              </div>
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => changeOrderType(option.value)}
+                      className={cn(
+                        "flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-black transition",
+                        active
+                          ? "border-yellow-400 bg-yellow-400 text-black shadow-sm"
+                          : "border-white/10 bg-[#111111] text-zinc-400 hover:border-yellow-400/40 hover:text-yellow-400",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {option.label}
+                    </button>
+                  );
+                })}
 
-              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-sm font-semibold text-zinc-500">
-                <User className="h-4 w-4 text-zinc-500" />
-                Atendente: Administrador
+                <div className="hidden h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] text-sm font-bold text-zinc-400 sm:flex">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Caixa aberto
+                </div>
+
+                <div className="hidden h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] text-sm font-bold text-zinc-400 sm:flex">
+                  <Printer className="h-4 w-4" />
+                  Impressora online
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[170px_minmax(0,1fr)_410px]">
+            <aside className="hidden rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm xl:block xl:sticky xl:top-4 xl:h-[calc(100vh-32px)]">
+              <div className="mb-3 px-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                Categorias
+              </div>
+
+              <div className="space-y-2 overflow-y-auto pr-1">
+                {categories.map((category) => {
+                  const active = selectedCategory === category.id;
+
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(category.id)}
+                      className={cn(
+                        "flex min-h-11 w-full items-center justify-between rounded-xl border px-3 text-left text-sm font-black transition",
+                        active
+                          ? "border-yellow-400 bg-yellow-400 text-black shadow-sm"
+                          : "border-white/10 bg-[#111111] text-zinc-400 hover:border-yellow-400/40 hover:text-yellow-400",
+                      )}
+                    >
+                      <span className="truncate">{category.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+
+            <main className="space-y-3">
               <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                  {orderTypeOptions.map((option) => {
-                    const Icon = option.icon;
-                    const active = orderType === option.value;
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_190px_170px_44px]">
+                  <div className="relative">
+                    <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      type="text"
+                      value={customer.name}
+                      onChange={(event) =>
+                        setCustomer({
+                          ...customer,
+                          name: event.target.value,
+                        })
+                      }
+                      placeholder="Cliente balcão"
+                      className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
+                    />
+                  </div>
 
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => changeOrderType(option.value)}
-                        className={cn(
-                          "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-all",
-                          active
-                            ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 shadow-sm"
-                            : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-[#111111]",
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                        <div>
-                          <div className="text-xs font-bold">
-                            {option.label}
-                          </div>
-                          <div className="text-xs opacity-75">
-                            {option.description}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomerPanel((prev) => !prev)}
-                  className={cn(
-                    "flex items-center justify-between rounded-2xl border bg-[#0A0A0A] px-3 py-3 text-left shadow-sm transition hover:border-yellow-400/30",
-                    showCustomerPanel || customer.name || customer.phone
-                      ? "border-yellow-400/30 ring-2 ring-yellow-400/20"
-                      : "border-white/10",
-                  )}
-                >
-                  <span className="flex items-center gap-3">
-                    <User className="h-5 w-5 text-zinc-500" />
-                    <span>
-                      <span className="block text-sm font-semibold text-white">
-                        {customer.name || "Cliente opcional"}
-                      </span>
-                      <span className="block text-xs text-zinc-500">
-                        {customer.phone || "Nome e telefone"}
-                      </span>
-                    </span>
-                  </span>
-                  <Plus className="h-4 w-4 text-zinc-500" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (orderType === "local") {
-                      setShowTablePanel((prev) => !prev);
-                    } else if (orderType === "delivery") {
-                      setShowAddressPanel((prev) => !prev);
-                    } else {
-                      changeOrderType("local" as OrderType);
+                  <input
+                    type="tel"
+                    value={customer.phone}
+                    onChange={(event) =>
+                      setCustomer({
+                        ...customer,
+                        phone: event.target.value,
+                      })
                     }
-                  }}
-                  className={cn(
-                    "flex items-center justify-between rounded-2xl border bg-[#0A0A0A] px-4 py-4 text-left shadow-sm transition hover:border-yellow-400/30",
-                    showTablePanel ||
-                      showAddressPanel ||
-                      selectedTable ||
-                      address.street
-                      ? "border-yellow-400/30 ring-2 ring-yellow-400/20"
-                      : "border-white/10",
-                  )}
-                >
-                  <span className="flex items-center gap-3">
-                    {orderType === "delivery" ? (
-                      <MapPin className="h-5 w-5 text-zinc-500" />
-                    ) : (
-                      <Utensils className="h-5 w-5 text-zinc-500" />
+                    placeholder="Telefone"
+                    className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowObservationPanel((prev) => !prev)}
+                    className={cn(
+                      "flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-black transition",
+                      showObservationPanel || customer.observation
+                        ? "border-yellow-400 bg-yellow-400 text-black"
+                        : "border-white/10 bg-[#111111] text-zinc-400 hover:border-yellow-400/40 hover:text-yellow-400",
                     )}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Observação
+                  </button>
 
-                    <span>
-                      <span className="block text-sm font-semibold text-white">
-                        {orderType === "delivery"
-                          ? selectedDeliveryNeighborhood
-                            ? `${selectedDeliveryNeighborhood.neighborhood} - ${formatCurrency(
-                                selectedDeliveryNeighborhood.fee,
-                              )}`
-                            : address.street || "Endereço de entrega"
-                          : selectedTableData
-                            ? `Mesa ${selectedTableNumber}`
-                            : "Mesa / comanda"}
-                      </span>
-                      <span className="block text-xs text-zinc-500">
-                        {orderType === "delivery"
-                          ? selectedDeliveryNeighborhood
-                            ? selectedDeliveryNeighborhood.label
-                            : "Rua, número e bairro"
-                          : orderType === "local"
-                            ? `${guestCount} pessoa(s) na mesa`
-                            : "Use quando for consumo no local"}
-                      </span>
-                    </span>
-                  </span>
-                  <Plus className="h-4 w-4 text-zinc-500" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleClearOrder}
+                    disabled={
+                      items.length === 0 &&
+                      discount === 0 &&
+                      !customer.name &&
+                      !customer.phone
+                    }
+                    className="flex h-11 items-center justify-center rounded-xl border border-white/10 bg-[#111111] text-zinc-500 transition hover:border-red-500/40 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    title="Limpar pedido"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowObservationPanel((prev) => !prev)}
-                  className={cn(
-                    "flex items-center justify-between rounded-2xl border bg-[#0A0A0A] px-4 py-4 text-left shadow-sm transition hover:border-yellow-400/30",
-                    showObservationPanel || customer.observation
-                      ? "border-yellow-400/30 ring-2 ring-yellow-400/20"
-                      : "border-white/10",
-                  )}
-                >
-                  <span className="flex items-center gap-3">
-                    <MessageSquare className="h-5 w-5 text-zinc-500" />
-                    <span>
-                      <span className="block text-sm font-semibold text-white">
-                        Observação
-                      </span>
-                      <span className="block max-w-[180px] truncate text-xs text-zinc-500">
-                        {customer.observation || "Observação geral do pedido"}
-                      </span>
-                    </span>
-                  </span>
-                  <Plus className="h-4 w-4 text-zinc-500" />
-                </button>
+                {showObservationPanel && (
+                  <textarea
+                    value={customer.observation || ""}
+                    onChange={(event) =>
+                      setCustomer({
+                        ...customer,
+                        observation: event.target.value,
+                      })
+                    }
+                    placeholder="Observação geral do pedido. Ex: pedido para viagem, sem cebola, entregar no portão..."
+                    rows={2}
+                    className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#111111] px-3 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
+                  />
+                )}
               </div>
 
-              {(showCustomerPanel ||
-                showObservationPanel ||
-                showAddressPanel ||
-                showTablePanel ||
-                orderType === "local" ||
-                orderType === "delivery") && (
-                <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
-                  {showCustomerPanel && (
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                          Nome do cliente
-                        </label>
-                        <input
-                          type="text"
-                          value={customer.name}
-                          onChange={(event) =>
-                            setCustomer({
-                              ...customer,
-                              name: event.target.value,
-                            })
-                          }
-                          placeholder="Cliente balcão"
-                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                        />
-                      </div>
+              {orderType === "delivery" && (
+                <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-3 shadow-sm">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-black text-yellow-400">
+                    <MapPin className="h-4 w-4" />
+                    Dados da entrega
+                  </div>
 
-                      <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                          Telefone
-                        </label>
-                        <input
-                          type="tel"
-                          value={customer.phone}
-                          onChange={(event) =>
-                            setCustomer({
-                              ...customer,
-                              phone: event.target.value,
-                            })
-                          }
-                          placeholder="(00) 00000-0000"
-                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_110px_170px_220px_160px]">
+                    <input
+                      type="text"
+                      value={address.street}
+                      onChange={(event) =>
+                        setAddress({
+                          ...address,
+                          street: event.target.value,
+                        })
+                      }
+                      placeholder="Rua"
+                      className="h-11 rounded-xl border border-yellow-400/20 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20"
+                    />
 
-                  {orderType === "local" && (
-                    <div
-                      className={cn(
-                        "space-y-4",
-                        showCustomerPanel ? "mt-4 border-t pt-4" : "",
-                      )}
+                    <input
+                      type="text"
+                      value={address.number}
+                      onChange={(event) =>
+                        setAddress({
+                          ...address,
+                          number: event.target.value,
+                        })
+                      }
+                      placeholder="Número"
+                      className="h-11 rounded-xl border border-yellow-400/20 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20"
+                    />
+
+                    <input
+                      type="text"
+                      value={address.complement || ""}
+                      onChange={(event) =>
+                        setAddress({
+                          ...address,
+                          complement: event.target.value,
+                        })
+                      }
+                      placeholder="Complemento"
+                      className="h-11 rounded-xl border border-yellow-400/20 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20"
+                    />
+
+                    <select
+                      value={selectedDeliveryNeighborhoodId}
+                      onChange={(event) =>
+                        handleSelectDeliveryNeighborhood(event.target.value)
+                      }
+                      disabled={deliveryNeighborhoodOptions.length === 0}
+                      className="h-11 rounded-xl border border-yellow-400/20 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h2 className="text-sm font-bold text-white">
-                            Mesas
-                          </h2>
-                          <p className="text-xs text-zinc-500">
-                            Selecione a mesa para abrir a comanda.
-                          </p>
-                        </div>
+                      <option value="">Bairro / taxa</option>
+                      {deliveryNeighborhoodOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.neighborhood} - {formatCurrency(option.fee)}
+                        </option>
+                      ))}
+                    </select>
 
-                        <button
-                          type="button"
-                          onClick={() => setIsTableModalOpen(true)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-yellow-400/10 px-3 py-2 text-sm font-bold text-yellow-400 transition hover:bg-yellow-300/10"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Nova mesa
-                        </button>
-                      </div>
+                    <input
+                      type="text"
+                      value={address.city}
+                      onChange={(event) =>
+                        setAddress({
+                          ...address,
+                          city: event.target.value,
+                        })
+                      }
+                      placeholder="Cidade"
+                      className="h-11 rounded-xl border border-yellow-400/20 bg-[#0A0A0A] px-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20"
+                    />
+                  </div>
 
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                        {tables.map((table) => {
-                          const number = String(
-                            (table as unknown as { number?: string | number })
-                              .number || table.id,
-                          );
-
-                          const active = selectedTable === table.id;
-
-                          return (
-                            <button
-                              key={table.id}
-                              type="button"
-                              onClick={() => setSelectedTable(table.id)}
-                              className={cn(
-                                "rounded-2xl border p-3 text-center transition",
-                                active
-                                  ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 shadow-sm ring-2 ring-yellow-400/20"
-                                  : "border-white/10 bg-[#111111] text-zinc-500 hover:border-yellow-400/30 hover:bg-[#0A0A0A]",
-                              )}
-                            >
-                              <span className="block text-lg font-black">
-                                {number}
-                              </span>
-                              <span className="mt-1 flex items-center justify-center gap-1 text-xs text-zinc-500">
-                                <Users className="h-3 w-3" />
-                                {(table as unknown as { capacity?: number })
-                                  .capacity || 4}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#111111] p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <label className="flex items-center gap-2 text-sm font-bold text-white">
-                            <Users className="h-4 w-4 text-zinc-500" />
-                            Pessoas na mesa
-                          </label>
-                          <p className="text-xs text-zinc-500">
-                            Usado para calcular ticket médio por pessoa.
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setGuestCount((prev) => Math.max(1, prev - 1))
-                            }
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111]"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </button>
-
-                          <input
-                            type="number"
-                            min={1}
-                            value={guestCount}
-                            onChange={(event) =>
-                              setGuestCount(
-                                Math.max(1, Number(event.target.value || 1)),
-                              )
-                            }
-                            className="h-10 w-20 rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-center text-sm font-black outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
-                          />
-
-                          <button
-                            type="button"
-                            onClick={() => setGuestCount((prev) => prev + 1)}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:bg-[#111111]"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {orderType === "delivery" && (
-                    <div
-                      className={cn(
-                        "grid grid-cols-1 gap-3 md:grid-cols-2",
-                        showCustomerPanel ? "mt-4 border-t pt-4" : "",
-                      )}
-                    >
-                      <div className="md:col-span-2">
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                          Rua <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={address.street}
-                          onChange={(event) =>
-                            setAddress({
-                              ...address,
-                              street: event.target.value,
-                            })
-                          }
-                          placeholder="Nome da rua"
-                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                          Número <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={address.number}
-                          onChange={(event) =>
-                            setAddress({
-                              ...address,
-                              number: event.target.value,
-                            })
-                          }
-                          placeholder="123"
-                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                          Complemento
-                        </label>
-                        <input
-                          type="text"
-                          value={address.complement || ""}
-                          onChange={(event) =>
-                            setAddress({
-                              ...address,
-                              complement: event.target.value,
-                            })
-                          }
-                          placeholder="Apto, bloco..."
-                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                          Bairro <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={selectedDeliveryNeighborhoodId}
-                          onChange={(event) =>
-                            handleSelectDeliveryNeighborhood(event.target.value)
-                          }
-                          disabled={deliveryNeighborhoodOptions.length === 0}
-                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <option value="">Selecione o bairro</option>
-                          {deliveryNeighborhoodOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.neighborhood} -{" "}
-                              {formatCurrency(option.fee)}
-                            </option>
-                          ))}
-                        </select>
-
-                        {deliveryNeighborhoodOptions.length === 0 && (
-                          <p className="mt-2 rounded-xl bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-400">
-                            Nenhuma área de entrega ativa cadastrada.
-                          </p>
-                        )}
-
-                        {selectedDeliveryNeighborhood && (
-                          <p className="mt-2 rounded-xl bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-400">
-                            Taxa aplicada:{" "}
-                            {formatCurrency(selectedDeliveryNeighborhood.fee)} •{" "}
-                            {selectedDeliveryNeighborhood.label}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                          Cidade
-                        </label>
-                        <input
-                          type="text"
-                          value={address.city}
-                          onChange={(event) =>
-                            setAddress({
-                              ...address,
-                              city: event.target.value,
-                            })
-                          }
-                          placeholder="Cidade"
-                          className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {showObservationPanel && (
-                    <div
-                      className={cn(
-                        showCustomerPanel ||
-                          orderType === "local" ||
-                          orderType === "delivery"
-                          ? "mt-4 border-t pt-4"
-                          : "",
-                      )}
-                    >
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                        Observação geral do pedido
-                      </label>
-                      <textarea
-                        value={customer.observation || ""}
-                        onChange={(event) =>
-                          setCustomer({
-                            ...customer,
-                            observation: event.target.value,
-                          })
-                        }
-                        placeholder="Ex: sem cebola, entregar no portão, pedido para viagem..."
-                        rows={3}
-                        className="w-full resize-none rounded-xl border border-white/10 bg-[#111111] px-3 py-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                      />
-                    </div>
+                  {deliveryNeighborhoodOptions.length === 0 && (
+                    <p className="mt-2 rounded-xl bg-[#0A0A0A] px-3 py-2 text-xs font-semibold text-yellow-400">
+                      Nenhuma área de entrega ativa cadastrada.
+                    </p>
                   )}
                 </div>
               )}
 
-              <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_120px]">
+              <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_120px]">
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                     <input
@@ -2071,20 +1600,20 @@ export default function NovoPedidoPage() {
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder="Buscar produto..."
-                      className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 text-sm outline-none transition focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
+                      className="h-12 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
                     />
                   </div>
 
                   <button
                     type="button"
-                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] text-sm font-bold text-zinc-500 transition hover:bg-[#0A0A0A]"
+                    className="flex h-12 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] text-sm font-black text-zinc-400 transition hover:border-yellow-400/40 hover:text-yellow-400"
                   >
-                    <Barcode className="h-5 w-5 text-zinc-500" />
+                    <Barcode className="h-5 w-5" />
                     Código
                   </button>
                 </div>
 
-                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1 xl:hidden">
                   {categories.map((category) => {
                     const active = selectedCategory === category.id;
 
@@ -2094,10 +1623,10 @@ export default function NovoPedidoPage() {
                         type="button"
                         onClick={() => setSelectedCategory(category.id)}
                         className={cn(
-                          "whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition",
+                          "h-10 whitespace-nowrap rounded-xl border px-3 text-xs font-black transition",
                           active
-                            ? "border-yellow-400/30 bg-yellow-400 text-black shadow-sm"
-                            : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-yellow-400/10",
+                            ? "border-yellow-400 bg-yellow-400 text-black shadow-sm"
+                            : "border-white/10 bg-[#111111] text-zinc-400 hover:border-yellow-400/40 hover:text-yellow-400",
                         )}
                       >
                         {category.name}
@@ -2105,8 +1634,25 @@ export default function NovoPedidoPage() {
                     );
                   })}
                 </div>
+              </div>
 
-                <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-black text-white">
+                      Produtos
+                    </h2>
+                    <p className="text-xs text-zinc-500">
+                      Clique no produto para adicionar ao pedido.
+                    </p>
+                  </div>
+
+                  <span className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-400">
+                    {filteredProducts.length} de {products.length}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-3">
                   {filteredProducts.map((product) => {
                     const groups = getProductGroups(product);
 
@@ -2115,9 +1661,9 @@ export default function NovoPedidoPage() {
                         key={product.id}
                         type="button"
                         onClick={() => openProductCustomization(product)}
-                        className="group flex min-h-[92px] rounded-xl border border-white/10 bg-[#0A0A0A] p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-yellow-400/30 hover:shadow-md"
+                        className="group flex min-h-[88px] rounded-xl border border-white/10 bg-[#111111] p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-yellow-400/40 hover:bg-[#161616]"
                       >
-                        <div className="h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-[#111111]">
+                        <div className="h-[68px] w-[74px] shrink-0 overflow-hidden rounded-xl bg-[#0A0A0A]">
                           <img
                             src={getProductImage(product)}
                             alt={product.name}
@@ -2129,32 +1675,27 @@ export default function NovoPedidoPage() {
                         </div>
 
                         <div className="ml-3 flex min-w-0 flex-1 flex-col justify-between">
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <h3 className="truncate text-sm font-black text-white">
-                                  {product.name}
-                                </h3>
-                                <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
-                                  {product.description ||
-                                    product.category ||
-                                    "Produto"}
-                                </p>
-                              </div>
+                              <h3 className="line-clamp-2 text-sm font-black leading-tight text-white">
+                                {product.name}
+                              </h3>
 
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-black shadow-sm transition group-hover:bg-yellow-300">
-                                <Plus className="h-3.5 w-3.5" />
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-black shadow-sm transition group-hover:bg-yellow-300">
+                                <Plus className="h-4 w-4" />
                               </span>
                             </div>
 
-                            {groups.length > 0 && (
-                              <span className="mt-2 inline-flex rounded-full bg-yellow-400/10 px-2 py-1 text-[11px] font-bold text-yellow-400">
-                                Tem opções
-                              </span>
-                            )}
+                            <p className="mt-1 line-clamp-1 text-[11px] font-medium text-zinc-500">
+                              {groups.length > 0
+                                ? "Tem opções"
+                                : product.description ||
+                                  product.category ||
+                                  "Produto"}
+                            </p>
                           </div>
 
-                          <div className="mt-1 text-xs font-black text-white">
+                          <div className="text-base font-black text-yellow-400">
                             {formatCurrency(Number(product.price || 0))}
                           </div>
                         </div>
@@ -2174,92 +1715,53 @@ export default function NovoPedidoPage() {
                     </p>
                   </div>
                 )}
-
-                <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-                  <span>
-                    Exibindo{" "}
-                    <strong className="text-white">
-                      {filteredProducts.length}
-                    </strong>{" "}
-                    de{" "}
-                    <strong className="text-white">
-                      {products.length}
-                    </strong>{" "}
-                    produtos
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-bold text-zinc-500">
-                      PDV rápido
-                    </span>
-                    <span className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-bold text-zinc-500">
-                      Cardápio real
-                    </span>
-                  </div>
-                </div>
               </div>
-            </div>
+            </main>
 
             <aside className="xl:sticky xl:top-4 xl:h-[calc(100vh-32px)]">
               <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
                 <div className="flex items-center justify-between border-b border-white/10 p-4">
                   <div>
                     <h2 className="text-base font-black text-white">
-                      Resumo do Pedido
+                      Pedido atual
                     </h2>
-                    <p className="text-xs text-zinc-500">
-                      {orderType === "local"
-                        ? selectedTableNumber
-                          ? `Mesa ${selectedTableNumber}`
-                          : "Comanda de mesa"
-                        : orderType === "delivery"
-                          ? selectedDeliveryNeighborhood
-                            ? `Entrega • ${selectedDeliveryNeighborhood.neighborhood}`
-                            : "Pedido delivery"
-                          : "Pedido balcão"}
+                    <p className="text-xs font-semibold text-zinc-500">
+                      {orderType === "delivery"
+                        ? selectedDeliveryNeighborhood
+                          ? `Entrega • ${selectedDeliveryNeighborhood.neighborhood}`
+                          : "Entrega"
+                        : "Balcão"}
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleClearOrder}
-                    disabled={items.length === 0 && discount === 0}
-                    className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Limpar
-                  </button>
+                  <span className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-xs font-black text-zinc-400">
+                    {items.length} item(ns)
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-[1fr_88px_92px] gap-2 border-b border-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wide text-zinc-500">
-                  <span>Item</span>
-                  <span className="text-center">Qtd.</span>
-                  <span className="text-right">Valor</span>
-                </div>
-
-                <div className="min-h-[220px] flex-1 overflow-y-auto p-4">
+                <div className="min-h-[260px] flex-1 overflow-y-auto p-3">
                   {items.length === 0 ? (
                     <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#111111]">
                         <ShoppingCart className="h-8 w-8 text-zinc-500" />
                       </div>
                       <h3 className="mt-4 text-sm font-bold text-white">
-                        Nenhum item adicionado
+                        Pedido vazio
                       </h3>
                       <p className="mt-1 max-w-[240px] text-sm text-zinc-500">
-                        Clique nos produtos à esquerda para montar o pedido.
+                        Adicione os produtos pelo cardápio.
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          className="rounded-2xl border border-white/10 bg-[#111111] p-3"
+                          className="rounded-xl border border-white/10 bg-[#111111] p-3"
                         >
-                          <div className="grid grid-cols-[1fr_88px_92px_24px] gap-2">
-                            <div className="min-w-0">
-                              <h3 className="truncate text-xs font-black text-white">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-sm font-black leading-tight text-white">
                                 {item.name}
                               </h3>
 
@@ -2268,14 +1770,13 @@ export default function NovoPedidoPage() {
                                   {item.modifiers.map((modifier, index) => (
                                     <div
                                       key={`${item.id}-${modifier.optionId}-${index}`}
-                                      className="flex items-center justify-between rounded-lg bg-yellow-400/10 px-2 py-1 text-xs text-yellow-400"
+                                      className="flex items-center justify-between gap-2 rounded-lg bg-yellow-400/10 px-2 py-1 text-[11px] font-bold text-yellow-400"
                                     >
                                       <span className="truncate">
-                                        • {modifier.optionName}
+                                        + {modifier.optionName}
                                       </span>
-                                      {Number(modifier.optionPrice || 0) >
-                                        0 && (
-                                        <span className="ml-2 shrink-0 font-bold">
+                                      {Number(modifier.optionPrice || 0) > 0 && (
+                                        <span className="shrink-0">
                                           {formatCurrency(
                                             Number(modifier.optionPrice || 0),
                                           )}
@@ -2287,74 +1788,70 @@ export default function NovoPedidoPage() {
                               )}
 
                               {item.observation && (
-                                <p className="mt-1 rounded-lg bg-yellow-400/10 px-2 py-1 text-xs text-yellow-400">
+                                <p className="mt-1 rounded-lg bg-yellow-400/10 px-2 py-1 text-[11px] font-semibold text-yellow-400">
                                   Obs: {item.observation}
                                 </p>
                               )}
                             </div>
 
-                            <div className="flex items-start justify-center">
-                              <div className="flex h-9 items-center rounded-xl border border-white/10 bg-[#0A0A0A]">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleUpdateQuantity(
-                                      item.id,
-                                      item.quantity - 1,
-                                    )
-                                  }
-                                  className="flex h-9 w-8 items-center justify-center text-zinc-500 transition hover:text-red-600"
-                                >
-                                  <Minus className="h-3.5 w-3.5" />
-                                </button>
-
-                                <span className="w-7 text-center text-sm font-black text-white">
-                                  {item.quantity}
-                                </span>
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleUpdateQuantity(
-                                      item.id,
-                                      item.quantity + 1,
-                                    )
-                                  }
-                                  className="flex h-9 w-8 items-center justify-center text-zinc-500 transition hover:text-yellow-400"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </button>
+                            <div className="text-right">
+                              <div className="text-sm font-black text-white">
+                                {formatCurrency(item.price * item.quantity)}
+                              </div>
+                              <div className="mt-1 text-[11px] font-bold text-zinc-500">
+                                {formatCurrency(item.price)} un.
                               </div>
                             </div>
+                          </div>
 
-                            <div className="text-right text-sm font-black text-white">
-                              {formatCurrency(item.price * item.quantity)}
+                          <div className="mt-3 flex items-center justify-between gap-2">
+                            <div className="flex h-9 items-center rounded-xl border border-white/10 bg-[#0A0A0A]">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateQuantity(item.id, item.quantity - 1)
+                                }
+                                className="flex h-9 w-9 items-center justify-center text-zinc-500 transition hover:text-red-500"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </button>
+
+                              <span className="w-8 text-center text-sm font-black text-white">
+                                {item.quantity}
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateQuantity(item.id, item.quantity + 1)
+                                }
+                                className="flex h-9 w-9 items-center justify-center text-zinc-500 transition hover:text-yellow-400"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
                             </div>
 
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(item.id)}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
+                              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-zinc-500 transition hover:border-red-500/40 hover:text-red-500"
                             >
-                              <MoreVertical className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
 
                           <details className="mt-2">
                             <summary className="cursor-pointer text-xs font-bold text-zinc-500 transition hover:text-yellow-400">
-                              Adicionar observação ao item
+                              Observação do item
                             </summary>
                             <textarea
                               value={item.observation || ""}
                               onChange={(event) =>
-                                handleUpdateObservation(
-                                  item.id,
-                                  event.target.value,
-                                )
+                                handleUpdateObservation(item.id, event.target.value)
                               }
                               placeholder="Ex: sem cebola, bem passado..."
                               rows={2}
-                              className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
+                              className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#0A0A0A] px-3 py-2 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
                             />
                           </details>
                         </div>
@@ -2373,14 +1870,14 @@ export default function NovoPedidoPage() {
                     </div>
 
                     {orderType === "delivery" && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-zinc-500">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="min-w-0 truncate text-zinc-500">
                           Taxa de entrega
                           {selectedDeliveryNeighborhood
-                            ? ` (${selectedDeliveryNeighborhood.neighborhood})`
+                            ? ` • ${selectedDeliveryNeighborhood.neighborhood}`
                             : ""}
                         </span>
-                        <span className="font-black text-white">
+                        <span className="shrink-0 font-black text-white">
                           {selectedDeliveryNeighborhood
                             ? formatCurrency(finalDeliveryFee)
                             : "Selecione"}
@@ -2405,7 +1902,7 @@ export default function NovoPedidoPage() {
                               Math.max(0, Number(event.target.value || 0)),
                             )
                           }
-                          className="h-9 w-28 rounded-xl border border-white/10 bg-[#111111] px-3 text-right text-sm font-bold outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
+                          className="h-9 w-28 rounded-xl border border-white/10 bg-[#111111] px-3 text-right text-sm font-bold text-white outline-none focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
                         />
                       </div>
                     </div>
@@ -2414,21 +1911,72 @@ export default function NovoPedidoPage() {
                       <span className="text-base font-black text-white">
                         Total
                       </span>
-                      <span className="text-2xl font-black text-yellow-400">
+                      <span className="text-3xl font-black text-yellow-400">
                         {formatCurrency(total)}
                       </span>
                     </div>
                   </div>
 
+                  <div className="mt-4 grid grid-cols-5 gap-2">
+                    {paymentOptions.map((method) => {
+                      const Icon = method.icon;
+                      const active = paymentMethod === method.id;
+
+                      return (
+                        <button
+                          key={method.id}
+                          type="button"
+                          onClick={() => {
+                            setPaymentMethod(method.id);
+                            if (method.id !== "dinheiro") {
+                              setReceivedAmount("");
+                            }
+                          }}
+                          className={cn(
+                            "flex h-12 flex-col items-center justify-center gap-1 rounded-xl border text-[10px] font-black transition",
+                            active
+                              ? "border-yellow-400 bg-yellow-400 text-black"
+                              : "border-white/10 bg-[#111111] text-zinc-400 hover:border-yellow-400/40 hover:text-yellow-400",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {method.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {paymentMethod === "dinheiro" && (
+                    <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-[#111111] p-2">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-zinc-500">
+                          Recebido
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={receivedAmount}
+                          onChange={(event) =>
+                            setReceivedAmount(event.target.value)
+                          }
+                          placeholder="0,00"
+                          className="h-10 w-full rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-white outline-none placeholder:text-zinc-600 focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
+                        />
+                      </div>
+
+                      <div>
+                        <span className="mb-1 block text-[11px] font-black uppercase tracking-wide text-zinc-500">
+                          Troco
+                        </span>
+                        <div className="flex h-10 items-center justify-end rounded-xl border border-white/10 bg-[#0A0A0A] px-3 text-sm font-black text-emerald-400">
+                          {formatCurrency(changeAmount)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {!canSubmit() && items.length > 0 && (
                     <p className="mt-3 rounded-xl bg-yellow-400/10 px-3 py-2 text-center text-xs font-semibold text-yellow-400">
-                      {orderType === "local" &&
-                        !selectedTable &&
-                        "Selecione uma mesa para continuar."}
-                      {orderType === "local" &&
-                        selectedTable &&
-                        guestCount < 1 &&
-                        "Informe a quantidade de pessoas."}
                       {orderType === "delivery" &&
                         (!address.street || !address.number) &&
                         "Preencha rua e número."}
@@ -2436,13 +1984,13 @@ export default function NovoPedidoPage() {
                         address.street &&
                         address.number &&
                         !selectedDeliveryNeighborhood &&
-                        "Selecione um bairro atendido para aplicar a taxa de entrega."}
+                        "Selecione o bairro para aplicar a taxa de entrega."}
                     </p>
                   )}
 
                   <button
                     type="button"
-                    onClick={() => setIsPaymentModalOpen(true)}
+                    onClick={() => handleSubmit(paymentMethod)}
                     disabled={!canSubmit() || isSubmitting}
                     className={cn(
                       "mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black shadow-sm transition",
@@ -2451,65 +1999,18 @@ export default function NovoPedidoPage() {
                         : "cursor-not-allowed bg-[#111111] text-zinc-500",
                     )}
                   >
-                    <Wallet className="h-5 w-5" />
-                    Cobrar {formatCurrency(total)}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSubmit("pending" as PaymentMethod)}
-                    disabled={!canSubmit() || isSubmitting}
-                    className={cn(
-                      "mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-sm font-black transition",
-                      canSubmit() && !isSubmitting
-                        ? "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-yellow-400/10 hover:text-yellow-400"
-                        : "cursor-not-allowed border-white/10 bg-[#111111] text-zinc-500",
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="h-5 w-5" />
+                        Finalizar {selectedPaymentLabel}
+                      </>
                     )}
-                  >
-                    <ChefHat className="h-5 w-5" />
-                    Enviar para cozinha
                   </button>
-
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPaymentMethod("pix" as PaymentMethod);
-                        setIsPaymentModalOpen(true);
-                      }}
-                      disabled={!canSubmit()}
-                      className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#0A0A0A] text-xs font-bold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <QrCode className="h-4 w-4 text-emerald-400" />
-                      Pix
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPaymentMethod("dinheiro" as PaymentMethod);
-                        setIsPaymentModalOpen(true);
-                      }}
-                      disabled={!canSubmit()}
-                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] text-xs font-bold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Banknote className="h-4 w-4 text-emerald-400" />
-                      Dinheiro
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPaymentMethod("credito" as PaymentMethod);
-                        setIsPaymentModalOpen(true);
-                      }}
-                      disabled={!canSubmit()}
-                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0A0A0A] text-xs font-bold text-zinc-500 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <CreditCard className="h-4 w-4 text-yellow-400" />
-                      Cartão
-                    </button>
-                  </div>
                 </div>
               </div>
             </aside>
@@ -2518,8 +2019,8 @@ export default function NovoPedidoPage() {
       </div>
 
       {customizingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-[#0A0A0A] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505]/95 p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#0A0A0A] shadow-2xl">
             <div className="flex items-start justify-between border-b border-white/10 p-5">
               <div className="flex gap-4">
                 <div className="h-20 w-24 overflow-hidden rounded-2xl bg-[#111111]">
@@ -2580,7 +2081,7 @@ export default function NovoPedidoPage() {
                         </div>
 
                         {group.required && (
-                          <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+                          <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
                             Obrigatório
                           </span>
                         )}
@@ -2598,8 +2099,8 @@ export default function NovoPedidoPage() {
                               className={cn(
                                 "flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition",
                                 active
-                                  ? "border-yellow-400/30 bg-yellow-400/10 ring-2 ring-yellow-400/20"
-                                  : "border-white/10 bg-[#0A0A0A] hover:border-yellow-400/30 hover:bg-[#111111]",
+                                  ? "border-yellow-400/40 bg-yellow-400/10 ring-2 ring-yellow-400/20"
+                                  : "border-white/10 bg-[#0A0A0A] hover:border-yellow-400/40 hover:bg-[#111111]",
                               )}
                             >
                               <div className="flex items-center gap-3">
@@ -2607,7 +2108,7 @@ export default function NovoPedidoPage() {
                                   className={cn(
                                     "flex h-5 w-5 items-center justify-center rounded-full border",
                                     active
-                                      ? "border-yellow-400/30 bg-yellow-400 text-black"
+                                      ? "border-yellow-400 bg-yellow-400 text-black"
                                       : "border-white/10 bg-[#0A0A0A]",
                                   )}
                                 >
@@ -2643,7 +2144,7 @@ export default function NovoPedidoPage() {
                     }
                     placeholder="Ex: sem cebola, molho separado..."
                     rows={3}
-                    className="w-full resize-none rounded-2xl border border-white/10 bg-[#111111] px-3 py-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
+                    className="w-full resize-none rounded-2xl border border-white/10 bg-[#111111] px-3 py-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-yellow-400/40 focus:ring-2 focus:ring-yellow-400/20"
                   />
                 </div>
               </div>
@@ -2687,214 +2188,6 @@ export default function NovoPedidoPage() {
               >
                 <Plus className="h-5 w-5" />
                 Adicionar {formatCurrency(customProductTotal)}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isTableModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl bg-[#0A0A0A] p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-black text-white">
-                  Nova mesa
-                </h3>
-                <p className="text-sm text-zinc-500">
-                  Cadastre uma mesa para usar no PDV.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsTableModalOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 transition hover:bg-[#111111] hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                  Número da mesa
-                </label>
-                <input
-                  type="text"
-                  value={newTableNumber}
-                  onChange={(event) => setNewTableNumber(event.target.value)}
-                  placeholder="Ex: 7"
-                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                  Nome
-                </label>
-                <input
-                  type="text"
-                  value={newTableName}
-                  onChange={(event) => setNewTableName(event.target.value)}
-                  placeholder="Ex: Mesa 7"
-                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                  Capacidade
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={newTableCapacity}
-                  onChange={(event) =>
-                    setNewTableCapacity(
-                      Math.max(1, Number(event.target.value || 1)),
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm outline-none focus:border-yellow-400/30 focus:bg-[#0A0A0A] focus:ring-2 focus:ring-yellow-400/20"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setIsTableModalOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-bold text-zinc-500 transition hover:bg-[#111111]"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={saveNewTable}
-                disabled={!newTableNumber.trim()}
-                className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500"
-              >
-                Salvar mesa
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505] p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-3xl bg-[#0A0A0A] shadow-2xl">
-            <div className="flex items-start justify-between border-b border-white/10 p-6">
-              <div>
-                <h3 className="text-2xl font-black text-white">
-                  Cobrar pedido
-                </h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Escolha a forma de pagamento para finalizar.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsPaymentModalOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 transition hover:bg-[#111111] hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              <div className="mb-5 rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-6 text-center">
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-4000">
-                  Total a cobrar
-                </span>
-                <div className="mt-1 text-4xl font-black text-yellow-400">
-                  {formatCurrency(total)}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                {paymentOptions.map((method) => (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={() => {
-                      setPaymentMethod(method.id as PaymentMethod);
-                      if (method.id !== "dinheiro") {
-                        setReceivedAmount("");
-                      }
-                    }}
-                    className={cn(
-                      "flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-sm font-black transition",
-                      paymentMethod === method.id
-                        ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 ring-2 ring-yellow-400/20"
-                        : "border-white/10 bg-[#0A0A0A] text-zinc-500 hover:border-yellow-400/30 hover:bg-[#111111]",
-                    )}
-                  >
-                    {method.icon}
-                    {method.name}
-                  </button>
-                ))}
-              </div>
-
-              {paymentMethod === "dinheiro" && (
-                <div className="mt-5 rounded-2xl border border-white/10 bg-[#111111] p-4">
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
-                    Valor recebido
-                  </label>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={receivedAmount}
-                      onChange={(event) =>
-                        setReceivedAmount(event.target.value)
-                      }
-                      placeholder="0,00"
-                      className="h-12 rounded-2xl border border-white/10 bg-[#0A0A0A] px-4 text-lg font-black outline-none focus:border-yellow-400/30 focus:ring-2 focus:ring-yellow-400/20"
-                    />
-
-                    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0A0A0A] px-4">
-                      <span className="text-sm font-bold text-zinc-500">
-                        Troco
-                      </span>
-                      <span className="text-lg font-black text-emerald-400">
-                        {formatCurrency(changeAmount)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-white/10 p-6 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setIsPaymentModalOpen(false)}
-                className="rounded-2xl px-5 py-3 text-sm font-bold text-zinc-500 transition hover:bg-[#111111]"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSubmit()}
-                disabled={isSubmitting}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-7 py-3 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-5 w-5" />
-                    Finalizar e imprimir
-                  </>
-                )}
               </button>
             </div>
           </div>

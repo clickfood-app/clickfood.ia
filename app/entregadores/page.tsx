@@ -3,10 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import {
   CheckCircle2,
-  Copy,
   Loader2,
-  MessageCircle,
-  Phone,
   Plus,
   RefreshCcw,
   Search,
@@ -73,14 +70,10 @@ type CourierOrderItem = {
 }
 
 type DeliveryPersonWithStats = DeliveryPersonRow & {
-  openOrders: number
+  openFeeOrders: CourierOrderItem[]
+  openFeeAmount: number
   onRouteOrders: number
-  deliveredToday: number
-  totalToReceiveToday: number
-  pendingToReceiveToday: number
-  ordersToday: CourierOrderItem[]
-  settlementToday: DeliverySettlementRow | null
-  isPaidToday: boolean
+  deliveredOrders: number
 }
 
 const supabase = createClient()
@@ -139,31 +132,6 @@ function isPayableDeliveryOrder(order: Pick<OrderRow, "delivery_fee" | "status">
   )
 }
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("")
-}
-
-function formatPhone(phone: string | null) {
-  if (!phone) return "Sem telefone"
-
-  const digits = phone.replace(/\D/g, "")
-
-  if (digits.length === 11) {
-    return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3")
-  }
-
-  if (digits.length === 10) {
-    return digits.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3")
-  }
-
-  return phone
-}
-
 function formatPixKeyType(type: string | null) {
   if (type === "cpf") return "CPF"
   if (type === "phone") return "Telefone"
@@ -171,25 +139,6 @@ function formatPixKeyType(type: string | null) {
   if (type === "random") return "Aleatória"
 
   return "Pix"
-}
-
-function normalizeWhatsappPhone(phone: string | null) {
-  if (!phone) return null
-
-  const digits = phone.replace(/\D/g, "")
-
-  if (!digits) return null
-  if (digits.startsWith("55")) return digits
-
-  return `55${digits}`
-}
-
-function getWhatsappUrl(phone: string | null) {
-  const normalizedPhone = normalizeWhatsappPhone(phone)
-
-  if (!normalizedPhone) return null
-
-  return `https://wa.me/${normalizedPhone}`
 }
 
 function formatTime(value: string) {
@@ -246,8 +195,55 @@ function getYesterdayDateString() {
   return getLocalDateString(date)
 }
 
+function getDaysAgoDateString(days: number) {
+  const date = new Date()
+  date.setDate(date.getDate() - days)
+
+  return getLocalDateString(date)
+}
+
+function getCurrentMonthStartDateString() {
+  const date = new Date()
+
+  return getLocalDateString(new Date(date.getFullYear(), date.getMonth(), 1))
+}
+
 function getOrderAccountingDate(order: Pick<OrderRow, "delivered_at" | "out_for_delivery_at" | "created_at">) {
   return order.delivered_at || order.out_for_delivery_at || order.created_at
+}
+
+function getDateKey(value: Date | string) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value
+  }
+
+  return getLocalDateString(value)
+}
+
+function isDateInsidePeriod(value: Date | string, startDate: string, endDate: string) {
+  const dateKey = getDateKey(value)
+
+  if (startDate && dateKey < startDate) return false
+  if (endDate && dateKey > endDate) return false
+
+  return true
+}
+
+function formatDateKey(value: string) {
+  const dateKey = value.slice(0, 10)
+  const [year, month, day] = dateKey.split("-")
+
+  if (!year || !month || !day) return value
+
+  return `${day}/${month}/${year}`
+}
+
+function getPeriodLabel(startDate: string, endDate: string) {
+  if (!startDate && !endDate) return "Todas as taxas abertas"
+  if (startDate && endDate && startDate === endDate) return formatDateKey(startDate)
+  if (startDate && endDate) return `${formatDateKey(startDate)} até ${formatDateKey(endDate)}`
+  if (startDate) return `A partir de ${formatDateKey(startDate)}`
+  return `Até ${formatDateKey(endDate)}`
 }
 
 function isFinalizedDeliveryOrder(
@@ -280,10 +276,10 @@ export default function EntregadoresPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [showForm, setShowForm] = useState(false)
-  const [showSettlementPanel, setShowSettlementPanel] = useState(false)
-  const [settlementHistoryDate, setSettlementHistoryDate] = useState(getTodayDateString())
-  const [deliveryHistoryDate, setDeliveryHistoryDate] = useState(getYesterdayDateString())
-  const [expandedCourierId, setExpandedCourierId] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
   const [editingCourierId, setEditingCourierId] = useState<string | null>(null)
@@ -293,6 +289,8 @@ export default function EntregadoresPage() {
   const [pixKey, setPixKey] = useState("")
   const [notes, setNotes] = useState("")
 
+  const hasInvalidPeriod = Boolean(startDate && endDate && startDate > endDate)
+
   function resetForm() {
     setEditingCourierId(null)
     setName("")
@@ -301,6 +299,35 @@ export default function EntregadoresPage() {
     setPixKey("")
     setNotes("")
     setShowForm(false)
+  }
+
+  function applyAllOpenPeriod() {
+    setStartDate("")
+    setEndDate("")
+  }
+
+  function applyTodayPeriod() {
+    const today = getTodayDateString()
+
+    setStartDate(today)
+    setEndDate(today)
+  }
+
+  function applyYesterdayPeriod() {
+    const yesterday = getYesterdayDateString()
+
+    setStartDate(yesterday)
+    setEndDate(yesterday)
+  }
+
+  function applyLastSevenDaysPeriod() {
+    setStartDate(getDaysAgoDateString(6))
+    setEndDate(getTodayDateString())
+  }
+
+  function applyCurrentMonthPeriod() {
+    setStartDate(getCurrentMonthStartDateString())
+    setEndDate(getTodayDateString())
   }
 
   async function loadDeliveryPeople(showRefresh = false) {
@@ -334,8 +361,8 @@ export default function EntregadoresPage() {
       setDeliveryPeople((data || []) as DeliveryPersonRow[])
       setLastUpdatedAt(new Date())
     } catch (err) {
-      console.error("Erro ao carregar motoboys:", err)
-      setError(getErrorMessage(err, "Erro ao carregar motoboys."))
+      console.error("Erro ao carregar entregadores:", err)
+      setError(getErrorMessage(err, "Erro ao carregar entregadores."))
     } finally {
       setLoadingPage(false)
       setRefreshing(false)
@@ -370,8 +397,8 @@ export default function EntregadoresPage() {
       setOrders((data || []) as OrderRow[])
       setLastUpdatedAt(new Date())
     } catch (err) {
-      console.error("Erro ao carregar pedidos com motoboy:", err)
-      setError(getErrorMessage(err, "Erro ao carregar pedidos com motoboy."))
+      console.error("Erro ao carregar pedidos dos entregadores:", err)
+      setError(getErrorMessage(err, "Erro ao carregar pedidos dos entregadores."))
     } finally {
       setOrdersLoading(false)
     }
@@ -404,8 +431,8 @@ export default function EntregadoresPage() {
 
       setSettlements((data || []) as DeliverySettlementRow[])
     } catch (err) {
-      console.error("Erro ao carregar repasses pagos:", err)
-      setError(getErrorMessage(err, "Erro ao carregar repasses pagos."))
+      console.error("Erro ao carregar fechamentos de taxas:", err)
+      setError(getErrorMessage(err, "Erro ao carregar fechamentos de taxas."))
     } finally {
       setSettlementsLoading(false)
     }
@@ -450,7 +477,7 @@ export default function EntregadoresPage() {
     const trimmedNotes = notes.trim()
 
     if (!trimmedName) {
-      setError("Digite o nome do motoboy.")
+      setError("Digite o nome do entregador.")
       return
     }
 
@@ -490,8 +517,8 @@ export default function EntregadoresPage() {
       resetForm()
       await loadDeliveryPeople(true)
     } catch (err) {
-      console.error("Erro ao salvar motoboy:", err)
-      setError(getErrorMessage(err, "Erro ao salvar motoboy."))
+      console.error("Erro ao salvar entregador:", err)
+      setError(getErrorMessage(err, "Erro ao salvar entregador."))
     } finally {
       setSaving(false)
     }
@@ -500,8 +527,8 @@ export default function EntregadoresPage() {
   async function handleToggleActive(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.pendingToReceiveToday > 0 && courier.is_active) {
-      setError("Esse motoboy possui taxas em aberto. Feche as taxas antes de desativar.")
+    if (courier.openFeeAmount > 0 && courier.is_active) {
+      setError("Esse entregador possui taxas em aberto. Feche as taxas antes de desativar.")
       return
     }
 
@@ -521,8 +548,8 @@ export default function EntregadoresPage() {
 
       await loadDeliveryPeople(true)
     } catch (err) {
-      console.error("Erro ao atualizar motoboy:", err)
-      setError(getErrorMessage(err, "Erro ao atualizar motoboy."))
+      console.error("Erro ao atualizar entregador:", err)
+      setError(getErrorMessage(err, "Erro ao atualizar entregador."))
     } finally {
       setBusyCourierId(null)
     }
@@ -531,13 +558,13 @@ export default function EntregadoresPage() {
   async function handleDeleteCourier(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.pendingToReceiveToday > 0) {
-      setError("Esse motoboy possui taxas em aberto. Feche as taxas antes de excluir.")
+    if (courier.openFeeAmount > 0) {
+      setError("Esse entregador possui taxas em aberto. Feche as taxas antes de excluir.")
       return
     }
 
     const confirmed = window.confirm(
-      `Excluir ${courier.name}? Ele será removido da tela, mas o histórico dos pedidos continua salvo.`
+      `Excluir ${courier.name}? Ele será removido da tela, mas o histórico dos pedidos continuará salvo.`
     )
 
     if (!confirmed) return
@@ -563,38 +590,28 @@ export default function EntregadoresPage() {
 
       await loadDeliveryPeople(true)
     } catch (err) {
-      console.error("Erro ao excluir motoboy:", err)
-      setError(getErrorMessage(err, "Erro ao excluir motoboy."))
+      console.error("Erro ao excluir entregador:", err)
+      setError(getErrorMessage(err, "Erro ao excluir entregador."))
     } finally {
       setBusyCourierId(null)
-    }
-  }
-
-  async function handleCopyPix(courier: DeliveryPersonWithStats) {
-    if (!courier.pix_key) {
-      setError("Esse motoboy ainda não tem chave Pix cadastrada.")
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(courier.pix_key)
-      setError(null)
-    } catch (err) {
-      console.error("Erro ao copiar Pix:", err)
-      setError("Não foi possível copiar a chave Pix.")
     }
   }
 
   async function handleMarkSettlementPaid(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.ordersToday.length === 0 || courier.pendingToReceiveToday <= 0) {
-      setError("Esse motoboy não tem taxa em aberto para fechar.")
+    if (hasInvalidPeriod) {
+      setError("A data inicial não pode ser maior que a data final.")
+      return
+    }
+
+    if (courier.openFeeOrders.length === 0 || courier.openFeeAmount <= 0) {
+      setError("Esse entregador não tem taxa em aberto no período selecionado.")
       return
     }
 
     const confirmed = window.confirm(
-      `Fechar ${formatCurrency(courier.pendingToReceiveToday)} em taxas para ${courier.name}?`
+      `Fechar ${formatCurrency(courier.openFeeAmount)} em taxas para ${courier.name}?`
     )
 
     if (!confirmed) return
@@ -604,14 +621,14 @@ export default function EntregadoresPage() {
       setError(null)
 
       const settlementDate = getTodayDateString()
-      const orderIds = courier.ordersToday.map((order) => order.id)
+      const orderIds = courier.openFeeOrders.map((order) => order.id)
 
       const { error } = await supabase.from("delivery_settlements").insert({
         restaurant_id: restaurant.id,
         delivery_person_id: courier.id,
         settlement_date: settlementDate,
-        total_amount: courier.pendingToReceiveToday,
-        total_orders: courier.ordersToday.length,
+        total_amount: courier.openFeeAmount,
+        total_orders: orderIds.length,
         order_ids: orderIds,
         payment_method: "pix",
         status: "paid",
@@ -640,26 +657,33 @@ export default function EntregadoresPage() {
         const existingOrderIds = Array.isArray(existingSettlement.order_ids)
           ? existingSettlement.order_ids
           : []
-        const mergedOrderIds = Array.from(new Set([...existingOrderIds, ...orderIds]))
 
-        const { error: updateError } = await supabase
-          .from("delivery_settlements")
-          .update({
-            total_amount: Number(existingSettlement.total_amount || 0) + courier.pendingToReceiveToday,
-            total_orders: mergedOrderIds.length,
-            order_ids: mergedOrderIds,
-            paid_at: new Date().toISOString(),
-          })
-          .eq("id", existingSettlement.id)
-          .eq("restaurant_id", restaurant.id)
+        const existingOrderIdsSet = new Set(existingOrderIds)
+        const newOrders = courier.openFeeOrders.filter((order) => !existingOrderIdsSet.has(order.id))
+        const newOrderIds = newOrders.map((order) => order.id)
+        const mergedOrderIds = Array.from(new Set([...existingOrderIds, ...newOrderIds]))
+        const amountToAdd = newOrders.reduce((sum, order) => sum + Number(order.delivery_fee || 0), 0)
 
-        if (updateError) throw updateError
+        if (newOrderIds.length > 0 && amountToAdd > 0) {
+          const { error: updateError } = await supabase
+            .from("delivery_settlements")
+            .update({
+              total_amount: Number(existingSettlement.total_amount || 0) + amountToAdd,
+              total_orders: mergedOrderIds.length,
+              order_ids: mergedOrderIds,
+              paid_at: new Date().toISOString(),
+            })
+            .eq("id", existingSettlement.id)
+            .eq("restaurant_id", restaurant.id)
+
+          if (updateError) throw updateError
+        }
       }
 
       await Promise.all([loadOrdersToSettle(), loadSettlements()])
     } catch (err) {
-      console.error("Erro ao fechar taxas do motoboy:", err)
-      setError(getErrorMessage(err, "Erro ao fechar taxas do motoboy."))
+      console.error("Erro ao fechar taxas do entregador:", err)
+      setError(getErrorMessage(err, "Erro ao fechar taxas do entregador."))
     } finally {
       setSettlingCourierId(null)
     }
@@ -787,10 +811,15 @@ export default function EntregadoresPage() {
   const deliveryPeopleWithStats = useMemo<DeliveryPersonWithStats[]>(() => {
     return deliveryPeople
       .map((courier) => {
-        const courierOrders = orders
+        const openFeeOrders = orders
           .filter((order) => order.delivery_person_id === courier.id)
           .filter((order) => isPayableDeliveryOrder(order))
           .filter((order) => !paidOrderIds.has(order.id))
+          .filter((order) => {
+            if (hasInvalidPeriod) return false
+
+            return isDateInsidePeriod(getOrderAccountingDate(order), startDate, endDate)
+          })
           .map((order) => ({
             id: order.id,
             public_order_number: order.public_order_number,
@@ -802,51 +831,41 @@ export default function EntregadoresPage() {
             delivered_at: order.delivered_at,
           }))
 
-        const openOrders = courierOrders.length
-
-        const onRouteOrders = courierOrders.filter((order) =>
-          isOrderStillOnRoute(order)
-        ).length
-
-        const deliveredToday = courierOrders.filter((order) =>
-          isFinalizedDeliveryOrder(order)
-        ).length
-
-        const totalToReceiveToday = courierOrders.reduce(
+        const openFeeAmount = openFeeOrders.reduce(
           (sum, order) => sum + Number(order.delivery_fee || 0),
           0
         )
 
-        const settlementToday =
-          settlements.find(
-            (settlement) =>
-              settlement.delivery_person_id === courier.id &&
-              settlement.settlement_date === getTodayDateString() &&
-              settlement.status === "paid"
-          ) || null
+        const onRouteOrders = openFeeOrders.filter((order) =>
+          isOrderStillOnRoute(order)
+        ).length
 
-        const isPaidToday = Boolean(settlementToday) && totalToReceiveToday <= 0
+        const deliveredOrders = openFeeOrders.filter((order) =>
+          isFinalizedDeliveryOrder(order)
+        ).length
 
         return {
           ...courier,
-          openOrders,
+          openFeeOrders,
+          openFeeAmount,
           onRouteOrders,
-          deliveredToday,
-          totalToReceiveToday,
-          pendingToReceiveToday: totalToReceiveToday,
-          ordersToday: courierOrders,
-          settlementToday,
-          isPaidToday,
+          deliveredOrders,
         }
       })
       .sort((a, b) => {
-        if (a.pendingToReceiveToday !== b.pendingToReceiveToday) {
-          return b.pendingToReceiveToday - a.pendingToReceiveToday
+        if (a.openFeeAmount !== b.openFeeAmount) {
+          return b.openFeeAmount - a.openFeeAmount
         }
+
+        if (a.openFeeOrders.length !== b.openFeeOrders.length) {
+          return b.openFeeOrders.length - a.openFeeOrders.length
+        }
+
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
+
         return a.name.localeCompare(b.name, "pt-BR")
       })
-  }, [deliveryPeople, orders, paidOrderIds, settlements])
+  }, [deliveryPeople, orders, paidOrderIds, startDate, endDate, hasInvalidPeriod])
 
   const filteredCouriers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
@@ -858,7 +877,7 @@ export default function EntregadoresPage() {
         courier.name.toLowerCase().includes(normalizedSearch) ||
         (courier.phone || "").toLowerCase().includes(normalizedSearch) ||
         (courier.pix_key || "").toLowerCase().includes(normalizedSearch) ||
-        courier.ordersToday.some((order) =>
+        courier.openFeeOrders.some((order) =>
           getOrderNumber(order).toLowerCase().includes(normalizedSearch)
         )
       )
@@ -866,101 +885,54 @@ export default function EntregadoresPage() {
   }, [deliveryPeopleWithStats, search])
 
   const activeCouriers = deliveryPeopleWithStats.filter((item) => item.is_active).length
-  const totalOrdersToday = deliveryPeopleWithStats.reduce(
-    (sum, item) => sum + item.ordersToday.length,
+  const totalOpenOrders = deliveryPeopleWithStats.reduce(
+    (sum, item) => sum + item.openFeeOrders.length,
     0
   )
-  const totalPendingToday = deliveryPeopleWithStats.reduce(
-    (sum, item) => sum + item.pendingToReceiveToday,
+  const totalOpenAmount = deliveryPeopleWithStats.reduce(
+    (sum, item) => sum + item.openFeeAmount,
     0
   )
-  const couriersWithOpenSettlement = deliveryPeopleWithStats.filter(
-    (item) => item.pendingToReceiveToday > 0 && item.ordersToday.length > 0
+  const totalOnRouteOrders = deliveryPeopleWithStats.reduce(
+    (sum, item) => sum + item.onRouteOrders,
+    0
   )
-  const settlementHistory = settlements.filter(
-    (settlement) => settlement.settlement_date === settlementHistoryDate
-  )
-  const totalSettledInDate = settlementHistory.reduce(
+  const couriersWithOpenFee = deliveryPeopleWithStats.filter((item) => item.openFeeAmount > 0).length
+
+  const settlementHistory = useMemo(() => {
+    return settlements.filter((settlement) => {
+      if (hasInvalidPeriod) return false
+
+      return isDateInsidePeriod(settlement.settlement_date, startDate, endDate)
+    })
+  }, [settlements, startDate, endDate, hasInvalidPeriod])
+
+  const totalSettledInPeriod = settlementHistory.reduce(
     (sum, settlement) => sum + Number(settlement.total_amount || 0),
-    0
-  )
-
-  const deliveryHistoryByCourier = useMemo(() => {
-    const payableOrdersInDate = orders
-      .filter((order) => order.delivery_person_id)
-      .filter((order) => isPayableDeliveryOrder(order))
-      .filter((order) => getLocalDateString(getOrderAccountingDate(order)) === deliveryHistoryDate)
-
-    return deliveryPeople
-      .map((courier) => {
-        const courierOrders = payableOrdersInDate
-          .filter((order) => order.delivery_person_id === courier.id)
-          .map((order) => ({
-            id: order.id,
-            public_order_number: order.public_order_number,
-            customer_name: order.customer_name,
-            delivery_fee: Number(order.delivery_fee || 0),
-            status: order.status,
-            created_at: order.created_at,
-            out_for_delivery_at: order.out_for_delivery_at,
-            delivered_at: order.delivered_at,
-          }))
-
-        const settledOrders = courierOrders.filter((order) => paidOrderIds.has(order.id))
-        const openOrdersInDate = courierOrders.filter((order) => !paidOrderIds.has(order.id))
-
-        return {
-          courier,
-          orders: courierOrders,
-          settledOrders,
-          openOrders: openOrdersInDate,
-          totalAmount: courierOrders.reduce((sum, order) => sum + order.delivery_fee, 0),
-          settledAmount: settledOrders.reduce((sum, order) => sum + order.delivery_fee, 0),
-          openAmount: openOrdersInDate.reduce((sum, order) => sum + order.delivery_fee, 0),
-        }
-      })
-      .filter((item) => item.orders.length > 0)
-      .sort((a, b) => b.totalAmount - a.totalAmount)
-  }, [deliveryHistoryDate, deliveryPeople, orders, paidOrderIds])
-
-  const totalDeliveryHistoryAmount = deliveryHistoryByCourier.reduce(
-    (sum, item) => sum + item.totalAmount,
-    0
-  )
-  const totalDeliveryHistoryOpen = deliveryHistoryByCourier.reduce(
-    (sum, item) => sum + item.openAmount,
-    0
-  )
-  const totalDeliveryHistorySettled = deliveryHistoryByCourier.reduce(
-    (sum, item) => sum + item.settledAmount,
-    0
-  )
-  const totalDeliveryHistoryOrders = deliveryHistoryByCourier.reduce(
-    (sum, item) => sum + item.orders.length,
     0
   )
 
   return (
     <AdminLayout>
-      <div className="space-y-4 p-4 sm:p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="space-y-3 p-3 sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground">
+            <h1 className="text-xl font-black tracking-tight text-foreground sm:text-2xl">
               Entregadores
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Veja as taxas abertas, quanto falta repassar e feche os valores sem perder nada após meia-noite.
+            <p className="mt-1 text-xs font-medium text-muted-foreground sm:text-sm">
+              Controle rápido das taxas em aberto por entregador.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowSettlementPanel((current) => !current)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 text-sm font-bold text-emerald-400 transition hover:bg-emerald-500/15"
+              onClick={() => setShowHistory((current) => !current)}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
             >
               <Wallet className="h-4 w-4" />
-              Fechamento de taxas
+              {showHistory ? "Ocultar histórico" : "Histórico"}
             </button>
 
             <button
@@ -969,17 +941,17 @@ export default function EntregadoresPage() {
                 resetForm()
                 setShowForm(true)
               }}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground transition hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
-              Novo motoboy
+              Novo entregador
             </button>
 
             <button
               type="button"
               onClick={() => void refreshAll()}
               disabled={refreshing}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {refreshing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -992,477 +964,215 @@ export default function EntregadoresPage() {
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 sm:text-sm">
             {error}
           </div>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-wide text-emerald-400">
-                A repassar em aberto
-              </p>
-              <Wallet className="h-4 w-4 text-emerald-400" />
-            </div>
-            <p className="mt-2 text-2xl font-black text-emerald-400">
-              {ordersLoading ? "..." : formatCurrency(totalPendingToday)}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
-              Motoboys ativos
-            </p>
-            <p className="mt-2 text-2xl font-black text-foreground">
-              {loadingPage ? "..." : activeCouriers}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
-              Pedidos no acerto
-            </p>
-            <div className="mt-2 flex items-end justify-between gap-3">
-              <p className="text-2xl font-black text-foreground">
-                {ordersLoading ? "..." : totalOrdersToday}
-              </p>
-              <p className="text-xs font-bold text-muted-foreground">
-                {ordersLoading ? "" : `${totalOrdersToday} taxa(s) aberta(s)`}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {showSettlementPanel ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-base font-black text-emerald-400">
-                    Taxas em aberto
-                  </h2>
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Esses valores continuam acumulando até você fechar, mesmo virando o dia.
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-emerald-400/30 bg-background px-3 py-2 text-right">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    Total aberto
-                  </p>
-                  <p className="text-lg font-black text-emerald-400">
-                    {formatCurrency(totalPendingToday)}
-                  </p>
-                </div>
-              </div>
-
-              {ordersLoading ? (
-                <div className="rounded-xl border border-dashed border-emerald-400/30 bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                  Carregando taxas em aberto...
-                </div>
-              ) : couriersWithOpenSettlement.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-emerald-400/30 bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                  Nenhuma taxa em aberto no momento.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {couriersWithOpenSettlement.map((courier) => (
-                    <div
-                      key={courier.id}
-                      className="grid gap-3 rounded-xl border border-emerald-400/30 bg-background p-3 sm:grid-cols-[minmax(0,1fr)_90px_120px_auto] sm:items-center"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-foreground">
-                          {courier.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {courier.pix_key
-                            ? `${formatPixKeyType(courier.pix_key_type)}: ${courier.pix_key}`
-                            : "Pix não cadastrado"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Pedidos
-                        </p>
-                        <p className="text-sm font-black text-foreground">
-                          {courier.ordersToday.length}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Valor
-                        </p>
-                        <p className="text-sm font-black text-emerald-400">
-                          {formatCurrency(courier.pendingToReceiveToday)}
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => void handleMarkSettlementPaid(courier)}
-                        disabled={settlingCourierId === courier.id || settlementsLoading}
-                        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[#0A0A0A] px-3 text-xs font-bold text-emerald-400 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {settlingCourierId === courier.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="h-4 w-4" />
-                        )}
-                        Fechar taxa
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-base font-black text-foreground">
-                    Histórico de fechamentos
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Filtre por data para conferir quanto já foi repassado.
-                  </p>
-                </div>
-
-                <input
-                  type="date"
-                  value={settlementHistoryDate}
-                  onChange={(e) => setSettlementHistoryDate(e.target.value)}
-                  className="h-10 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
-                />
-              </div>
-
-              <div className="mb-3 rounded-xl border border-border bg-background px-3 py-2">
-                <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                  Total fechado na data
-                </p>
-                <p className="text-lg font-black text-foreground">
-                  {formatCurrency(totalSettledInDate)}
-                </p>
-              </div>
-
-              {settlementsLoading ? (
-                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                  Carregando histórico...
-                </div>
-              ) : settlementHistory.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                  Nenhum fechamento encontrado nessa data.
-                </div>
-              ) : (
-                <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-                  {settlementHistory.map((settlement) => {
-                    const courier = deliveryPeople.find(
-                      (item) => item.id === settlement.delivery_person_id
-                    )
-
-                    return (
-                      <div key={settlement.id} className="bg-background p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-foreground">
-                              {courier?.name || "Motoboy removido"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {settlement.total_orders} pedido(s) fechado(s)
-                            </p>
-                          </div>
-
-                          <div className="text-right">
-                            <p className="text-sm font-black text-foreground">
-                              {formatCurrency(settlement.total_amount)}
-                            </p>
-                            <p className="text-[11px] font-semibold text-muted-foreground">
-                              {settlement.paid_at ? formatTime(settlement.paid_at) : "Pago"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4 lg:col-span-2">
-              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h2 className="text-base font-black text-foreground">
-                    Histórico por data dos pedidos
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Use esse filtro para achar taxas de ontem ou de qualquer dia. O valor em aberto aparece mesmo se virou meia-noite.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryHistoryDate(getYesterdayDateString())}
-                    className="h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                  >
-                    Ver ontem
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryHistoryDate(getTodayDateString())}
-                    className="h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                  >
-                    Ver hoje
-                  </button>
-                  <input
-                    type="date"
-                    value={deliveryHistoryDate}
-                    onChange={(e) => setDeliveryHistoryDate(e.target.value)}
-                    className="h-10 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  />
-                </div>
-              </div>
-
-              <div className="mb-4 grid gap-3 md:grid-cols-4">
-                <div className="rounded-xl border border-border bg-background p-3">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    Pedidos na data
-                  </p>
-                  <p className="mt-1 text-lg font-black text-foreground">
-                    {ordersLoading ? "..." : totalDeliveryHistoryOrders}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-border bg-background p-3">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    Total de taxas
-                  </p>
-                  <p className="mt-1 text-lg font-black text-foreground">
-                    {ordersLoading ? "..." : formatCurrency(totalDeliveryHistoryAmount)}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-emerald-400">
-                    Ainda em aberto
-                  </p>
-                  <p className="mt-1 text-lg font-black text-emerald-400">
-                    {ordersLoading ? "..." : formatCurrency(totalDeliveryHistoryOpen)}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-yellow-400">
-                    Já fechado
-                  </p>
-                  <p className="mt-1 text-lg font-black text-yellow-400">
-                    {ordersLoading ? "..." : formatCurrency(totalDeliveryHistorySettled)}
-                  </p>
-                </div>
-              </div>
-
-              {ordersLoading ? (
-                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                  Carregando pedidos da data...
-                </div>
-              ) : deliveryHistoryByCourier.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                  Nenhuma taxa encontrada nessa data.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {deliveryHistoryByCourier.map((item) => (
-                    <div
-                      key={item.courier.id}
-                      className="rounded-xl border border-border bg-background p-3"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-black text-foreground">
-                            {item.courier.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.orders.length} pedido(s) · {formatCurrency(item.totalAmount)} em taxas
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-right sm:min-w-[240px]">
-                          <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
-                            <p className="text-[11px] font-bold text-emerald-400">Aberto</p>
-                            <p className="text-sm font-black text-emerald-400">
-                              {formatCurrency(item.openAmount)}
-                            </p>
-                          </div>
-                          <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2">
-                            <p className="text-[11px] font-bold text-yellow-400">Fechado</p>
-                            <p className="text-sm font-black text-yellow-400">
-                              {formatCurrency(item.settledAmount)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
-                        {item.orders.map((order) => {
-                          const isSettled = paidOrderIds.has(order.id)
-
-                          return (
-                            <div
-                              key={order.id}
-                              className="grid gap-2 bg-card px-3 py-2 text-xs sm:grid-cols-[90px_minmax(0,1fr)_90px_90px] sm:items-center"
-                            >
-                              <p className="font-black text-foreground">
-                                #{getOrderNumber(order)}
-                              </p>
-                              <p className="truncate text-muted-foreground">
-                                {order.customer_name || "Cliente sem nome"}
-                              </p>
-                              <p className="font-black text-foreground">
-                                {formatCurrency(order.delivery_fee)}
-                              </p>
-                              <span
-                                className={`w-fit rounded-full px-2 py-1 text-[11px] font-black ${
-                                  isSettled
-                                    ? "bg-yellow-400/10 text-yellow-400"
-                                    : "bg-emerald-500/10 text-emerald-400"
-                                }`}
-                              >
-                                {isSettled ? "Fechado" : "Em aberto"}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        {hasInvalidPeriod ? (
+          <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs font-semibold text-yellow-800 sm:text-sm">
+            A data inicial não pode ser maior que a data final.
           </div>
         ) : null}
 
-        {showForm ? (
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-base font-black text-foreground">
-                  {editingCourierId ? "Editar motoboy" : "Cadastrar motoboy"}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Preencha só o necessário. Pix pode ficar vazio e ser editado depois.
+        <div className="rounded-xl border border-border bg-card">
+          <div className="space-y-3 border-b border-border p-3">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <button
+                  type="button"
+                  onClick={applyAllOpenPeriod}
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                >
+                  Tudo aberto
+                </button>
+
+                <button
+                  type="button"
+                  onClick={applyTodayPeriod}
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                >
+                  Hoje
+                </button>
+
+                <button
+                  type="button"
+                  onClick={applyYesterdayPeriod}
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                >
+                  Ontem
+                </button>
+
+                <button
+                  type="button"
+                  onClick={applyLastSevenDaysPeriod}
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                >
+                  7 dias
+                </button>
+
+                <button
+                  type="button"
+                  onClick={applyCurrentMonthPeriod}
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                >
+                  Mês
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 sm:w-[150px]"
+                />
+
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 sm:w-[150px]"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2 text-xs sm:grid-cols-5">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="font-bold text-muted-foreground">Período</p>
+                <p className="mt-0.5 truncate font-black text-foreground">
+                  {getPeriodLabel(startDate, endDate)}
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={resetForm}
-                className="h-9 rounded-xl border border-border px-3 text-xs font-bold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
-              >
-                Cancelar
-              </button>
-            </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="font-bold text-muted-foreground">Total aberto</p>
+                <p className="mt-0.5 font-black text-foreground">
+                  {ordersLoading ? "..." : formatCurrency(totalOpenAmount)}
+                </p>
+              </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_0.8fr_1.2fr]">
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  Nome
-                </label>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="font-bold text-muted-foreground">Entregas</p>
+                <p className="mt-0.5 font-black text-foreground">
+                  {ordersLoading ? "..." : totalOpenOrders}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="font-bold text-muted-foreground">Em rota</p>
+                <p className="mt-0.5 font-black text-foreground">
+                  {ordersLoading ? "..." : totalOnRouteOrders}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="font-bold text-muted-foreground">Com taxa</p>
+                <p className="mt-0.5 font-black text-foreground">
+                  {ordersLoading ? "..." : couriersWithOpenFee}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {showForm ? (
+            <div className="border-b border-border p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-black text-foreground">
+                    {editingCourierId ? "Editar entregador" : "Cadastrar entregador"}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Nome é obrigatório. Os outros campos são opcionais.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="h-8 rounded-lg border border-border px-3 text-xs font-bold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_1.2fr]">
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: João da Moto"
-                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Nome do entregador"
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  Telefone
-                </label>
                 <input
                   type="tel"
                   inputMode="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="31999999999"
-                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder="Telefone"
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  Tipo Pix
-                </label>
                 <select
                   value={pixKeyType}
-                  onChange={(e) => setPixKeyType(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  onChange={(event) => setPixKeyType(event.target.value)}
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                 >
-                  <option value="">Selecione</option>
+                  <option value="">Tipo Pix</option>
                   <option value="cpf">CPF</option>
                   <option value="phone">Telefone</option>
                   <option value="email">E-mail</option>
                   <option value="random">Aleatória</option>
                 </select>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  Chave Pix
-                </label>
                 <input
                   type="text"
                   value={pixKey}
-                  onChange={(e) => setPixKey(e.target.value)}
-                  placeholder="CPF, telefone, e-mail ou aleatória"
-                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  onChange={(event) => setPixKey(event.target.value)}
+                  placeholder="Chave Pix"
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
               </div>
+
+              <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Observação opcional"
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => void handleSaveCourier()}
+                  disabled={saving}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : editingCourierId ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  {editingCourierId ? "Salvar" : "Cadastrar"}
+                </button>
+              </div>
             </div>
+          ) : null}
 
-            <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto]">
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observação opcional"
-                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-              />
-
-              <button
-                type="button"
-                onClick={() => void handleSaveCourier()}
-                disabled={saving}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : editingCourierId ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                {editingCourierId ? "Salvar" : "Cadastrar"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="rounded-2xl border border-border bg-card">
-          <div className="border-b border-border p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="border-b border-border p-3">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative w-full lg:max-w-md">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar motoboy ou número do pedido..."
-                  className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar entregador ou pedido..."
+                  className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
               </div>
 
@@ -1477,275 +1187,377 @@ export default function EntregadoresPage() {
             </div>
           </div>
 
-          <div className="p-4">
+          <div>
             {loadingPage ? (
-              <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-border bg-background text-sm text-muted-foreground">
+              <div className="flex min-h-[180px] items-center justify-center text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Carregando entregadores...
               </div>
             ) : filteredCouriers.length === 0 ? (
-              <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background px-6 text-center">
+              <div className="flex min-h-[180px] flex-col items-center justify-center px-5 text-center">
                 <p className="text-sm font-bold text-foreground">
                   Nenhum entregador encontrado
                 </p>
                 <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-                  Cadastre um motoboy ou limpe a busca para ver a lista completa.
+                  Cadastre um entregador ou ajuste os filtros da busca.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredCouriers.map((courier) => {
-                  const whatsappUrl = getWhatsappUrl(courier.phone)
-                  const isBusy = busyCourierId === courier.id
-                  const isCourierExpanded = expandedCourierId === courier.id
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[820px] text-left text-sm">
+                    <thead className="border-b border-border bg-background text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 font-black">Entregador</th>
+                        <th className="px-3 py-2 font-black">Entregas</th>
+                        <th className="px-3 py-2 font-black">Em rota</th>
+                        <th className="px-3 py-2 font-black">Entregues</th>
+                        <th className="px-3 py-2 font-black">Aberto</th>
+                        <th className="px-3 py-2 font-black">Status</th>
+                        <th className="px-3 py-2 text-right font-black">Ações</th>
+                      </tr>
+                    </thead>
 
-                  return (
-                    <div
-                      key={courier.id}
-                      className="rounded-2xl border border-border bg-background p-4"
-                    >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-black text-primary">
-                              {getInitials(courier.name) || "MB"}
-                            </div>
+                    <tbody className="divide-y divide-border">
+                      {filteredCouriers.map((courier) => {
+                        const isBusy = busyCourierId === courier.id
+                        const hasOpenFee = courier.openFeeAmount > 0
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
+                        return (
+                          <tr key={courier.id} className="bg-card transition hover:bg-muted/30">
+                            <td className="px-3 py-2">
+                              <p className="font-black text-foreground">
+                                {courier.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {courier.pix_key
+                                  ? `${formatPixKeyType(courier.pix_key_type)} cadastrado`
+                                  : "Pix não cadastrado"}
+                              </p>
+                            </td>
+
+                            <td className="px-3 py-2 font-bold text-foreground">
+                              {ordersLoading ? "..." : courier.openFeeOrders.length}
+                            </td>
+
+                            <td className="px-3 py-2 font-bold text-foreground">
+                              {ordersLoading ? "..." : courier.onRouteOrders}
+                            </td>
+
+                            <td className="px-3 py-2 font-bold text-foreground">
+                              {ordersLoading ? "..." : courier.deliveredOrders}
+                            </td>
+
+                            <td className="px-3 py-2 font-black text-foreground">
+                              {ordersLoading ? "..." : formatCurrency(courier.openFeeAmount)}
+                            </td>
+
+                            <td className="px-3 py-2">
+                              <span
+                                className={`inline-flex rounded-full px-2 py-1 text-[11px] font-black ${
+                                  hasOpenFee
+                                    ? "bg-yellow-400/10 text-yellow-400"
+                                    : courier.is_active
+                                      ? "bg-emerald-500/10 text-emerald-400"
+                                      : "bg-[#111111] text-zinc-500"
+                                }`}
+                              >
+                                {hasOpenFee ? "Taxa aberta" : courier.is_active ? "Ativo" : "Inativo"}
+                              </span>
+                            </td>
+
+                            <td className="px-3 py-2">
+                              <div className="flex justify-end gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setExpandedCourierId((current) =>
-                                      current === courier.id ? null : courier.id
-                                    )
+                                  onClick={() => void handleMarkSettlementPaid(courier)}
+                                  disabled={
+                                    settlingCourierId === courier.id ||
+                                    settlementsLoading ||
+                                    !hasOpenFee ||
+                                    hasInvalidPeriod
                                   }
-                                  aria-expanded={isCourierExpanded}
-                                  className="max-w-full truncate text-left text-lg font-black text-foreground transition hover:text-primary"
-                                  title={
-                                    isCourierExpanded
-                                      ? "Ocultar pedidos do motoboy"
-                                      : "Ver pedidos do motoboy"
-                                  }
-                                >
-                                  {courier.name}
-                                </button>
-
-                                <span
-                                  className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
-                                    courier.pendingToReceiveToday > 0
-                                      ? "bg-yellow-400/10 text-yellow-400"
-                                      : courier.is_active
-                                        ? "bg-emerald-500/10 text-emerald-400"
-                                        : "bg-[#111111] text-zinc-500"
+                                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    hasOpenFee
+                                      ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"
+                                      : "border border-border bg-background text-muted-foreground"
                                   }`}
                                 >
-                                  {courier.pendingToReceiveToday > 0
-                                    ? "Taxas abertas"
-                                    : courier.is_active
-                                      ? "Ativo"
-                                      : "Inativo"}
-                                </span>
+                                  {settlingCourierId === courier.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  )}
+                                  {hasOpenFee ? "Fechar" : "Sem taxa"}
+                                </button>
 
-                                {courier.isPaidToday ? (
-                                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-black text-emerald-400">
-                                    Pago hoje
-                                  </span>
-                                ) : null}
-                              </div>
-
-                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                <span className="inline-flex items-center gap-1">
-                                  <Phone className="h-3.5 w-3.5" />
-                                  {formatPhone(courier.phone)}
-                                </span>
-                                <span>
-                                  Pix: {courier.pix_key ? formatPixKeyType(courier.pix_key_type) : "não cadastrado"}
-                                </span>
-                              </div>
-
-                              {courier.notes ? (
-                                <p className="mt-2 text-xs text-muted-foreground">
-                                  {courier.notes}
-                                </p>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[360px]">
-                          <div className="rounded-xl border border-border bg-card px-3 py-2">
-                            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                              Pedidos
-                            </p>
-                            <p className="text-lg font-black text-foreground">
-                              {ordersLoading ? "..." : courier.ordersToday.length}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl border border-border bg-card px-3 py-2">
-                            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                              Taxas abertas
-                            </p>
-                            <p className="text-lg font-black text-foreground">
-                              {ordersLoading ? "..." : courier.ordersToday.length}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
-                            <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-400">
-                              A pagar
-                            </p>
-                            <p className="text-lg font-black text-emerald-400">
-                              {ordersLoading ? "..." : formatCurrency(courier.pendingToReceiveToday)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {whatsappUrl ? (
-                          <a
-                            href={whatsappUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/15"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                            WhatsApp
-                          </a>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          onClick={() => void handleCopyPix(courier)}
-                          disabled={!courier.pix_key}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Copy className="h-4 w-4" />
-                          Copiar Pix
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleMarkSettlementPaid(courier)}
-                          disabled={
-                            settlingCourierId === courier.id ||
-                            settlementsLoading ||
-                            courier.pendingToReceiveToday <= 0
-                          }
-                          className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                            courier.pendingToReceiveToday <= 0
-                              ? "border border-border bg-card text-muted-foreground"
-                              : "border border-emerald-400/30 bg-[#0A0A0A] text-emerald-400 hover:bg-emerald-500/15"
-                          }`}
-                        >
-                          {settlingCourierId === courier.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4" />
-                          )}
-                          {courier.pendingToReceiveToday <= 0 ? "Sem taxa aberta" : "Fechar taxa"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleEditCourier(courier)}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                        >
-                          <UserRound className="h-4 w-4" />
-                          Editar
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleActive(courier)}
-                          disabled={isBusy}
-                          className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                            courier.is_active
-                              ? "border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
-                              : "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"
-                          }`}
-                        >
-                          {isBusy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : courier.is_active ? (
-                            <XCircle className="h-4 w-4" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4" />
-                          )}
-                          {courier.is_active ? "Desativar" : "Ativar"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteCourier(courier)}
-                          disabled={isBusy}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isBusy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                          Excluir
-                        </button>
-                      </div>
-
-                      {isCourierExpanded ? (
-                        <div className="mt-4 rounded-xl border border-border bg-card p-3">
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
-                              Pedidos com taxa em aberto
-                            </p>
-                            <p className="text-xs font-semibold text-muted-foreground">
-                              Taxa de entrega do motoboy
-                            </p>
-                          </div>
-
-                          {ordersLoading ? (
-                            <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                              Carregando pedidos...
-                            </div>
-                          ) : courier.ordersToday.length === 0 ? (
-                            <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                              Nenhuma taxa em aberto para esse motoboy.
-                            </div>
-                          ) : (
-                            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-                              {courier.ordersToday.map((order) => (
-                                <div
-                                  key={order.id}
-                                  className="grid gap-2 bg-background px-3 py-2 text-xs sm:grid-cols-[120px_minmax(0,1fr)_110px_110px] sm:items-center"
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditCourier(courier)}
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-bold text-foreground transition hover:bg-muted/40"
                                 >
-                                  <p className="font-black text-foreground">
-                                    #{getOrderNumber(order)}
-                                  </p>
+                                  <UserRound className="h-3.5 w-3.5" />
+                                  Editar
+                                </button>
 
-                                  <p className="truncate text-muted-foreground">
-                                    {order.customer_name || "Cliente não informado"}
-                                  </p>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleToggleActive(courier)}
+                                  disabled={isBusy}
+                                  className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-xs font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isBusy ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : courier.is_active ? (
+                                    <XCircle className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
 
-                                  <span className="inline-flex w-fit items-center justify-center rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2 py-1 text-[10px] font-bold text-yellow-400">
-                                    Taxa aberta
-                                  </span>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteCourier(courier)}
+                                  disabled={isBusy}
+                                  className="inline-flex h-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isBusy ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-                                  <p className="font-black text-foreground sm:text-right">
-                                    {formatCurrency(order.delivery_fee)}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                <div className="divide-y divide-border md:hidden">
+                  {filteredCouriers.map((courier) => {
+                    const isBusy = busyCourierId === courier.id
+                    const hasOpenFee = courier.openFeeAmount > 0
+
+                    return (
+                      <div key={courier.id} className="px-3 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-foreground">
+                              {courier.name}
+                            </p>
+
+                            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                              {ordersLoading
+                                ? "Carregando taxas..."
+                                : `${courier.openFeeOrders.length} entrega(s) · ${courier.onRouteOrders} em rota · ${courier.deliveredOrders} entregue(s)`}
+                            </p>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-black text-foreground">
+                              {ordersLoading ? "..." : formatCurrency(courier.openFeeAmount)}
+                            </p>
+                            <p
+                              className={`mt-0.5 text-[11px] font-black ${
+                                hasOpenFee
+                                  ? "text-yellow-400"
+                                  : courier.is_active
+                                    ? "text-emerald-400"
+                                    : "text-zinc-500"
+                              }`}
+                            >
+                              {hasOpenFee ? "Aberto" : courier.is_active ? "Ativo" : "Inativo"}
+                            </p>
+                          </div>
                         </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </div>
+
+                        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
+                          <button
+                            type="button"
+                            onClick={() => void handleMarkSettlementPaid(courier)}
+                            disabled={
+                              settlingCourierId === courier.id ||
+                              settlementsLoading ||
+                              !hasOpenFee ||
+                              hasInvalidPeriod
+                            }
+                            className={`inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                              hasOpenFee
+                                ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
+                                : "border border-border bg-background text-muted-foreground"
+                            }`}
+                          >
+                            {settlingCourierId === courier.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            )}
+                            {hasOpenFee ? "Fechar" : "Sem taxa"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleEditCourier(courier)}
+                            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground"
+                          >
+                            <UserRound className="h-3.5 w-3.5" />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void handleToggleActive(courier)}
+                            disabled={isBusy}
+                            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isBusy ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : courier.is_active ? (
+                              "Desativar"
+                            ) : (
+                              "Ativar"
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteCourier(courier)}
+                            disabled={isBusy}
+                            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
             )}
           </div>
         </div>
+
+        {showHistory ? (
+          <div className="rounded-xl border border-border bg-card">
+            <div className="flex flex-col gap-1 border-b border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-black text-foreground">
+                  Histórico de fechamentos
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Mostrando os fechamentos dentro do período selecionado.
+                </p>
+              </div>
+
+              <div className="text-xs font-bold text-muted-foreground">
+                Total fechado:{" "}
+                <span className="font-black text-foreground">
+                  {settlementsLoading ? "..." : formatCurrency(totalSettledInPeriod)}
+                </span>
+              </div>
+            </div>
+
+            {settlementsLoading ? (
+              <div className="flex min-h-[120px] items-center justify-center text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Carregando histórico...
+              </div>
+            ) : settlementHistory.length === 0 ? (
+              <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                Nenhum fechamento encontrado no período selecionado.
+              </div>
+            ) : (
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[620px] text-left text-sm">
+                    <thead className="border-b border-border bg-background text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 font-black">Data</th>
+                        <th className="px-3 py-2 font-black">Entregador</th>
+                        <th className="px-3 py-2 font-black">Pedidos</th>
+                        <th className="px-3 py-2 font-black">Valor</th>
+                        <th className="px-3 py-2 font-black">Hora</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-border">
+                      {settlementHistory.map((settlement) => {
+                        const courier = deliveryPeople.find(
+                          (item) => item.id === settlement.delivery_person_id
+                        )
+
+                        return (
+                          <tr key={settlement.id} className="bg-card transition hover:bg-muted/30">
+                            <td className="px-3 py-2 font-bold text-foreground">
+                              {formatDateKey(settlement.settlement_date)}
+                            </td>
+
+                            <td className="px-3 py-2 font-black text-foreground">
+                              {courier?.name || "Entregador removido"}
+                            </td>
+
+                            <td className="px-3 py-2 font-bold text-foreground">
+                              {settlement.total_orders}
+                            </td>
+
+                            <td className="px-3 py-2 font-black text-foreground">
+                              {formatCurrency(settlement.total_amount)}
+                            </td>
+
+                            <td className="px-3 py-2 font-bold text-muted-foreground">
+                              {settlement.paid_at ? formatTime(settlement.paid_at) : "Pago"}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="divide-y divide-border md:hidden">
+                  {settlementHistory.map((settlement) => {
+                    const courier = deliveryPeople.find(
+                      (item) => item.id === settlement.delivery_person_id
+                    )
+
+                    return (
+                      <div key={settlement.id} className="px-3 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-foreground">
+                              {courier?.name || "Entregador removido"}
+                            </p>
+
+                            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                              {formatDateKey(settlement.settlement_date)} · {settlement.total_orders} pedido(s)
+                            </p>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-black text-foreground">
+                              {formatCurrency(settlement.total_amount)}
+                            </p>
+
+                            <p className="mt-0.5 text-[11px] font-bold text-muted-foreground">
+                              {settlement.paid_at ? formatTime(settlement.paid_at) : "Pago"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+
+        <p className="px-1 text-[11px] font-semibold text-muted-foreground">
+          Entregadores ativos: {loadingPage ? "..." : activeCouriers}
+        </p>
       </div>
     </AdminLayout>
   )
