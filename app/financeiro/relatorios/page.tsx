@@ -43,6 +43,11 @@ type Order = {
   status: string | null
   order_source: string | null
   created_at: string
+  completed_at: string | null
+  delivered_at: string | null
+  finished_at: string | null
+  finalized_at: string | null
+  closed_at: string | null
 }
 
 type AccountPayable = {
@@ -354,6 +359,37 @@ function isPaidStatus(status: string | null | undefined) {
   return value === "paid" || value === "pago" || value === "concluido" || value === "concluído"
 }
 
+function isFinalizedOrderStatus(status: string | null | undefined) {
+  const value = (status || "").toLowerCase().trim()
+
+  return [
+    "completed",
+    "complete",
+    "delivered",
+    "finished",
+    "finish",
+    "done",
+    "closed",
+    "finalizado",
+    "finalizada",
+    "entregue",
+    "concluido",
+    "concluído",
+    "fechado",
+    "fechada",
+  ].includes(value)
+}
+
+function hasFinalizationMarker(order: Order) {
+  return Boolean(order.completed_at || order.delivered_at || order.finished_at || order.finalized_at || order.closed_at)
+}
+
+function isRevenueObtained(order: Order) {
+  if (isCanceledStatus(order)) return false
+
+  return isPaidStatus(order.payment_status) || isFinalizedOrderStatus(order.status) || hasFinalizationMarker(order)
+}
+
 function isCanceledStatus(order: Order) {
   const value = `${order.status || ""} ${order.payment_status || ""}`.toLowerCase()
 
@@ -383,7 +419,7 @@ function percentWidth(value: number) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-[#cdd9ea] bg-[#f8fbff] px-4 py-6 text-center text-sm text-[#a1a1aa]">
+    <div className="rounded-xl border border-dashed border-white/10 bg-[#111111] px-4 py-6 text-center text-sm text-[#a1a1aa]">
       {text}
     </div>
   )
@@ -406,10 +442,10 @@ function SectionCard({
 }) {
   return (
     <section className={cn("rounded-2xl border border-[#111111] bg-[#0A0A0A] shadow-sm", className)}>
-      <div className="flex items-start justify-between gap-3 border-b border-[#edf2f8] px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
           {icon ? (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#eef5ff] text-yellow-400">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400">
               {icon}
             </div>
           ) : null}
@@ -556,7 +592,7 @@ function ProgressBar({
   }
 
   return (
-    <div className="h-1.5 w-full min-w-[72px] overflow-hidden rounded-full bg-[#edf2f8]">
+    <div className="h-1.5 w-full min-w-[72px] overflow-hidden rounded-full bg-[#27272a]">
       <div className={cn("h-full rounded-full", colors[tone])} style={{ width: percentWidth(percent) }} />
     </div>
   )
@@ -595,10 +631,10 @@ function CompactTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[#111111]">
+    <div className="overflow-hidden rounded-xl border border-white/10">
       <div className="overflow-x-auto">
         <table className="w-full text-sm" style={{ minWidth }}>
-          <thead className="bg-[#f8fbff] text-left text-[11px] font-bold uppercase tracking-wide text-[#a1a1aa]">
+          <thead className="bg-[#111111] text-left text-[11px] font-bold uppercase tracking-wide text-[#a1a1aa]">
             <tr>
               {headers.map((header) => (
                 <th key={header} className="whitespace-nowrap px-3 py-2.5">
@@ -607,9 +643,9 @@ function CompactTable({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#edf2f8] bg-[#0A0A0A]">
+          <tbody className="divide-y divide-white/10 bg-[#0A0A0A]">
             {rows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-[#f8fbff]">
+              <tr key={rowIndex} className="hover:bg-[#111111]">
                 {row.map((cell, cellIndex) => (
                   <td key={cellIndex} className="px-3 py-2.5 align-middle text-[#ffffff]">
                     {cell}
@@ -619,7 +655,7 @@ function CompactTable({
             ))}
           </tbody>
           {footer ? (
-            <tfoot className="border-t border-[#111111] bg-[#fbfdff] font-black text-[#ffffff]">
+            <tfoot className="border-t border-white/10 bg-[#111111] font-black text-[#ffffff]">
               <tr>
                 {footer.map((cell, index) => (
                   <td key={index} className="px-3 py-2.5 align-middle">
@@ -723,7 +759,7 @@ function StatusDonut({
           </div>
         ))}
 
-        <div className="flex items-center justify-between border-t border-[#edf2f8] pt-3 text-sm font-black text-[#ffffff]">
+        <div className="flex items-center justify-between border-t border-white/10 pt-3 text-sm font-black text-[#ffffff]">
           <span>Total</span>
           <span>{total}</span>
         </div>
@@ -748,10 +784,10 @@ function RevenueBars({
   return (
     <div className="rounded-xl border border-[#111111] bg-[#0A0A0A] p-3">
       <div className="relative h-[230px] overflow-hidden">
-        <div className="absolute inset-x-0 top-6 border-t border-[#edf2f8]" />
-        <div className="absolute inset-x-0 top-[72px] border-t border-[#edf2f8]" />
-        <div className="absolute inset-x-0 top-[118px] border-t border-[#edf2f8]" />
-        <div className="absolute inset-x-0 top-[164px] border-t border-[#edf2f8]" />
+        <div className="absolute inset-x-0 top-6 border-t border-white/10" />
+        <div className="absolute inset-x-0 top-[72px] border-t border-white/10" />
+        <div className="absolute inset-x-0 top-[118px] border-t border-white/10" />
+        <div className="absolute inset-x-0 top-[164px] border-t border-white/10" />
 
         <div className="relative flex h-full items-end gap-2 overflow-x-auto pb-1">
           {items.map((item) => {
@@ -766,7 +802,7 @@ function RevenueBars({
                 <span className="text-center text-[11px] font-bold text-[#a1a1aa]">
                   {formatCompactCurrency(item.value)}
                 </span>
-                <div className="flex h-[150px] w-full items-end justify-center rounded-lg bg-[#f4f7fb] px-1 pb-0.5">
+                <div className="flex h-[150px] w-full items-end justify-center rounded-lg bg-[#18181b] px-1 pb-0.5">
                   <div
                     className="w-full rounded-t-md bg-yellow-400 shadow-sm shadow-yellow-400/20"
                     style={{ height: `${barHeight}px` }}
@@ -865,7 +901,7 @@ export default function RelatoriosFinanceirosPage() {
   const [endDate, setEndDate] = useState(todayDate())
 
   const paidOrders = useMemo(
-    () => orders.filter((order) => isPaidStatus(order.payment_status) && !isCanceledStatus(order)),
+    () => orders.filter((order) => isRevenueObtained(order)),
     [orders],
   )
 
@@ -875,7 +911,7 @@ export default function RelatoriosFinanceirosPage() {
   )
 
   const pendingOrders = useMemo(
-    () => orders.filter((order) => !isPaidStatus(order.payment_status) && !isCanceledStatus(order)),
+    () => orders.filter((order) => !isRevenueObtained(order) && !isCanceledStatus(order)),
     [orders],
   )
 
@@ -1536,6 +1572,11 @@ export default function RelatoriosFinanceirosPage() {
         status: order.status || null,
         order_source: order.order_source || null,
         created_at: order.created_at,
+        completed_at: getFirstValue(order, ["completed_at", "completedAt"]) as string | null,
+        delivered_at: getFirstValue(order, ["delivered_at", "deliveredAt", "delivery_completed_at"]) as string | null,
+        finished_at: getFirstValue(order, ["finished_at", "finishedAt", "finish_at"]) as string | null,
+        finalized_at: getFirstValue(order, ["finalized_at", "finalizado_em", "finalizada_em", "finalizedAt"]) as string | null,
+        closed_at: getFirstValue(order, ["closed_at", "closedAt"]) as string | null,
       }))
 
       setOrders(normalizedOrders)
@@ -1573,7 +1614,6 @@ export default function RelatoriosFinanceirosPage() {
       } else {
         setOrderItems([])
       }
-
       setExpenses(
         (expensesResponse.data || []).map((expense: RawRow) => ({
           id: String(expense.id),
@@ -1710,7 +1750,7 @@ export default function RelatoriosFinanceirosPage() {
 
   return (
     <AdminLayout>
-      <div className="-m-2 space-y-4 bg-[#f4f7fb] p-2 sm:-m-3 sm:p-3 md:-m-4 md:p-4">
+      <div className="-m-2 space-y-4 bg-[#000000] p-2 sm:-m-3 sm:p-3 md:-m-4 md:p-4">
         <header className="rounded-2xl border border-[#111111] bg-[#0A0A0A] p-4 shadow-sm">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
@@ -1889,7 +1929,7 @@ export default function RelatoriosFinanceirosPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#ffffff] bg-[#ffffff] p-4 shadow-sm">
+            <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="text-lg font-black text-white">Leitura para o dono</h2>
                 <StatusPill tone={totals.pendingRevenue > 0 ? "orange" : "green"}>
@@ -1950,17 +1990,17 @@ export default function RelatoriosFinanceirosPage() {
                 subtitle="Receita, custos e margem em leitura direta."
                 icon={<FileText className="h-4 w-4" />}
               >
-                <div className="overflow-hidden rounded-xl border border-[#111111]">
-                  <div className="divide-y divide-[#edf2f8] bg-[#0A0A0A] text-sm">
+                <div className="overflow-hidden rounded-xl border border-white/10">
+                  <div className="divide-y divide-white/10 bg-[#0A0A0A] text-sm">
                     {dreRows.map(([label, value]) => (
                       <div key={String(label)} className="flex items-center justify-between gap-4 px-3 py-2.5">
                         <span className="font-medium text-[#a1a1aa]">{label}</span>
                         <span className="shrink-0 text-right font-bold text-[#ffffff]">{value}</span>
                       </div>
                     ))}
-                    <div className="flex items-center justify-between gap-4 bg-[#ffffff] px-3 py-3 text-white">
+                    <div className="flex items-center justify-between gap-4 bg-[#111111] px-3 py-3 text-white">
                       <span className="font-black">Resultado operacional</span>
-                      <strong className={cn("text-base", operationalResult >= 0 ? "text-emerald-300" : "text-red-300")}>
+                      <strong className={cn("text-base", operationalResult >= 0 ? "text-black" : "text-red-700")}>
                         {formatCurrency(operationalResult)}
                       </strong>
                     </div>
@@ -2067,17 +2107,17 @@ export default function RelatoriosFinanceirosPage() {
                 icon={<Truck className="h-4 w-4" />}
               >
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-xl border border-[#111111] bg-[#f8fbff] p-3">
+                  <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
                     <p className="text-xs font-bold text-[#a1a1aa]">Fornecedores</p>
                     <strong className="mt-1 block text-xl font-black text-[#ffffff]">{formatCurrency(supplierAreaSummary.total)}</strong>
                     <p className="text-xs text-[#a1a1aa]">Gasto total</p>
                   </div>
-                  <div className="rounded-xl border border-[#111111] bg-[#f8fbff] p-3">
+                  <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
                     <p className="text-xs font-bold text-[#a1a1aa]">Entregas</p>
                     <strong className="mt-1 block text-xl font-black text-[#ffffff]">{deliveryCount}</strong>
                     <p className="text-xs text-[#a1a1aa]">Total no período</p>
                   </div>
-                  <div className="rounded-xl border border-[#111111] bg-[#f8fbff] p-3">
+                  <div className="rounded-xl border border-white/10 bg-[#111111] p-3">
                     <p className="text-xs font-bold text-[#a1a1aa]">Média por entrega</p>
                     <strong className="mt-1 block text-xl font-black text-[#ffffff]">{formatCurrency(averageDeliveryCost)}</strong>
                     <p className="text-xs text-[#a1a1aa]">Por entrega</p>
@@ -2175,7 +2215,7 @@ export default function RelatoriosFinanceirosPage() {
               </SectionCard>
             </div>
 
-            <section className="rounded-2xl border border-[#ffffff] bg-[#ffffff] p-4 shadow-sm">
+            <section className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
               <div className="mb-4">
                 <h2 className="text-xl font-black text-white">Resumo para decisão</h2>
               </div>

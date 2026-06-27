@@ -129,8 +129,14 @@ function isCancelledStatus(status: string | null | undefined) {
   return value === "cancelled" || value === "canceled" || value === "cancelado"
 }
 
-function isOpenStatus(status: string | null | undefined) {
-  return !isDeliveredStatus(status) && !isCancelledStatus(status)
+function isPayableDeliveryOrder(order: Pick<OrderRow, "delivery_fee" | "status">) {
+  const deliveryFee = Number(order.delivery_fee || 0)
+
+  return (
+    deliveryFee > 0 &&
+    !isCancelledStatus(order.status) &&
+    (isOnRouteStatus(order.status) || isDeliveredStatus(order.status))
+  )
 }
 
 function getInitials(name: string) {
@@ -220,42 +226,40 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function getTodayStartIso() {
-  const now = new Date()
-  const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    0,
-    0,
-    0,
-    0
-  )
-
-  return start.toISOString()
-}
-
-function getTodayDateString() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, "0")
-  const day = String(now.getDate()).padStart(2, "0")
+function getLocalDateString(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
 
   return `${year}-${month}-${day}`
 }
 
-function getStatusLabel(status: string | null | undefined) {
-  if (isOnRouteStatus(status)) return "Em rota"
-  if (isDeliveredStatus(status)) return "Entregue"
-  if (isCancelledStatus(status)) return "Cancelado"
-  return "Aberto"
+function getTodayDateString() {
+  return getLocalDateString(new Date())
 }
 
-function getStatusTone(status: string | null | undefined) {
-  if (isOnRouteStatus(status)) return "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
-  if (isDeliveredStatus(status)) return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
-  if (isCancelledStatus(status)) return "border-red-200 bg-red-50 text-red-700"
-  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+function getYesterdayDateString() {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+
+  return getLocalDateString(date)
+}
+
+function getOrderAccountingDate(order: Pick<OrderRow, "delivered_at" | "out_for_delivery_at" | "created_at">) {
+  return order.delivered_at || order.out_for_delivery_at || order.created_at
+}
+
+function isFinalizedDeliveryOrder(
+  order: Pick<CourierOrderItem, "status" | "delivered_at"> | Pick<OrderRow, "status" | "delivered_at">
+) {
+  return Boolean(order.delivered_at) || isDeliveredStatus(order.status)
+}
+
+function isOrderStillOnRoute(
+  order: Pick<CourierOrderItem, "status" | "delivered_at"> | Pick<OrderRow, "status" | "delivered_at">
+) {
+  return isOnRouteStatus(order.status) && !isFinalizedDeliveryOrder(order)
 }
 
 export default function EntregadoresPage() {
@@ -276,6 +280,10 @@ export default function EntregadoresPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [showForm, setShowForm] = useState(false)
+  const [showSettlementPanel, setShowSettlementPanel] = useState(false)
+  const [settlementHistoryDate, setSettlementHistoryDate] = useState(getTodayDateString())
+  const [deliveryHistoryDate, setDeliveryHistoryDate] = useState(getYesterdayDateString())
+  const [expandedCourierId, setExpandedCourierId] = useState<string | null>(null)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
   const [editingCourierId, setEditingCourierId] = useState<string | null>(null)
@@ -334,7 +342,7 @@ export default function EntregadoresPage() {
     }
   }
 
-  async function loadOrdersToday() {
+  async function loadOrdersToSettle() {
     if (!restaurant?.id) return
 
     try {
@@ -347,8 +355,6 @@ export default function EntregadoresPage() {
         return
       }
 
-      const todayStartIso = getTodayStartIso()
-
       const { data, error } = await supabase
         .from("orders")
         .select(
@@ -356,22 +362,22 @@ export default function EntregadoresPage() {
         )
         .eq("restaurant_id", restaurant.id)
         .not("delivery_person_id", "is", null)
-        .gte("created_at", todayStartIso)
         .order("created_at", { ascending: false })
+        .limit(1000)
 
       if (error) throw error
 
       setOrders((data || []) as OrderRow[])
       setLastUpdatedAt(new Date())
     } catch (err) {
-      console.error("Erro ao carregar pedidos de hoje:", err)
-      setError(getErrorMessage(err, "Erro ao carregar pedidos do dia."))
+      console.error("Erro ao carregar pedidos com motoboy:", err)
+      setError(getErrorMessage(err, "Erro ao carregar pedidos com motoboy."))
     } finally {
       setOrdersLoading(false)
     }
   }
 
-  async function loadSettlementsToday() {
+  async function loadSettlements() {
     if (!restaurant?.id) return
 
     try {
@@ -390,8 +396,9 @@ export default function EntregadoresPage() {
           "id, restaurant_id, delivery_person_id, settlement_date, total_amount, total_orders, order_ids, payment_method, status, paid_at, notes, created_at"
         )
         .eq("restaurant_id", restaurant.id)
-        .eq("settlement_date", getTodayDateString())
         .eq("status", "paid")
+        .order("paid_at", { ascending: false })
+        .limit(1000)
 
       if (error) throw error
 
@@ -411,8 +418,8 @@ export default function EntregadoresPage() {
 
     await Promise.all([
       loadDeliveryPeople(),
-      loadOrdersToday(),
-      loadSettlementsToday(),
+      loadOrdersToSettle(),
+      loadSettlements(),
     ])
   }
 
@@ -425,8 +432,8 @@ export default function EntregadoresPage() {
     try {
       await Promise.all([
         loadDeliveryPeople(true),
-        loadOrdersToday(),
-        loadSettlementsToday(),
+        loadOrdersToSettle(),
+        loadSettlements(),
       ])
     } finally {
       setRefreshing(false)
@@ -493,8 +500,8 @@ export default function EntregadoresPage() {
   async function handleToggleActive(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.onRouteOrders > 0 && courier.is_active) {
-      setError("Esse motoboy está em rota. Finalize a entrega antes de desativar.")
+    if (courier.pendingToReceiveToday > 0 && courier.is_active) {
+      setError("Esse motoboy possui taxas em aberto. Feche as taxas antes de desativar.")
       return
     }
 
@@ -524,8 +531,8 @@ export default function EntregadoresPage() {
   async function handleDeleteCourier(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.onRouteOrders > 0) {
-      setError("Esse motoboy está em rota. Finalize a entrega antes de excluir.")
+    if (courier.pendingToReceiveToday > 0) {
+      setError("Esse motoboy possui taxas em aberto. Feche as taxas antes de excluir.")
       return
     }
 
@@ -581,18 +588,13 @@ export default function EntregadoresPage() {
   async function handleMarkSettlementPaid(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.isPaidToday) {
-      setError("Esse repasse já foi marcado como pago hoje.")
-      return
-    }
-
-    if (courier.ordersToday.length === 0 || courier.totalToReceiveToday <= 0) {
-      setError("Esse motoboy não tem valor para repassar hoje.")
+    if (courier.ordersToday.length === 0 || courier.pendingToReceiveToday <= 0) {
+      setError("Esse motoboy não tem taxa em aberto para fechar.")
       return
     }
 
     const confirmed = window.confirm(
-      `Marcar ${formatCurrency(courier.totalToReceiveToday)} como pago para ${courier.name}?`
+      `Fechar ${formatCurrency(courier.pendingToReceiveToday)} em taxas para ${courier.name}?`
     )
 
     if (!confirmed) return
@@ -601,13 +603,14 @@ export default function EntregadoresPage() {
       setSettlingCourierId(courier.id)
       setError(null)
 
+      const settlementDate = getTodayDateString()
       const orderIds = courier.ordersToday.map((order) => order.id)
 
       const { error } = await supabase.from("delivery_settlements").insert({
         restaurant_id: restaurant.id,
         delivery_person_id: courier.id,
-        settlement_date: getTodayDateString(),
-        total_amount: courier.totalToReceiveToday,
+        settlement_date: settlementDate,
+        total_amount: courier.pendingToReceiveToday,
         total_orders: courier.ordersToday.length,
         order_ids: orderIds,
         payment_method: "pix",
@@ -616,17 +619,47 @@ export default function EntregadoresPage() {
       })
 
       if (error) {
-        if (error.code === "23505") {
-          throw new Error("Esse repasse já foi marcado como pago hoje.")
+        if (error.code !== "23505") {
+          throw error
         }
 
-        throw error
+        const { data: existingSettlement, error: fetchError } = await supabase
+          .from("delivery_settlements")
+          .select(
+            "id, restaurant_id, delivery_person_id, settlement_date, total_amount, total_orders, order_ids, payment_method, status, paid_at, notes, created_at"
+          )
+          .eq("restaurant_id", restaurant.id)
+          .eq("delivery_person_id", courier.id)
+          .eq("settlement_date", settlementDate)
+          .eq("status", "paid")
+          .maybeSingle()
+
+        if (fetchError) throw fetchError
+        if (!existingSettlement) throw new Error("Não foi possível localizar o fechamento existente.")
+
+        const existingOrderIds = Array.isArray(existingSettlement.order_ids)
+          ? existingSettlement.order_ids
+          : []
+        const mergedOrderIds = Array.from(new Set([...existingOrderIds, ...orderIds]))
+
+        const { error: updateError } = await supabase
+          .from("delivery_settlements")
+          .update({
+            total_amount: Number(existingSettlement.total_amount || 0) + courier.pendingToReceiveToday,
+            total_orders: mergedOrderIds.length,
+            order_ids: mergedOrderIds,
+            paid_at: new Date().toISOString(),
+          })
+          .eq("id", existingSettlement.id)
+          .eq("restaurant_id", restaurant.id)
+
+        if (updateError) throw updateError
       }
 
-      await loadSettlementsToday()
+      await Promise.all([loadOrdersToSettle(), loadSettlements()])
     } catch (err) {
-      console.error("Erro ao marcar repasse como pago:", err)
-      setError(getErrorMessage(err, "Erro ao marcar repasse como pago."))
+      console.error("Erro ao fechar taxas do motoboy:", err)
+      setError(getErrorMessage(err, "Erro ao fechar taxas do motoboy."))
     } finally {
       setSettlingCourierId(null)
     }
@@ -662,7 +695,7 @@ export default function EntregadoresPage() {
     void loadInitialData()
 
     const ordersRefreshInterval = window.setInterval(() => {
-      void loadOrdersToday()
+      void loadOrdersToSettle()
     }, 15000)
 
     const deliveryPeopleChannel = supabase
@@ -692,7 +725,7 @@ export default function EntregadoresPage() {
           filter: `restaurant_id=eq.${restaurant.id}`,
         },
         () => {
-          void loadOrdersToday()
+          void loadOrdersToSettle()
         }
       )
       .subscribe()
@@ -708,7 +741,7 @@ export default function EntregadoresPage() {
           filter: `restaurant_id=eq.${restaurant.id}`,
         },
         () => {
-          void loadSettlementsToday()
+          void loadSettlements()
         }
       )
       .subscribe()
@@ -743,11 +776,21 @@ export default function EntregadoresPage() {
     }
   }, [restaurant?.id, user?.id])
 
+  const paidOrderIds = useMemo(() => {
+    return new Set(
+      settlements.flatMap((settlement) =>
+        Array.isArray(settlement.order_ids) ? settlement.order_ids : []
+      )
+    )
+  }, [settlements])
+
   const deliveryPeopleWithStats = useMemo<DeliveryPersonWithStats[]>(() => {
     return deliveryPeople
       .map((courier) => {
         const courierOrders = orders
           .filter((order) => order.delivery_person_id === courier.id)
+          .filter((order) => isPayableDeliveryOrder(order))
+          .filter((order) => !paidOrderIds.has(order.id))
           .map((order) => ({
             id: order.id,
             public_order_number: order.public_order_number,
@@ -759,16 +802,14 @@ export default function EntregadoresPage() {
             delivered_at: order.delivered_at,
           }))
 
-        const openOrders = courierOrders.filter((order) =>
-          isOpenStatus(order.status)
-        ).length
+        const openOrders = courierOrders.length
 
         const onRouteOrders = courierOrders.filter((order) =>
-          isOnRouteStatus(order.status)
+          isOrderStillOnRoute(order)
         ).length
 
         const deliveredToday = courierOrders.filter((order) =>
-          isDeliveredStatus(order.status)
+          isFinalizedDeliveryOrder(order)
         ).length
 
         const totalToReceiveToday = courierOrders.reduce(
@@ -780,10 +821,11 @@ export default function EntregadoresPage() {
           settlements.find(
             (settlement) =>
               settlement.delivery_person_id === courier.id &&
+              settlement.settlement_date === getTodayDateString() &&
               settlement.status === "paid"
           ) || null
 
-        const isPaidToday = Boolean(settlementToday)
+        const isPaidToday = Boolean(settlementToday) && totalToReceiveToday <= 0
 
         return {
           ...courier,
@@ -791,21 +833,20 @@ export default function EntregadoresPage() {
           onRouteOrders,
           deliveredToday,
           totalToReceiveToday,
-          pendingToReceiveToday: isPaidToday ? 0 : totalToReceiveToday,
+          pendingToReceiveToday: totalToReceiveToday,
           ordersToday: courierOrders,
           settlementToday,
           isPaidToday,
         }
       })
       .sort((a, b) => {
-        if (a.onRouteOrders !== b.onRouteOrders) return b.onRouteOrders - a.onRouteOrders
         if (a.pendingToReceiveToday !== b.pendingToReceiveToday) {
           return b.pendingToReceiveToday - a.pendingToReceiveToday
         }
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
         return a.name.localeCompare(b.name, "pt-BR")
       })
-  }, [deliveryPeople, orders, settlements])
+  }, [deliveryPeople, orders, paidOrderIds, settlements])
 
   const filteredCouriers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
@@ -825,16 +866,77 @@ export default function EntregadoresPage() {
   }, [deliveryPeopleWithStats, search])
 
   const activeCouriers = deliveryPeopleWithStats.filter((item) => item.is_active).length
-  const onRouteOrders = deliveryPeopleWithStats.reduce(
-    (sum, item) => sum + item.onRouteOrders,
-    0
-  )
   const totalOrdersToday = deliveryPeopleWithStats.reduce(
     (sum, item) => sum + item.ordersToday.length,
     0
   )
   const totalPendingToday = deliveryPeopleWithStats.reduce(
     (sum, item) => sum + item.pendingToReceiveToday,
+    0
+  )
+  const couriersWithOpenSettlement = deliveryPeopleWithStats.filter(
+    (item) => item.pendingToReceiveToday > 0 && item.ordersToday.length > 0
+  )
+  const settlementHistory = settlements.filter(
+    (settlement) => settlement.settlement_date === settlementHistoryDate
+  )
+  const totalSettledInDate = settlementHistory.reduce(
+    (sum, settlement) => sum + Number(settlement.total_amount || 0),
+    0
+  )
+
+  const deliveryHistoryByCourier = useMemo(() => {
+    const payableOrdersInDate = orders
+      .filter((order) => order.delivery_person_id)
+      .filter((order) => isPayableDeliveryOrder(order))
+      .filter((order) => getLocalDateString(getOrderAccountingDate(order)) === deliveryHistoryDate)
+
+    return deliveryPeople
+      .map((courier) => {
+        const courierOrders = payableOrdersInDate
+          .filter((order) => order.delivery_person_id === courier.id)
+          .map((order) => ({
+            id: order.id,
+            public_order_number: order.public_order_number,
+            customer_name: order.customer_name,
+            delivery_fee: Number(order.delivery_fee || 0),
+            status: order.status,
+            created_at: order.created_at,
+            out_for_delivery_at: order.out_for_delivery_at,
+            delivered_at: order.delivered_at,
+          }))
+
+        const settledOrders = courierOrders.filter((order) => paidOrderIds.has(order.id))
+        const openOrdersInDate = courierOrders.filter((order) => !paidOrderIds.has(order.id))
+
+        return {
+          courier,
+          orders: courierOrders,
+          settledOrders,
+          openOrders: openOrdersInDate,
+          totalAmount: courierOrders.reduce((sum, order) => sum + order.delivery_fee, 0),
+          settledAmount: settledOrders.reduce((sum, order) => sum + order.delivery_fee, 0),
+          openAmount: openOrdersInDate.reduce((sum, order) => sum + order.delivery_fee, 0),
+        }
+      })
+      .filter((item) => item.orders.length > 0)
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+  }, [deliveryHistoryDate, deliveryPeople, orders, paidOrderIds])
+
+  const totalDeliveryHistoryAmount = deliveryHistoryByCourier.reduce(
+    (sum, item) => sum + item.totalAmount,
+    0
+  )
+  const totalDeliveryHistoryOpen = deliveryHistoryByCourier.reduce(
+    (sum, item) => sum + item.openAmount,
+    0
+  )
+  const totalDeliveryHistorySettled = deliveryHistoryByCourier.reduce(
+    (sum, item) => sum + item.settledAmount,
+    0
+  )
+  const totalDeliveryHistoryOrders = deliveryHistoryByCourier.reduce(
+    (sum, item) => sum + item.orders.length,
     0
   )
 
@@ -847,11 +949,20 @@ export default function EntregadoresPage() {
               Entregadores
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Veja quem está com pedido, quanto falta repassar e marque o pagamento do dia.
+              Veja as taxas abertas, quanto falta repassar e feche os valores sem perder nada após meia-noite.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSettlementPanel((current) => !current)}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 text-sm font-bold text-emerald-400 transition hover:bg-emerald-500/15"
+            >
+              <Wallet className="h-4 w-4" />
+              Fechamento de taxas
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -890,7 +1001,7 @@ export default function EntregadoresPage() {
           <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-black uppercase tracking-wide text-emerald-400">
-                A repassar hoje
+                A repassar em aberto
               </p>
               <Wallet className="h-4 w-4 text-emerald-400" />
             </div>
@@ -910,18 +1021,328 @@ export default function EntregadoresPage() {
 
           <div className="rounded-2xl border border-border bg-card p-4">
             <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
-              Pedidos com motoboy
+              Pedidos no acerto
             </p>
             <div className="mt-2 flex items-end justify-between gap-3">
               <p className="text-2xl font-black text-foreground">
                 {ordersLoading ? "..." : totalOrdersToday}
               </p>
               <p className="text-xs font-bold text-muted-foreground">
-                {ordersLoading ? "" : `${onRouteOrders} em rota`}
+                {ordersLoading ? "" : `${totalOrdersToday} taxa(s) aberta(s)`}
               </p>
             </div>
           </div>
         </div>
+
+        {showSettlementPanel ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-black text-emerald-400">
+                    Taxas em aberto
+                  </h2>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Esses valores continuam acumulando até você fechar, mesmo virando o dia.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-emerald-400/30 bg-background px-3 py-2 text-right">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                    Total aberto
+                  </p>
+                  <p className="text-lg font-black text-emerald-400">
+                    {formatCurrency(totalPendingToday)}
+                  </p>
+                </div>
+              </div>
+
+              {ordersLoading ? (
+                <div className="rounded-xl border border-dashed border-emerald-400/30 bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                  Carregando taxas em aberto...
+                </div>
+              ) : couriersWithOpenSettlement.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-emerald-400/30 bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                  Nenhuma taxa em aberto no momento.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {couriersWithOpenSettlement.map((courier) => (
+                    <div
+                      key={courier.id}
+                      className="grid gap-3 rounded-xl border border-emerald-400/30 bg-background p-3 sm:grid-cols-[minmax(0,1fr)_90px_120px_auto] sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-foreground">
+                          {courier.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {courier.pix_key
+                            ? `${formatPixKeyType(courier.pix_key_type)}: ${courier.pix_key}`
+                            : "Pix não cadastrado"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Pedidos
+                        </p>
+                        <p className="text-sm font-black text-foreground">
+                          {courier.ordersToday.length}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Valor
+                        </p>
+                        <p className="text-sm font-black text-emerald-400">
+                          {formatCurrency(courier.pendingToReceiveToday)}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleMarkSettlementPaid(courier)}
+                        disabled={settlingCourierId === courier.id || settlementsLoading}
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[#0A0A0A] px-3 text-xs font-bold text-emerald-400 transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {settlingCourierId === courier.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        Fechar taxa
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-base font-black text-foreground">
+                    Histórico de fechamentos
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Filtre por data para conferir quanto já foi repassado.
+                  </p>
+                </div>
+
+                <input
+                  type="date"
+                  value={settlementHistoryDate}
+                  onChange={(e) => setSettlementHistoryDate(e.target.value)}
+                  className="h-10 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+
+              <div className="mb-3 rounded-xl border border-border bg-background px-3 py-2">
+                <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                  Total fechado na data
+                </p>
+                <p className="text-lg font-black text-foreground">
+                  {formatCurrency(totalSettledInDate)}
+                </p>
+              </div>
+
+              {settlementsLoading ? (
+                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                  Carregando histórico...
+                </div>
+              ) : settlementHistory.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                  Nenhum fechamento encontrado nessa data.
+                </div>
+              ) : (
+                <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                  {settlementHistory.map((settlement) => {
+                    const courier = deliveryPeople.find(
+                      (item) => item.id === settlement.delivery_person_id
+                    )
+
+                    return (
+                      <div key={settlement.id} className="bg-background p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-foreground">
+                              {courier?.name || "Motoboy removido"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {settlement.total_orders} pedido(s) fechado(s)
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-sm font-black text-foreground">
+                              {formatCurrency(settlement.total_amount)}
+                            </p>
+                            <p className="text-[11px] font-semibold text-muted-foreground">
+                              {settlement.paid_at ? formatTime(settlement.paid_at) : "Pago"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-4 lg:col-span-2">
+              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="text-base font-black text-foreground">
+                    Histórico por data dos pedidos
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Use esse filtro para achar taxas de ontem ou de qualquer dia. O valor em aberto aparece mesmo se virou meia-noite.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryHistoryDate(getYesterdayDateString())}
+                    className="h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                  >
+                    Ver ontem
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryHistoryDate(getTodayDateString())}
+                    className="h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                  >
+                    Ver hoje
+                  </button>
+                  <input
+                    type="date"
+                    value={deliveryHistoryDate}
+                    onChange={(e) => setDeliveryHistoryDate(e.target.value)}
+                    className="h-10 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4 grid gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                    Pedidos na data
+                  </p>
+                  <p className="mt-1 text-lg font-black text-foreground">
+                    {ordersLoading ? "..." : totalDeliveryHistoryOrders}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                    Total de taxas
+                  </p>
+                  <p className="mt-1 text-lg font-black text-foreground">
+                    {ordersLoading ? "..." : formatCurrency(totalDeliveryHistoryAmount)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-emerald-400">
+                    Ainda em aberto
+                  </p>
+                  <p className="mt-1 text-lg font-black text-emerald-400">
+                    {ordersLoading ? "..." : formatCurrency(totalDeliveryHistoryOpen)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-yellow-400">
+                    Já fechado
+                  </p>
+                  <p className="mt-1 text-lg font-black text-yellow-400">
+                    {ordersLoading ? "..." : formatCurrency(totalDeliveryHistorySettled)}
+                  </p>
+                </div>
+              </div>
+
+              {ordersLoading ? (
+                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                  Carregando pedidos da data...
+                </div>
+              ) : deliveryHistoryByCourier.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                  Nenhuma taxa encontrada nessa data.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {deliveryHistoryByCourier.map((item) => (
+                    <div
+                      key={item.courier.id}
+                      className="rounded-xl border border-border bg-background p-3"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-black text-foreground">
+                            {item.courier.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.orders.length} pedido(s) · {formatCurrency(item.totalAmount)} em taxas
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-right sm:min-w-[240px]">
+                          <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+                            <p className="text-[11px] font-bold text-emerald-400">Aberto</p>
+                            <p className="text-sm font-black text-emerald-400">
+                              {formatCurrency(item.openAmount)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2">
+                            <p className="text-[11px] font-bold text-yellow-400">Fechado</p>
+                            <p className="text-sm font-black text-yellow-400">
+                              {formatCurrency(item.settledAmount)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
+                        {item.orders.map((order) => {
+                          const isSettled = paidOrderIds.has(order.id)
+
+                          return (
+                            <div
+                              key={order.id}
+                              className="grid gap-2 bg-card px-3 py-2 text-xs sm:grid-cols-[90px_minmax(0,1fr)_90px_90px] sm:items-center"
+                            >
+                              <p className="font-black text-foreground">
+                                #{getOrderNumber(order)}
+                              </p>
+                              <p className="truncate text-muted-foreground">
+                                {order.customer_name || "Cliente sem nome"}
+                              </p>
+                              <p className="font-black text-foreground">
+                                {formatCurrency(order.delivery_fee)}
+                              </p>
+                              <span
+                                className={`w-fit rounded-full px-2 py-1 text-[11px] font-black ${
+                                  isSettled
+                                    ? "bg-yellow-400/10 text-yellow-400"
+                                    : "bg-emerald-500/10 text-emerald-400"
+                                }`}
+                              >
+                                {isSettled ? "Fechado" : "Em aberto"}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {showForm ? (
           <div className="rounded-2xl border border-border bg-card p-4">
@@ -1076,6 +1497,7 @@ export default function EntregadoresPage() {
                 {filteredCouriers.map((courier) => {
                   const whatsappUrl = getWhatsappUrl(courier.phone)
                   const isBusy = busyCourierId === courier.id
+                  const isCourierExpanded = expandedCourierId === courier.id
 
                   return (
                     <div
@@ -1091,21 +1513,35 @@ export default function EntregadoresPage() {
 
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="truncate text-lg font-black text-foreground">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedCourierId((current) =>
+                                      current === courier.id ? null : courier.id
+                                    )
+                                  }
+                                  aria-expanded={isCourierExpanded}
+                                  className="max-w-full truncate text-left text-lg font-black text-foreground transition hover:text-primary"
+                                  title={
+                                    isCourierExpanded
+                                      ? "Ocultar pedidos do motoboy"
+                                      : "Ver pedidos do motoboy"
+                                  }
+                                >
                                   {courier.name}
-                                </h3>
+                                </button>
 
                                 <span
                                   className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
-                                    courier.onRouteOrders > 0
-                                      ? "bg-emerald-500/10 text-emerald-400"
+                                    courier.pendingToReceiveToday > 0
+                                      ? "bg-yellow-400/10 text-yellow-400"
                                       : courier.is_active
-                                        ? "bg-yellow-400/10 text-yellow-400"
+                                        ? "bg-emerald-500/10 text-emerald-400"
                                         : "bg-[#111111] text-zinc-500"
                                   }`}
                                 >
-                                  {courier.onRouteOrders > 0
-                                    ? "Em rota"
+                                  {courier.pendingToReceiveToday > 0
+                                    ? "Taxas abertas"
                                     : courier.is_active
                                       ? "Ativo"
                                       : "Inativo"}
@@ -1149,10 +1585,10 @@ export default function EntregadoresPage() {
 
                           <div className="rounded-xl border border-border bg-card px-3 py-2">
                             <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                              Em rota
+                              Taxas abertas
                             </p>
                             <p className="text-lg font-black text-foreground">
-                              {ordersLoading ? "..." : courier.onRouteOrders}
+                              {ordersLoading ? "..." : courier.ordersToday.length}
                             </p>
                           </div>
 
@@ -1194,14 +1630,13 @@ export default function EntregadoresPage() {
                           type="button"
                           onClick={() => void handleMarkSettlementPaid(courier)}
                           disabled={
-                            courier.isPaidToday ||
                             settlingCourierId === courier.id ||
                             settlementsLoading ||
-                            courier.totalToReceiveToday <= 0
+                            courier.pendingToReceiveToday <= 0
                           }
                           className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                            courier.isPaidToday
-                              ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
+                            courier.pendingToReceiveToday <= 0
+                              ? "border border-border bg-card text-muted-foreground"
                               : "border border-emerald-400/30 bg-[#0A0A0A] text-emerald-400 hover:bg-emerald-500/15"
                           }`}
                         >
@@ -1210,7 +1645,7 @@ export default function EntregadoresPage() {
                           ) : (
                             <CheckCircle2 className="h-4 w-4" />
                           )}
-                          {courier.isPaidToday ? "Pago" : "Marcar pago"}
+                          {courier.pendingToReceiveToday <= 0 ? "Sem taxa aberta" : "Fechar taxa"}
                         </button>
 
                         <button
@@ -1257,53 +1692,53 @@ export default function EntregadoresPage() {
                         </button>
                       </div>
 
-                      <div className="mt-4 rounded-xl border border-border bg-card p-3">
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
-                            Pedidos vinculados hoje
-                          </p>
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            Taxa de entrega do motoboy
-                          </p>
-                        </div>
-
-                        {ordersLoading ? (
-                          <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                            Carregando pedidos...
+                      {isCourierExpanded ? (
+                        <div className="mt-4 rounded-xl border border-border bg-card p-3">
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                              Pedidos com taxa em aberto
+                            </p>
+                            <p className="text-xs font-semibold text-muted-foreground">
+                              Taxa de entrega do motoboy
+                            </p>
                           </div>
-                        ) : courier.ordersToday.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
-                            Nenhum pedido vinculado hoje.
-                          </div>
-                        ) : (
-                          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-                            {courier.ordersToday.map((order) => (
-                              <div
-                                key={order.id}
-                                className="grid gap-2 bg-background px-3 py-2 text-xs sm:grid-cols-[120px_minmax(0,1fr)_110px_110px] sm:items-center"
-                              >
-                                <p className="font-black text-foreground">
-                                  #{getOrderNumber(order)}
-                                </p>
 
-                                <p className="truncate text-muted-foreground">
-                                  {order.customer_name || "Cliente não informado"}
-                                </p>
-
-                                <span
-                                  className={`inline-flex w-fit items-center justify-center rounded-full border px-2 py-1 text-[10px] font-bold ${getStatusTone(order.status)}`}
+                          {ordersLoading ? (
+                            <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                              Carregando pedidos...
+                            </div>
+                          ) : courier.ordersToday.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-border bg-background px-3 py-5 text-center text-xs text-muted-foreground">
+                              Nenhuma taxa em aberto para esse motoboy.
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                              {courier.ordersToday.map((order) => (
+                                <div
+                                  key={order.id}
+                                  className="grid gap-2 bg-background px-3 py-2 text-xs sm:grid-cols-[120px_minmax(0,1fr)_110px_110px] sm:items-center"
                                 >
-                                  {getStatusLabel(order.status)}
-                                </span>
+                                  <p className="font-black text-foreground">
+                                    #{getOrderNumber(order)}
+                                  </p>
 
-                                <p className="font-black text-foreground sm:text-right">
-                                  {formatCurrency(order.delivery_fee)}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                                  <p className="truncate text-muted-foreground">
+                                    {order.customer_name || "Cliente não informado"}
+                                  </p>
+
+                                  <span className="inline-flex w-fit items-center justify-center rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2 py-1 text-[10px] font-bold text-yellow-400">
+                                    Taxa aberta
+                                  </span>
+
+                                  <p className="font-black text-foreground sm:text-right">
+                                    {formatCurrency(order.delivery_fee)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   )
                 })}
