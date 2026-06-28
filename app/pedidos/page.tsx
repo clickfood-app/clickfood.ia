@@ -1714,6 +1714,21 @@ function OrderCard({
                     </>
                   )}
 
+                  {status !== "analysis" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDetailsOpen(false)
+                        onCancel(order)
+                      }}
+                      disabled={isBusy}
+                      className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 text-xs font-black text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Cancelar
+                    </button>
+                  )}
+
                   {status === "preparation" && (
                     kdsEnabled ? (
                       <div className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-white/10 bg-[#050505] px-3 text-xs font-black text-zinc-500">
