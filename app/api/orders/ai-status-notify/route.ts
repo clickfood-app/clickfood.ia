@@ -16,6 +16,12 @@ function normalizeStatusForAi(status: string) {
     em_rota: "out_for_delivery",
     cancelado: "cancelled",
     canceled: "cancelled",
+
+    pix_confirmed: "pix_confirmed",
+    payment_confirmed: "pix_confirmed",
+    pagamento_confirmado: "pix_confirmed",
+    pagamento_pix_confirmado: "pix_confirmed",
+    pix_pago: "pix_confirmed",
   }
 
   return map[normalized] || normalized
@@ -25,12 +31,13 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    const orderId = String(body?.orderId || "").trim()
+    const restaurantId = String(body?.restaurantId || body?.restaurant_id || "").trim()
+    const orderId = String(body?.orderId || body?.order_id || "").trim()
     const status = normalizeStatusForAi(String(body?.status || "").trim())
 
-    if (!orderId || !status) {
+    if (!restaurantId || !orderId || !status) {
       return NextResponse.json(
-        { ok: false, error: "missing_order_id_or_status" },
+        { ok: false, error: "missing_restaurant_id_order_id_or_status" },
         { status: 400 }
       )
     }
@@ -53,6 +60,7 @@ export async function POST(request: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          restaurantId,
           orderId,
           status,
         }),
@@ -63,6 +71,7 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       console.error("AI status notify failed:", {
+        restaurantId,
         orderId,
         status,
         responseStatus: response.status,

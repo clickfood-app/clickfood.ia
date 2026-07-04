@@ -2974,21 +2974,24 @@ export default function PedidosPage() {
   }
 
   async function notifyAiOrderStatus(orderId: string, status: string) {
-    try {
-      await fetch("/api/orders/ai-status-notify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderId,
-          status,
-        }),
-      })
-    } catch (error) {
-      console.error("Erro ao notificar cliente sobre status do pedido IA:", error)
-    }
+  try {
+    if (!restaurant?.id) return
+
+    await fetch("/api/orders/ai-status-notify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        restaurantId: restaurant.id,
+        orderId,
+        status,
+      }),
+    })
+  } catch (error) {
+    console.error("Erro ao notificar cliente sobre status do pedido IA:", error)
   }
+}
 
   async function updateOrder(
     order: OrderRow,
@@ -3169,9 +3172,7 @@ export default function PedidosPage() {
 
       if (error) throw error
 
-      if (typeof payload.status === "string" && payload.status.trim()) {
-        await notifyAiOrderStatus(order.id, payload.status)
-      }
+      await notifyAiOrderStatus(order.id, "pix_confirmed")
 
       if (shouldAcceptAutomatically) {
         try {
