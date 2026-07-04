@@ -157,6 +157,10 @@ const OPEN_ORDER_STATUSES = [
   "em preparo",
   "waiting",
   "aguardando",
+  "waiting_payment",
+  "awaiting_payment",
+  "waiting_customer_payment",
+  "pending_payment",
   "ready",
   "pronto",
   "waiting_pix_confirmation",
@@ -260,11 +264,26 @@ function isPixAwaitingReview(order: Pick<OrderRow, "payment_method" | "payment_s
 
   return (
     isManualPixMethod(order.payment_method) &&
-    (paymentStatus === "awaiting_review" ||
+    !["paid", "pago", "approved", "confirmed"].includes(paymentStatus) &&
+    !["cancelled", "canceled", "cancelado", "cancelada", "failed", "falhou"].includes(paymentStatus) &&
+    (paymentStatus === "awaiting_pix_confirmation" ||
+      paymentStatus === "awaiting_review" ||
+      paymentStatus === "waiting_customer_payment" ||
+      paymentStatus === "waiting_payment" ||
+      paymentStatus === "awaiting_payment" ||
+      paymentStatus === "pending_payment" ||
+      paymentStatus === "pending" ||
+      paymentStatus === "pendente" ||
       paymentStatus === "aguardando_conferencia" ||
       paymentStatus === "aguardando conferência" ||
       status === "waiting_pix_confirmation" ||
       status === "awaiting_pix_review" ||
+      status === "waiting_payment" ||
+      status === "awaiting_payment" ||
+      status === "waiting_customer_payment" ||
+      status === "pending_payment" ||
+      status === "pending" ||
+      status === "pendente" ||
       status === "aguardando_confirmacao_pix" ||
       status === "aguardando confirmação pix")
   )
@@ -279,11 +298,7 @@ function isAnalysisStatus(status: string | null | undefined) {
     value === "in_analysis" ||
     value === "em_analise" ||
     value === "analise" ||
-    value === "em análise" ||
-    value === "waiting_pix_confirmation" ||
-    value === "awaiting_pix_review" ||
-    value === "aguardando_confirmacao_pix" ||
-    value === "aguardando confirmação pix"
+    value === "em análise"
   )
 }
 
@@ -312,7 +327,27 @@ function isReadyStatus(status: string | null | undefined) {
   )
 }
 
+function isPixWaitingStatus(status: string | null | undefined) {
+  const value = normalizeStatus(status)
+
+  return (
+    value === "waiting_pix_confirmation" ||
+    value === "awaiting_pix_review" ||
+    value === "waiting_payment" ||
+    value === "awaiting_payment" ||
+    value === "waiting_customer_payment" ||
+    value === "pending_payment" ||
+    value === "aguardando_confirmacao_pix" ||
+    value === "aguardando confirmação pix"
+  )
+}
+
+function isPixWaitingOrder(order: Pick<OrderRow, "payment_method" | "payment_status" | "status">) {
+  return isPixAwaitingReview(order)
+}
+
 function getBoardStatus(status: string | null | undefined): BoardStatus | null {
+  if (isPixWaitingStatus(status)) return "analysis"
   if (isAnalysisStatus(status)) return "analysis"
   if (isPreparationStatus(status)) return "preparation"
   if (isReadyStatus(status)) return "ready"
@@ -320,23 +355,23 @@ function getBoardStatus(status: string | null | undefined): BoardStatus | null {
 }
 
 function isOrderVisibleOnBoard(order: Partial<OrderRow>) {
-  if (getBoardStatus(order.status) === null) return false
+  const pixWaiting = isPixWaitingOrder({
+    payment_method: order.payment_method ?? null,
+    payment_status: order.payment_status ?? null,
+    status: order.status ?? null,
+  })
+
+  if (!pixWaiting && getBoardStatus(order.status) === null) return false
 
   const paymentMethod = String(order.payment_method || "").trim().toLowerCase()
   const paymentStatus = String(order.payment_status || "").trim().toLowerCase()
-  const status = String(order.status || "").trim().toLowerCase()
 
   if (paymentMethod === "pix" || paymentMethod === "efi_pix") {
     return paymentStatus === "paid"
   }
 
   if (isManualPixMethod(paymentMethod)) {
-    return (
-      paymentStatus === "paid" ||
-      paymentStatus === "awaiting_review" ||
-      status === "waiting_pix_confirmation" ||
-      status === "awaiting_pix_review"
-    )
+    return paymentStatus === "paid" || pixWaiting
   }
 
   return true
@@ -728,6 +763,7 @@ function getPaymentStatusLabel(paymentStatus: string | null) {
   }
 
   if (
+    normalized === "awaiting_pix_confirmation" ||
     normalized === "awaiting_review" ||
     normalized === "aguardando_conferencia" ||
     normalized === "aguardando conferência" ||
@@ -814,6 +850,7 @@ function isPendingPaymentStatus(paymentStatus: string | null | undefined) {
 function getOrderStatusLabel(status: string | null | undefined) {
   const normalized = normalizeStatus(status)
 
+  if (isPixWaitingStatus(normalized)) return "Aguardando Pix"
   if (isAnalysisStatus(normalized)) return "Pendente"
   if (isPreparationStatus(normalized)) return "Em preparo"
   if (isReadyStatus(normalized)) return "Pronto"
@@ -832,6 +869,10 @@ function getOrderStatusBadgeClasses(status: string | null | undefined) {
 
   if (isCancelledOrderStatus(status)) {
     return "border-red-500/30 bg-red-500/10 text-red-300"
+  }
+
+  if (isPixWaitingStatus(status)) {
+    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
   }
 
   if (isReadyStatus(status)) {
@@ -929,7 +970,7 @@ function getOrderFlowHint(order: OrderRow, status: BoardStatus) {
 
   if (status === "analysis") {
     if (isPixAwaitingReview(order)) {
-      return "Cliente enviou comprovante. Confira antes de aceitar."
+      return "Pedido aguardando conferência manual do Pix. Confira o WhatsApp antes de liberar para produção."
     }
 
     if (isPaid) return "Pedido pago. Pode aceitar com segurança."
@@ -1164,11 +1205,13 @@ function OrderCard({
     (status === "preparation" && preparationRemainingMs <= 0)
 
   const statusLabel =
-    status === "analysis"
-      ? "Pendente"
-      : status === "preparation"
-        ? "Em preparo"
-        : "Pronto"
+    isPixReview
+      ? "Aguardando Pix"
+      : status === "analysis"
+        ? "Pendente"
+        : status === "preparation"
+          ? "Em preparo"
+          : "Pronto"
 
   const primaryActionLabel =
     status === "analysis"
@@ -1487,15 +1530,15 @@ function OrderCard({
                 )}
 
                 {isPixReview && (
-                  <div className="rounded-xl border border-yellow-500/30 bg-yellow-400/10 p-3">
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-wide text-yellow-300">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-emerald-300">
                           Conferência Pix
                         </p>
 
                         <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
-                          Confira valor, data, horário e destinatário antes de confirmar.
+                          Confira o comprovante enviado pelo WhatsApp antes de liberar o pedido para produção.
                         </p>
                       </div>
 
@@ -1503,7 +1546,7 @@ function OrderCard({
                         <button
                           type="button"
                           onClick={() => setProofOpen(true)}
-                          className="shrink-0 rounded-lg bg-yellow-400 px-3 py-2 text-xs font-black text-black transition hover:bg-yellow-300"
+                          className="shrink-0 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-black text-black transition hover:bg-emerald-300"
                         >
                           Ver comprovante
                         </button>
@@ -1514,7 +1557,7 @@ function OrderCard({
                       <button
                         type="button"
                         onClick={() => setProofOpen(true)}
-                        className="mt-3 block w-full overflow-hidden rounded-xl border border-yellow-500/20 bg-black"
+                        className="mt-3 block w-full overflow-hidden rounded-xl border border-emerald-500/20 bg-black"
                       >
                         <img
                           src={order.pix_proof_url}
@@ -1524,7 +1567,7 @@ function OrderCard({
                       </button>
                     ) : (
                       <p className="mt-3 rounded-lg border border-white/10 bg-black px-3 py-2 text-sm font-semibold text-zinc-500">
-                        Comprovante não disponível.
+                        Comprovante pelo WhatsApp. Abra a conversa do cliente, confira o pagamento e depois clique em Confirmar Pix.
                       </p>
                     )}
                   </div>
@@ -1657,14 +1700,16 @@ function OrderCard({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:flex">
-                  <button
-                    type="button"
-                    onClick={() => onPrint(order, items, "kitchen")}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-yellow-500/25 bg-yellow-400/10 px-3 text-xs font-black text-yellow-300 transition hover:bg-yellow-300/15"
-                  >
-                    <ChefHat className="h-4 w-4" />
-                    Cozinha
-                  </button>
+                  {!isPixReview && (
+                    <button
+                      type="button"
+                      onClick={() => onPrint(order, items, "kitchen")}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-yellow-500/25 bg-yellow-400/10 px-3 text-xs font-black text-yellow-300 transition hover:bg-yellow-300/15"
+                    >
+                      <ChefHat className="h-4 w-4" />
+                      Cozinha
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -1695,6 +1740,7 @@ function OrderCard({
                         onClick={() => {
                           if (isPixReview) {
                             onConfirmPixPayment(order)
+                            setDetailsOpen(false)
                             return
                           }
 
@@ -3202,11 +3248,25 @@ export default function PedidosPage() {
       return
     }
 
+    const printableOrders =
+      mode === "kitchen"
+        ? selectedOrdersToPrint.filter((order) => !isPixWaitingOrder(order))
+        : selectedOrdersToPrint
+
+    if (printableOrders.length === 0) {
+      setError("Confirme o Pix antes de enviar pedido para a cozinha.")
+      return
+    }
+
+    if (mode === "kitchen" && printableOrders.length < selectedOrdersToPrint.length) {
+      setError("Pedidos em Aguardando Pix não foram enviados para a cozinha.")
+    }
+
     printThermalOrdersBatch({
       restaurant: restaurantPrintData || getRestaurantPrintData(restaurant),
       mode,
       size: "80mm",
-      orders: selectedOrdersToPrint.map((order) =>
+      orders: printableOrders.map((order) =>
         buildThermalOrderPayload(order, orderItemsByOrderId[order.id] || [])
       ),
     })
@@ -3447,7 +3507,9 @@ export default function PedidosPage() {
   ])
 
   const openOrders = useMemo(() => {
-    return orders.filter((order) => getBoardStatus(order.status) !== null)
+    return orders.filter(
+      (order) => isPixWaitingOrder(order) || getBoardStatus(order.status) !== null
+    )
   }, [orders])
 
   const filteredOrders = useMemo(() => {

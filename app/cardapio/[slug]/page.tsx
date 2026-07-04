@@ -27,7 +27,6 @@ import {
   Utensils,
   Timer,
   Receipt,
-  Upload,
   UserRound,
   Star,
 } from "lucide-react"
@@ -2426,20 +2425,30 @@ function OrderTrackingCard({
     order.customer_received_at
   )
   const normalizedStatus = normalizeOrderStatus(order.status)
+  const isWaitingPixConfirmation = [
+    "waiting_pix_confirmation",
+    "aguardando_confirmacao_pix",
+    "awaiting_pix_review",
+  ].includes(normalizedStatus)
   const isCancelled = ["cancelled", "canceled", "cancelado"].includes(normalizedStatus)
-  const canConfirmReceived = !isCancelled && progressIndex >= 2
+  const canConfirmReceived = !isCancelled && !isWaitingPixConfirmation && progressIndex >= 2
   const alreadyReceived = Boolean(order.customer_received_at)
   const whatsappPhone = restaurantWhatsApp?.replace(/\D/g, "") || ""
   const orderNumber = order.public_order_number || order.id.slice(0, 8)
   const safeProgressIndex = Math.max(0, Math.min(progressIndex, steps.length - 1))
   const progressPercentage = ((safeProgressIndex + 1) / steps.length) * 100
 
-  const trackingMessage = getOrderTrackingMessage({
-    progressIndex: safeProgressIndex,
-    orderType,
-    alreadyReceived,
-    isCancelled,
-  })
+  const trackingMessage = isWaitingPixConfirmation
+    ? {
+        title: "Aguardando confirmação do Pix",
+        description: "Seu pedido foi registrado. Envie o comprovante pelo WhatsApp para o restaurante liberar a produção.",
+      }
+    : getOrderTrackingMessage({
+        progressIndex: safeProgressIndex,
+        orderType,
+        alreadyReceived,
+        isCancelled,
+      })
 
   const handleSubmitReview = async () => {
     if (rating <= 0) {
@@ -3449,8 +3458,6 @@ function CartSheet({
   const [isProcessing, setIsProcessing] = useState(false)
   const [pixPayment, setPixPayment] = useState<PixPaymentData | null>(null)
   const [pixCopied, setPixCopied] = useState(false)
-  const [pixProofFile, setPixProofFile] = useState<File | null>(null)
-  const [pixProofPreview, setPixProofPreview] = useState("")
   const [paymentApproved, setPaymentApproved] = useState(false)
   const [paymentCheckError, setPaymentCheckError] = useState("")
   const [cashbackStatus, setCashbackStatus] = useState<{
@@ -3531,8 +3538,6 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
       setStep("cart")
       setPixPayment(null)
       setPixCopied(false)
-      setPixProofFile(null)
-      setPixProofPreview("")
       setPaymentApproved(false)
       setPaymentCheckError("")
       setPixCardOpen(false)
@@ -3969,8 +3974,8 @@ const checkoutButtonDisabled =
           paymentMethodLabel.trim().toLowerCase() === "dinheiro" && needsChange
             ? changeForAmount
             : null,
-        paymentStatus: isManualPix ? "waiting_customer_payment" : undefined,
-        status: isManualPix ? "waiting_payment" : undefined,
+        paymentStatus: isManualPix ? "awaiting_pix_confirmation" : undefined,
+        status: isManualPix ? "waiting_pix_confirmation" : undefined,
         deliveryFee,
         serviceFee,
         cashback:
@@ -4011,121 +4016,85 @@ const checkoutButtonDisabled =
     }
   }
 
-  const startManualPixProofFlow = async () => {
+  const buildManualPixWhatsAppUrl = (order: {
+    id: string
+    public_order_number?: string | null
+    total?: number | string | null
+  }) => {
+    if (!whatsappPhone) return ""
+
+    const orderNumber = order.public_order_number || order.id.slice(0, 8)
+    const orderTotal = Number(order.total ?? total ?? 0)
+    const message = [
+      `Olá, segue o comprovante do Pix do pedido #${orderNumber}.`,
+      "",
+      `Nome: ${customer?.name ?? "Cliente"}`,
+      `Telefone: ${formatPhonePreview(customer?.phone ?? "")}`,
+      `Total: ${formatPrice(orderTotal)}`,
+      "",
+      "Vou enviar o comprovante por aqui.",
+    ].join("\n")
+
+    return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`
+  }
+
+  const startManualPixWhatsAppFlow = async () => {
     if (!validateForm()) return
+
+    if (!whatsappUrl) {
+      alert("Este restaurante ainda não cadastrou um WhatsApp para receber comprovantes.")
+      return
+    }
+
+    const whatsappWindow = window.open("", "_blank")
 
     setIsProcessing(true)
     setPaymentCheckError("")
 
     try {
       const createdOrder = await createPublicOrder("pix_manual")
-
-      setPixPayment({
-        orderId: createdOrder.id,
-        paymentId: createdOrder.id,
-        publicOrderNumber: createdOrder.public_order_number ?? null,
-        status: "waiting_customer_payment",
-      })
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao criar pedido Pix.")
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handlePixProofFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null
-
-    if (!file) {
-      setPixProofFile(null)
-      setPixProofPreview("")
-      return
-    }
-
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      alert("Envie uma imagem PNG, JPG ou WEBP.")
-      event.target.value = ""
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("O comprovante deve ter no máximo 5 MB.")
-      event.target.value = ""
-      return
-    }
-
-    if (pixProofPreview) {
-      URL.revokeObjectURL(pixProofPreview)
-    }
-
-    setPixProofFile(file)
-    setPixProofPreview(URL.createObjectURL(file))
-  }
-
-  const submitManualPixProof = async () => {
-    if (!pixPayment?.orderId) {
-      alert("Pedido Pix não encontrado.")
-      return
-    }
-
-    if (!pixProofFile) {
-      alert("Anexe a foto do comprovante para continuar.")
-      return
-    }
-
-    setIsProcessing(true)
-    setPaymentCheckError("")
-
-    try {
-      const formData = new FormData()
-
-      formData.append("restaurantId", restaurant.id)
-      formData.append("orderId", pixPayment.orderId)
-      formData.append("proof", pixProofFile)
-
-      const response = await fetch("/api/public/orders/pix-proof", {
-        method: "POST",
-        body: formData,
-      })
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Erro ao enviar comprovante.")
-      }
-
-      onOrderCreated({
-        id: pixPayment.orderId,
-        public_order_number: pixPayment.publicOrderNumber,
-        status: "waiting_pix_confirmation",
-        payment_status: "awaiting_review",
-        total,
-        payment_method: "pix_manual",
-        order_type: orderType,
-        delivery_fee: deliveryFee,
-        service_fee: serviceFee,
-        created_at: new Date().toISOString(),
+      const orderForCustomer: CustomerVisibleOrder = {
+        id: createdOrder.id,
+        public_order_number: createdOrder.public_order_number,
+        status: createdOrder.status ?? "waiting_pix_confirmation",
+        payment_status: createdOrder.payment_status ?? "awaiting_pix_confirmation",
+        total: createdOrder.total ?? total,
+        payment_method: createdOrder.payment_method ?? "pix_manual",
+        order_type: createdOrder.order_type ?? orderType,
+        delivery_fee: createdOrder.delivery_fee ?? deliveryFee,
+        service_fee: createdOrder.service_fee ?? serviceFee,
+        created_at: createdOrder.created_at ?? new Date().toISOString(),
         items: items.map((item) => ({
           name: item.product.name,
           quantity: item.quantity,
           unit_price: item.unitPrice,
         })),
-      })
+      }
 
+      onOrderCreated(orderForCustomer)
       onClearCart()
       onClose()
       setStep("cart")
       setPixPayment(null)
       setPixCopied(false)
-      setPixProofFile(null)
-      setPixProofPreview("")
       setPaymentCheckError("")
+
+      const proofUrl = buildManualPixWhatsAppUrl(createdOrder)
+
+      if (whatsappWindow) {
+        whatsappWindow.location.href = proofUrl
+      } else {
+        window.location.href = proofUrl
+      }
     } catch (error) {
-      setPaymentCheckError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao enviar comprovante."
-      )
+      if (whatsappWindow) {
+        whatsappWindow.close()
+      }
+
+      const errorMessage = error instanceof Error ? error.message : "Erro ao criar pedido Pix."
+
+      setPaymentCheckError(errorMessage)
+      alert(errorMessage)
     } finally {
       setIsProcessing(false)
     }
@@ -5439,7 +5408,8 @@ const checkoutButtonDisabled =
 
             <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
               Escaneie o QR Code ou copie o Pix copia e cola. Depois toque em
-              <span className="font-black text-white"> Já paguei</span> para anexar o comprovante.
+              <span className="font-black text-white"> Enviar comprovante pelo WhatsApp</span>.
+              Seu pedido vai aparecer no painel como aguardando conferência Pix.
             </p>
           </div>
 
@@ -5522,16 +5492,16 @@ const checkoutButtonDisabled =
 
             <button
               type="button"
-              onClick={() => void startManualPixProofFlow()}
-              disabled={isProcessing || !manualPixCopyPaste}
+              onClick={() => void startManualPixWhatsAppFlow()}
+              disabled={isProcessing || !manualPixCopyPaste || !whatsappPhone}
               className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-black text-white shadow-lg disabled:opacity-50"
             >
               {isProcessing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Check className="h-4 w-4" />
+                <MessageCircle className="h-4 w-4" />
               )}
-              Já paguei
+              Enviar comprovante
             </button>
           </div>
 
@@ -5555,54 +5525,13 @@ const checkoutButtonDisabled =
             </p>
 
             <h4 className="mt-1 text-xl font-black text-white">
-              Agora anexe o print do pagamento
+              Envie o comprovante pelo WhatsApp
             </h4>
 
             <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
-              O restaurante vai conferir valor, data, horário e destinatário antes de iniciar o preparo.
+              O pedido já foi registrado e o restaurante vai liberar para produção após conferir o pagamento.
             </p>
           </div>
-
-          {pixPayment.publicOrderNumber && (
-            <div className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
-              <p className="text-[9px] font-black uppercase text-emerald-400">
-                Pedido gerado
-              </p>
-
-              <p className="text-sm font-black text-emerald-400">
-                #{pixPayment.publicOrderNumber}
-              </p>
-            </div>
-          )}
-
-          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-emerald-400/30 bg-emerald-500/10 px-4 py-6 text-center transition-colors hover:bg-emerald-500/15">
-            <Upload className="h-7 w-7 text-emerald-400" />
-
-            <span className="mt-2 text-sm font-black text-white">
-              {pixProofFile ? "Trocar comprovante" : "Anexar foto do comprovante"}
-            </span>
-
-            <span className="mt-1 text-xs font-semibold text-zinc-500">
-              PNG, JPG ou WEBP até 5 MB
-            </span>
-
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={handlePixProofFileChange}
-              className="hidden"
-            />
-          </label>
-
-          {pixProofPreview && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-400/30 bg-[#0A0A0A]">
-              <img
-                src={pixProofPreview}
-                alt="Comprovante Pix"
-                className="max-h-64 w-full object-contain"
-              />
-            </div>
-          )}
 
           {paymentCheckError && (
             <p className="mt-3 text-center text-xs font-bold text-red-600">
@@ -5610,29 +5539,15 @@ const checkoutButtonDisabled =
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={() => void submitManualPixProof()}
-            disabled={isProcessing || !pixProofFile}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-black text-white shadow-lg disabled:opacity-50"
-          >
-            {isProcessing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            Enviar comprovante
-          </button>
-
           {whatsappUrl && (
             <a
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-[#0A0A0A] py-3 text-sm font-black text-emerald-400"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-[#0A0A0A] py-3 text-sm font-black text-emerald-400"
             >
               <MessageCircle className="h-4 w-4" />
-              Precisa de ajuda? Chamar restaurante
+              Abrir WhatsApp do restaurante
             </a>
           )}
         </div>
