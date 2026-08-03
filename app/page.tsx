@@ -195,7 +195,7 @@ export default function HomePage() {
 
           <div className="hidden items-center gap-3 lg:flex">
             <Link
-              href="/login"
+              href="/auth"
               className="rounded-xl px-5 py-3 text-sm font-semibold text-[#111936] transition hover:bg-slate-100"
             >
               Entrar
@@ -241,7 +241,7 @@ export default function HomePage() {
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Link
-                  href="/login"
+                  href="/auth"
                   className="flex items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-[#111936] transition hover:bg-slate-100"
                 >
                   Entrar
@@ -296,7 +296,7 @@ export default function HomePage() {
               </a>
 
               <Link
-                href="/login"
+                href="/auth"
                 className="inline-flex min-h-14 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-7 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Já sou cliente
@@ -746,7 +746,7 @@ export default function HomePage() {
               </a>
 
               <Link
-                href="/login"
+                href="/auth"
                 className="inline-flex min-h-14 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-7 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Acessar minha conta
@@ -777,7 +777,7 @@ export default function HomePage() {
           </p>
 
           <Link
-            href="/login"
+            href="/auth"
             className="text-sm font-semibold text-slate-600 transition hover:text-blue-600"
           >
             Área do cliente

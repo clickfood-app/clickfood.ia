@@ -176,11 +176,11 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         return
       }
 
-      router.replace("/auth")
+      router.replace("/")
       router.refresh()
 
       window.setTimeout(() => {
-        window.location.replace("/auth")
+        window.location.replace("/")
       }, 150)
     } catch (error) {
       console.error("Erro inesperado ao sair:", error)
