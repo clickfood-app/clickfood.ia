@@ -106,35 +106,35 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         .login-input:-webkit-autofill:hover,
         .login-input:-webkit-autofill:focus,
         .login-input:-webkit-autofill:active {
-          -webkit-box-shadow: 0 0 0 1000px #050505 inset !important;
-          -webkit-text-fill-color: #ffffff !important;
-          caret-color: #ffffff !important;
-          border-color: rgba(250, 204, 21, 0.55) !important;
+          -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+          -webkit-text-fill-color: #0f172a !important;
+          caret-color: #0f172a !important;
+          border-color: #2563eb !important;
           transition: background-color 9999s ease-in-out 0s !important;
         }
       `}</style>
 
       {error && (
-        <div className="flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-200">
-          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
+        <div className="flex animate-in items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 fade-in slide-in-from-top-2 duration-200">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
 
-          <p className="text-sm font-semibold text-red-300">{error}</p>
+          <p className="text-sm font-semibold text-red-700">{error}</p>
         </div>
       )}
 
       <div>
-        <label className="mb-2 block text-sm font-black text-yellow-400">
+        <label className="mb-2 block text-sm font-bold text-slate-700">
           Email
         </label>
 
-        <div className="group relative">
+        <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
             <Mail
               className={cn(
                 "h-5 w-5 transition-colors",
                 touched.email && !validation.email
-                  ? "text-red-400"
-                  : "text-yellow-400"
+                  ? "text-red-500"
+                  : "text-[#2563eb]"
               )}
             />
           </div>
@@ -150,37 +150,37 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
             autoComplete="email"
             disabled={isLoading}
             className={cn(
-              "login-input w-full rounded-2xl border bg-[#050505] py-4 pl-12 pr-4 text-base font-black text-white",
-              "placeholder:text-zinc-500 transition-all duration-200",
-              "focus:bg-[#050505] focus:outline-none focus:ring-4",
-              "disabled:cursor-not-allowed disabled:opacity-50",
+              "login-input w-full rounded-2xl border bg-white py-4 pl-12 pr-4 text-base font-semibold text-slate-950",
+              "placeholder:font-medium placeholder:text-slate-400",
+              "transition-all duration-200 focus:bg-white focus:outline-none focus:ring-4",
+              "disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60",
               touched.email && !validation.email
-                ? "border-red-500 focus:border-red-400 focus:ring-red-500/10"
-                : "border-yellow-400/55 focus:border-yellow-400 focus:ring-yellow-400/15"
+                ? "border-red-400 focus:border-red-500 focus:ring-red-500/10"
+                : "border-slate-300 hover:border-slate-400 focus:border-[#2563eb] focus:ring-blue-500/10"
             )}
           />
         </div>
 
         {touched.email && !validation.email && cleanEmail.length > 0 && (
-          <p className="mt-2 animate-in fade-in text-xs font-semibold text-red-400 duration-150">
+          <p className="mt-2 animate-in text-xs font-semibold text-red-500 fade-in duration-150">
             Informe um email válido
           </p>
         )}
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-black text-yellow-400">
+        <label className="mb-2 block text-sm font-bold text-slate-700">
           Senha
         </label>
 
-        <div className="group relative">
+        <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
             <Lock
               className={cn(
                 "h-5 w-5 transition-colors",
                 touched.password && !validation.password
-                  ? "text-red-400"
-                  : "text-yellow-400"
+                  ? "text-red-500"
+                  : "text-[#2563eb]"
               )}
             />
           </div>
@@ -191,18 +191,20 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onInput={(e) => setPassword(e.currentTarget.value)}
-            onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+            onBlur={() =>
+              setTouched((prev) => ({ ...prev, password: true }))
+            }
             placeholder="Digite sua senha"
             autoComplete="current-password"
             disabled={isLoading}
             className={cn(
-              "login-input w-full rounded-2xl border bg-[#050505] py-4 pl-12 pr-12 text-base font-black text-white",
-              "placeholder:text-zinc-500 transition-all duration-200",
-              "focus:bg-[#050505] focus:outline-none focus:ring-4",
-              "disabled:cursor-not-allowed disabled:opacity-50",
+              "login-input w-full rounded-2xl border bg-white py-4 pl-12 pr-12 text-base font-semibold text-slate-950",
+              "placeholder:font-medium placeholder:text-slate-400",
+              "transition-all duration-200 focus:bg-white focus:outline-none focus:ring-4",
+              "disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60",
               touched.password && !validation.password
-                ? "border-red-500 focus:border-red-400 focus:ring-red-500/10"
-                : "border-yellow-400/55 focus:border-yellow-400 focus:ring-yellow-400/15"
+                ? "border-red-400 focus:border-red-500 focus:ring-red-500/10"
+                : "border-slate-300 hover:border-slate-400 focus:border-[#2563eb] focus:ring-blue-500/10"
             )}
           />
 
@@ -210,7 +212,8 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
             disabled={isLoading}
-            className="absolute inset-y-0 right-0 flex items-center pr-4 text-yellow-400 transition-colors hover:text-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition-colors hover:text-[#2563eb] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {showPassword ? (
               <EyeOff className="h-5 w-5" />
@@ -221,7 +224,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         </div>
 
         {touched.password && !validation.password && password.length > 0 && (
-          <p className="mt-2 animate-in fade-in text-xs font-semibold text-red-400 duration-150">
+          <p className="mt-2 animate-in text-xs font-semibold text-red-500 fade-in duration-150">
             A senha deve ter pelo menos 6 caracteres
           </p>
         )}
@@ -232,7 +235,8 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
           <button
             type="button"
             onClick={onForgotPassword}
-            className="text-sm font-bold text-yellow-400 transition-colors hover:text-yellow-300"
+            disabled={isLoading}
+            className="text-sm font-bold text-[#f97316] transition-colors hover:text-[#ea580c] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Esqueceu sua senha?
           </button>
@@ -243,11 +247,11 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         type="submit"
         disabled={isLoading || !validation.canSubmit}
         className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-black transition-all duration-200",
+          "flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold transition-all duration-200",
           "active:scale-[0.98]",
           validation.canSubmit && !isLoading
-            ? "bg-yellow-400 text-black shadow-[0_18px_45px_rgba(250,204,21,0.28)] hover:bg-yellow-300"
-            : "cursor-not-allowed bg-yellow-400/35 text-black/45 shadow-none"
+            ? "bg-[#2563eb] text-white shadow-[0_16px_35px_rgba(37,99,235,0.24)] hover:bg-[#1d4ed8]"
+            : "cursor-not-allowed bg-blue-200 text-blue-400 shadow-none"
         )}
       >
         {isLoading ? (

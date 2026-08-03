@@ -7,6 +7,10 @@ const NO_STORE_HEADERS = {
 
 const ACTIVE_ORDER_STATUSES = [
   "awaiting_payment",
+  "waiting_payment",
+  "waiting_customer_payment",
+  "waiting_pix_confirmation",
+  "awaiting_pix_review",
   "pending",
   "accepted",
   "preparing",

@@ -293,7 +293,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   }, [])
 
   return (
-    <div className="restaurant-admin-theme min-h-screen bg-black text-white">
+    <div className="restaurant-admin-theme min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="hidden md:block">
         <AdminSidebar
           isCollapsed={isCollapsed}
@@ -305,7 +305,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         {isMobileOpen && (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm"
               onClick={closeMobileSidebar}
             />
 
@@ -325,13 +325,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           isCollapsed && "md:ml-[72px] md:w-[calc(100%-72px)]",
         )}
       >
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-black/95 shadow-sm shadow-black/30 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm shadow-slate-200/70 backdrop-blur-xl">
           <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#050505] text-white transition hover:border-yellow-400 hover:bg-yellow-400 hover:text-black md:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-[#2563eb] transition hover:border-[#f97316] hover:bg-[#f97316] hover:text-white md:hidden"
                 aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
@@ -340,20 +340,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               <div className="hidden min-w-0 items-center gap-2 sm:flex">
                 <Link
                   href="/pedidos"
-                  className="text-sm font-bold text-zinc-500 transition hover:text-yellow-300"
+                  className="text-sm font-bold text-[#2563eb] transition hover:text-[#f97316]"
                 >
                   Painel
                 </Link>
 
-                <ChevronRight className="h-4 w-4 text-zinc-500" />
+                <ChevronRight className="h-4 w-4 text-slate-400" />
 
-                <span className="truncate text-sm font-black text-white">
+                <span className="truncate text-sm font-black text-slate-900">
                   {currentPage}
                 </span>
               </div>
 
               <div className="min-w-0 sm:hidden">
-                <p className="truncate text-base font-black text-white">
+                <p className="truncate text-base font-black text-slate-900">
                   {currentPage}
                 </p>
               </div>
@@ -364,7 +364,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <button
                   type="button"
                   onClick={handleEnableAlerts}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-yellow-400/50 bg-yellow-400 px-3 text-sm font-black text-black shadow-sm transition hover:bg-yellow-300"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#f97316] bg-[#f97316] px-3 text-sm font-black text-white shadow-sm transition hover:border-[#ea580c] hover:bg-[#ea580c]"
                 >
                   <Volume2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Ativar alertas</span>
@@ -377,33 +377,33 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   onClick={() => {
                     setProfileOpen((prev) => !prev)
                   }}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-[#050505] px-2 transition hover:border-yellow-400 hover:bg-[#080808]"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 transition hover:border-blue-300 hover:bg-blue-50/60"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-black">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563eb] text-xs font-black text-white ring-2 ring-orange-100">
                     {userInitials}
                   </div>
 
                   <div className="hidden text-left md:block">
-                    <p className="max-w-[140px] truncate text-sm font-black leading-none text-white">
+                    <p className="max-w-[140px] truncate text-sm font-black leading-none text-slate-900">
                       {userName}
                     </p>
 
-                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-zinc-500">
+                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-slate-500">
                       {userEmail}
                     </p>
                   </div>
 
-                  <ChevronDown className="hidden h-4 w-4 text-zinc-500 md:block" />
+                  <ChevronDown className="hidden h-4 w-4 text-slate-400 md:block" />
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-white/10 bg-[#050505] p-2 shadow-xl shadow-black/30">
-                    <div className="border-b border-white/10 px-3 py-3">
-                      <p className="truncate text-sm font-black text-white">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
+                    <div className="border-b border-slate-100 px-3 py-3">
+                      <p className="truncate text-sm font-black text-slate-900">
                         {userName}
                       </p>
 
-                      <p className="mt-1 truncate text-xs text-zinc-500">
+                      <p className="mt-1 truncate text-xs text-slate-500">
                         {userEmail}
                       </p>
                     </div>
@@ -414,7 +414,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-yellow-400 hover:text-black"
+                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-[#2563eb]"
                     >
                       <User className="h-4 w-4" />
                       Perfil
@@ -426,19 +426,19 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-yellow-400 hover:text-black"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-[#2563eb]"
                     >
                       <Settings className="h-4 w-4" />
                       Configurações
                     </button>
 
-                    <div className="my-2 h-px bg-[#111111]" />
+                    <div className="my-2 h-px bg-slate-100" />
 
                     <button
                       type="button"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-400 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <LogOut className="h-4 w-4" />
                       {isLoggingOut ? "Saindo..." : "Sair"}
@@ -450,7 +450,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="bg-black p-4 md:p-6">
+        <main className="bg-[#f5f7fb] p-4 md:p-6">
           <div className="mx-auto w-full max-w-[1500px]">{children}</div>
         </main>
       </div>

@@ -12,6 +12,12 @@ const MAX_NEIGHBORHOOD_LENGTH = 120
 const MAX_NOTE_LENGTH = 500
 const MAX_ITEM_NOTE_LENGTH = 250
 const MAX_ORDER_NUMBER_RETRIES = 5
+const MAX_CUSTOMER_ZIP_LENGTH = 8
+const MAX_ADDRESS_NUMBER_LENGTH = 20
+const MAX_ADDRESS_COMPLEMENT_LENGTH = 120
+const DELIVERY_API_TIMEOUT_MS = 12_000
+const OPENROUTESERVICE_BASE_URL = "https://api.heigit.org"
+
 
 type CreateOrderItemInput = {
   product_id: string
@@ -35,6 +41,9 @@ type CreateOrderBody = {
   customerName: string
   customerPhone: string
   customerAddress?: string
+  customerZip?: string
+  customerNumber?: string
+  customerComplement?: string
   neighborhood?: string
   orderType: "delivery" | "pickup"
   paymentMethod: string
@@ -55,7 +64,9 @@ type RestaurantRow = {
   name: string | null
   slug: string | null
   is_active: boolean | null
-  delivery_fee: number | string | null
+  address: string | null
+  city: string | null
+  state: string | null
   delivery_enabled: boolean | null
   pickup_enabled: boolean | null
   minimum_order: number | string | null
@@ -70,12 +81,11 @@ type ProductRow = {
   is_available: boolean | null
 }
 
-type DeliveryFeeRuleRow = {
+type DeliveryDistanceRuleRow = {
   id: string
   restaurant_id: string
-  label: string | null
+  up_to_km: number | string | null
   fee: number | string | null
-  neighborhoods: string[] | null
   is_active: boolean | null
   sort_order: number | null
 }
@@ -157,11 +167,64 @@ type PublicOrderFastResponse = {
     subtotal: number
     serviceFee: number
     deliveryFee: number
+    deliveryDistanceKm?: number
     discount: number
     total: number
     neighborhood: string
     orderType: string
     cashback: null
+  }
+}
+
+type ViaCepResponse = {
+  cep?: string
+  logradouro?: string
+  complemento?: string
+  bairro?: string
+  localidade?: string
+  uf?: string
+  erro?: boolean | "true"
+}
+
+type GeoJsonFeature = {
+  geometry?: {
+    coordinates?: [number, number]
+  }
+}
+
+type GeocodeResponse = {
+  features?: GeoJsonFeature[]
+}
+
+type DirectionsResponse = {
+  routes?: Array<{
+    summary?: {
+      distance?: number
+    }
+  }>
+  features?: Array<{
+    properties?: {
+      summary?: {
+        distance?: number
+      }
+    }
+  }>
+}
+
+type DeliveryQuote = {
+  distanceKm: number
+  fee: number
+  customerAddress: string
+  neighborhood: string
+}
+
+class DeliveryCalculationError extends Error {
+  status: number
+
+  constructor(message: string, status = 400) {
+    super(message)
+    this.name = "DeliveryCalculationError"
+    this.status = status
   }
 }
 
@@ -194,36 +257,363 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
-function normalizeSearchText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
+function normalizeZip(value: unknown) {
+  return String(value || "").replace(/\D/g, "").slice(0, MAX_CUSTOMER_ZIP_LENGTH)
 }
 
-function normalizeNeighborhoodKey(value: string | null | undefined) {
-  return normalizeSearchText(value || "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
+async function fetchWithTimeout(
+  input: string | URL,
+  init: RequestInit = {},
+  timeoutMs = DELIVERY_API_TIMEOUT_MS
+) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+      cache: "no-store",
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
-function isValidDeliveryNeighborhood(value: string | null | undefined) {
-  const normalizedValue = normalizeNeighborhoodKey(value)
+async function lookupAddressByZip(zip: string) {
+  if (!/^\d{8}$/.test(zip)) {
+    throw new DeliveryCalculationError("Informe um CEP válido com 8 números.")
+  }
 
-  if (!normalizedValue) return false
+  let response: Response
 
-  return ![
-    "bairro",
-    "padrao",
-    "bairro_padrao",
-    "default",
-    "selecione",
-    "selecione_seu_bairro",
-    "selecionar_bairro",
-    "nao_informado",
-    "nao_informada",
-  ].includes(normalizedValue)
+  try {
+    response = await fetchWithTimeout(
+      `https://viacep.com.br/ws/${zip}/json/`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    )
+  } catch (error) {
+    console.error("Erro ao consultar ViaCEP:", error)
+
+    throw new DeliveryCalculationError(
+      "Não foi possível consultar o CEP agora. Tente novamente.",
+      502
+    )
+  }
+
+  if (!response.ok) {
+    throw new DeliveryCalculationError(
+      "Não foi possível consultar o CEP informado.",
+      502
+    )
+  }
+
+  const data = (await response.json()) as ViaCepResponse
+
+  if (data.erro === true || data.erro === "true") {
+    throw new DeliveryCalculationError("CEP não encontrado.")
+  }
+
+  return data
+}
+
+function buildAddress(parts: Array<string | null | undefined>) {
+  return parts
+    .map((part) => (part || "").trim())
+    .filter(Boolean)
+    .join(", ")
+}
+
+async function geocodeAddress(address: string, apiKey: string) {
+  const endpoint = new URL(`${OPENROUTESERVICE_BASE_URL}/pelias/v1/search`)
+
+  endpoint.searchParams.set("api_key", apiKey)
+  endpoint.searchParams.set("text", address)
+  endpoint.searchParams.set("boundary.country", "BR")
+  endpoint.searchParams.set("size", "1")
+
+  let response: Response
+
+  try {
+    response = await fetchWithTimeout(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    })
+  } catch (error) {
+    console.error("Erro ao geocodificar endereço no OpenRouteService:", {
+      address,
+      error,
+    })
+
+    throw new DeliveryCalculationError(
+      "Não foi possível localizar o endereço informado.",
+      502
+    )
+  }
+
+  if (!response.ok) {
+    const responseText = await response.text().catch(() => "")
+
+    console.error("OpenRouteService recusou a geocodificação:", {
+      status: response.status,
+      address,
+      response: responseText.slice(0, 500),
+    })
+
+    throw new DeliveryCalculationError(
+      "Não foi possível localizar o endereço informado.",
+      502
+    )
+  }
+
+  const data = (await response.json()) as GeocodeResponse
+  const coordinates = data.features?.[0]?.geometry?.coordinates
+
+  if (
+    !Array.isArray(coordinates) ||
+    coordinates.length < 2 ||
+    !Number.isFinite(coordinates[0]) ||
+    !Number.isFinite(coordinates[1])
+  ) {
+    throw new DeliveryCalculationError(
+      "Endereço não localizado. Confira CEP, rua e número."
+    )
+  }
+
+  return coordinates
+}
+
+async function calculateDrivingDistanceInMeters(
+  origin: [number, number],
+  destination: [number, number],
+  apiKey: string
+) {
+  const endpoint = `${OPENROUTESERVICE_BASE_URL}/openrouteservice/v2/directions/driving-car`
+
+  let response: Response
+
+  try {
+    response = await fetchWithTimeout(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        coordinates: [origin, destination],
+        instructions: false,
+      }),
+    })
+  } catch (error) {
+    console.error("Erro ao calcular rota no OpenRouteService:", error)
+
+    throw new DeliveryCalculationError(
+      "Não foi possível calcular a rota de entrega agora.",
+      502
+    )
+  }
+
+  if (!response.ok) {
+    const responseText = await response.text().catch(() => "")
+
+    console.error("OpenRouteService recusou o cálculo da rota:", {
+      status: response.status,
+      response: responseText.slice(0, 500),
+    })
+
+    throw new DeliveryCalculationError(
+      "Não foi possível calcular uma rota até este endereço.",
+      502
+    )
+  }
+
+  const data = (await response.json()) as DirectionsResponse
+
+  const distanceInMeters =
+    data.routes?.[0]?.summary?.distance ??
+    data.features?.[0]?.properties?.summary?.distance
+
+  if (!Number.isFinite(distanceInMeters) || Number(distanceInMeters) <= 0) {
+    throw new DeliveryCalculationError(
+      "Não foi possível calcular uma rota até este endereço."
+    )
+  }
+
+  return Number(distanceInMeters)
+}
+
+async function getDeliveryDistanceRules(restaurantId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("delivery_distance_rules")
+    .select("id, restaurant_id, up_to_km, fee, is_active, sort_order")
+    .eq("restaurant_id", restaurantId)
+    .eq("is_active", true)
+    .order("up_to_km", { ascending: true })
+
+  if (error) {
+    console.error("Erro ao buscar faixas de entrega por distância:", {
+      restaurantId,
+      message: error.message,
+      code: error.code,
+    })
+
+    throw new DeliveryCalculationError(
+      "Não foi possível carregar as regras de entrega deste restaurante.",
+      500
+    )
+  }
+
+  const rules = ((data || []) as DeliveryDistanceRuleRow[])
+    .map((rule) => ({
+      upToKm: normalizeNumber(rule.up_to_km, 0),
+      fee: roundMoney(Math.max(0, normalizeNumber(rule.fee, 0))),
+    }))
+    .filter((rule) => rule.upToKm > 0)
+    .sort((a, b) => a.upToKm - b.upToKm)
+
+  if (rules.length === 0) {
+    throw new DeliveryCalculationError(
+      "As faixas de entrega ainda não foram configuradas para este restaurante.",
+      500
+    )
+  }
+
+  return rules
+}
+
+function getDeliveryFeeByDistance(
+  distanceInMeters: number,
+  deliveryRules: Array<{ upToKm: number; fee: number }>
+) {
+  const matchedRule = deliveryRules.find(
+    (rule) => distanceInMeters <= rule.upToKm * 1000
+  )
+
+  if (!matchedRule) {
+    const maxDeliveryDistanceKm = deliveryRules[deliveryRules.length - 1].upToKm
+
+    throw new DeliveryCalculationError(
+      `Este endereço está fora da área de entrega de até ${maxDeliveryDistanceKm} km.`
+    )
+  }
+
+  return matchedRule.fee
+}
+
+async function calculateDeliveryQuote({
+  restaurant,
+  customerAddress,
+  customerZip,
+  customerNumber,
+  customerComplement,
+  neighborhood,
+}: {
+  restaurant: RestaurantRow
+  customerAddress: string
+  customerZip: string
+  customerNumber: string
+  customerComplement: string
+  neighborhood: string
+}): Promise<DeliveryQuote> {
+  const apiKey = process.env.OPENROUTESERVICE_API_KEY?.trim()
+
+  if (!apiKey) {
+    console.error("OPENROUTESERVICE_API_KEY não configurada no servidor.")
+
+    throw new DeliveryCalculationError(
+      "O cálculo de entrega ainda não está configurado.",
+      500
+    )
+  }
+
+  const restaurantAddress = buildAddress([
+    restaurant.address,
+    restaurant.city,
+    restaurant.state,
+    "Brasil",
+  ])
+
+  if (!restaurant.address?.trim() || !restaurant.city?.trim() || !restaurant.state?.trim()) {
+    throw new DeliveryCalculationError(
+      "O endereço do restaurante está incompleto nas configurações.",
+      500
+    )
+  }
+
+  let resolvedCustomerAddress = customerAddress
+  let resolvedNeighborhood = neighborhood
+  let customerRouteAddress = buildAddress([
+    customerAddress,
+    neighborhood,
+    restaurant.city,
+    restaurant.state,
+    "Brasil",
+  ])
+
+  if (customerZip) {
+    const zipAddress = await lookupAddressByZip(customerZip)
+    const zipStreet = normalizeText(zipAddress.logradouro, 160)
+    const zipNeighborhood = normalizeText(zipAddress.bairro, MAX_NEIGHBORHOOD_LENGTH)
+    const zipCity = normalizeText(zipAddress.localidade, 120)
+    const zipState = normalizeText(zipAddress.uf, 2)
+    const formattedZip = normalizeText(zipAddress.cep, 9) || customerZip
+
+    resolvedNeighborhood = zipNeighborhood || neighborhood
+
+    const streetAndNumber = buildAddress([
+      zipStreet || customerAddress,
+      customerNumber,
+    ])
+
+    resolvedCustomerAddress = buildAddress([
+      streetAndNumber,
+      customerComplement,
+      resolvedNeighborhood,
+      zipCity,
+      zipState,
+      `CEP ${formattedZip}`,
+    ])
+
+    customerRouteAddress = buildAddress([
+      streetAndNumber || customerAddress,
+      resolvedNeighborhood,
+      zipCity,
+      zipState,
+      formattedZip,
+      "Brasil",
+    ])
+  }
+
+  if (!resolvedCustomerAddress.trim()) {
+    throw new DeliveryCalculationError("Informe o endereço de entrega.")
+  }
+
+  const [originCoordinates, destinationCoordinates, deliveryRules] = await Promise.all([
+    geocodeAddress(restaurantAddress, apiKey),
+    geocodeAddress(customerRouteAddress, apiKey),
+    getDeliveryDistanceRules(restaurant.id),
+  ])
+
+  const distanceInMeters = await calculateDrivingDistanceInMeters(
+    originCoordinates,
+    destinationCoordinates,
+    apiKey
+  )
+
+  return {
+    distanceKm: Math.round((distanceInMeters / 1000) * 100) / 100,
+    fee: getDeliveryFeeByDistance(distanceInMeters, deliveryRules),
+    customerAddress: resolvedCustomerAddress,
+    neighborhood: resolvedNeighborhood,
+  }
 }
 
 function normalizePhone(value: unknown) {
@@ -321,22 +711,6 @@ function buildPublicOrderNumber() {
   const random = randomInt(100, 999).toString()
 
   return `${now}${random}`
-}
-
-function findDeliveryRuleByNeighborhood(
-  deliveryRules: DeliveryFeeRuleRow[],
-  neighborhood: string
-) {
-  const selectedNeighborhood = normalizeSearchText(neighborhood)
-
-  return deliveryRules.find((rule) => {
-    if (rule.is_active === false) return false
-    if (!Array.isArray(rule.neighborhoods)) return false
-
-    return rule.neighborhoods.some(
-      (item) => normalizeSearchText(item) === selectedNeighborhood
-    )
-  })
 }
 
 function isCampaignInsidePeriod(campaign: CashbackCampaignRow) {
@@ -627,6 +1001,9 @@ async function createOrderLegacy({
   customerName,
   customerPhone,
   customerAddress,
+  customerZip,
+  customerNumber,
+  customerComplement,
   neighborhood,
   orderType,
   paymentMethod,
@@ -643,6 +1020,9 @@ async function createOrderLegacy({
   customerName: string
   customerPhone: string
   customerAddress: string
+  customerZip: string
+  customerNumber: string
+  customerComplement: string
   neighborhood: string
   orderType: "delivery" | "pickup"
   paymentMethod: Exclude<PublicPaymentMethod, "">
@@ -673,7 +1053,7 @@ async function createOrderLegacy({
     supabaseAdmin
       .from("restaurants")
       .select(
-        "id, name, slug, is_active, delivery_fee, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders"
+        "id, name, slug, is_active, address, city, state, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders"
       )
       .eq("id", restaurantId)
       .maybeSingle(),
@@ -777,42 +1157,37 @@ async function createOrderLegacy({
   }
 
   let deliveryFee = 0
+  let deliveryDistanceKm = 0
+  let resolvedCustomerAddress = customerAddress
+  let resolvedNeighborhood = neighborhood
 
   if (orderType === "delivery") {
-    const { data: deliveryRulesData, error: deliveryRulesError } =
-      await supabaseAdmin
-        .from("delivery_fee_rules")
-        .select(
-          "id, restaurant_id, label, fee, neighborhoods, is_active, sort_order"
-        )
-        .eq("restaurant_id", restaurantId)
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
+    try {
+      const deliveryQuote = await calculateDeliveryQuote({
+        restaurant: typedRestaurant,
+        customerAddress,
+        customerZip,
+        customerNumber,
+        customerComplement,
+        neighborhood,
+      })
 
-    if (deliveryRulesError) {
-      console.error(
-        "Erro ao buscar regras de taxa de entrega:",
-        deliveryRulesError
+      deliveryFee = Math.max(0, roundMoney(deliveryQuote.fee))
+      deliveryDistanceKm = deliveryQuote.distanceKm
+      resolvedCustomerAddress = deliveryQuote.customerAddress
+      resolvedNeighborhood = deliveryQuote.neighborhood
+    } catch (error) {
+      if (error instanceof DeliveryCalculationError) {
+        return jsonError(error.message, error.status)
+      }
+
+      console.error("Erro inesperado ao calcular entrega:", error)
+
+      return jsonError(
+        "Não foi possível calcular a taxa de entrega agora.",
+        500
       )
-
-      return jsonError("Erro ao buscar regras de taxa de entrega.", 500)
     }
-
-    const deliveryRules = (deliveryRulesData || []) as DeliveryFeeRuleRow[]
-    const matchedRule = findDeliveryRuleByNeighborhood(
-      deliveryRules,
-      neighborhood
-    )
-
-    if (orderType === "delivery" && !isValidDeliveryNeighborhood(neighborhood)) {
-  return jsonError("Selecione seu bairro para calcular a taxa de entrega.", 400)
-}
-
-    deliveryFee = matchedRule
-      ? normalizeNumber(matchedRule.fee, 0)
-      : normalizeNumber(typedRestaurant.delivery_fee, 0)
-
-    deliveryFee = Math.max(0, roundMoney(deliveryFee))
   }
 
   const safeServiceFee = 0
@@ -983,8 +1358,10 @@ const initialStatus = shouldAutoAcceptOrder
     change_for: needsChange ? changeFor : null,
     notes: customerNote || null,
     order_type: orderType,
-    delivery_address: orderType === "delivery" ? customerAddress : null,
-    delivery_neighborhood: orderType === "delivery" ? neighborhood : null,
+    delivery_address:
+      orderType === "delivery" ? resolvedCustomerAddress : null,
+    delivery_neighborhood:
+      orderType === "delivery" ? resolvedNeighborhood : null,
     table_id: tableId,
     order_source: "public",
     accepted_at: shouldAutoAcceptOrder ? nowIso : null,
@@ -1133,9 +1510,10 @@ const initialStatus = shouldAutoAcceptOrder
         subtotal,
         serviceFee: safeServiceFee,
         deliveryFee,
+        deliveryDistanceKm,
         discount,
         total,
-        neighborhood,
+        neighborhood: resolvedNeighborhood,
         orderType,
         needsChange,
         changeFor: needsChange ? changeFor : null,
@@ -1154,6 +1532,135 @@ const initialStatus = shouldAutoAcceptOrder
       },
     }
   )
+}
+
+export async function PUT(request: Request) {
+  try {
+    let body: {
+      restaurantId?: string
+      customerAddress?: string
+      customerZip?: string
+      customerNumber?: string
+      customerComplement?: string
+      neighborhood?: string
+    }
+
+    try {
+      body = (await request.json()) as typeof body
+    } catch {
+      return jsonError("Corpo da requisição inválido.", 400)
+    }
+
+    const restaurantId = normalizeText(body.restaurantId, 80)
+    const customerAddress = normalizeText(
+      body.customerAddress,
+      MAX_ADDRESS_LENGTH
+    )
+    const customerZip = normalizeZip(body.customerZip)
+    const customerNumber = normalizeText(
+      body.customerNumber,
+      MAX_ADDRESS_NUMBER_LENGTH
+    )
+    const customerComplement = normalizeText(
+      body.customerComplement,
+      MAX_ADDRESS_COMPLEMENT_LENGTH
+    )
+    const neighborhood = normalizeText(
+      body.neighborhood,
+      MAX_NEIGHBORHOOD_LENGTH
+    )
+
+    if (!restaurantId) {
+      return jsonError("restaurantId é obrigatório.", 400)
+    }
+
+    if (!customerZip && !customerAddress) {
+      return jsonError("Informe o CEP ou o endereço de entrega.", 400)
+    }
+
+    if (body.customerZip && !/^\d{8}$/.test(customerZip)) {
+      return jsonError("Informe um CEP válido com 8 números.", 400)
+    }
+
+    if (customerZip && !customerNumber) {
+      return jsonError("Informe o número do endereço.", 400)
+    }
+
+    const { data: restaurantData, error: restaurantError } =
+      await supabaseAdmin
+        .from("restaurants")
+        .select(
+          "id, name, slug, is_active, address, city, state, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders"
+        )
+        .eq("id", restaurantId)
+        .maybeSingle()
+
+    if (restaurantError) {
+      console.error("Erro ao buscar restaurante para calcular entrega:", {
+        restaurantId,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
+
+      return jsonError("Erro ao buscar restaurante.", 500)
+    }
+
+    const restaurant = restaurantData as RestaurantRow | null
+
+    if (!restaurant || restaurant.is_active === false) {
+      return jsonError("Restaurante não encontrado ou inativo.", 404)
+    }
+
+    if (restaurant.delivery_enabled === false) {
+      return jsonError(
+        "Este restaurante não está aceitando pedidos para entrega.",
+        400
+      )
+    }
+
+    try {
+      const quote = await calculateDeliveryQuote({
+        restaurant,
+        customerAddress,
+        customerZip,
+        customerNumber,
+        customerComplement,
+        neighborhood,
+      })
+
+      return NextResponse.json(
+        {
+          success: true,
+          quote: {
+            distanceKm: quote.distanceKm,
+            fee: quote.fee,
+            customerAddress: quote.customerAddress,
+            neighborhood: quote.neighborhood,
+          },
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      )
+    } catch (error) {
+      if (error instanceof DeliveryCalculationError) {
+        return jsonError(error.message, error.status)
+      }
+
+      console.error("Erro inesperado ao calcular prévia de entrega:", error)
+
+      return jsonError(
+        "Não foi possível calcular a taxa de entrega agora.",
+        500
+      )
+    }
+  } catch (error) {
+    console.error("PUT /api/public/orders error:", error)
+
+    return jsonError("Erro inesperado ao calcular a entrega.", 500)
+  }
 }
 
 export async function POST(request: Request) {  try {
@@ -1178,6 +1685,15 @@ export async function POST(request: Request) {  try {
     const customerAddress = normalizeText(
       body.customerAddress,
       MAX_ADDRESS_LENGTH
+    )
+    const customerZip = normalizeZip(body.customerZip)
+    const customerNumber = normalizeText(
+      body.customerNumber,
+      MAX_ADDRESS_NUMBER_LENGTH
+    )
+    const customerComplement = normalizeText(
+      body.customerComplement,
+      MAX_ADDRESS_COMPLEMENT_LENGTH
     )
     const neighborhood = normalizeText(
       body.neighborhood,
@@ -1230,7 +1746,15 @@ export async function POST(request: Request) {  try {
       return jsonError("EndereÃ§o Ã© obrigatÃ³rio para entrega.", 400)
     }
 
-    if (orderType === "delivery" && !neighborhood) {
+    if (
+      orderType === "delivery" &&
+      body.customerZip &&
+      !/^\d{8}$/.test(customerZip)
+    ) {
+      return jsonError("Informe um CEP vÃ¡lido com 8 nÃºmeros.", 400)
+    }
+
+    if (orderType === "delivery" && !neighborhood && !customerZip) {
       return jsonError("Bairro Ã© obrigatÃ³rio para entrega.", 400)
     }
 
@@ -1312,6 +1836,9 @@ export async function POST(request: Request) {  try {
       customerName,
       customerPhone,
       customerAddress,
+      customerZip,
+      customerNumber,
+      customerComplement,
       neighborhood,
       orderType,
       paymentMethod,
@@ -1329,4 +1856,3 @@ export async function POST(request: Request) {  try {
     return jsonError("Erro inesperado ao criar pedido.", 500)
   }
 }
-

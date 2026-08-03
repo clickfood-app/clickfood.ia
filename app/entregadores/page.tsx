@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react"
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Loader2,
+  Pencil,
   Plus,
   RefreshCcw,
   Search,
   Trash2,
-  UserRound,
-  Wallet,
   XCircle,
 } from "lucide-react"
 
@@ -67,13 +68,17 @@ type CourierOrderItem = {
   created_at: string
   out_for_delivery_at: string | null
   delivered_at: string | null
+  cancelled_at: string | null
 }
 
 type DeliveryPersonWithStats = DeliveryPersonRow & {
-  openFeeOrders: CourierOrderItem[]
-  openFeeAmount: number
+  dayOrders: CourierOrderItem[]
+  completedOrders: CourierOrderItem[]
+  pendingPaymentOrders: CourierOrderItem[]
+  dayAmount: number
+  pendingAmount: number
   onRouteOrders: number
-  deliveredOrders: number
+  allPendingAmount: number
 }
 
 const supabase = createClient()
@@ -93,43 +98,59 @@ function normalizeStatus(status: string | null | undefined) {
 function isOnRouteStatus(status: string | null | undefined) {
   const value = normalizeStatus(status)
 
-  return (
-    value === "out_for_delivery" ||
-    value === "saiu_para_entrega" ||
-    value === "delivering" ||
-    value === "on_route" ||
-    value === "em_rota" ||
-    value === "em rota"
-  )
+  return [
+    "out_for_delivery",
+    "saiu_para_entrega",
+    "delivering",
+    "on_route",
+    "em_rota",
+    "em rota",
+  ].includes(value)
 }
 
 function isDeliveredStatus(status: string | null | undefined) {
   const value = normalizeStatus(status)
 
-  return (
-    value === "delivered" ||
-    value === "entregue" ||
-    value === "finished" ||
-    value === "completed" ||
-    value === "concluido" ||
-    value === "concluído"
-  )
+  return [
+    "delivered",
+    "entregue",
+    "finished",
+    "completed",
+    "concluido",
+    "concluído",
+  ].includes(value)
 }
 
 function isCancelledStatus(status: string | null | undefined) {
-  const value = normalizeStatus(status)
-
-  return value === "cancelled" || value === "canceled" || value === "cancelado"
+  return ["cancelled", "canceled", "cancelado"].includes(
+    normalizeStatus(status)
+  )
 }
 
-function isPayableDeliveryOrder(order: Pick<OrderRow, "delivery_fee" | "status">) {
-  const deliveryFee = Number(order.delivery_fee || 0)
+function isFinalizedDeliveryOrder(
+  order:
+    | Pick<CourierOrderItem, "status" | "delivered_at">
+    | Pick<OrderRow, "status" | "delivered_at">
+) {
+  return Boolean(order.delivered_at) || isDeliveredStatus(order.status)
+}
 
+function isPayableDeliveryOrder(
+  order: Pick<OrderRow, "delivery_fee" | "status" | "delivered_at">
+) {
   return (
-    deliveryFee > 0 &&
+    Number(order.delivery_fee || 0) > 0 &&
     !isCancelledStatus(order.status) &&
-    (isOnRouteStatus(order.status) || isDeliveredStatus(order.status))
+    isFinalizedDeliveryOrder(order)
   )
+}
+
+function isOrderStillOnRoute(
+  order:
+    | Pick<CourierOrderItem, "status" | "delivered_at">
+    | Pick<OrderRow, "status" | "delivered_at">
+) {
+  return isOnRouteStatus(order.status) && !isFinalizedDeliveryOrder(order)
 }
 
 function formatPixKeyType(type: string | null) {
@@ -141,13 +162,6 @@ function formatPixKeyType(type: string | null) {
   return "Pix"
 }
 
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value))
-}
-
 function formatCurrency(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -155,20 +169,29 @@ function formatCurrency(value: number | string | null | undefined) {
   }).format(Number(value || 0))
 }
 
+function formatTime(value: string | null | undefined) {
+  if (!value) return "—"
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
+}
+
 function getOrderNumber(order: {
   id: string
   public_order_number: string | number | null
 }) {
-  if (order.public_order_number !== null && order.public_order_number !== undefined) {
-    return String(order.public_order_number)
-  }
-
-  return order.id.slice(0, 8)
+  return order.public_order_number !== null &&
+    order.public_order_number !== undefined
+    ? String(order.public_order_number)
+    : order.id.slice(0, 8)
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
     const message = (error as { message?: string }).message
+
     if (message) return message
   }
 
@@ -177,6 +200,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function getLocalDateString(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
+
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
@@ -188,74 +212,97 @@ function getTodayDateString() {
   return getLocalDateString(new Date())
 }
 
-function getYesterdayDateString() {
-  const date = new Date()
-  date.setDate(date.getDate() - 1)
+function formatDateKey(value: string) {
+  const [year, month, day] = value.slice(0, 10).split("-")
 
-  return getLocalDateString(date)
+  return year && month && day ? `${day}/${month}/${year}` : value
 }
 
-function getDaysAgoDateString(days: number) {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-
-  return getLocalDateString(date)
-}
-
-function getCurrentMonthStartDateString() {
-  const date = new Date()
-
-  return getLocalDateString(new Date(date.getFullYear(), date.getMonth(), 1))
-}
-
-function getOrderAccountingDate(order: Pick<OrderRow, "delivered_at" | "out_for_delivery_at" | "created_at">) {
+function getOrderReferenceDate(
+  order: Pick<OrderRow, "delivered_at" | "out_for_delivery_at" | "created_at">
+) {
   return order.delivered_at || order.out_for_delivery_at || order.created_at
 }
 
-function getDateKey(value: Date | string) {
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value
+function getOrderStatusLabel(order: CourierOrderItem) {
+  if (isCancelledStatus(order.status)) return "Cancelado"
+  if (isFinalizedDeliveryOrder(order)) return "Entregue"
+  if (isOrderStillOnRoute(order)) return "Em rota"
+
+  return "Aguardando saída"
+}
+
+function getPaymentStatus(
+  order: CourierOrderItem,
+  paidOrderIds: Set<string>
+) {
+  if (isCancelledStatus(order.status)) {
+    return {
+      label: "Não aplicável",
+      className: "bg-muted text-muted-foreground",
+    }
   }
 
-  return getLocalDateString(value)
+  if (!isFinalizedDeliveryOrder(order)) {
+    return {
+      label: "Em andamento",
+      className: "bg-blue-500/10 text-blue-400",
+    }
+  }
+
+  if (order.delivery_fee <= 0) {
+    return {
+      label: "Sem taxa",
+      className: "bg-muted text-muted-foreground",
+    }
+  }
+
+  if (paidOrderIds.has(order.id)) {
+    return {
+      label: "Pago",
+      className: "bg-emerald-500/10 text-emerald-400",
+    }
+  }
+
+  return {
+    label: "Pendente",
+    className: "bg-yellow-400/10 text-yellow-400",
+  }
 }
 
-function isDateInsidePeriod(value: Date | string, startDate: string, endDate: string) {
-  const dateKey = getDateKey(value)
+function getCourierPaymentStatus(courier: DeliveryPersonWithStats) {
+  if (courier.completedOrders.length === 0) {
+    return {
+      label: "Sem entregas",
+      className: "bg-muted text-muted-foreground",
+    }
+  }
 
-  if (startDate && dateKey < startDate) return false
-  if (endDate && dateKey > endDate) return false
+  if (courier.dayAmount <= 0) {
+    return {
+      label: "Sem taxa",
+      className: "bg-muted text-muted-foreground",
+    }
+  }
 
-  return true
-}
+  if (courier.pendingAmount <= 0) {
+    return {
+      label: "Pago",
+      className: "bg-emerald-500/10 text-emerald-400",
+    }
+  }
 
-function formatDateKey(value: string) {
-  const dateKey = value.slice(0, 10)
-  const [year, month, day] = dateKey.split("-")
+  if (courier.pendingAmount < courier.dayAmount) {
+    return {
+      label: "Parcial",
+      className: "bg-orange-500/10 text-orange-400",
+    }
+  }
 
-  if (!year || !month || !day) return value
-
-  return `${day}/${month}/${year}`
-}
-
-function getPeriodLabel(startDate: string, endDate: string) {
-  if (!startDate && !endDate) return "Todas as taxas abertas"
-  if (startDate && endDate && startDate === endDate) return formatDateKey(startDate)
-  if (startDate && endDate) return `${formatDateKey(startDate)} até ${formatDateKey(endDate)}`
-  if (startDate) return `A partir de ${formatDateKey(startDate)}`
-  return `Até ${formatDateKey(endDate)}`
-}
-
-function isFinalizedDeliveryOrder(
-  order: Pick<CourierOrderItem, "status" | "delivered_at"> | Pick<OrderRow, "status" | "delivered_at">
-) {
-  return Boolean(order.delivered_at) || isDeliveredStatus(order.status)
-}
-
-function isOrderStillOnRoute(
-  order: Pick<CourierOrderItem, "status" | "delivered_at"> | Pick<OrderRow, "status" | "delivered_at">
-) {
-  return isOnRouteStatus(order.status) && !isFinalizedDeliveryOrder(order)
+  return {
+    label: "Pendente",
+    className: "bg-yellow-400/10 text-yellow-400",
+  }
 }
 
 export default function EntregadoresPage() {
@@ -269,16 +316,21 @@ export default function EntregadoresPage() {
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState(false)
+
   const [busyCourierId, setBusyCourierId] = useState<string | null>(null)
-  const [settlingCourierId, setSettlingCourierId] = useState<string | null>(null)
+  const [settlingCourierId, setSettlingCourierId] = useState<string | null>(
+    null
+  )
   const [settlementsLoading, setSettlementsLoading] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [showForm, setShowForm] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString())
+  const [expandedCourierId, setExpandedCourierId] = useState<string | null>(
+    null
+  )
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
@@ -289,8 +341,6 @@ export default function EntregadoresPage() {
   const [pixKey, setPixKey] = useState("")
   const [notes, setNotes] = useState("")
 
-  const hasInvalidPeriod = Boolean(startDate && endDate && startDate > endDate)
-
   function resetForm() {
     setEditingCourierId(null)
     setName("")
@@ -299,35 +349,6 @@ export default function EntregadoresPage() {
     setPixKey("")
     setNotes("")
     setShowForm(false)
-  }
-
-  function applyAllOpenPeriod() {
-    setStartDate("")
-    setEndDate("")
-  }
-
-  function applyTodayPeriod() {
-    const today = getTodayDateString()
-
-    setStartDate(today)
-    setEndDate(today)
-  }
-
-  function applyYesterdayPeriod() {
-    const yesterday = getYesterdayDateString()
-
-    setStartDate(yesterday)
-    setEndDate(yesterday)
-  }
-
-  function applyLastSevenDaysPeriod() {
-    setStartDate(getDaysAgoDateString(6))
-    setEndDate(getTodayDateString())
-  }
-
-  function applyCurrentMonthPeriod() {
-    setStartDate(getCurrentMonthStartDateString())
-    setEndDate(getTodayDateString())
   }
 
   async function loadDeliveryPeople(showRefresh = false) {
@@ -342,15 +363,13 @@ export default function EntregadoresPage() {
 
       const session = await ensureSupabaseSession()
 
-      if (!session) {
-        setLoadingPage(false)
-        setRefreshing(false)
-        return
-      }
+      if (!session) return
 
       const { data, error } = await supabase
         .from("delivery_people")
-        .select("id, restaurant_id, name, phone, pix_key, pix_key_type, notes, is_active, deleted_at, created_at")
+        .select(
+          "id, restaurant_id, name, phone, pix_key, pix_key_type, notes, is_active, deleted_at, created_at"
+        )
         .eq("restaurant_id", restaurant.id)
         .is("deleted_at", null)
         .order("is_active", { ascending: false })
@@ -369,7 +388,7 @@ export default function EntregadoresPage() {
     }
   }
 
-  async function loadOrdersToSettle() {
+  async function loadOrders() {
     if (!restaurant?.id) return
 
     try {
@@ -377,10 +396,7 @@ export default function EntregadoresPage() {
 
       const session = await ensureSupabaseSession()
 
-      if (!session) {
-        setOrdersLoading(false)
-        return
-      }
+      if (!session) return
 
       const { data, error } = await supabase
         .from("orders")
@@ -390,7 +406,7 @@ export default function EntregadoresPage() {
         .eq("restaurant_id", restaurant.id)
         .not("delivery_person_id", "is", null)
         .order("created_at", { ascending: false })
-        .limit(1000)
+        .limit(2000)
 
       if (error) throw error
 
@@ -398,7 +414,10 @@ export default function EntregadoresPage() {
       setLastUpdatedAt(new Date())
     } catch (err) {
       console.error("Erro ao carregar pedidos dos entregadores:", err)
-      setError(getErrorMessage(err, "Erro ao carregar pedidos dos entregadores."))
+
+      setError(
+        getErrorMessage(err, "Erro ao carregar pedidos dos entregadores.")
+      )
     } finally {
       setOrdersLoading(false)
     }
@@ -412,10 +431,7 @@ export default function EntregadoresPage() {
 
       const session = await ensureSupabaseSession()
 
-      if (!session) {
-        setSettlementsLoading(false)
-        return
-      }
+      if (!session) return
 
       const { data, error } = await supabase
         .from("delivery_settlements")
@@ -425,14 +441,20 @@ export default function EntregadoresPage() {
         .eq("restaurant_id", restaurant.id)
         .eq("status", "paid")
         .order("paid_at", { ascending: false })
-        .limit(1000)
+        .limit(2000)
 
       if (error) throw error
 
       setSettlements((data || []) as DeliverySettlementRow[])
     } catch (err) {
-      console.error("Erro ao carregar fechamentos de taxas:", err)
-      setError(getErrorMessage(err, "Erro ao carregar fechamentos de taxas."))
+      console.error("Erro ao carregar pagamentos dos entregadores:", err)
+
+      setError(
+        getErrorMessage(
+          err,
+          "Erro ao carregar pagamentos dos entregadores."
+        )
+      )
     } finally {
       setSettlementsLoading(false)
     }
@@ -445,7 +467,7 @@ export default function EntregadoresPage() {
 
     await Promise.all([
       loadDeliveryPeople(),
-      loadOrdersToSettle(),
+      loadOrders(),
       loadSettlements(),
     ])
   }
@@ -459,7 +481,7 @@ export default function EntregadoresPage() {
     try {
       await Promise.all([
         loadDeliveryPeople(true),
-        loadOrdersToSettle(),
+        loadOrders(),
         loadSettlements(),
       ])
     } finally {
@@ -471,10 +493,6 @@ export default function EntregadoresPage() {
     if (!restaurant?.id) return
 
     const trimmedName = name.trim()
-    const trimmedPhone = phone.trim()
-    const trimmedPixKeyType = pixKeyType.trim()
-    const trimmedPixKey = pixKey.trim()
-    const trimmedNotes = notes.trim()
 
     if (!trimmedName) {
       setError("Digite o nome do entregador.")
@@ -485,31 +503,27 @@ export default function EntregadoresPage() {
       setSaving(true)
       setError(null)
 
+      const payload = {
+        name: trimmedName,
+        phone: phone.trim() || null,
+        pix_key_type: pixKeyType.trim() || null,
+        pix_key: pixKey.trim() || null,
+        notes: notes.trim() || null,
+      }
+
       if (editingCourierId) {
         const { error } = await supabase
           .from("delivery_people")
-          .update({
-            name: trimmedName,
-            phone: trimmedPhone || null,
-            pix_key_type: trimmedPixKeyType || null,
-            pix_key: trimmedPixKey || null,
-            notes: trimmedNotes || null,
-          })
+          .update(payload)
           .eq("id", editingCourierId)
           .eq("restaurant_id", restaurant.id)
 
         if (error) throw error
       } else {
-        const { error } = await supabase
-          .from("delivery_people")
-          .insert({
-            restaurant_id: restaurant.id,
-            name: trimmedName,
-            phone: trimmedPhone || null,
-            pix_key_type: trimmedPixKeyType || null,
-            pix_key: trimmedPixKey || null,
-            notes: trimmedNotes || null,
-          })
+        const { error } = await supabase.from("delivery_people").insert({
+          restaurant_id: restaurant.id,
+          ...payload,
+        })
 
         if (error) throw error
       }
@@ -527,8 +541,10 @@ export default function EntregadoresPage() {
   async function handleToggleActive(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.openFeeAmount > 0 && courier.is_active) {
-      setError("Esse entregador possui taxas em aberto. Feche as taxas antes de desativar.")
+    if (courier.allPendingAmount > 0 && courier.is_active) {
+      setError(
+        "Esse entregador possui pagamentos pendentes. Confirme os pagamentos antes de desativar."
+      )
       return
     }
 
@@ -558,13 +574,15 @@ export default function EntregadoresPage() {
   async function handleDeleteCourier(courier: DeliveryPersonWithStats) {
     if (!restaurant?.id) return
 
-    if (courier.openFeeAmount > 0) {
-      setError("Esse entregador possui taxas em aberto. Feche as taxas antes de excluir.")
+    if (courier.allPendingAmount > 0) {
+      setError(
+        "Esse entregador possui pagamentos pendentes. Confirme os pagamentos antes de excluir."
+      )
       return
     }
 
     const confirmed = window.confirm(
-      `Excluir ${courier.name}? Ele será removido da tela, mas o histórico dos pedidos continuará salvo.`
+      `Excluir ${courier.name}? O histórico dos pedidos continuará salvo.`
     )
 
     if (!confirmed) return
@@ -588,6 +606,10 @@ export default function EntregadoresPage() {
         resetForm()
       }
 
+      if (expandedCourierId === courier.id) {
+        setExpandedCourierId(null)
+      }
+
       await loadDeliveryPeople(true)
     } catch (err) {
       console.error("Erro ao excluir entregador:", err)
@@ -597,21 +619,27 @@ export default function EntregadoresPage() {
     }
   }
 
-  async function handleMarkSettlementPaid(courier: DeliveryPersonWithStats) {
+  async function handleMarkSettlementPaid(
+    courier: DeliveryPersonWithStats
+  ) {
     if (!restaurant?.id) return
 
-    if (hasInvalidPeriod) {
-      setError("A data inicial não pode ser maior que a data final.")
-      return
-    }
-
-    if (courier.openFeeOrders.length === 0 || courier.openFeeAmount <= 0) {
-      setError("Esse entregador não tem taxa em aberto no período selecionado.")
+    if (
+      courier.pendingPaymentOrders.length === 0 ||
+      courier.pendingAmount <= 0
+    ) {
+      setError(
+        "Esse entregador não possui pagamento pendente nessa data."
+      )
       return
     }
 
     const confirmed = window.confirm(
-      `Fechar ${formatCurrency(courier.openFeeAmount)} em taxas para ${courier.name}?`
+      `Confirmar o pagamento de ${formatCurrency(
+        courier.pendingAmount
+      )} para ${courier.name}, referente a ${
+        courier.pendingPaymentOrders.length
+      } entrega(s) de ${formatDateKey(selectedDate)}?`
     )
 
     if (!confirmed) return
@@ -620,55 +648,82 @@ export default function EntregadoresPage() {
       setSettlingCourierId(courier.id)
       setError(null)
 
-      const settlementDate = getTodayDateString()
-      const orderIds = courier.openFeeOrders.map((order) => order.id)
+      const orderIds = courier.pendingPaymentOrders.map(
+        (order) => order.id
+      )
 
-      const { error } = await supabase.from("delivery_settlements").insert({
-        restaurant_id: restaurant.id,
-        delivery_person_id: courier.id,
-        settlement_date: settlementDate,
-        total_amount: courier.openFeeAmount,
-        total_orders: orderIds.length,
-        order_ids: orderIds,
-        payment_method: "pix",
-        status: "paid",
-        paid_at: new Date().toISOString(),
-      })
+      const { error } = await supabase
+        .from("delivery_settlements")
+        .insert({
+          restaurant_id: restaurant.id,
+          delivery_person_id: courier.id,
+          settlement_date: selectedDate,
+          total_amount: courier.pendingAmount,
+          total_orders: orderIds.length,
+          order_ids: orderIds,
+          payment_method: "pix",
+          status: "paid",
+          paid_at: new Date().toISOString(),
+        })
 
       if (error) {
         if (error.code !== "23505") {
           throw error
         }
 
-        const { data: existingSettlement, error: fetchError } = await supabase
+        const {
+          data: existingSettlement,
+          error: fetchError,
+        } = await supabase
           .from("delivery_settlements")
           .select(
             "id, restaurant_id, delivery_person_id, settlement_date, total_amount, total_orders, order_ids, payment_method, status, paid_at, notes, created_at"
           )
           .eq("restaurant_id", restaurant.id)
           .eq("delivery_person_id", courier.id)
-          .eq("settlement_date", settlementDate)
+          .eq("settlement_date", selectedDate)
           .eq("status", "paid")
           .maybeSingle()
 
         if (fetchError) throw fetchError
-        if (!existingSettlement) throw new Error("Não foi possível localizar o fechamento existente.")
 
-        const existingOrderIds = Array.isArray(existingSettlement.order_ids)
+        if (!existingSettlement) {
+          throw new Error(
+            "Não foi possível localizar o pagamento já existente."
+          )
+        }
+
+        const existingOrderIds = Array.isArray(
+          existingSettlement.order_ids
+        )
           ? existingSettlement.order_ids
           : []
 
         const existingOrderIdsSet = new Set(existingOrderIds)
-        const newOrders = courier.openFeeOrders.filter((order) => !existingOrderIdsSet.has(order.id))
-        const newOrderIds = newOrders.map((order) => order.id)
-        const mergedOrderIds = Array.from(new Set([...existingOrderIds, ...newOrderIds]))
-        const amountToAdd = newOrders.reduce((sum, order) => sum + Number(order.delivery_fee || 0), 0)
 
-        if (newOrderIds.length > 0 && amountToAdd > 0) {
+        const newOrders = courier.pendingPaymentOrders.filter(
+          (order) => !existingOrderIdsSet.has(order.id)
+        )
+
+        const mergedOrderIds = Array.from(
+          new Set([
+            ...existingOrderIds,
+            ...newOrders.map((order) => order.id),
+          ])
+        )
+
+        const amountToAdd = newOrders.reduce(
+          (sum, order) => sum + order.delivery_fee,
+          0
+        )
+
+        if (newOrders.length > 0 && amountToAdd > 0) {
           const { error: updateError } = await supabase
             .from("delivery_settlements")
             .update({
-              total_amount: Number(existingSettlement.total_amount || 0) + amountToAdd,
+              total_amount:
+                Number(existingSettlement.total_amount || 0) +
+                amountToAdd,
               total_orders: mergedOrderIds.length,
               order_ids: mergedOrderIds,
               paid_at: new Date().toISOString(),
@@ -680,10 +735,19 @@ export default function EntregadoresPage() {
         }
       }
 
-      await Promise.all([loadOrdersToSettle(), loadSettlements()])
+      await Promise.all([loadOrders(), loadSettlements()])
     } catch (err) {
-      console.error("Erro ao fechar taxas do entregador:", err)
-      setError(getErrorMessage(err, "Erro ao fechar taxas do entregador."))
+      console.error(
+        "Erro ao confirmar pagamento do entregador:",
+        err
+      )
+
+      setError(
+        getErrorMessage(
+          err,
+          "Erro ao confirmar pagamento do entregador."
+        )
+      )
     } finally {
       setSettlingCourierId(null)
     }
@@ -719,7 +783,7 @@ export default function EntregadoresPage() {
     void loadInitialData()
 
     const ordersRefreshInterval = window.setInterval(() => {
-      void loadOrdersToSettle()
+      void loadOrders()
     }, 15000)
 
     const deliveryPeopleChannel = supabase
@@ -749,7 +813,7 @@ export default function EntregadoresPage() {
           filter: `restaurant_id=eq.${restaurant.id}`,
         },
         () => {
-          void loadOrdersToSettle()
+          void loadOrders()
         }
       )
       .subscribe()
@@ -772,6 +836,7 @@ export default function EntregadoresPage() {
 
     return () => {
       window.clearInterval(ordersRefreshInterval)
+
       void supabase.removeChannel(deliveryPeopleChannel)
       void supabase.removeChannel(ordersChannel)
       void supabase.removeChannel(settlementsChannel)
@@ -791,11 +856,19 @@ export default function EntregadoresPage() {
       void refreshAll()
     }
 
-    document.addEventListener("visibilitychange", handlePageBack)
+    document.addEventListener(
+      "visibilitychange",
+      handlePageBack
+    )
+
     window.addEventListener("focus", handleWindowFocus)
 
     return () => {
-      document.removeEventListener("visibilitychange", handlePageBack)
+      document.removeEventListener(
+        "visibilitychange",
+        handlePageBack
+      )
+
       window.removeEventListener("focus", handleWindowFocus)
     }
   }, [restaurant?.id, user?.id])
@@ -803,112 +876,142 @@ export default function EntregadoresPage() {
   const paidOrderIds = useMemo(() => {
     return new Set(
       settlements.flatMap((settlement) =>
-        Array.isArray(settlement.order_ids) ? settlement.order_ids : []
+        Array.isArray(settlement.order_ids)
+          ? settlement.order_ids
+          : []
       )
     )
   }, [settlements])
 
-  const deliveryPeopleWithStats = useMemo<DeliveryPersonWithStats[]>(() => {
-    return deliveryPeople
-      .map((courier) => {
-        const openFeeOrders = orders
-          .filter((order) => order.delivery_person_id === courier.id)
-          .filter((order) => isPayableDeliveryOrder(order))
-          .filter((order) => !paidOrderIds.has(order.id))
-          .filter((order) => {
-            if (hasInvalidPeriod) return false
+  const deliveryPeopleWithStats =
+    useMemo<DeliveryPersonWithStats[]>(() => {
+      return deliveryPeople
+        .map((courier) => {
+          const courierOrders = orders.filter(
+            (order) => order.delivery_person_id === courier.id
+          )
 
-            return isDateInsidePeriod(getOrderAccountingDate(order), startDate, endDate)
-          })
-          .map((order) => ({
-            id: order.id,
-            public_order_number: order.public_order_number,
-            customer_name: order.customer_name,
-            delivery_fee: Number(order.delivery_fee || 0),
-            status: order.status,
-            created_at: order.created_at,
-            out_for_delivery_at: order.out_for_delivery_at,
-            delivered_at: order.delivered_at,
-          }))
+          const dayOrders = courierOrders
+            .filter(
+              (order) =>
+                getLocalDateString(
+                  getOrderReferenceDate(order)
+                ) === selectedDate
+            )
+            .map((order) => ({
+              id: order.id,
+              public_order_number: order.public_order_number,
+              customer_name: order.customer_name,
+              delivery_fee: Number(order.delivery_fee || 0),
+              status: order.status,
+              created_at: order.created_at,
+              out_for_delivery_at: order.out_for_delivery_at,
+              delivered_at: order.delivered_at,
+              cancelled_at: order.cancelled_at,
+            }))
 
-        const openFeeAmount = openFeeOrders.reduce(
-          (sum, order) => sum + Number(order.delivery_fee || 0),
-          0
-        )
+          const completedOrders = dayOrders.filter(
+            (order) =>
+              !isCancelledStatus(order.status) &&
+              isFinalizedDeliveryOrder(order)
+          )
 
-        const onRouteOrders = openFeeOrders.filter((order) =>
-          isOrderStillOnRoute(order)
-        ).length
+          const pendingPaymentOrders = completedOrders.filter(
+            (order) =>
+              order.delivery_fee > 0 &&
+              !paidOrderIds.has(order.id)
+          )
 
-        const deliveredOrders = openFeeOrders.filter((order) =>
-          isFinalizedDeliveryOrder(order)
-        ).length
+          const dayAmount = completedOrders.reduce(
+            (sum, order) => sum + order.delivery_fee,
+            0
+          )
 
-        return {
-          ...courier,
-          openFeeOrders,
-          openFeeAmount,
-          onRouteOrders,
-          deliveredOrders,
-        }
-      })
-      .sort((a, b) => {
-        if (a.openFeeAmount !== b.openFeeAmount) {
-          return b.openFeeAmount - a.openFeeAmount
-        }
+          const pendingAmount = pendingPaymentOrders.reduce(
+            (sum, order) => sum + order.delivery_fee,
+            0
+          )
 
-        if (a.openFeeOrders.length !== b.openFeeOrders.length) {
-          return b.openFeeOrders.length - a.openFeeOrders.length
-        }
+          const onRouteOrders = dayOrders.filter(
+            isOrderStillOnRoute
+          ).length
 
-        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
+          const allPendingAmount = courierOrders
+            .filter(isPayableDeliveryOrder)
+            .filter((order) => !paidOrderIds.has(order.id))
+            .reduce(
+              (sum, order) =>
+                sum + Number(order.delivery_fee || 0),
+              0
+            )
 
-        return a.name.localeCompare(b.name, "pt-BR")
-      })
-  }, [deliveryPeople, orders, paidOrderIds, startDate, endDate, hasInvalidPeriod])
+          return {
+            ...courier,
+            dayOrders,
+            completedOrders,
+            pendingPaymentOrders,
+            dayAmount,
+            pendingAmount,
+            onRouteOrders,
+            allPendingAmount,
+          }
+        })
+        .sort((a, b) => {
+          if (a.pendingAmount !== b.pendingAmount) {
+            return b.pendingAmount - a.pendingAmount
+          }
+
+          if (a.dayAmount !== b.dayAmount) {
+            return b.dayAmount - a.dayAmount
+          }
+
+          if (a.is_active !== b.is_active) {
+            return a.is_active ? -1 : 1
+          }
+
+          return a.name.localeCompare(b.name, "pt-BR")
+        })
+    }, [deliveryPeople, orders, paidOrderIds, selectedDate])
 
   const filteredCouriers = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase()
+    const term = search.trim().toLowerCase()
 
-    if (!normalizedSearch) return deliveryPeopleWithStats
+    if (!term) return deliveryPeopleWithStats
 
     return deliveryPeopleWithStats.filter((courier) => {
       return (
-        courier.name.toLowerCase().includes(normalizedSearch) ||
-        (courier.phone || "").toLowerCase().includes(normalizedSearch) ||
-        (courier.pix_key || "").toLowerCase().includes(normalizedSearch) ||
-        courier.openFeeOrders.some((order) =>
-          getOrderNumber(order).toLowerCase().includes(normalizedSearch)
+        courier.name.toLowerCase().includes(term) ||
+        (courier.phone || "").toLowerCase().includes(term) ||
+        (courier.pix_key || "").toLowerCase().includes(term) ||
+        courier.dayOrders.some(
+          (order) =>
+            getOrderNumber(order)
+              .toLowerCase()
+              .includes(term) ||
+            (order.customer_name || "")
+              .toLowerCase()
+              .includes(term)
         )
       )
     })
   }, [deliveryPeopleWithStats, search])
 
-  const activeCouriers = deliveryPeopleWithStats.filter((item) => item.is_active).length
-  const totalOpenOrders = deliveryPeopleWithStats.reduce(
-    (sum, item) => sum + item.openFeeOrders.length,
+  const expandedCourier = deliveryPeopleWithStats.find(
+    (courier) => courier.id === expandedCourierId
+  )
+
+  const totalCompletedOrders = deliveryPeopleWithStats.reduce(
+    (sum, courier) => sum + courier.completedOrders.length,
     0
   )
-  const totalOpenAmount = deliveryPeopleWithStats.reduce(
-    (sum, item) => sum + item.openFeeAmount,
+
+  const totalDayAmount = deliveryPeopleWithStats.reduce(
+    (sum, courier) => sum + courier.dayAmount,
     0
   )
-  const totalOnRouteOrders = deliveryPeopleWithStats.reduce(
-    (sum, item) => sum + item.onRouteOrders,
-    0
-  )
-  const couriersWithOpenFee = deliveryPeopleWithStats.filter((item) => item.openFeeAmount > 0).length
 
-  const settlementHistory = useMemo(() => {
-    return settlements.filter((settlement) => {
-      if (hasInvalidPeriod) return false
-
-      return isDateInsidePeriod(settlement.settlement_date, startDate, endDate)
-    })
-  }, [settlements, startDate, endDate, hasInvalidPeriod])
-
-  const totalSettledInPeriod = settlementHistory.reduce(
-    (sum, settlement) => sum + Number(settlement.total_amount || 0),
+  const totalPendingAmount = deliveryPeopleWithStats.reduce(
+    (sum, courier) => sum + courier.pendingAmount,
     0
   )
 
@@ -920,21 +1023,14 @@ export default function EntregadoresPage() {
             <h1 className="text-xl font-black tracking-tight text-foreground sm:text-2xl">
               Entregadores
             </h1>
+
             <p className="mt-1 text-xs font-medium text-muted-foreground sm:text-sm">
-              Controle rápido das taxas em aberto por entregador.
+              Confira as entregas do dia e confirme o pagamento
+              de cada entregador.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowHistory((current) => !current)}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-            >
-              <Wallet className="h-4 w-4" />
-              {showHistory ? "Ocultar histórico" : "Histórico"}
-            </button>
-
             <button
               type="button"
               onClick={() => {
@@ -958,6 +1054,7 @@ export default function EntregadoresPage() {
               ) : (
                 <RefreshCcw className="h-4 w-4" />
               )}
+
               Atualizar
             </button>
           </div>
@@ -969,586 +1066,577 @@ export default function EntregadoresPage() {
           </div>
         ) : null}
 
-        {hasInvalidPeriod ? (
-          <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs font-semibold text-yellow-800 sm:text-sm">
-            A data inicial não pode ser maior que a data final.
+        {showForm ? (
+          <div className="rounded-xl border border-border bg-card p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black text-foreground">
+                  {editingCourierId
+                    ? "Editar entregador"
+                    : "Cadastrar entregador"}
+                </h2>
+
+                <p className="text-xs text-muted-foreground">
+                  Nome é obrigatório. Os outros campos são
+                  opcionais.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={resetForm}
+                className="h-8 rounded-lg border border-border px-3 text-xs font-bold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+              >
+                Cancelar
+              </button>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_1.2fr]">
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Nome do entregador"
+                className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+
+              <input
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={(event) =>
+                  setPhone(event.target.value)
+                }
+                placeholder="Telefone"
+                className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+
+              <select
+                value={pixKeyType}
+                onChange={(event) =>
+                  setPixKeyType(event.target.value)
+                }
+                className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+              >
+                <option value="">Tipo Pix</option>
+                <option value="cpf">CPF</option>
+                <option value="phone">Telefone</option>
+                <option value="email">E-mail</option>
+                <option value="random">Aleatória</option>
+              </select>
+
+              <input
+                type="text"
+                value={pixKey}
+                onChange={(event) =>
+                  setPixKey(event.target.value)
+                }
+                placeholder="Chave Pix"
+                className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+
+            <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
+              <input
+                type="text"
+                value={notes}
+                onChange={(event) =>
+                  setNotes(event.target.value)
+                }
+                placeholder="Observação opcional"
+                className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+
+              <button
+                type="button"
+                onClick={() => void handleSaveCourier()}
+                disabled={saving}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : editingCourierId ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+
+                {editingCourierId ? "Salvar" : "Cadastrar"}
+              </button>
+            </div>
           </div>
         ) : null}
 
         <div className="rounded-xl border border-border bg-card">
-          <div className="space-y-3 border-b border-border p-3">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                <button
-                  type="button"
-                  onClick={applyAllOpenPeriod}
-                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                >
-                  Tudo aberto
-                </button>
+          <div className="border-b border-border p-3">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(event) => {
+                      if (!event.target.value) return
 
-                <button
-                  type="button"
-                  onClick={applyTodayPeriod}
-                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                >
-                  Hoje
-                </button>
+                      setSelectedDate(event.target.value)
+                      setExpandedCourierId(null)
+                    }}
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
 
-                <button
-                  type="button"
-                  onClick={applyYesterdayPeriod}
-                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                >
-                  Ontem
-                </button>
+                  {selectedDate !== getTodayDateString() ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDate(getTodayDateString())
+                        setExpandedCourierId(null)
+                      }}
+                      className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                    >
+                      Hoje
+                    </button>
+                  ) : null}
+                </div>
 
-                <button
-                  type="button"
-                  onClick={applyLastSevenDaysPeriod}
-                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                >
-                  7 dias
-                </button>
+                <div className="relative w-full sm:w-[320px]">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-                <button
-                  type="button"
-                  onClick={applyCurrentMonthPeriod}
-                  className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                >
-                  Mês
-                </button>
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(event) =>
+                      setSearch(event.target.value)
+                    }
+                    placeholder="Buscar entregador, cliente ou pedido..."
+                    className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 sm:w-[150px]"
-                />
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+                <div>
+                  <span className="font-semibold text-muted-foreground">
+                    Entregas
+                  </span>
 
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 sm:w-[150px]"
-                />
+                  <span className="ml-2 font-black text-foreground">
+                    {ordersLoading
+                      ? "..."
+                      : totalCompletedOrders}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="font-semibold text-muted-foreground">
+                    Total do dia
+                  </span>
+
+                  <span className="ml-2 font-black text-foreground">
+                    {ordersLoading
+                      ? "..."
+                      : formatCurrency(totalDayAmount)}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="font-semibold text-muted-foreground">
+                    Pendente
+                  </span>
+
+                  <span className="ml-2 font-black text-yellow-400">
+                    {ordersLoading
+                      ? "..."
+                      : formatCurrency(totalPendingAmount)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-2 text-xs sm:grid-cols-5">
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="font-bold text-muted-foreground">Período</p>
-                <p className="mt-0.5 truncate font-black text-foreground">
-                  {getPeriodLabel(startDate, endDate)}
-                </p>
-              </div>
+            <div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-semibold text-muted-foreground">
+              <span>{formatDateKey(selectedDate)}</span>
 
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="font-bold text-muted-foreground">Total aberto</p>
-                <p className="mt-0.5 font-black text-foreground">
-                  {ordersLoading ? "..." : formatCurrency(totalOpenAmount)}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="font-bold text-muted-foreground">Entregas</p>
-                <p className="mt-0.5 font-black text-foreground">
-                  {ordersLoading ? "..." : totalOpenOrders}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="font-bold text-muted-foreground">Em rota</p>
-                <p className="mt-0.5 font-black text-foreground">
-                  {ordersLoading ? "..." : totalOnRouteOrders}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="font-bold text-muted-foreground">Com taxa</p>
-                <p className="mt-0.5 font-black text-foreground">
-                  {ordersLoading ? "..." : couriersWithOpenFee}
-                </p>
-              </div>
+              <span>
+                {lastUpdatedAt
+                  ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString(
+                      "pt-BR",
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}`
+                  : "Aguardando dados"}
+              </span>
             </div>
           </div>
 
-          {showForm ? (
-            <div className="border-b border-border p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-black text-foreground">
-                    {editingCourierId ? "Editar entregador" : "Cadastrar entregador"}
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Nome é obrigatório. Os outros campos são opcionais.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="h-8 rounded-lg border border-border px-3 text-xs font-bold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
-                >
-                  Cancelar
-                </button>
-              </div>
-
-              <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_1.2fr]">
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Nome do entregador"
-                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                />
-
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="Telefone"
-                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                />
-
-                <select
-                  value={pixKeyType}
-                  onChange={(event) => setPixKeyType(event.target.value)}
-                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
-                >
-                  <option value="">Tipo Pix</option>
-                  <option value="cpf">CPF</option>
-                  <option value="phone">Telefone</option>
-                  <option value="email">E-mail</option>
-                  <option value="random">Aleatória</option>
-                </select>
-
-                <input
-                  type="text"
-                  value={pixKey}
-                  onChange={(event) => setPixKey(event.target.value)}
-                  placeholder="Chave Pix"
-                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                />
-              </div>
-
-              <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Observação opcional"
-                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => void handleSaveCourier()}
-                  disabled={saving}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : editingCourierId ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  {editingCourierId ? "Salvar" : "Cadastrar"}
-                </button>
-              </div>
+          {loadingPage ? (
+            <div className="flex min-h-[220px] items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Carregando entregadores...
             </div>
-          ) : null}
+          ) : filteredCouriers.length === 0 ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center px-5 text-center">
+              <p className="text-sm font-bold text-foreground">
+                Nenhum entregador encontrado
+              </p>
 
-          <div className="border-b border-border p-3">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative w-full lg:max-w-md">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar entregador ou pedido..."
-                  className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
-                />
-              </div>
-
-              <p className="text-xs font-semibold text-muted-foreground">
-                {lastUpdatedAt
-                  ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`
-                  : "Aguardando dados"}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Cadastre um entregador ou ajuste a busca.
               </p>
             </div>
-          </div>
-
-          <div>
-            {loadingPage ? (
-              <div className="flex min-h-[180px] items-center justify-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Carregando entregadores...
+          ) : (
+            <>
+              <div className="hidden border-b border-border bg-background px-3 py-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[1.4fr_0.55fr_0.55fr_0.85fr_0.75fr_auto] md:items-center md:gap-3">
+                <span>Entregador</span>
+                <span>Entregas</span>
+                <span>Em rota</span>
+                <span>Valor do dia</span>
+                <span>Pagamento</span>
+                <span className="text-right">Ações</span>
               </div>
-            ) : filteredCouriers.length === 0 ? (
-              <div className="flex min-h-[180px] flex-col items-center justify-center px-5 text-center">
-                <p className="text-sm font-bold text-foreground">
-                  Nenhum entregador encontrado
-                </p>
-                <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-                  Cadastre um entregador ou ajuste os filtros da busca.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[820px] text-left text-sm">
-                    <thead className="border-b border-border bg-background text-xs uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 font-black">Entregador</th>
-                        <th className="px-3 py-2 font-black">Entregas</th>
-                        <th className="px-3 py-2 font-black">Em rota</th>
-                        <th className="px-3 py-2 font-black">Entregues</th>
-                        <th className="px-3 py-2 font-black">Aberto</th>
-                        <th className="px-3 py-2 font-black">Status</th>
-                        <th className="px-3 py-2 text-right font-black">Ações</th>
-                      </tr>
-                    </thead>
 
-                    <tbody className="divide-y divide-border">
-                      {filteredCouriers.map((courier) => {
-                        const isBusy = busyCourierId === courier.id
-                        const hasOpenFee = courier.openFeeAmount > 0
+              <div className="divide-y divide-border">
+                {filteredCouriers.map((courier) => {
+                  const isBusy =
+                    busyCourierId === courier.id
 
-                        return (
-                          <tr key={courier.id} className="bg-card transition hover:bg-muted/30">
-                            <td className="px-3 py-2">
-                              <p className="font-black text-foreground">
-                                {courier.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {courier.pix_key
-                                  ? `${formatPixKeyType(courier.pix_key_type)} cadastrado`
-                                  : "Pix não cadastrado"}
-                              </p>
-                            </td>
+                  const isExpanded =
+                    expandedCourierId === courier.id
 
-                            <td className="px-3 py-2 font-bold text-foreground">
-                              {ordersLoading ? "..." : courier.openFeeOrders.length}
-                            </td>
+                  const paymentStatus =
+                    getCourierPaymentStatus(courier)
 
-                            <td className="px-3 py-2 font-bold text-foreground">
-                              {ordersLoading ? "..." : courier.onRouteOrders}
-                            </td>
+                  return (
+                    <div
+                      key={courier.id}
+                      className="grid gap-3 px-3 py-3 transition hover:bg-muted/20 md:grid-cols-[1.4fr_0.55fr_0.55fr_0.85fr_0.75fr_auto] md:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-black text-foreground">
+                            {courier.name}
+                          </p>
 
-                            <td className="px-3 py-2 font-bold text-foreground">
-                              {ordersLoading ? "..." : courier.deliveredOrders}
-                            </td>
-
-                            <td className="px-3 py-2 font-black text-foreground">
-                              {ordersLoading ? "..." : formatCurrency(courier.openFeeAmount)}
-                            </td>
-
-                            <td className="px-3 py-2">
-                              <span
-                                className={`inline-flex rounded-full px-2 py-1 text-[11px] font-black ${
-                                  hasOpenFee
-                                    ? "bg-yellow-400/10 text-yellow-400"
-                                    : courier.is_active
-                                      ? "bg-emerald-500/10 text-emerald-400"
-                                      : "bg-[#111111] text-zinc-500"
-                                }`}
-                              >
-                                {hasOpenFee ? "Taxa aberta" : courier.is_active ? "Ativo" : "Inativo"}
-                              </span>
-                            </td>
-
-                            <td className="px-3 py-2">
-                              <div className="flex justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => void handleMarkSettlementPaid(courier)}
-                                  disabled={
-                                    settlingCourierId === courier.id ||
-                                    settlementsLoading ||
-                                    !hasOpenFee ||
-                                    hasInvalidPeriod
-                                  }
-                                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                                    hasOpenFee
-                                      ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"
-                                      : "border border-border bg-background text-muted-foreground"
-                                  }`}
-                                >
-                                  {settlingCourierId === courier.id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                  )}
-                                  {hasOpenFee ? "Fechar" : "Sem taxa"}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditCourier(courier)}
-                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-bold text-foreground transition hover:bg-muted/40"
-                                >
-                                  <UserRound className="h-3.5 w-3.5" />
-                                  Editar
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => void handleToggleActive(courier)}
-                                  disabled={isBusy}
-                                  className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-xs font-bold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {isBusy ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : courier.is_active ? (
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                  )}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => void handleDeleteCourier(courier)}
-                                  disabled={isBusy}
-                                  className="inline-flex h-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {isBusy ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="divide-y divide-border md:hidden">
-                  {filteredCouriers.map((courier) => {
-                    const isBusy = busyCourierId === courier.id
-                    const hasOpenFee = courier.openFeeAmount > 0
-
-                    return (
-                      <div key={courier.id} className="px-3 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-foreground">
-                              {courier.name}
-                            </p>
-
-                            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                              {ordersLoading
-                                ? "Carregando taxas..."
-                                : `${courier.openFeeOrders.length} entrega(s) · ${courier.onRouteOrders} em rota · ${courier.deliveredOrders} entregue(s)`}
-                            </p>
-                          </div>
-
-                          <div className="shrink-0 text-right">
-                            <p className="text-sm font-black text-foreground">
-                              {ordersLoading ? "..." : formatCurrency(courier.openFeeAmount)}
-                            </p>
-                            <p
-                              className={`mt-0.5 text-[11px] font-black ${
-                                hasOpenFee
-                                  ? "text-yellow-400"
-                                  : courier.is_active
-                                    ? "text-emerald-400"
-                                    : "text-zinc-500"
-                              }`}
-                            >
-                              {hasOpenFee ? "Aberto" : courier.is_active ? "Ativo" : "Inativo"}
-                            </p>
-                          </div>
+                          {!courier.is_active ? (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
+                              Inativo
+                            </span>
+                          ) : null}
                         </div>
 
-                        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
-                          <button
-                            type="button"
-                            onClick={() => void handleMarkSettlementPaid(courier)}
-                            disabled={
-                              settlingCourierId === courier.id ||
-                              settlementsLoading ||
-                              !hasOpenFee ||
-                              hasInvalidPeriod
-                            }
-                            className={`inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                              hasOpenFee
-                                ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-400"
-                                : "border border-border bg-background text-muted-foreground"
-                            }`}
-                          >
-                            {settlingCourierId === courier.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                            )}
-                            {hasOpenFee ? "Fechar" : "Sem taxa"}
-                          </button>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {courier.pix_key
+                            ? `${formatPixKeyType(
+                                courier.pix_key_type
+                              )} cadastrado`
+                            : "Pix não cadastrado"}
+                        </p>
+                      </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleEditCourier(courier)}
-                            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground"
-                          >
-                            <UserRound className="h-3.5 w-3.5" />
-                            Editar
-                          </button>
+                      <div className="flex items-center justify-between md:block">
+                        <span className="text-xs font-semibold text-muted-foreground md:hidden">
+                          Entregas concluídas
+                        </span>
 
-                          <button
-                            type="button"
-                            onClick={() => void handleToggleActive(courier)}
-                            disabled={isBusy}
-                            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isBusy ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : courier.is_active ? (
-                              "Desativar"
-                            ) : (
-                              "Ativar"
-                            )}
-                          </button>
+                        <span className="text-sm font-black text-foreground">
+                          {ordersLoading
+                            ? "..."
+                            : courier.completedOrders.length}
+                        </span>
+                      </div>
 
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteCourier(courier)}
-                            disabled={isBusy}
-                            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Excluir
-                          </button>
+                      <div className="flex items-center justify-between md:block">
+                        <span className="text-xs font-semibold text-muted-foreground md:hidden">
+                          Em rota
+                        </span>
+
+                        <span className="text-sm font-black text-foreground">
+                          {ordersLoading
+                            ? "..."
+                            : courier.onRouteOrders}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 md:block">
+                        <span className="text-xs font-semibold text-muted-foreground md:hidden">
+                          Valor do dia
+                        </span>
+
+                        <div className="text-right md:text-left">
+                          <p className="text-sm font-black text-foreground">
+                            {ordersLoading
+                              ? "..."
+                              : formatCurrency(
+                                  courier.dayAmount
+                                )}
+                          </p>
+
+                          {courier.pendingAmount > 0 ? (
+                            <p className="text-[11px] font-bold text-yellow-400">
+                              {formatCurrency(
+                                courier.pendingAmount
+                              )}{" "}
+                              pendente
+                            </p>
+                          ) : null}
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </div>
+
+                      <div className="flex items-center justify-between md:block">
+                        <span className="text-xs font-semibold text-muted-foreground md:hidden">
+                          Pagamento
+                        </span>
+
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-[11px] font-black ${paymentStatus.className}`}
+                        >
+                          {paymentStatus.label}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedCourierId(
+                              isExpanded
+                                ? null
+                                : courier.id
+                            )
+                          }
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+
+                          Entregas
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleMarkSettlementPaid(
+                              courier
+                            )
+                          }
+                          disabled={
+                            settlingCourierId ===
+                              courier.id ||
+                            settlementsLoading ||
+                            courier.pendingAmount <= 0
+                          }
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:border-border disabled:bg-background disabled:text-muted-foreground disabled:opacity-60"
+                        >
+                          {settlingCourierId ===
+                          courier.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+
+                          {courier.pendingAmount > 0
+                            ? "Confirmar"
+                            : "Pago"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleEditCourier(courier)
+                          }
+                          title="Editar entregador"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition hover:bg-muted/40"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleToggleActive(courier)
+                          }
+                          disabled={isBusy}
+                          title={
+                            courier.is_active
+                              ? "Desativar entregador"
+                              : "Ativar entregador"
+                          }
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isBusy ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : courier.is_active ? (
+                            <XCircle className="h-3.5 w-3.5" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDeleteCourier(courier)
+                          }
+                          disabled={isBusy}
+                          title="Excluir entregador"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isBusy ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
 
-        {showHistory ? (
+        {expandedCourier ? (
           <div className="rounded-xl border border-border bg-card">
-            <div className="flex flex-col gap-1 border-b border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 border-b border-border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-sm font-black text-foreground">
-                  Histórico de fechamentos
+                  Entregas de {expandedCourier.name}
                 </h2>
+
                 <p className="text-xs text-muted-foreground">
-                  Mostrando os fechamentos dentro do período selecionado.
+                  Pedidos atribuídos em{" "}
+                  {formatDateKey(selectedDate)}.
                 </p>
               </div>
 
-              <div className="text-xs font-bold text-muted-foreground">
-                Total fechado:{" "}
-                <span className="font-black text-foreground">
-                  {settlementsLoading ? "..." : formatCurrency(totalSettledInPeriod)}
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedCourierId(null)
+                }
+                className="h-8 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition hover:bg-muted/40"
+              >
+                Fechar histórico
+              </button>
             </div>
 
-            {settlementsLoading ? (
-              <div className="flex min-h-[120px] items-center justify-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Carregando histórico...
-              </div>
-            ) : settlementHistory.length === 0 ? (
+            {expandedCourier.dayOrders.length === 0 ? (
               <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                Nenhum fechamento encontrado no período selecionado.
+                Nenhum pedido atribuído a esse entregador
+                nessa data.
               </div>
             ) : (
               <>
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[620px] text-left text-sm">
-                    <thead className="border-b border-border bg-background text-xs uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 font-black">Data</th>
-                        <th className="px-3 py-2 font-black">Entregador</th>
-                        <th className="px-3 py-2 font-black">Pedidos</th>
-                        <th className="px-3 py-2 font-black">Valor</th>
-                        <th className="px-3 py-2 font-black">Hora</th>
-                      </tr>
-                    </thead>
-
-                    <tbody className="divide-y divide-border">
-                      {settlementHistory.map((settlement) => {
-                        const courier = deliveryPeople.find(
-                          (item) => item.id === settlement.delivery_person_id
-                        )
-
-                        return (
-                          <tr key={settlement.id} className="bg-card transition hover:bg-muted/30">
-                            <td className="px-3 py-2 font-bold text-foreground">
-                              {formatDateKey(settlement.settlement_date)}
-                            </td>
-
-                            <td className="px-3 py-2 font-black text-foreground">
-                              {courier?.name || "Entregador removido"}
-                            </td>
-
-                            <td className="px-3 py-2 font-bold text-foreground">
-                              {settlement.total_orders}
-                            </td>
-
-                            <td className="px-3 py-2 font-black text-foreground">
-                              {formatCurrency(settlement.total_amount)}
-                            </td>
-
-                            <td className="px-3 py-2 font-bold text-muted-foreground">
-                              {settlement.paid_at ? formatTime(settlement.paid_at) : "Pago"}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                <div className="hidden border-b border-border bg-background px-3 py-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[0.65fr_1.4fr_0.7fr_0.7fr_0.7fr_0.8fr_0.8fr] md:gap-3">
+                  <span>Pedido</span>
+                  <span>Cliente</span>
+                  <span>Saída</span>
+                  <span>Entrega</span>
+                  <span>Taxa</span>
+                  <span>Status</span>
+                  <span>Pagamento</span>
                 </div>
 
-                <div className="divide-y divide-border md:hidden">
-                  {settlementHistory.map((settlement) => {
-                    const courier = deliveryPeople.find(
-                      (item) => item.id === settlement.delivery_person_id
-                    )
+                <div className="divide-y divide-border">
+                  {expandedCourier.dayOrders.map(
+                    (order) => {
+                      const paymentStatus =
+                        getPaymentStatus(
+                          order,
+                          paidOrderIds
+                        )
 
-                    return (
-                      <div key={settlement.id} className="px-3 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-foreground">
-                              {courier?.name || "Entregador removido"}
+                      return (
+                        <div
+                          key={order.id}
+                          className="grid grid-cols-2 gap-3 px-3 py-3 text-sm transition hover:bg-muted/20 md:grid-cols-[0.65fr_1.4fr_0.7fr_0.7fr_0.7fr_0.8fr_0.8fr] md:items-center"
+                        >
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground md:hidden">
+                              Pedido
                             </p>
 
-                            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                              {formatDateKey(settlement.settlement_date)} · {settlement.total_orders} pedido(s)
+                            <p className="font-black text-foreground">
+                              #{getOrderNumber(order)}
                             </p>
                           </div>
 
-                          <div className="shrink-0 text-right">
-                            <p className="text-sm font-black text-foreground">
-                              {formatCurrency(settlement.total_amount)}
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold text-muted-foreground md:hidden">
+                              Cliente
                             </p>
 
-                            <p className="mt-0.5 text-[11px] font-bold text-muted-foreground">
-                              {settlement.paid_at ? formatTime(settlement.paid_at) : "Pago"}
+                            <p className="truncate font-bold text-foreground">
+                              {order.customer_name ||
+                                "Cliente não informado"}
                             </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground md:hidden">
+                              Saída
+                            </p>
+
+                            <p className="font-semibold text-foreground">
+                              {formatTime(
+                                order.out_for_delivery_at
+                              )}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground md:hidden">
+                              Entrega
+                            </p>
+
+                            <p className="font-semibold text-foreground">
+                              {formatTime(
+                                order.delivered_at
+                              )}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground md:hidden">
+                              Taxa
+                            </p>
+
+                            <p className="font-black text-foreground">
+                              {formatCurrency(
+                                order.delivery_fee
+                              )}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground md:hidden">
+                              Status
+                            </p>
+
+                            <p className="font-bold text-foreground">
+                              {getOrderStatusLabel(order)}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground md:hidden">
+                              Pagamento
+                            </p>
+
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-[10px] font-black ${paymentStatus.className}`}
+                            >
+                              {paymentStatus.label}
+                            </span>
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    }
+                  )}
                 </div>
               </>
             )}
@@ -1556,7 +1644,8 @@ export default function EntregadoresPage() {
         ) : null}
 
         <p className="px-1 text-[11px] font-semibold text-muted-foreground">
-          Entregadores ativos: {loadingPage ? "..." : activeCouriers}
+          O pagamento considera somente pedidos concluídos,
+          com taxa de entrega e ainda não pagos.
         </p>
       </div>
     </AdminLayout>

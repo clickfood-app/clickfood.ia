@@ -22,9 +22,9 @@ type DeliverySettingsData = {
   pickupEnabled: boolean
 }
 
-type NeighborhoodRuleForm = {
+type DistanceRuleForm = {
   id: string
-  neighborhood: string
+  upToKm: string
   fee: string
   isActive: boolean
 }
@@ -38,15 +38,13 @@ interface RestaurantDeliveryRow {
   pickup_enabled: boolean | null
 }
 
-interface DeliveryFeeRuleRow {
+interface DeliveryDistanceRuleRow {
   id: string
   restaurant_id: string
-  label: string | null
+  up_to_km: number | string | null
   fee: number | string | null
-  neighborhoods: string[] | null
   is_active: boolean | null
   sort_order: number | null
-  max_distance_km?: number | string | null
   created_at?: string | null
 }
 
@@ -57,12 +55,12 @@ const defaultSettings: DeliverySettingsData = {
   pickupEnabled: true,
 }
 
-function createEmptyNeighborhoodRule(order?: number): NeighborhoodRuleForm {
+function createEmptyDistanceRule(order?: number): DistanceRuleForm {
   const index = typeof order === "number" ? order + 1 : 1
 
   return {
     id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    neighborhood: "",
+    upToKm: String(index),
     fee: "0",
     isActive: true,
   }
@@ -109,7 +107,7 @@ async function ensureSessionUser(supabase: ReturnType<typeof createClient>) {
   } = await supabase.auth.getSession()
 
   if (error) throw error
-  if (!session?.user) throw new Error("Usuario nao autenticado.")
+  if (!session?.user) throw new Error("Usuário não autenticado.")
 
   return session.user
 }
@@ -119,7 +117,7 @@ export default function DeliveryTab() {
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [settings, setSettings] = useState<DeliverySettingsData>(defaultSettings)
-  const [rules, setRules] = useState<NeighborhoodRuleForm[]>([])
+  const [rules, setRules] = useState<DistanceRuleForm[]>([])
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -130,7 +128,10 @@ export default function DeliveryTab() {
   const [ruleErrors, setRuleErrors] = useState<Record<string, string>>({})
 
   const updateSetting = useCallback(
-    <K extends keyof DeliverySettingsData>(key: K, value: DeliverySettingsData[K]) => {
+    <K extends keyof DeliverySettingsData>(
+      key: K,
+      value: DeliverySettingsData[K]
+    ) => {
       setSettings((prev) => ({ ...prev, [key]: value }))
       setSettingErrors((prev) => {
         const next = { ...prev }
@@ -142,10 +143,10 @@ export default function DeliveryTab() {
   )
 
   const updateRule = useCallback(
-    <K extends keyof NeighborhoodRuleForm>(
+    <K extends keyof DistanceRuleForm>(
       ruleId: string,
       key: K,
-      value: NeighborhoodRuleForm[K]
+      value: DistanceRuleForm[K]
     ) => {
       setRules((prev) =>
         prev.map((rule) =>
@@ -168,7 +169,21 @@ export default function DeliveryTab() {
   )
 
   const addRule = useCallback(() => {
-    setRules((prev) => [...prev, createEmptyNeighborhoodRule(prev.length)])
+    setRules((prev) => {
+      const highestDistance = prev.reduce((highest, rule) => {
+        const distance = Number(rule.upToKm)
+
+        return Number.isFinite(distance) ? Math.max(highest, distance) : highest
+      }, 0)
+
+      return [
+        ...prev,
+        {
+          ...createEmptyDistanceRule(prev.length),
+          upToKm: String(highestDistance + 1),
+        },
+      ]
+    })
   }, [])
 
   const removeRule = useCallback((ruleId: string) => {
@@ -195,18 +210,18 @@ export default function DeliveryTab() {
         .single()
 
       if (restaurantError) throw restaurantError
-      if (!restaurant) throw new Error("Restaurante nao encontrado.")
+      if (!restaurant) throw new Error("Restaurante não encontrado.")
 
       const restaurantRow = restaurant as RestaurantDeliveryRow
 
       const { data: deliveryRules, error: rulesError } = await supabase
-        .from("delivery_fee_rules")
+        .from("delivery_distance_rules")
         .select(
-          "id, restaurant_id, label, fee, neighborhoods, is_active, sort_order, max_distance_km, created_at"
+          "id, restaurant_id, up_to_km, fee, is_active, sort_order, created_at"
         )
         .eq("restaurant_id", restaurantRow.id)
         .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true })
+        .order("up_to_km", { ascending: true })
 
       if (rulesError) throw rulesError
 
@@ -223,25 +238,32 @@ export default function DeliveryTab() {
         pickupEnabled: restaurantRow.pickup_enabled ?? true,
       })
 
-      const mappedRules = ((deliveryRules || []) as DeliveryFeeRuleRow[]).map((rule, index) => {
-        const neighborhood =
-          Array.isArray(rule.neighborhoods) && rule.neighborhoods.length > 0
-            ? rule.neighborhoods[0]
-            : rule.label || `Bairro ${index + 1}`
-
-        return {
+      const mappedRules = ((deliveryRules || []) as DeliveryDistanceRuleRow[]).map(
+        (rule) => ({
           id: String(rule.id),
-          neighborhood: String(neighborhood || ""),
+          upToKm: rule.up_to_km != null ? String(rule.up_to_km) : "",
           fee: rule.fee != null ? String(rule.fee) : "0",
           isActive: Boolean(rule.is_active ?? true),
-        }
-      })
+        })
+      )
 
-      setRules(mappedRules.length > 0 ? mappedRules : [createEmptyNeighborhoodRule(0)])
+      setRules(
+        mappedRules.length > 0
+          ? mappedRules
+          : [
+              {
+                ...createEmptyDistanceRule(0),
+                upToKm: "1",
+              },
+            ]
+      )
     } catch (error) {
       console.error("Erro ao carregar entrega:", error)
       toast.error(
-        getErrorMessage(error, "Nao foi possivel carregar as configuracoes de entrega.")
+        getErrorMessage(
+          error,
+          "Não foi possível carregar as configurações de entrega."
+        )
       )
     } finally {
       setLoading(false)
@@ -253,54 +275,55 @@ export default function DeliveryTab() {
   }, [loadDeliveryData])
 
   function validate() {
-    const nextSettingErrors: Partial<Record<keyof DeliverySettingsData, string>> = {}
+    const nextSettingErrors: Partial<Record<keyof DeliverySettingsData, string>> =
+      {}
     const nextRuleErrors: Record<string, string> = {}
 
     const minimumOrder = Number(settings.minimumOrder)
 
     if (Number.isNaN(minimumOrder) || minimumOrder < 0) {
-      nextSettingErrors.minimumOrder = "Informe um pedido minimo valido"
+      nextSettingErrors.minimumOrder = "Informe um pedido mínimo válido."
     }
 
     if (!settings.estimatedDeliveryTime.trim()) {
-      nextSettingErrors.estimatedDeliveryTime = "Informe o tempo estimado"
+      nextSettingErrors.estimatedDeliveryTime = "Informe o tempo estimado."
     }
 
     if (!settings.deliveryEnabled && !settings.pickupEnabled) {
-      nextSettingErrors.deliveryEnabled = "Ative entrega ou retirada"
-      nextSettingErrors.pickupEnabled = "Ative entrega ou retirada"
+      nextSettingErrors.deliveryEnabled = "Ative entrega ou retirada."
+      nextSettingErrors.pickupEnabled = "Ative entrega ou retirada."
     }
 
     const activeRules = rules.filter((rule) => rule.isActive)
 
     if (settings.deliveryEnabled && activeRules.length === 0) {
-      nextSettingErrors.deliveryEnabled = "Cadastre pelo menos um bairro ativo"
+      nextSettingErrors.deliveryEnabled = "Cadastre pelo menos uma faixa ativa."
     }
 
-    const seenNeighborhoods = new Set<string>()
+    const seenDistances = new Set<string>()
 
     for (const rule of rules) {
+      const upToKm = Number(rule.upToKm)
       const fee = Number(rule.fee)
-      const neighborhood = (rule.neighborhood || "").trim()
 
-      if (!neighborhood) {
-        nextRuleErrors[rule.id] = "Informe o nome do bairro."
+      if (!Number.isFinite(upToKm) || upToKm <= 0) {
+        nextRuleErrors[rule.id] = "Informe uma distância maior que zero."
         continue
       }
 
-      if (Number.isNaN(fee) || fee < 0) {
-        nextRuleErrors[rule.id] = "Informe uma taxa valida."
+      if (!Number.isFinite(fee) || fee < 0) {
+        nextRuleErrors[rule.id] = "Informe uma taxa válida."
         continue
       }
 
-      const normalized = neighborhood.toLowerCase()
+      const normalizedDistance = upToKm.toFixed(2)
 
-      if (seenNeighborhoods.has(normalized)) {
-        nextRuleErrors[rule.id] = "Esse bairro ja foi cadastrado."
+      if (seenDistances.has(normalizedDistance)) {
+        nextRuleErrors[rule.id] = "Essa distância já foi cadastrada."
         continue
       }
 
-      seenNeighborhoods.add(normalized)
+      seenDistances.add(normalizedDistance)
     }
 
     setSettingErrors(nextSettingErrors)
@@ -314,7 +337,7 @@ export default function DeliveryTab() {
 
   async function handleSave() {
     if (!restaurantId) {
-      toast.error("Restaurante nao encontrado.")
+      toast.error("Restaurante não encontrado.")
       return
     }
 
@@ -342,32 +365,32 @@ export default function DeliveryTab() {
       if (restaurantUpdateError) throw restaurantUpdateError
 
       const { error: deleteRulesError } = await supabase
-        .from("delivery_fee_rules")
+        .from("delivery_distance_rules")
         .delete()
         .eq("restaurant_id", restaurantId)
 
       if (deleteRulesError) throw deleteRulesError
 
-      const insertPayload = rules.map((rule, index) => ({
-        restaurant_id: restaurantId,
-        label: (rule.neighborhood || "").trim(),
-        fee: Number(rule.fee || 0),
-        neighborhoods: [(rule.neighborhood || "").trim()],
-        is_active: Boolean(rule.isActive),
-        sort_order: index,
-        max_distance_km: 0,
-      }))
+      const insertPayload = [...rules]
+        .sort((a, b) => Number(a.upToKm) - Number(b.upToKm))
+        .map((rule, index) => ({
+          restaurant_id: restaurantId,
+          up_to_km: Number(rule.upToKm),
+          fee: Number(rule.fee || 0),
+          is_active: Boolean(rule.isActive),
+          sort_order: index + 1,
+        }))
 
       if (insertPayload.length > 0) {
         const { error: insertRulesError } = await supabase
-          .from("delivery_fee_rules")
+          .from("delivery_distance_rules")
           .insert(insertPayload)
 
         if (insertRulesError) throw insertRulesError
       }
 
       await loadDeliveryData()
-      toast.success("Configuracoes de entrega salvas com sucesso!")
+      toast.success("Configurações de entrega salvas com sucesso!")
     } catch (error) {
       const message = getErrorMessage(error, "Erro ao salvar entrega.")
       console.error("Erro ao salvar entrega:", message, error)
@@ -383,12 +406,21 @@ export default function DeliveryTab() {
         <div className="flex items-center gap-3">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Carregando configuracoes de entrega...
+            Carregando configurações de entrega...
           </p>
         </div>
       </div>
     )
   }
+
+  const activeRules = rules
+    .filter((rule) => rule.isActive)
+    .sort((a, b) => Number(a.upToKm) - Number(b.upToKm))
+
+  const maximumDeliveryDistance =
+    activeRules.length > 0
+      ? Number(activeRules[activeRules.length - 1].upToKm)
+      : 0
 
   return (
     <div className="space-y-8">
@@ -396,12 +428,12 @@ export default function DeliveryTab() {
         <div className="mb-5 flex items-center gap-2">
           <Truck className="h-5 w-5 text-[hsl(var(--primary))]" />
           <h3 className="text-base font-bold text-card-foreground">
-            Operacao da entrega
+            Operação da entrega
           </h3>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="Pedido minimo" error={settingErrors.minimumOrder}>
+          <Field label="Pedido mínimo" error={settingErrors.minimumOrder}>
             <input
               type="number"
               min="0"
@@ -416,7 +448,10 @@ export default function DeliveryTab() {
             />
           </Field>
 
-          <Field label="Tempo estimado" error={settingErrors.estimatedDeliveryTime}>
+          <Field
+            label="Tempo estimado"
+            error={settingErrors.estimatedDeliveryTime}
+          >
             <div className="relative">
               <Clock3 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -434,7 +469,7 @@ export default function DeliveryTab() {
             </div>
           </Field>
 
-          <div className="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:col-span-2 md:grid-cols-2">
             <ToggleCard
               title="Entrega habilitada"
               description="Permite pedidos com entrega"
@@ -455,15 +490,15 @@ export default function DeliveryTab() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-[hsl(var(--primary))]" />
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <MapPin className="mt-0.5 h-5 w-5 text-[hsl(var(--primary))]" />
             <div>
               <h3 className="text-base font-bold text-card-foreground">
-                Bairros e taxas
+                Faixas de distância
               </h3>
               <p className="text-sm text-muted-foreground">
-                Cadastre um bairro por linha, igual ao modelo do checkout que voce mostrou.
+                Defina quanto o cliente paga de acordo com a distância da rota.
               </p>
             </div>
           </div>
@@ -471,10 +506,10 @@ export default function DeliveryTab() {
           <button
             type="button"
             onClick={addRule}
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-card-foreground transition-colors hover:bg-muted"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-card-foreground transition-colors hover:bg-muted"
           >
             <Plus className="h-4 w-4" />
-            Adicionar bairro
+            Adicionar faixa
           </button>
         </div>
 
@@ -487,10 +522,10 @@ export default function DeliveryTab() {
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-bold text-card-foreground">
-                    Bairro {index + 1}
+                    Faixa {index + 1}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Exemplo: Centro, Sao Benedito, Cristina
+                    Exemplo: até 2 km por R$ 5,00
                   </p>
                 </div>
 
@@ -506,42 +541,56 @@ export default function DeliveryTab() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Field label="Nome do bairro" error={ruleErrors[rule.id]}>
-                  <input
-                    type="text"
-                    value={rule.neighborhood ?? ""}
-                    onChange={(e) =>
-                      updateRule(rule.id, "neighborhood", e.target.value)
-                    }
-                    className={cn(
-                      "input-field",
-                      ruleErrors[rule.id] && "border-destructive"
-                    )}
-                    placeholder="Ex: Centro"
-                  />
+                <Field label="Até quantos km" error={ruleErrors[rule.id]}>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={rule.upToKm}
+                      onChange={(e) =>
+                        updateRule(rule.id, "upToKm", e.target.value)
+                      }
+                      className={cn(
+                        "input-field pr-12",
+                        ruleErrors[rule.id] && "border-destructive"
+                      )}
+                      placeholder="1"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                      km
+                    </span>
+                  </div>
                 </Field>
 
                 <Field label="Taxa de entrega">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={rule.fee ?? "0"}
-                    onChange={(e) => updateRule(rule.id, "fee", e.target.value)}
-                    className={cn(
-                      "input-field",
-                      ruleErrors[rule.id] && "border-destructive"
-                    )}
-                    placeholder="5.00"
-                  />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={rule.fee}
+                      onChange={(e) => updateRule(rule.id, "fee", e.target.value)}
+                      className={cn(
+                        "input-field pl-10",
+                        ruleErrors[rule.id] && "border-destructive"
+                      )}
+                      placeholder="5.00"
+                    />
+                  </div>
                 </Field>
 
                 <div className="md:col-span-2">
                   <ToggleCard
-                    title="Bairro ativo"
-                    description="Se desligar, ele nao aparece para o cliente no checkout"
+                    title="Faixa ativa"
+                    description="Se desligar, essa faixa não será usada no cálculo"
                     checked={Boolean(rule.isActive)}
-                    onChange={(checked) => updateRule(rule.id, "isActive", checked)}
+                    onChange={(checked) =>
+                      updateRule(rule.id, "isActive", checked)
+                    }
                   />
                 </div>
               </div>
@@ -554,11 +603,14 @@ export default function DeliveryTab() {
             <Store className="mt-0.5 h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-semibold text-card-foreground">
-                Como vai funcionar no checkout
+                Limite atual da entrega
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                O cliente vai selecionar o bairro em um campo igual ao modelo que voce mandou.
-                Ao selecionar, a taxa entra automaticamente no pedido.
+                {maximumDeliveryDistance > 0
+                  ? `A maior faixa ativa é de ${maximumDeliveryDistance.toLocaleString(
+                      "pt-BR"
+                    )} km. Endereços acima desse limite serão bloqueados no checkout.`
+                  : "Nenhuma faixa ativa. A entrega ficará indisponível até você ativar pelo menos uma faixa."}
               </p>
             </div>
           </div>
@@ -576,7 +628,7 @@ export default function DeliveryTab() {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {saving ? "Salvando..." : "Salvar Entrega"}
+          {saving ? "Salvando..." : "Salvar entrega"}
         </button>
       </div>
     </div>

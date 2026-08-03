@@ -1620,7 +1620,15 @@ type PublicCustomerProfile = {
   document: string
   address?: {
     customerAddress: string
-    selectedNeighborhoodKey: string
+    selectedNeighborhoodKey?: string
+    customerZip?: string
+    customerNumber?: string
+    customerComplement?: string
+    neighborhood?: string
+    city?: string
+    state?: string
+    distanceKm?: number
+    deliveryFee?: number
   }
 }
 
@@ -3449,9 +3457,18 @@ function CartSheet({
   const [orderType, setOrderType] = useState<"delivery" | "pickup">(
     deliveryEnabled ? "delivery" : "pickup"
   )
-  const [customerAddress, setCustomerAddress] = useState("")
-  const [selectedNeighborhoodKey, setSelectedNeighborhoodKey] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("")
+const [customerAddress, setCustomerAddress] = useState("")
+const [deliveryCep, setDeliveryCep] = useState("")
+const [deliveryNumber, setDeliveryNumber] = useState("")
+const [deliveryComplement, setDeliveryComplement] = useState("")
+const [deliveryNeighborhood, setDeliveryNeighborhood] = useState("")
+const [deliveryCity, setDeliveryCity] = useState("")
+const [deliveryState, setDeliveryState] = useState("")
+const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number | null>(null)
+const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null)
+const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false)
+const [deliveryCalculationError, setDeliveryCalculationError] = useState("")
+const [paymentMethod, setPaymentMethod] = useState("")
   const [needsChange, setNeedsChange] = useState(false)
   const [changeFor, setChangeFor] = useState("")
   const [pixCardOpen, setPixCardOpen] = useState(false)
@@ -3482,30 +3499,6 @@ function CartSheet({
 const [useCashback, setUseCashback] = useState(false)
 const [isLoadingCashback, setIsLoadingCashback] = useState(false)
 
-  const deliveryRules = useMemo(() => getActiveDeliveryRules(restaurant), [restaurant])
-
-  const neighborhoodOptions = useMemo<NeighborhoodOption[]>(() => {
-    return deliveryRules.flatMap((rule) =>
-      rule.neighborhoods
-        .filter((neighborhood) => isValidNeighborhoodName(neighborhood))
-        .map((neighborhood) => ({
-          key: `${rule.id}:${normalizeNeighborhood(neighborhood)}`,
-          neighborhood,
-          fee: Number(rule.fee || 0),
-          ruleId: rule.id,
-          ruleLabel: rule.label,
-        }))
-    )
-  }, [deliveryRules])
-
-  const selectedNeighborhoodOption = useMemo(
-    () =>
-      neighborhoodOptions.find((option) => option.key === selectedNeighborhoodKey) ?? null,
-    [neighborhoodOptions, selectedNeighborhoodKey]
-  )
-
-  const hasNeighborhoodRules = neighborhoodOptions.length > 0
-
   useEffect(() => {
     if (!deliveryEnabled && orderType === "delivery") {
       setOrderType("pickup")
@@ -3517,22 +3510,13 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
   }, [deliveryEnabled, pickupEnabled, orderType])
 
   useEffect(() => {
-    if (orderType !== "delivery") {
-      setSelectedNeighborhoodKey("")
-      return
-    }
-
-    if (!hasNeighborhoodRules || !selectedNeighborhoodKey) return
-
-    const optionStillExists = neighborhoodOptions.some(
-      (option) => option.key === selectedNeighborhoodKey
-    )
-
-    if (!optionStillExists) {
-      setSelectedNeighborhoodKey("")
-    }
-  }, [hasNeighborhoodRules, neighborhoodOptions, orderType, selectedNeighborhoodKey])
-
+  if (orderType !== "delivery") {
+    setDeliveryDistanceKm(null)
+    setCalculatedDeliveryFee(null)
+    setDeliveryCalculationError("")
+    setIsCalculatingDelivery(false)
+  }
+}, [orderType])
   useEffect(() => {
     if (!open) {
       setStep("cart")
@@ -3548,11 +3532,13 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
   }, [open])
 
   useEffect(() => {
-    if (!open || !customer?.address) return
+  if (!open || !customer?.address) return
 
-    setCustomerAddress(customer.address.customerAddress ?? "")
-    setSelectedNeighborhoodKey("")
-  }, [open, customer?.address])
+  setCustomerAddress(customer.address.customerAddress ?? "")
+  setDeliveryDistanceKm(null)
+  setCalculatedDeliveryFee(null)
+  setDeliveryCalculationError("")
+}, [open, customer?.address])
 
 useEffect(() => {
   const customerPhone = onlyDigits(customer?.phone)
@@ -3632,11 +3618,9 @@ useEffect(() => {
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
   const serviceFee = 0
   const deliveryFee =
-    orderType === "delivery"
-      ? hasNeighborhoodRules
-        ? selectedNeighborhoodOption?.fee ?? 0
-        : restaurant.deliveryFee
-      : 0
+  orderType === "delivery"
+    ? calculatedDeliveryFee ?? 0
+    : 0
   const cartDeliveryPreview = 0
 const cartDeliveryPreviewLabel = deliveryEnabled ? "Escolha no checkout" : "Retirada"
 const cartPreviewTotal = subtotal
@@ -3689,22 +3673,42 @@ const hasSavedAddress = Boolean(savedAddressLabel)
     restaurant.city ??
     "BRASILIA"
   ).trim()
-  const manualPixTxid = useMemo(
-    () => `CF${restaurant.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20)}`,
-    [restaurant.id]
-  )
-  const manualPixCopyPaste = useMemo(
-    () =>
-      buildManualPixPayload({
-        pixKey,
-        pixKeyType,
-        receiverName: pixReceiverName,
-        city: pixCity,
-        amount: total,
-        txid: manualPixTxid,
-      }),
-    [manualPixTxid, pixCity, pixKey, pixKeyType, pixReceiverName, total]
-  )
+  const manualPixTxid = useMemo(() => {
+  const orderReference =
+    pixPayment?.publicOrderNumber ||
+    pixPayment?.orderId ||
+    restaurant.id
+
+  return `CF${orderReference
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 20)}`
+}, [
+  pixPayment?.publicOrderNumber,
+  pixPayment?.orderId,
+  restaurant.id,
+])
+
+const manualPixAmount = Number(pixPayment?.amount ?? total)
+
+const manualPixCopyPaste = useMemo(
+  () =>
+    buildManualPixPayload({
+      pixKey,
+      pixKeyType,
+      receiverName: pixReceiverName,
+      city: pixCity,
+      amount: manualPixAmount,
+      txid: manualPixTxid,
+    }),
+  [
+    manualPixTxid,
+    manualPixAmount,
+    pixCity,
+    pixKey,
+    pixKeyType,
+    pixReceiverName,
+  ]
+)
   const manualPixQrCodeUrl = manualPixCopyPaste
     ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
         manualPixCopyPaste
@@ -3727,13 +3731,27 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
     normalizeOrderStatus(String(pixPayment?.status ?? ""))
   )
 const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
-const checkoutBlockedByNeighborhood =
-  orderType === "delivery" && hasNeighborhoodRules && !selectedNeighborhoodOption
-const checkoutButtonDisabled =
-  isProcessing || !restaurantIsOpen || checkoutBlockedByNeighborhood
+const checkoutBlockedByDelivery =
+  orderType === "delivery" &&
+  (
+    onlyDigits(deliveryCep).length !== 8 ||
+    !customerAddress.trim() ||
+    !deliveryNumber.trim() ||
+    calculatedDeliveryFee === null ||
+    deliveryDistanceKm === null ||
+    Boolean(deliveryCalculationError)
+  )
 
-  const primaryButtonLabel = checkoutBlockedByNeighborhood
-  ? "Selecione seu bairro"
+const checkoutButtonDisabled =
+  isProcessing ||
+  isCalculatingDelivery ||
+  !restaurantIsOpen ||
+  checkoutBlockedByDelivery
+
+const primaryButtonLabel = checkoutBlockedByDelivery
+  ? isCalculatingDelivery
+    ? "Calculando entrega..."
+    : "Calcule a entrega"
   : isAutomaticPixPayment
     ? "Gerar Pix automático"
     : isPixPayment
@@ -3742,12 +3760,25 @@ const checkoutButtonDisabled =
         : "Pagar com Pix"
       : "Confirmar pedido"
 
-  const formattedCustomerAddress =
-    orderType !== "delivery"
-      ? ""
-      : selectedNeighborhoodOption
-        ? `${customerAddress.trim()} - Bairro: ${selectedNeighborhoodOption.neighborhood}`
-        : customerAddress.trim()
+const formattedCustomerAddress =
+  orderType !== "delivery"
+    ? ""
+    : [
+        customerAddress.trim(),
+        deliveryNumber.trim() ? `Nº ${deliveryNumber.trim()}` : "",
+        deliveryComplement.trim(),
+        deliveryNeighborhood.trim()
+          ? `Bairro: ${deliveryNeighborhood.trim()}`
+          : "",
+        deliveryCity.trim() && deliveryState.trim()
+          ? `${deliveryCity.trim()} - ${deliveryState.trim()}`
+          : deliveryCity.trim(),
+        onlyDigits(deliveryCep).length === 8
+          ? `CEP: ${deliveryCep}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(", ")
 
   function isPixPaymentResetSafe(currentPaymentMethod: string) {
     const normalizedMethod = currentPaymentMethod.trim().toLowerCase()
@@ -3873,6 +3904,122 @@ const checkoutButtonDisabled =
   onClearCart,
 ])
 
+const calculateDelivery = async () => {
+  const normalizedCep = onlyDigits(deliveryCep)
+  const normalizedNumber = deliveryNumber.trim()
+  const normalizedComplement = deliveryComplement.trim()
+
+  if (normalizedCep.length !== 8) {
+    setDeliveryCalculationError("Informe um CEP válido com 8 números.")
+    setCalculatedDeliveryFee(null)
+    setDeliveryDistanceKm(null)
+    return
+  }
+
+  if (!normalizedNumber) {
+    setDeliveryCalculationError("Informe o número do endereço.")
+    setCalculatedDeliveryFee(null)
+    setDeliveryDistanceKm(null)
+    return
+  }
+
+  try {
+    setIsCalculatingDelivery(true)
+    setDeliveryCalculationError("")
+    setCalculatedDeliveryFee(null)
+    setDeliveryDistanceKm(null)
+
+    const viaCepResponse = await fetch(
+      `https://viacep.com.br/ws/${normalizedCep}/json/`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    )
+
+    if (!viaCepResponse.ok) {
+      throw new Error("Não foi possível consultar esse CEP.")
+    }
+
+    const viaCepData = (await viaCepResponse.json()) as {
+      erro?: boolean
+      cep?: string
+      logradouro?: string
+      bairro?: string
+      localidade?: string
+      uf?: string
+    }
+
+    if (viaCepData.erro) {
+      throw new Error("CEP não encontrado.")
+    }
+
+    const street = String(viaCepData.logradouro || "").trim()
+    const neighborhood = String(viaCepData.bairro || "").trim()
+    const city = String(viaCepData.localidade || "").trim()
+    const state = String(viaCepData.uf || "").trim()
+
+    if (!street) {
+      throw new Error(
+        "Esse CEP não retornou uma rua. Informe outro CEP ou revise o endereço."
+      )
+    }
+
+    setCustomerAddress(street)
+    setDeliveryNeighborhood(neighborhood)
+    setDeliveryCity(city)
+    setDeliveryState(state)
+
+    const response = await fetch("/api/public/orders", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        restaurantId: restaurant.id,
+        customerZip: normalizedCep,
+        customerNumber: normalizedNumber,
+        customerComplement: normalizedComplement || undefined,
+        customerAddress: street,
+        neighborhood: neighborhood || undefined,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.error || "Não foi possível calcular a taxa de entrega."
+      )
+    }
+
+    const distanceKm = Number(data.quote?.distanceKm)
+    const fee = Number(data.quote?.fee)
+
+    if (!Number.isFinite(distanceKm) || !Number.isFinite(fee)) {
+      throw new Error("O cálculo da entrega retornou dados inválidos.")
+    }
+
+    setDeliveryDistanceKm(distanceKm)
+    setCalculatedDeliveryFee(fee)
+
+    if (data.quote?.neighborhood) {
+      setDeliveryNeighborhood(String(data.quote.neighborhood))
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Não foi possível calcular a taxa de entrega."
+
+    setDeliveryCalculationError(message)
+    setCalculatedDeliveryFee(null)
+    setDeliveryDistanceKm(null)
+  } finally {
+    setIsCalculatingDelivery(false)
+  }
+}
+
   const validateForm = () => {
     if (!restaurantIsOpen) {
       alert(restaurant.closedMessage?.trim() || "Restaurante fechado no momento. Você pode ver o cardápio, mas o pedido só pode ser feito quando a loja estiver aberta.")
@@ -3896,15 +4043,37 @@ const checkoutButtonDisabled =
       return false
     }
 
-    if (orderType === "delivery" && hasNeighborhoodRules && !selectedNeighborhoodOption) {
-      alert("Selecione seu bairro para calcular a taxa de entrega.")
-      return false
-    }
+    if (orderType === "delivery") {
+  if (onlyDigits(deliveryCep).length !== 8) {
+    alert("Informe um CEP válido.")
+    return false
+  }
 
-    if (orderType === "delivery" && !customerAddress.trim()) {
-      alert("Informe rua, número e complemento")
-      return false
-    }
+  if (!customerAddress.trim()) {
+    alert("Consulte o CEP para localizar o endereço.")
+    return false
+  }
+
+  if (!deliveryNumber.trim()) {
+    alert("Informe o número do endereço.")
+    return false
+  }
+
+  if (isCalculatingDelivery) {
+    alert("Aguarde o cálculo da entrega.")
+    return false
+  }
+
+  if (deliveryCalculationError) {
+    alert(deliveryCalculationError)
+    return false
+  }
+
+  if (calculatedDeliveryFee === null || deliveryDistanceKm === null) {
+    alert("Calcule a taxa de entrega antes de finalizar.")
+    return false
+  }
+}
 
     if (isCashPayment && needsChange) {
       if (!changeForAmount || changeForAmount <= 0) {
@@ -3946,11 +4115,18 @@ const checkoutButtonDisabled =
     }
 
     if (orderType === "delivery") {
-      onSaveAddress({
-        customerAddress: customerAddress.trim(),
-        selectedNeighborhoodKey,
-      })
-    }
+  onSaveAddress({
+    customerAddress: formattedCustomerAddress,
+    customerZip: onlyDigits(deliveryCep),
+    customerNumber: deliveryNumber.trim(),
+    customerComplement: deliveryComplement.trim(),
+    neighborhood: deliveryNeighborhood.trim(),
+    city: deliveryCity.trim(),
+    state: deliveryState.trim(),
+    distanceKm: deliveryDistanceKm ?? undefined,
+    deliveryFee: calculatedDeliveryFee ?? undefined,
+  })
+}
 
     const isManualPix = paymentMethodLabel === "pix_manual"
 
@@ -3962,12 +4138,21 @@ const checkoutButtonDisabled =
         tableId: tableNumber || null,
         customerName: customer.name,
         customerPhone: onlyDigits(customer.phone),
-        customerAddress: orderType === "delivery" ? formattedCustomerAddress : undefined,
-        neighborhood:
-          orderType === "delivery"
-            ? selectedNeighborhoodOption?.neighborhood ?? undefined
-            : undefined,
-        orderType,
+        customerAddress:
+  orderType === "delivery" ? formattedCustomerAddress : undefined,
+customerZip:
+  orderType === "delivery" ? onlyDigits(deliveryCep) : undefined,
+customerNumber:
+  orderType === "delivery" ? deliveryNumber.trim() : undefined,
+customerComplement:
+  orderType === "delivery"
+    ? deliveryComplement.trim() || undefined
+    : undefined,
+neighborhood:
+  orderType === "delivery"
+    ? deliveryNeighborhood.trim() || undefined
+    : undefined,
+orderType,
         paymentMethod: paymentMethodLabel,
         needsChange: paymentMethodLabel.trim().toLowerCase() === "dinheiro" ? needsChange : false,
         changeFor:
@@ -4038,67 +4223,99 @@ const checkoutButtonDisabled =
     return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`
   }
 
-  const startManualPixWhatsAppFlow = async () => {
-    if (!validateForm()) return
+  const createManualPixOrder = async () => {
+  if (!validateForm()) return
 
-    if (!whatsappUrl) {
-      alert("Este restaurante ainda não cadastrou um WhatsApp para receber comprovantes.")
-      return
-    }
-
-    const whatsappWindow = window.open("", "_blank")
-
-    setIsProcessing(true)
-    setPaymentCheckError("")
-
-    try {
-      const createdOrder = await createPublicOrder("pix_manual")
-      const orderForCustomer: CustomerVisibleOrder = {
-        id: createdOrder.id,
-        public_order_number: createdOrder.public_order_number,
-        status: createdOrder.status ?? "waiting_pix_confirmation",
-        payment_status: createdOrder.payment_status ?? "awaiting_pix_confirmation",
-        total: createdOrder.total ?? total,
-        payment_method: createdOrder.payment_method ?? "pix_manual",
-        order_type: createdOrder.order_type ?? orderType,
-        delivery_fee: createdOrder.delivery_fee ?? deliveryFee,
-        service_fee: createdOrder.service_fee ?? serviceFee,
-        created_at: createdOrder.created_at ?? new Date().toISOString(),
-        items: items.map((item) => ({
-          name: item.product.name,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-        })),
-      }
-
-      onOrderCreated(orderForCustomer)
-      onClearCart()
-      onClose()
-      setStep("cart")
-      setPixPayment(null)
-      setPixCopied(false)
-      setPaymentCheckError("")
-
-      const proofUrl = buildManualPixWhatsAppUrl(createdOrder)
-
-      if (whatsappWindow) {
-        whatsappWindow.location.href = proofUrl
-      } else {
-        window.location.href = proofUrl
-      }
-    } catch (error) {
-      if (whatsappWindow) {
-        whatsappWindow.close()
-      }
-
-      const errorMessage = error instanceof Error ? error.message : "Erro ao criar pedido Pix."
-
-      setPaymentCheckError(errorMessage)
-      alert(errorMessage)
-    } finally {
-      setIsProcessing(false)
-    }
+  // Impede que o mesmo pedido seja criado novamente.
+  if (pixPayment?.orderId) {
+    setPixCardOpen(true)
+    return
   }
+
+  setIsProcessing(true)
+  setPaymentCheckError("")
+
+  try {
+    const createdOrder = await createPublicOrder("pix_manual")
+
+    const orderForCustomer: CustomerVisibleOrder = {
+      id: createdOrder.id,
+      public_order_number: createdOrder.public_order_number,
+      status: createdOrder.status ?? "waiting_pix_confirmation",
+      payment_status:
+        createdOrder.payment_status ?? "awaiting_pix_confirmation",
+      total: createdOrder.total ?? total,
+      payment_method: createdOrder.payment_method ?? "pix_manual",
+      order_type: createdOrder.order_type ?? orderType,
+      delivery_fee: createdOrder.delivery_fee ?? deliveryFee,
+      service_fee: createdOrder.service_fee ?? serviceFee,
+      created_at: createdOrder.created_at ?? new Date().toISOString(),
+      items: items.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+      })),
+    }
+
+    setPixPayment({
+      orderId: createdOrder.id,
+      publicOrderNumber: createdOrder.public_order_number ?? null,
+      status:
+        createdOrder.payment_status ?? "awaiting_pix_confirmation",
+      amount: createdOrder.total ?? total,
+    })
+
+    onOrderCreated(orderForCustomer)
+
+    // O QR Code só será aberto depois que o pedido existir.
+    setPixCardOpen(true)
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Não foi possível criar o pedido Pix."
+
+    setPaymentCheckError(errorMessage)
+    alert(errorMessage)
+  } finally {
+    setIsProcessing(false)
+  }
+}
+
+  const startManualPixWhatsAppFlow = () => {
+  if (!pixPayment?.orderId) {
+    alert("O pedido Pix ainda não foi criado.")
+    return
+  }
+
+  if (!whatsappPhone) {
+    alert(
+      "Este restaurante ainda não cadastrou um WhatsApp para receber comprovantes."
+    )
+    return
+  }
+
+  const proofUrl = buildManualPixWhatsAppUrl({
+    id: pixPayment.orderId,
+    public_order_number: pixPayment.publicOrderNumber,
+    total: pixPayment.amount ?? total,
+  })
+
+  if (!proofUrl) {
+    alert("Não foi possível abrir o WhatsApp do restaurante.")
+    return
+  }
+
+  const whatsappWindow = window.open(
+    proofUrl,
+    "_blank",
+    "noopener,noreferrer"
+  )
+
+  if (!whatsappWindow) {
+    window.location.href = proofUrl
+  }
+}
 
   const createEfiPaymentOrder = async () => {
     if (!validateForm()) return
@@ -4109,11 +4326,18 @@ const checkoutButtonDisabled =
     }
 
     if (orderType === "delivery") {
-      onSaveAddress({
-        customerAddress: customerAddress.trim(),
-        selectedNeighborhoodKey,
-      })
-    }
+  onSaveAddress({
+    customerAddress: formattedCustomerAddress,
+    customerZip: onlyDigits(deliveryCep),
+    customerNumber: deliveryNumber.trim(),
+    customerComplement: deliveryComplement.trim(),
+    neighborhood: deliveryNeighborhood.trim(),
+    city: deliveryCity.trim(),
+    state: deliveryState.trim(),
+    distanceKm: deliveryDistanceKm ?? undefined,
+    deliveryFee: calculatedDeliveryFee ?? undefined,
+  })
+}
 
     setIsProcessing(true)
     setPaymentCheckError("")
@@ -4129,16 +4353,28 @@ const checkoutButtonDisabled =
           customer_name: customer.name,
           customer_phone: onlyDigits(customer.phone),
           order_type: orderType,
-          customer_address: orderType === "delivery" ? formattedCustomerAddress : null,
-          customer_neighborhood:
-            orderType === "delivery"
-              ? selectedNeighborhoodOption?.neighborhood ?? null
-              : null,
-          delivery_address: orderType === "delivery" ? formattedCustomerAddress : null,
-          delivery_neighborhood:
-            orderType === "delivery"
-              ? selectedNeighborhoodOption?.neighborhood ?? null
-              : null,
+          customer_address:
+  orderType === "delivery" ? formattedCustomerAddress : null,
+customer_zip:
+  orderType === "delivery" ? onlyDigits(deliveryCep) : null,
+customer_number:
+  orderType === "delivery" ? deliveryNumber.trim() : null,
+customer_complement:
+  orderType === "delivery"
+    ? deliveryComplement.trim() || null
+    : null,
+customer_neighborhood:
+  orderType === "delivery"
+    ? deliveryNeighborhood.trim() || null
+    : null,
+delivery_address:
+  orderType === "delivery" ? formattedCustomerAddress : null,
+delivery_neighborhood:
+  orderType === "delivery"
+    ? deliveryNeighborhood.trim() || null
+    : null,
+delivery_distance_km:
+  orderType === "delivery" ? deliveryDistanceKm : null,
           notes: null,
           subtotal,
           discount: cashbackDiscount,
@@ -4698,17 +4934,23 @@ const checkoutButtonDisabled =
   <div
     className={cn(
       "rounded-[22px] border p-4 shadow-sm transition-all",
-      checkoutBlockedByNeighborhood
-        ? "border-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/20"
-        : "border-white/10 bg-[#0A0A0A]"
+      deliveryCalculationError
+        ? "border-red-400/40 bg-red-500/10"
+        : checkoutBlockedByDelivery
+          ? "border-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/20"
+          : "border-emerald-400/30 bg-emerald-500/10"
     )}
   >
-    <div className="mb-3 flex items-start justify-between gap-3">
+    <div className="mb-4 flex items-start justify-between gap-3">
       <div>
         <p
           className={cn(
             "text-[10px] font-black uppercase tracking-[0.16em]",
-            checkoutBlockedByNeighborhood ? "text-yellow-400" : "text-zinc-500"
+            deliveryCalculationError
+              ? "text-red-400"
+              : checkoutBlockedByDelivery
+                ? "text-yellow-400"
+                : "text-emerald-400"
           )}
         >
           Entrega
@@ -4718,118 +4960,178 @@ const checkoutButtonDisabled =
           Endereço do pedido
         </h4>
 
-        <p
-          className={cn(
-            "mt-1 text-xs font-semibold",
-            checkoutBlockedByNeighborhood ? "text-yellow-300" : "text-zinc-500"
-          )}
-        >
-          Preencha essa etapa para liberar a finalização do pedido.
+        <p className="mt-1 text-xs font-semibold text-zinc-500">
+          Informe o CEP e o número para calcular a distância e a taxa.
         </p>
       </div>
 
-      <div className="flex gap-2">
-        {checkoutBlockedByNeighborhood && (
-          <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black text-black">
-            Obrigatório
-          </span>
-        )}
-
-        {hasSavedAddress && (
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
-            Salvo
-          </span>
-        )}
-      </div>
+      {!checkoutBlockedByDelivery && calculatedDeliveryFee !== null ? (
+        <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
+          Calculado
+        </span>
+      ) : (
+        <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black text-black">
+          Obrigatório
+        </span>
+      )}
     </div>
 
-    {checkoutBlockedByNeighborhood && (
-      <div className="mb-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-3">
-        <p className="text-xs font-black text-yellow-300">
-          Selecione o bairro e confirme o endereço para calcular a taxa de entrega corretamente.
-        </p>
-      </div>
-    )}
-
     <div className="space-y-3">
-      {hasNeighborhoodRules && (
+      <div className="grid grid-cols-[1fr_110px] gap-2">
         <div>
-          <label
-            className={cn(
-              "text-xs font-bold uppercase",
-              !selectedNeighborhoodKey ? "text-yellow-400" : "text-zinc-500"
-            )}
-          >
-            Bairro *
+          <label className="text-xs font-bold uppercase text-zinc-500">
+            CEP *
           </label>
 
-          <select
-            value={selectedNeighborhoodKey}
-            onChange={(e) => setSelectedNeighborhoodKey(e.target.value)}
-            className={cn(
-              "mt-2 w-full rounded-2xl bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white focus:outline-none",
-              !selectedNeighborhoodKey
-                ? "border border-yellow-400 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/20"
-                : "border border-white/10 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-100"
-            )}
-          >
-            <option value="" disabled>
-              Selecione seu bairro
-            </option>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={deliveryCep}
+            onChange={(event) => {
+              const digits = onlyDigits(event.target.value).slice(0, 8)
 
-            {neighborhoodOptions.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.neighborhood} • {formatPrice(option.fee)}
-              </option>
-            ))}
-          </select>
+              const formattedCep =
+                digits.length > 5
+                  ? `${digits.slice(0, 5)}-${digits.slice(5)}`
+                  : digits
 
-          {!selectedNeighborhoodKey ? (
-            <p className="mt-2 text-xs font-black text-yellow-300">
-              Campo obrigatório para calcular a entrega.
-            </p>
-          ) : selectedNeighborhoodOption ? (
-            <p className="mt-2 text-xs font-semibold text-emerald-400">
-              Taxa aplicada:{" "}
-              <span className="font-black">
-                {formatPrice(selectedNeighborhoodOption.fee)}
-              </span>
-            </p>
-          ) : null}
+              setDeliveryCep(formattedCep)
+              setCustomerAddress("")
+              setDeliveryNeighborhood("")
+              setDeliveryCity("")
+              setDeliveryState("")
+              setDeliveryDistanceKm(null)
+              setCalculatedDeliveryFee(null)
+              setDeliveryCalculationError("")
+            }}
+            placeholder="00000-000"
+            maxLength={9}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-bold uppercase text-zinc-500">
+            Número *
+          </label>
+
+          <input
+            type="text"
+            inputMode="numeric"
+            value={deliveryNumber}
+            onChange={(event) => {
+              setDeliveryNumber(event.target.value.slice(0, 20))
+              setDeliveryDistanceKm(null)
+              setCalculatedDeliveryFee(null)
+              setDeliveryCalculationError("")
+            }}
+            placeholder="123"
+            maxLength={20}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-bold uppercase text-zinc-500">
+          Complemento
+        </label>
+
+        <input
+          type="text"
+          value={deliveryComplement}
+          onChange={(event) => {
+            setDeliveryComplement(event.target.value.slice(0, 120))
+            setDeliveryDistanceKm(null)
+            setCalculatedDeliveryFee(null)
+            setDeliveryCalculationError("")
+          }}
+          placeholder="Apartamento, bloco, casa, referência..."
+          maxLength={120}
+          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+        />
+      </div>
+
+      {customerAddress && (
+        <div className="rounded-2xl border border-white/10 bg-[#111111] p-3">
+          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+            Endereço localizado
+          </p>
+
+          <p className="mt-1 text-sm font-black text-white">
+            {customerAddress}, Nº {deliveryNumber}
+          </p>
+
+          <p className="mt-1 text-xs font-semibold text-zinc-500">
+            {[deliveryNeighborhood, deliveryCity, deliveryState]
+              .filter(Boolean)
+              .join(" • ")}
+          </p>
         </div>
       )}
 
-      <div>
-        <label
-          className={cn(
-            "text-xs font-bold uppercase",
-            checkoutBlockedByNeighborhood ? "text-yellow-400" : "text-zinc-500"
-          )}
-        >
-          {hasNeighborhoodRules ? "Rua, número e complemento *" : "Endereço *"}
-        </label>
+      <button
+        type="button"
+        onClick={() => void calculateDelivery()}
+        disabled={
+          isCalculatingDelivery ||
+          onlyDigits(deliveryCep).length !== 8 ||
+          !deliveryNumber.trim()
+        }
+        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 py-3.5 text-sm font-black text-black shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500 disabled:shadow-none"
+      >
+        {isCalculatingDelivery ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Calculando entrega...
+          </>
+        ) : (
+          <>
+            <Truck className="h-4 w-4" />
+            Calcular entrega
+          </>
+        )}
+      </button>
 
-        <textarea
-          value={customerAddress}
-          onChange={(e) => setCustomerAddress(e.target.value)}
-          placeholder={
-            hasNeighborhoodRules
-              ? "Rua, número, complemento e referência"
-              : "Rua, número, bairro..."
-          }
-          rows={2}
-          className={cn(
-            "mt-2 w-full resize-none rounded-2xl bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:outline-none",
-            checkoutBlockedByNeighborhood
-              ? "border border-yellow-400/40 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/20"
-              : "border border-white/10 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-100"
-          )}
-        />
+      {deliveryCalculationError && (
+        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-3">
+          <p className="text-xs font-black text-red-400">
+            {deliveryCalculationError}
+          </p>
+        </div>
+      )}
 
-        <p className="mt-2 text-[11px] font-semibold text-zinc-500">
-          Esse endereço fica salvo somente para {restaurant.name}.
-        </p>
-      </div>
+      {calculatedDeliveryFee !== null &&
+        deliveryDistanceKm !== null &&
+        !deliveryCalculationError && (
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
+                  Distância da rota
+                </p>
+
+                <p className="mt-1 text-sm font-black text-white">
+                  {deliveryDistanceKm.toFixed(2).replace(".", ",")} km
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
+                  Taxa de entrega
+                </p>
+
+                <p className="mt-1 text-lg font-black text-emerald-400">
+                  {formatPrice(calculatedDeliveryFee)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+      <p className="text-[11px] font-semibold text-zinc-500">
+        A taxa é calculada pela rota entre o restaurante e o endereço informado.
+      </p>
     </div>
   </div>
 )}
@@ -5037,38 +5339,28 @@ const checkoutButtonDisabled =
               )}
 
               {isPixPayment && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (validateForm()) {
-                      setPixCardOpen(true)
-                    }
-                  }}
-                  className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-left transition-colors hover:bg-emerald-500/15"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                      <QrCode className="h-5 w-5" />
-                    </div>
+  <div className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-left">
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+        <QrCode className="h-5 w-5" />
+      </div>
 
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-white">
-                        {pixPayment ? "Comprovante Pix pendente" : "Pix selecionado"}
-                      </p>
+      <div className="min-w-0">
+        <p className="text-sm font-black text-white">
+          Pix selecionado
+        </p>
 
-                      <p className="truncate text-xs font-semibold text-emerald-400">
-                        {pixPayment
-                          ? "Toque para anexar o comprovante."
-                          : "Abra o QR Code e pague direto ao restaurante."}
-                      </p>
-                    </div>
-                  </div>
+        <p className="text-xs font-semibold leading-relaxed text-emerald-400">
+          Clique em “Pagar com Pix” para criar o pedido e visualizar o QR Code.
+        </p>
+      </div>
+    </div>
 
-                  <span className="shrink-0 rounded-full bg-[#0A0A0A] px-3 py-1 text-xs font-black text-emerald-400 ring-1 ring-emerald-400/20">
-                    Abrir
-                  </span>
-                </button>
-              )}
+    <span className="shrink-0 rounded-full bg-[#0A0A0A] px-3 py-1 text-xs font-black text-emerald-400 ring-1 ring-emerald-400/20">
+      Selecionado
+    </span>
+  </div>
+)}
 
               {whatsappUrl && (
                 <a
@@ -5097,23 +5389,29 @@ const checkoutButtonDisabled =
                   </div>
                 )}
 
-                {orderType === "delivery" && selectedNeighborhoodOption && (
-                  <div className="flex justify-between text-zinc-500">
-                    <span>Bairro</span>
-                    <span>{selectedNeighborhoodOption.neighborhood}</span>
-                  </div>
-                )}
+                {orderType === "delivery" &&
+  deliveryDistanceKm !== null &&
+  calculatedDeliveryFee !== null && (
+    <div className="flex justify-between text-zinc-500">
+      <span>Distância</span>
 
-                {orderType === "delivery" && (
-                  <div className="flex justify-between text-zinc-500">
-                    <span>Entrega</span>
-                    <span>
-                      {checkoutBlockedByNeighborhood
-                        ? "Selecione o bairro"
-                        : formatPrice(deliveryFee)}
-                    </span>
-                  </div>
-                )}
+      <span>
+        {deliveryDistanceKm.toFixed(2).replace(".", ",")} km
+      </span>
+    </div>
+  )}
+
+{orderType === "delivery" && (
+  <div className="flex justify-between text-zinc-500">
+    <span>Entrega</span>
+
+    <span>
+      {checkoutBlockedByDelivery
+        ? "Calcule a entrega"
+        : formatPrice(deliveryFee)}
+    </span>
+  </div>
+)}
 
                 {cashbackDiscount > 0 && (
                   <div className="flex justify-between font-bold text-emerald-400">
@@ -5135,17 +5433,25 @@ const checkoutButtonDisabled =
     return
   }
 
-  if (checkoutBlockedByNeighborhood) {
-    alert("Selecione seu bairro para calcular a taxa de entrega.")
+  if (checkoutBlockedByDelivery) {
+  if (isCalculatingDelivery) {
+    alert("Aguarde o cálculo da entrega.")
     return
   }
 
-  if (isPixPayment) {
-    if (validateForm()) {
-      setPixCardOpen(true)
-    }
+  if (deliveryCalculationError) {
+    alert(deliveryCalculationError)
     return
   }
+
+  alert("Informe o endereço e calcule a taxa de entrega.")
+  return
+}
+
+  if (isPixPayment) {
+  void createManualPixOrder()
+  return
+}
 
   if (isEfiPayment) {
     void createEfiPaymentOrder()
@@ -5395,7 +5701,7 @@ const checkoutButtonDisabled =
       </a>
     )}
   </div>
-      ) : !pixPayment ? (
+      ) : isPixPayment && pixPayment ? (
         <div className="pr-0">
           <div className="pr-10">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-400">
@@ -5927,9 +6233,23 @@ export default function CardapioPublicoPage() {
           setCustomerOrderHistory(data.orders)
         }
 
-        if (data.activeOrder && !tableNumber) {
-          setActiveOrder((current) => current ?? data.activeOrder)
-        }
+        if (!tableNumber) {
+  const activeOrderStorageKey = `clickfood_active_order_${restaurantId}`
+
+  if (data.activeOrder) {
+    const nextActiveOrder = data.activeOrder as CustomerVisibleOrder
+
+    setActiveOrder(nextActiveOrder)
+
+    window.localStorage.setItem(
+      activeOrderStorageKey,
+      JSON.stringify(nextActiveOrder)
+    )
+  } else {
+    setActiveOrder(null)
+    window.localStorage.removeItem(activeOrderStorageKey)
+  }
+}
       } catch {
         if (!cancelled) setCustomerCashback(null)
       }
@@ -6436,7 +6756,7 @@ const savePublicCustomer = async (customer: PublicCustomerProfile) => {
       phone: normalizedCustomer.phone,
       document: normalizedCustomer.document,
       address: normalizedCustomer.address?.customerAddress ?? null,
-      neighborhoodKey: normalizedCustomer.address?.selectedNeighborhoodKey ?? null,
+      neighborhoodKey: null,
     }),
   })
 
