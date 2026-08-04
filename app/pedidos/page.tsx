@@ -364,6 +364,22 @@ function getBoardStatus(status: string | null | undefined): BoardStatus | null {
   return null;
 }
 
+function isPdvOrder(order: Partial<OrderRow>) {
+  const source = normalizeStatus(order.order_source || order.source);
+
+  if (["pdv", "pos", "balcao", "balcão"].includes(source)) {
+    return true;
+  }
+
+  return normalizeStatus(order.notes)
+    .split(/\r?\n/)
+    .some((line) =>
+      ["pedido balcão", "pedido balcao", "pedido delivery"].includes(
+        line.trim(),
+      ),
+    );
+}
+
 function isOrderVisibleOnBoard(order: Partial<OrderRow>) {
   const pixWaiting = isPixWaitingOrder({
     payment_method: order.payment_method ?? null,
@@ -381,7 +397,7 @@ function isOrderVisibleOnBoard(order: Partial<OrderRow>) {
     .toLowerCase();
 
   if (paymentMethod === "pix" || paymentMethod === "efi_pix") {
-    return paymentStatus === "paid";
+    return paymentStatus === "paid" || isPdvOrder(order);
   }
 
   if (isManualPixMethod(paymentMethod)) {
