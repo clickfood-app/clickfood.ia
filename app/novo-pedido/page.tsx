@@ -25,7 +25,6 @@ import {
   Minus,
   Pencil,
   Plus,
-  Printer,
   Search,
   ShoppingCart,
   Trash2,
@@ -42,18 +41,6 @@ type DeliveryFeeRuleRow = {
   is_active: boolean | null;
   neighborhoods: string[] | null;
   sort_order: number | null;
-};
-
-type ProductsCatalogApiProduct = {
-  id: string;
-  category?: string | null;
-};
-
-type ProductsCatalogApiResponse = {
-  ok: boolean;
-  categories?: string[];
-  products?: ProductsCatalogApiProduct[];
-  error?: string;
 };
 
 type DeliveryNeighborhoodOption = {
@@ -492,68 +479,14 @@ export default function NovoPedidoPage() {
 
       setRestaurantId(restaurant.id);
 
-      const productsCatalogPromise = (async () => {
-        try {
-          const response = await fetch("/api/products", {
-  method: "GET",
-  cache: "no-store",
-});
-
-const contentType = response.headers.get("content-type") || "";
-const responseText = await response.text();
-
-if (!contentType.includes("application/json")) {
-  throw new Error(
-    `A rota /api/products retornou uma resposta inválida. Status: ${response.status}`,
-  );
-}
-
-let data: ProductsCatalogApiResponse;
-
-try {
-  data = JSON.parse(responseText) as ProductsCatalogApiResponse;
-} catch {
-  throw new Error(
-    "A rota /api/products não retornou um JSON válido.",
-  );
-}
-
-if (!response.ok || !data.ok) {
-  throw new Error(
-    data.error ||
-      "Não foi possível carregar o catálogo de produtos.",
-  );
-}
-
-return data;
-        } catch (error) {
-          console.error(
-            "Erro ao sincronizar categorias da aba de produtos:",
-            error,
-          );
-
-          return {
-            ok: false,
-            categories: [],
-            products: [],
-            error:
-              error instanceof Error
-                ? error.message
-                : "Erro ao carregar categorias.",
-          } satisfies ProductsCatalogApiResponse;
-        }
-      })();
-
       const [
         { data: productsData, error: productsError },
-        productsCatalog,
         { data: deliveryFeeRulesData, error: deliveryFeeRulesError },
       ] = await Promise.all([
         supabase
           .from("products")
           .select("*")
           .eq("restaurant_id", restaurant.id),
-        productsCatalogPromise,
         supabase
           .from("delivery_fee_rules")
           .select(
@@ -593,28 +526,6 @@ return data;
           ((deliveryFeeRulesData || []) as DeliveryFeeRuleRow[]) || [],
         ),
       );
-
-      const catalogProducts = Array.isArray(productsCatalog.products)
-        ? productsCatalog.products
-        : [];
-
-      const categoryNameByProductId = new Map(
-        catalogProducts
-          .map(
-            (product) =>
-              [
-                String(product.id || ""),
-                String(product.category || "").trim(),
-              ] as const,
-          )
-          .filter(([productId, categoryName]) => productId && categoryName),
-      );
-
-      const catalogCategoryNames = Array.isArray(productsCatalog.categories)
-        ? productsCatalog.categories
-            .map((categoryName) => String(categoryName || "").trim())
-            .filter(Boolean)
-        : [];
 
       const productRows = (
         (productsData || []) as Record<string, unknown>[]
@@ -881,10 +792,7 @@ return data;
             "category_title",
           ]);
 
-          const categoryName =
-            categoryNameByProductId.get(productId) ||
-            legacyCategoryName ||
-            "Sem categoria";
+          const categoryName = legacyCategoryName || "Sem categoria";
 
           const categoryId = getCategoryKey(categoryName);
 
@@ -939,7 +847,6 @@ return data;
 
       const categoryNames = Array.from(
         new Set([
-          ...catalogCategoryNames,
           ...availableProducts.map(
             (product) =>
               product.categoryName || "Sem categoria",
@@ -1561,53 +1468,9 @@ return data;
         throw itemsError;
       }
 
-      let printJobWarning: string | null = null;
-
-      try {
-        const {
-          data: printJobResult,
-          error: printJobError,
-        } = await supabase.rpc(
-          "create_order_print_job_for_order",
-          {
-            p_order_id: createdOrder.id,
-            p_force_reprint: false,
-          },
-        );
-
-        if (printJobError) {
-          throw printJobError;
-        }
-
-        const result = printJobResult as {
-          success?: boolean;
-          error?: string;
-        } | null;
-
-        if (result?.success === false) {
-          throw new Error(
-            result.error ||
-              "Erro ao criar job de impressão.",
-          );
-        }
-      } catch (printJobError) {
-        printJobWarning =
-          "Pedido criado, mas não foi possível enviar para a fila de impressão desktop.";
-
-        console.error(
-          "Pedido manual criado, mas impressão desktop não foi gerada:",
-          printJobError,
-        );
-      }
-
       toast({
         title: "Pedido criado com sucesso!",
-        description: printJobWarning
-          ? `Pedido #${createdOrder.public_order_number} foi salvo. ${printJobWarning}`
-          : `Pedido #${createdOrder.public_order_number} foi salvo e enviado para impressão.`,
-        variant: printJobWarning
-          ? "destructive"
-          : "default",
+        description: `Pedido #${createdOrder.public_order_number} foi salvo.`,
       });
 
       router.push("/pedidos");
@@ -2088,8 +1951,8 @@ return data;
                 </>
               ) : (
                 <>
-                  <Printer className="h-4 w-4" />
-                  Confirmar e imprimir
+                  <Check className="h-4 w-4" />
+                  Confirmar pedido
                 </>
               )}
             </button>
