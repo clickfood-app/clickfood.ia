@@ -191,9 +191,9 @@ const columnStyles = {
     title: "Em preparo",
     description: "Produção na cozinha",
     icon: ChefHat,
-    accent: "bg-blue-500",
-    border: "border-blue-200",
-    badge: "border-blue-200 bg-blue-50 text-blue-700",
+    accent: "bg-neutral-900",
+    border: "border-neutral-300",
+    badge: "border-neutral-300 bg-neutral-50 text-neutral-900",
     body: "bg-slate-50",
   },
   ready: {
@@ -608,8 +608,6 @@ function getOrderAddress(order: OrderRow) {
     "shipping_address",
   ]);
 
-  if (directAddress) return directAddress;
-
   const street = getOrderTextField(order, [
     "customer_street",
     "delivery_street",
@@ -638,9 +636,63 @@ function getOrderAddress(order: OrderRow) {
     "city",
   ]);
 
-  const mainAddress = [street, number].filter(Boolean).join(", ");
+  const state = getOrderTextField(order, [
+    "customer_state",
+    "delivery_state",
+    "state",
+    "uf",
+  ]);
 
-  const fullAddress = [mainAddress, neighborhood, complement, city]
+  const postalCode = getOrderTextField(order, [
+    "customer_postal_code",
+    "delivery_postal_code",
+    "postal_code",
+    "zip_code",
+    "zipcode",
+    "cep",
+  ]);
+
+  const reference = getOrderTextField(order, [
+    "customer_reference",
+    "delivery_reference",
+    "address_reference",
+    "reference",
+  ]);
+
+  const directAddressHasNumber =
+    directAddress &&
+    number &&
+    directAddress.toLocaleLowerCase("pt-BR").includes(
+      number.toLocaleLowerCase("pt-BR"),
+    );
+
+  const mainAddress = directAddress
+    ? [directAddress, directAddressHasNumber ? null : number]
+        .filter(Boolean)
+        .join(", ")
+    : [street, number].filter(Boolean).join(", ");
+
+  const normalizedMainAddress = mainAddress.toLocaleLowerCase("pt-BR");
+  const details: string[] = [];
+
+  const addDetail = (value: string | null, prefix = "") => {
+    if (!value) return;
+    if (normalizedMainAddress.includes(value.toLocaleLowerCase("pt-BR"))) {
+      return;
+    }
+
+    details.push(`${prefix}${value}`);
+  };
+
+  addDetail(neighborhood);
+  addDetail(complement);
+
+  const cityAndState = [city, state].filter(Boolean).join(" - ");
+  addDetail(cityAndState || null);
+  addDetail(postalCode, "CEP ");
+  addDetail(reference, "Ref.: ");
+
+  const fullAddress = [mainAddress, ...details]
     .filter(Boolean)
     .join(" · ");
 
@@ -682,11 +734,9 @@ function buildPrintNotes(order: OrderRow) {
 }
 
 function getAcceptDeadline(order: OrderRow) {
-  if (order.accept_by) return new Date(order.accept_by);
-
   const createdAt = new Date(order.created_at);
 
-  return new Date(createdAt.getTime() + 30 * 1000);
+  return new Date(createdAt.getTime() + 20 * 1000);
 }
 
 function getPreparationBaseTime(order: OrderRow) {
@@ -977,7 +1027,7 @@ function getOrderStatusBadgeClasses(
   }
 
   if (isPreparationStatus(status)) {
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-neutral-300 bg-neutral-50 text-neutral-900";
   }
 
   return "border-orange-200 bg-orange-50 text-orange-700";
@@ -1232,16 +1282,15 @@ type OrderCardProps = {
   onAccept: (order: OrderRow) => void;
   onCancel: (order: OrderRow) => void;
   onMarkReady: (order: OrderRow) => void;
-  onSendToRoute: (order: OrderRow) => void;
+  onSendToRoute: (
+    order: OrderRow,
+    deliveryPersonId: string,
+  ) => void;
   onFinish: (order: OrderRow) => void;
   onPrint: (
     order: OrderRow,
     items: OrderItem[],
     mode: ThermalPrintMode,
-  ) => void;
-  onAssignDeliveryPerson: (
-    orderId: string,
-    deliveryPersonId: string,
   ) => void;
 };
 
@@ -1260,17 +1309,29 @@ function OrderCard({
   onSendToRoute,
   onFinish,
   onPrint,
-  onAssignDeliveryPerson,
 }: OrderCardProps) {
   const isBusy = busyOrderId === order.id;
   const isDelivery = isDeliveryOrder(order);
   const isPixReview = isPixAwaitingReview(order);
   const deliveryAddress = getOrderAddress(order);
+  const neighborhood = getOrderNeighborhood(order);
   const customerCpf = getOrderCpf(order);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
+  const [selectedDeliveryPersonId, setSelectedDeliveryPersonId] = useState(
+    order.delivery_person_id || "",
+  );
 
   const acceptDeadline = getAcceptDeadline(order);
   const acceptRemainingMs = acceptDeadline.getTime() - nowMs;
+  const acceptRemainingSeconds = Math.max(
+    0,
+    Math.ceil(acceptRemainingMs / 1000),
+  );
+  const acceptDelaySeconds = Math.max(
+    0,
+    Math.floor(Math.abs(acceptRemainingMs) / 1000),
+  );
 
   const preparationDeadline = getPreparationDeadline(
     order,
@@ -1279,11 +1340,6 @@ function OrderCard({
 
   const preparationRemainingMs =
     preparationDeadline.getTime() - nowMs;
-
-  const deliveryPersonName = getDeliveryPersonName(
-    deliveryPeople,
-    order.delivery_person_id,
-  );
 
   const isLate =
     (status === "analysis" && acceptRemainingMs <= 0) ||
@@ -1307,9 +1363,7 @@ function OrderCard({
       ? "Aceitar pedido"
       : status === "preparation"
         ? "Marcar pronto"
-        : isDelivery
-          ? "Finalizar entrega"
-          : "Finalizar pedido";
+        : "Finalizar pedido";
 
   const handlePrimaryAction = () => {
     if (status === "analysis") {
@@ -1323,11 +1377,16 @@ function OrderCard({
     }
 
     if (isDelivery) {
-      onSendToRoute(order);
+      setDeliveryPickerOpen(true);
       return;
     }
 
     onFinish(order);
+  };
+
+  const handleFinishDelivery = () => {
+    onSendToRoute(order, selectedDeliveryPersonId);
+    setDeliveryPickerOpen(false);
   };
 
   const primaryActionDisabled =
@@ -1335,7 +1394,9 @@ function OrderCard({
 
   const elapsedLabel =
     status === "analysis"
-      ? `há ${formatElapsedTime(order.created_at, nowMs)}`
+      ? acceptRemainingMs > 0
+        ? `${acceptRemainingSeconds}s para aceitar`
+        : `atrasado há ${acceptDelaySeconds}s`
       : status === "preparation"
         ? preparationRemainingMs > 0
           ? `${Math.ceil(preparationRemainingMs / 60000)} min restantes`
@@ -1353,8 +1414,8 @@ function OrderCard({
         className={[
           "overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md",
           isLate
-            ? "border-red-300 ring-1 ring-red-100"
-            : "border-blue-100 hover:border-blue-300",
+            ? "border-red-500 !bg-red-50 ring-2 ring-red-200"
+            : "border-neutral-200 hover:border-neutral-400",
         ].join(" ")}
       >
         <div
@@ -1365,10 +1426,19 @@ function OrderCard({
               : status === "analysis"
                 ? "bg-[#f97316]"
                 : status === "preparation"
-                  ? "bg-[#2563eb]"
+                  ? "bg-[#111111]"
                   : "bg-emerald-500",
           ].join(" ")}
         />
+
+        {status === "analysis" && isLate && (
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-red-300 bg-red-100 px-3 py-2 text-red-700">
+            <Clock3 className="h-4 w-4 shrink-0" />
+            <p className="text-xs font-black uppercase tracking-wide">
+              Pedido atrasado · aguardando aceite
+            </p>
+          </div>
+        )}
 
         <div className="p-4">
           <div className="flex items-start justify-between gap-3">
@@ -1378,12 +1448,12 @@ function OrderCard({
                   #{getOrderNumber(order)}
                 </h3>
 
-                <span className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#111111]">
                   {getOrderTypeLabel(order)}
                 </span>
 
                 {isAiOrder && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#111111]">
                     <Bot className="h-3 w-3" />
                     IA
                   </span>
@@ -1397,6 +1467,27 @@ function OrderCard({
               <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
                 {getCustomerPhone(order)}
               </p>
+
+              {isDelivery ? (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#f97316]" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                      Endereço de entrega
+                    </p>
+                    <p className="mt-0.5 line-clamp-3 font-bold leading-relaxed">
+                      {deliveryAddress || "Endereço não informado"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                neighborhood && (
+                  <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold text-slate-600">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#f97316]" />
+                    <span className="truncate">{neighborhood}</span>
+                  </p>
+                )
+              )}
             </div>
 
             <div className="shrink-0 text-right">
@@ -1415,7 +1506,7 @@ function OrderCard({
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/40 px-3 py-2.5">
+          <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50/40 px-3 py-2.5">
             {previewItems.length > 0 ? (
               <div className="space-y-1.5">
                 {previewItems.map((item) => (
@@ -1424,7 +1515,7 @@ function OrderCard({
                     className="flex items-start justify-between gap-3 text-sm"
                   >
                     <p className="min-w-0 font-bold text-slate-700">
-                      <span className="font-black text-[#2563eb]">
+                      <span className="font-black text-[#111111]">
                         {item.quantity}x
                       </span>{" "}
                       {item.name}
@@ -1452,7 +1543,7 @@ function OrderCard({
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-blue-100 pb-3">
+          <div className="mt-3 border-b border-neutral-200 pb-3">
             <div>
               <p className="text-xs font-black text-slate-800">
                 {getPaymentLabel(order.payment_method)}
@@ -1462,14 +1553,6 @@ function OrderCard({
                 {getPaymentStatusLabel(order.payment_status)}
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setDetailsOpen(true)}
-              className="text-xs font-black text-[#2563eb] transition hover:text-[#1d4ed8]"
-            >
-              Ver detalhes
-            </button>
           </div>
 
           {isPixReview && status === "analysis" && (
@@ -1498,52 +1581,17 @@ function OrderCard({
             </div>
           )}
 
-          {isDelivery && (
-            <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50/40 p-3">
-              <label
-                htmlFor={`delivery-person-${order.id}`}
-                className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-[#2563eb]"
-              >
-                Motoboy opcional
-              </label>
+          <div className="mt-4 grid grid-cols-[auto_minmax(0,0.8fr)_minmax(0,1.2fr)] gap-2">
+            <button
+              type="button"
+              onClick={() => onPrint(order, items, "receipt")}
+              title="Imprimir pedido"
+              aria-label="Imprimir pedido"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 bg-white text-[#111111] transition hover:border-neutral-400 hover:bg-neutral-50"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
 
-              <select
-                id={`delivery-person-${order.id}`}
-                value={order.delivery_person_id || ""}
-                onChange={(event) =>
-                  onAssignDeliveryPerson(
-                    order.id,
-                    event.target.value,
-                  )
-                }
-                disabled={
-                  isBusy || deliveryPeople.length === 0
-                }
-                className="h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-              >
-                <option value="">
-                  {deliveryPeople.length === 0
-                    ? "Nenhum motoboy cadastrado"
-                    : "Selecionar motoboy"}
-                </option>
-
-                {deliveryPeople.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                    {person.phone ? ` · ${person.phone}` : ""}
-                  </option>
-                ))}
-              </select>
-
-              {deliveryPersonName && (
-                <p className="mt-1.5 text-xs font-semibold text-slate-500">
-                  Selecionado: {deliveryPersonName}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="mt-4 grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-2">
             <button
               type="button"
               onClick={() => onCancel(order)}
@@ -1555,7 +1603,7 @@ function OrderCard({
             </button>
 
             {status === "preparation" && kdsEnabled ? (
-              <div className="inline-flex h-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 px-3 text-sm font-black text-[#2563eb]">
+              <div className="inline-flex h-11 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm font-black text-[#111111]">
                 KDS controla o preparo
               </div>
             ) : (
@@ -1563,7 +1611,7 @@ function OrderCard({
                 type="button"
                 onClick={handlePrimaryAction}
                 disabled={primaryActionDisabled}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#111111] px-3 text-sm font-black text-white transition hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1577,6 +1625,73 @@ function OrderCard({
               </button>
             )}
           </div>
+
+          {status === "ready" && isDelivery && deliveryPickerOpen && (
+            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm">
+                  <Truck className="h-4 w-4" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-slate-900">
+                    Quem fará a entrega?
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-500">
+                    Selecione o motoboy antes de concluir.
+                  </p>
+                </div>
+              </div>
+
+              <select
+                value={selectedDeliveryPersonId}
+                onChange={(event) =>
+                  setSelectedDeliveryPersonId(event.target.value)
+                }
+                disabled={isBusy || deliveryPeople.length === 0}
+                className="mt-2.5 h-9 w-full rounded-lg border border-emerald-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                aria-label="Selecionar motoboy"
+              >
+                <option value="">
+                  {deliveryPeople.length === 0
+                    ? "Nenhum motoboy cadastrado"
+                    : "Selecione um motoboy"}
+                </option>
+
+                {deliveryPeople.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                    {person.phone ? ` · ${person.phone}` : ""}
+                  </option>
+                ))}
+              </select>
+
+              <div className="mt-2.5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryPickerOpen(false)}
+                  disabled={isBusy}
+                  className="h-8 px-2 text-xs font-black text-slate-500 transition hover:text-slate-900 disabled:opacity-50"
+                >
+                  Voltar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleFinishDelivery}
+                  disabled={isBusy || !selectedDeliveryPersonId}
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  Confirmar finalização
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </article>
 
@@ -1589,10 +1704,10 @@ function OrderCard({
               aria-hidden="true"
             />
 
-            <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-2xl">
-              <div className="flex items-start justify-between gap-3 border-b border-blue-100 px-4 py-4">
+            <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
+              <div className="flex items-start justify-between gap-3 border-b border-neutral-200 px-4 py-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#111111]">
                     Pedido #{getOrderNumber(order)}
                   </p>
 
@@ -1609,17 +1724,17 @@ function OrderCard({
                 <button
                   type="button"
                   onClick={() => setDetailsOpen(false)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-[#2563eb] transition hover:border-blue-200 hover:bg-blue-100"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-200"
                   aria-label="Fechar detalhes"
                 >
                   <XCircle className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f5f7fb] p-4">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f5f5f5] p-4">
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-blue-100 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                       Pagamento
                     </p>
 
@@ -1634,8 +1749,8 @@ function OrderCard({
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-blue-100 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                       Tipo
                     </p>
 
@@ -1644,8 +1759,8 @@ function OrderCard({
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-blue-100 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                       Total
                     </p>
 
@@ -1670,8 +1785,8 @@ function OrderCard({
                 )}
 
                 {(deliveryAddress || customerCpf) && (
-                  <div className="rounded-xl border border-blue-100 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                       Cliente e entrega
                     </p>
 
@@ -1710,9 +1825,9 @@ function OrderCard({
                   </div>
                 )}
 
-                <div className="rounded-xl border border-blue-100 bg-white p-3">
+                <div className="rounded-xl border border-neutral-200 bg-white p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                       Itens
                     </p>
 
@@ -1722,7 +1837,7 @@ function OrderCard({
                   </div>
 
                   {items.length > 0 ? (
-                    <div className="divide-y divide-blue-100">
+                    <div className="divide-y divide-neutral-200">
                       {items.map((item) => (
                         <div
                           key={item.id}
@@ -1731,7 +1846,7 @@ function OrderCard({
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="text-sm font-black text-slate-900">
-                                <span className="text-[#2563eb]">
+                                <span className="text-[#111111]">
                                   {item.quantity}x
                                 </span>{" "}
                                 {item.name}
@@ -1774,21 +1889,21 @@ function OrderCard({
                       ))}
                     </div>
                   ) : (
-                    <p className="rounded-lg border border-dashed border-blue-100 p-3 text-sm text-slate-500">
+                    <p className="rounded-lg border border-dashed border-neutral-200 p-3 text-sm text-slate-500">
                       Itens do pedido não carregados.
                     </p>
                   )}
                 </div>
 
                 {(cleanOrderNote || isAiOrder) && (
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                  <div className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                       {isAiOrder ? "Origem" : "Observação"}
                     </p>
 
                     <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold leading-relaxed text-slate-600">
                       {isAiOrder && (
-                        <Bot className="h-4 w-4 text-[#2563eb]" />
+                        <Bot className="h-4 w-4 text-[#111111]" />
                       )}
 
                       {isAiOrder
@@ -1798,56 +1913,9 @@ function OrderCard({
                   </div>
                 )}
 
-                {isDelivery && (
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
-                        Motoboy opcional
-                      </p>
-
-                      {deliveryPersonName && (
-                        <span className="text-xs font-black text-slate-700">
-                          {deliveryPersonName}
-                        </span>
-                      )}
-                    </div>
-
-                    <select
-                      value={order.delivery_person_id || ""}
-                      onChange={(event) =>
-                        onAssignDeliveryPerson(
-                          order.id,
-                          event.target.value,
-                        )
-                      }
-                      disabled={
-                        isBusy || deliveryPeople.length === 0
-                      }
-                      className="h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                    >
-                      <option value="">
-                        {deliveryPeople.length === 0
-                          ? "Nenhum motoboy cadastrado"
-                          : "Selecionar motoboy"}
-                      </option>
-
-                      {deliveryPeople.map((person) => (
-                        <option
-                          key={person.id}
-                          value={person.id}
-                        >
-                          {person.name}
-                          {person.phone
-                            ? ` · ${person.phone}`
-                            : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
 
-              <div className="border-t border-blue-100 bg-white p-3">
+              <div className="border-t border-neutral-200 bg-white p-3">
                 <div className="grid grid-cols-2 gap-2 sm:flex">
                   {status !== "analysis" && (
                     <button
@@ -1855,7 +1923,7 @@ function OrderCard({
                       onClick={() =>
                         onPrint(order, items, "kitchen")
                       }
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white px-3 text-xs font-black text-[#2563eb] transition hover:bg-blue-50"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
                     >
                       <ChefHat className="h-4 w-4" />
                       Cozinha
@@ -1867,7 +1935,7 @@ function OrderCard({
                     onClick={() =>
                       onPrint(order, items, "receipt")
                     }
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white px-3 text-xs font-black text-[#2563eb] transition hover:bg-blue-50"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
                   >
                     <Printer className="h-4 w-4" />
                     Recibo
@@ -1887,7 +1955,7 @@ function OrderCard({
                   </button>
 
                   {status === "preparation" && kdsEnabled ? (
-                    <div className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 px-3 text-xs font-black text-[#2563eb]">
+                    <div className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs font-black text-[#111111]">
                       KDS controlando
                     </div>
                   ) : (
@@ -1898,7 +1966,7 @@ function OrderCard({
                         setDetailsOpen(false);
                       }}
                       disabled={primaryActionDisabled}
-                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-3 text-xs font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#111111] px-3 text-xs font-black text-white transition hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isBusy ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1933,16 +2001,15 @@ type BoardColumnProps = {
   onAccept: (order: OrderRow) => void;
   onCancel: (order: OrderRow) => void;
   onMarkReady: (order: OrderRow) => void;
-  onSendToRoute: (order: OrderRow) => void;
+  onSendToRoute: (
+    order: OrderRow,
+    deliveryPersonId: string,
+  ) => void;
   onFinish: (order: OrderRow) => void;
   onPrint: (
     order: OrderRow,
     items: OrderItem[],
     mode: ThermalPrintMode,
-  ) => void;
-  onAssignDeliveryPerson: (
-    orderId: string,
-    deliveryPersonId: string,
   ) => void;
 };
 function BoardColumn({
@@ -1960,14 +2027,13 @@ function BoardColumn({
   onSendToRoute,
   onFinish,
   onPrint,
-  onAssignDeliveryPerson,
 }: BoardColumnProps) {
   const styles = columnStyles[status]
   const Icon = styles.icon as typeof Clock3
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm">
-      <div className="border-b border-blue-100 bg-white px-4 py-3.5">
+    <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <div className="border-b border-neutral-200 bg-white px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span
@@ -1997,9 +2063,9 @@ function BoardColumn({
         className={`${styles.body} min-h-[calc(100vh-250px)] space-y-3 p-3`}
       >
         {orders.length === 0 ? (
-          <div className="flex min-h-[165px] items-center justify-center rounded-xl border border-dashed border-blue-200 bg-white p-5 text-center">
+          <div className="flex min-h-[165px] items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white p-5 text-center">
             <div>
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[#2563eb]">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-[#111111]">
                 <Icon className="h-5 w-5" />
               </div>
 
@@ -2030,7 +2096,6 @@ function BoardColumn({
               onSendToRoute={onSendToRoute}
               onFinish={onFinish}
               onPrint={onPrint}
-              onAssignDeliveryPerson={onAssignDeliveryPerson}
             />
           ))
         )}
@@ -3001,53 +3066,6 @@ export default function PedidosPage() {
     ]);
   }
 
-  async function assignDeliveryPerson(
-    orderId: string,
-    deliveryPersonId: string,
-  ) {
-    const previousOrders = orders;
-
-    try {
-      setBusyOrderId(orderId);
-      setError(null);
-
-      const session = await ensureSupabaseSession();
-
-      if (!session) {
-        throw new Error(
-          "Sessão expirada. Entre novamente para vincular o motoboy.",
-        );
-      }
-
-      setOrders((current) =>
-        current.map((order) =>
-          order.id === orderId
-            ? {
-                ...order,
-                delivery_person_id: deliveryPersonId || null,
-              }
-            : order,
-        ),
-      );
-
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          delivery_person_id: deliveryPersonId || null,
-        })
-        .eq("id", orderId)
-        .eq("restaurant_id", restaurant?.id);
-
-      if (error) throw error;
-    } catch (err) {
-      console.error("Erro ao vincular entregador:", err);
-      setOrders(previousOrders);
-      setError(getErrorMessage(err, "Erro ao vincular entregador."));
-    } finally {
-      setBusyOrderId(null);
-    }
-  }
-
   async function registerLoyaltyOrder(orderId: string) {
     const session = await ensureSupabaseSession();
 
@@ -3057,7 +3075,8 @@ export default function PedidosPage() {
       );
     }
 
-    const response = await fetch("/api/loyalty/register-order", {
+    const loyaltyRoute = "/api/loyalty/register-order";
+    const response = await fetch(loyaltyRoute, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -3068,10 +3087,34 @@ export default function PedidosPage() {
       }),
     });
 
-    const result = await response.json().catch(() => null);
+    const responseContentType = response.headers.get("content-type") || "";
+    const responseText = await response.text();
+    let result: { success?: boolean; error?: string } | null = null;
+
+    if (responseText) {
+      if (!responseContentType.toLowerCase().includes("application/json")) {
+        throw new Error(
+          `A rota ${loyaltyRoute} retornou HTTP ${response.status} em vez de JSON. Verifique se essa API existe no projeto.`,
+        );
+      }
+
+      try {
+        result = JSON.parse(responseText) as {
+          success?: boolean;
+          error?: string;
+        };
+      } catch {
+        throw new Error(
+          `A rota ${loyaltyRoute} retornou um JSON inválido (HTTP ${response.status}).`,
+        );
+      }
+    }
 
     if (!response.ok || result?.success === false) {
-      throw new Error(result?.error || "Erro ao registrar fidelidade.");
+      throw new Error(
+        result?.error ||
+          `Erro ao registrar fidelidade (HTTP ${response.status}).`,
+      );
     }
 
     return result;
@@ -3204,6 +3247,7 @@ export default function PedidosPage() {
   async function updateOrder(
     order: OrderRow,
     action: "accept" | "cancel" | "ready" | "route" | "finish",
+    deliveryPersonId = "",
   ) {
     const previousOrders = orders;
     const nowIso = new Date().toISOString();
@@ -3257,6 +3301,7 @@ export default function PedidosPage() {
         payload = {
           status: "delivered",
           payment_status: "paid",
+          delivery_person_id: deliveryPersonId || null,
           out_for_delivery_at: order.out_for_delivery_at || nowIso,
           delivered_at: nowIso,
         };
@@ -3777,20 +3822,20 @@ export default function PedidosPage() {
       title="Pedidos"
       description="Central operacional do restaurante"
     >
-      <div className="min-h-[calc(100vh-90px)] bg-[#f5f7fb] p-2 sm:p-4">
+      <div className="min-h-[calc(100vh-90px)] bg-[#f5f5f5] p-2 sm:p-4">
         <div className="flex flex-col gap-4">
-          <div className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm sm:p-4">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-4">
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-                <div className="flex shrink-0 rounded-xl border border-blue-700 bg-[#2563eb] p-1">
+                <div className="flex shrink-0 rounded-xl border border-neutral-900 bg-[#111111] p-1">
                   <button
                     type="button"
                     onClick={() => setActiveView("operation")}
                     className={[
                       "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition",
                       activeView === "operation"
-                        ? "bg-white text-[#2563eb] shadow-sm"
-                        : "text-blue-100 hover:bg-white/10 hover:text-white",
+                        ? "bg-white text-[#111111] shadow-sm"
+                        : "text-neutral-200 hover:bg-white/10 hover:text-white",
                     ].join(" ")}
                   >
                     <Package className="h-4 w-4" />
@@ -3803,8 +3848,8 @@ export default function PedidosPage() {
                     className={[
                       "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition",
                       activeView === "history"
-                        ? "bg-white text-[#2563eb] shadow-sm"
-                        : "text-blue-100 hover:bg-white/10 hover:text-white",
+                        ? "bg-white text-[#111111] shadow-sm"
+                        : "text-neutral-200 hover:bg-white/10 hover:text-white",
                     ].join(" ")}
                   >
                     <History className="h-4 w-4" />
@@ -3819,7 +3864,7 @@ export default function PedidosPage() {
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Buscar cliente, telefone ou pedido..."
-                      className="h-11 w-full rounded-xl border border-blue-100 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                      className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                     />
                   </div>
                 )}
@@ -3846,7 +3891,7 @@ export default function PedidosPage() {
                         ? void refreshAll()
                         : void loadHistoryOrders(true)
                     }
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white px-3 text-sm font-black text-[#2563eb] transition hover:border-blue-200 hover:bg-blue-50"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-black text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-50"
                   >
                     {refreshing || historyRefreshing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -3871,7 +3916,7 @@ export default function PedidosPage() {
                         "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-black transition",
                         orderAlertsEnabled
                           ? "border-[#f97316] bg-[#f97316] text-white hover:border-[#ea580c] hover:bg-[#ea580c]"
-                          : "border-blue-100 bg-white text-[#2563eb] hover:border-blue-200 hover:bg-blue-50",
+                          : "border-neutral-200 bg-white text-[#111111] hover:border-neutral-300 hover:bg-neutral-50",
                       ].join(" ")}
                       title={
                         notificationPermission === "denied"
@@ -3892,16 +3937,16 @@ export default function PedidosPage() {
 
                   {activeView === "operation" && (
                     <details className="relative z-30">
-                      <summary className="inline-flex h-10 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white px-3 text-sm font-black text-[#2563eb] transition hover:border-blue-200 hover:bg-blue-50 [&::-webkit-details-marker]:hidden">
+                      <summary className="inline-flex h-10 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-black text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-50 [&::-webkit-details-marker]:hidden">
                         <Settings2 className="h-4 w-4" />
                         <span className="hidden sm:inline">Ajustes</span>
                       </summary>
 
-                      <div className="absolute right-0 top-12 w-[min(340px,calc(100vw-2rem))] rounded-2xl border border-blue-100 bg-white p-3 shadow-xl">
+                      <div className="absolute right-0 top-12 w-[min(340px,calc(100vw-2rem))] rounded-2xl border border-neutral-200 bg-white p-3 shadow-xl">
                         <div>
                           <label
                             htmlFor="average-prep-time"
-                            className="text-[11px] font-black uppercase tracking-wide text-[#2563eb]"
+                            className="text-[11px] font-black uppercase tracking-wide text-[#111111]"
                           >
                             Tempo médio de preparo
                           </label>
@@ -3916,7 +3961,7 @@ export default function PedidosPage() {
                                 )
                               }
                               disabled={savingPrepTime}
-                              className="h-10 flex-1 rounded-xl border border-blue-100 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                              className="h-10 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                             >
                               <option value={10}>10 min</option>
                               <option value={15}>15 min</option>
@@ -3931,7 +3976,7 @@ export default function PedidosPage() {
                             </select>
 
                             {savingPrepTime && (
-                              <Loader2 className="h-4 w-4 animate-spin text-[#2563eb]" />
+                              <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
                             )}
                           </div>
                         </div>
@@ -3939,7 +3984,7 @@ export default function PedidosPage() {
                         <button
                           type="button"
                           onClick={toggleKdsEnabled}
-                          className="mt-3 flex w-full items-center justify-between rounded-xl border border-blue-100 px-3 py-2.5 text-left transition hover:bg-blue-50"
+                          className="mt-3 flex w-full items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5 text-left transition hover:bg-neutral-50"
                         >
                           <div>
                             <p className="text-sm font-black text-slate-900">
@@ -3958,7 +4003,7 @@ export default function PedidosPage() {
                               "rounded-full px-2 py-1 text-[10px] font-black uppercase",
                               kdsEnabled
                                 ? "bg-emerald-100 text-emerald-700"
-                                : "bg-blue-50 text-[#2563eb]",
+                                : "bg-neutral-50 text-[#111111]",
                             ].join(" ")}
                           >
                             {kdsEnabled ? "Ativo" : "Inativo"}
@@ -3971,7 +4016,7 @@ export default function PedidosPage() {
                             void updateAutoAcceptOrders(!autoAcceptOrders)
                           }
                           disabled={savingAutoAcceptOrders}
-                          className="mt-2 flex w-full items-center justify-between rounded-xl border border-blue-100 px-3 py-2.5 text-left transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="mt-2 flex w-full items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5 text-left transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <div>
                             <p className="text-sm font-black text-slate-900">
@@ -3984,14 +4029,14 @@ export default function PedidosPage() {
                           </div>
 
                           {savingAutoAcceptOrders ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-[#2563eb]" />
+                            <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
                           ) : (
                             <span
                               className={[
                                 "rounded-full px-2 py-1 text-[10px] font-black uppercase",
                                 autoAcceptOrders
                                   ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-blue-50 text-[#2563eb]",
+                                  : "bg-neutral-50 text-[#111111]",
                               ].join(" ")}
                             >
                               {autoAcceptOrders ? "Ativo" : "Inativo"}
@@ -4005,8 +4050,8 @@ export default function PedidosPage() {
               </div>
 
               {activeView === "operation" && filteredOrders.length > 0 && (
-                <details className="rounded-xl border border-blue-100 bg-blue-50/50">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 transition hover:bg-blue-50 [&::-webkit-details-marker]:hidden">
+                <details className="rounded-xl border border-neutral-200 bg-neutral-50/50">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 transition hover:bg-neutral-50 [&::-webkit-details-marker]:hidden">
                     <div>
                       <p className="text-sm font-black text-slate-900">
                         Impressão em lote
@@ -4019,10 +4064,10 @@ export default function PedidosPage() {
                       </p>
                     </div>
 
-                    <Printer className="h-4 w-4 text-[#2563eb]" />
+                    <Printer className="h-4 w-4 text-[#111111]" />
                   </summary>
 
-                  <div className="flex flex-wrap gap-2 border-t border-blue-100 bg-white p-3">
+                  <div className="flex flex-wrap gap-2 border-t border-neutral-200 bg-white p-3">
                     <button
                       type="button"
                       onClick={() =>
@@ -4030,7 +4075,7 @@ export default function PedidosPage() {
                           filteredOrders.map((order) => order.id),
                         )
                       }
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-blue-100 bg-white px-3 text-xs font-black text-[#2563eb] transition hover:border-blue-200 hover:bg-blue-50"
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-50"
                     >
                       Selecionar todos
                     </button>
@@ -4039,7 +4084,7 @@ export default function PedidosPage() {
                       type="button"
                       onClick={() => handlePrintSelectedOrders("kitchen")}
                       disabled={selectedVisibleOrders.length === 0}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-3 text-xs font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-45"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#111111] px-3 text-xs font-black text-white transition hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <ChefHat className="h-4 w-4" />
                       Cozinha ({selectedVisibleOrders.length})
@@ -4079,7 +4124,7 @@ export default function PedidosPage() {
                           setHistorySearch(event.target.value)
                         }
                         placeholder="Buscar pedido, cliente, bairro ou item..."
-                        className="h-10 w-full rounded-xl border border-blue-100 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-600 focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                        className="h-10 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-600 focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                       />
                     </div>
 
@@ -4089,7 +4134,7 @@ export default function PedidosPage() {
                       onChange={(event) =>
                         updateHistoryFilter({ dateFrom: event.target.value })
                       }
-                      className="h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                     />
 
                     <input
@@ -4098,7 +4143,7 @@ export default function PedidosPage() {
                       onChange={(event) =>
                         updateHistoryFilter({ dateTo: event.target.value })
                       }
-                      className="h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                     />
 
                     <select
@@ -4108,7 +4153,7 @@ export default function PedidosPage() {
                           status: event.target.value as HistoryStatusFilter,
                         })
                       }
-                      className="h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                     >
                       <option value="all">Todos status</option>
                       <option value="open">Em aberto</option>
@@ -4124,7 +4169,7 @@ export default function PedidosPage() {
                             .value as HistoryPaymentStatusFilter,
                         })
                       }
-                      className="h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                     >
                       <option value="all">Todos pagamentos</option>
                       <option value="paid">Pago</option>
@@ -4139,7 +4184,7 @@ export default function PedidosPage() {
                           deliveryPersonId: event.target.value,
                         })
                       }
-                      className="h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
                     >
                       <option value="all">Todos motoboys</option>
 
@@ -4155,7 +4200,7 @@ export default function PedidosPage() {
                     <button
                       type="button"
                       onClick={setHistoryToday}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-blue-100 bg-white px-3 text-xs font-black text-[#2563eb] transition hover:bg-blue-50"
+                      className="inline-flex h-8 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
                     >
                       Hoje
                     </button>
@@ -4163,7 +4208,7 @@ export default function PedidosPage() {
                     <button
                       type="button"
                       onClick={setHistoryYesterday}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-blue-100 bg-white px-3 text-xs font-black text-[#2563eb] transition hover:bg-blue-50"
+                      className="inline-flex h-8 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
                     >
                       Ontem
                     </button>
@@ -4171,7 +4216,7 @@ export default function PedidosPage() {
                     <button
                       type="button"
                       onClick={setHistoryLastSevenDays}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-blue-100 bg-white px-3 text-xs font-black text-[#2563eb] transition hover:bg-blue-50"
+                      className="inline-flex h-8 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
                     >
                       7 dias
                     </button>
@@ -4186,8 +4231,8 @@ export default function PedidosPage() {
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                    <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                         Pedidos
                       </p>
 
@@ -4196,8 +4241,8 @@ export default function PedidosPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                         Total vendido
                       </p>
 
@@ -4206,8 +4251,8 @@ export default function PedidosPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-[#2563eb]">
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
                         Taxas de entrega
                       </p>
 
@@ -4247,8 +4292,8 @@ export default function PedidosPage() {
                         className={[
                           "rounded-full border px-3 py-1.5 text-xs font-black transition",
                           historyFilters.paymentMethod === "all"
-                            ? "border-[#2563eb] bg-[#2563eb] text-white"
-                            : "border-blue-100 bg-white text-slate-500 hover:bg-blue-50 hover:text-[#2563eb]",
+                            ? "border-[#111111] bg-[#111111] text-white"
+                            : "border-neutral-200 bg-white text-slate-500 hover:bg-neutral-50 hover:text-[#111111]",
                         ].join(" ")}
                       >
                         Todos
@@ -4264,8 +4309,8 @@ export default function PedidosPage() {
                           className={[
                             "rounded-full border px-3 py-1.5 text-xs font-black transition",
                             historyFilters.paymentMethod === method
-                              ? "border-[#2563eb] bg-[#2563eb] text-white"
-                              : "border-blue-100 bg-white text-slate-500 hover:bg-blue-50 hover:text-[#2563eb]",
+                              ? "border-[#111111] bg-[#111111] text-white"
+                              : "border-neutral-200 bg-white text-slate-500 hover:bg-neutral-50 hover:text-[#111111]",
                           ].join(" ")}
                         >
                           {getPaymentLabel(method)}
@@ -4318,9 +4363,9 @@ export default function PedidosPage() {
           </div>
                     {activeView === "operation" ? (
             loading ? (
-              <div className="flex items-center justify-center rounded-2xl border border-blue-100 bg-white py-20 shadow-sm">
+              <div className="flex items-center justify-center rounded-2xl border border-neutral-200 bg-white py-20 shadow-sm">
                 <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin text-[#2563eb]" />
+                  <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
                   Carregando operação...
                 </div>
               </div>
@@ -4339,12 +4384,11 @@ export default function PedidosPage() {
                     onAccept={(order) => void updateOrder(order, "accept")}
                     onCancel={(order) => void updateOrder(order, "cancel")}
                     onMarkReady={(order) => void updateOrder(order, "ready")}
-                    onSendToRoute={(order) => void updateOrder(order, "route")}
+                    onSendToRoute={(order, deliveryPersonId) =>
+                      void updateOrder(order, "route", deliveryPersonId)
+                    }
                     onFinish={(order) => void updateOrder(order, "finish")}
                     onPrint={handlePrintOrder}
-                    onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                      void assignDeliveryPerson(orderId, deliveryPersonId)
-                    }
                   />
 
                   <BoardColumn
@@ -4359,12 +4403,11 @@ export default function PedidosPage() {
                     onAccept={(order) => void updateOrder(order, "accept")}
                     onCancel={(order) => void updateOrder(order, "cancel")}
                     onMarkReady={(order) => void updateOrder(order, "ready")}
-                    onSendToRoute={(order) => void updateOrder(order, "route")}
+                    onSendToRoute={(order, deliveryPersonId) =>
+                      void updateOrder(order, "route", deliveryPersonId)
+                    }
                     onFinish={(order) => void updateOrder(order, "finish")}
                     onPrint={handlePrintOrder}
-                    onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                      void assignDeliveryPerson(orderId, deliveryPersonId)
-                    }
                   />
 
                   <BoardColumn
@@ -4379,29 +4422,28 @@ export default function PedidosPage() {
                     onAccept={(order) => void updateOrder(order, "accept")}
                     onCancel={(order) => void updateOrder(order, "cancel")}
                     onMarkReady={(order) => void updateOrder(order, "ready")}
-                    onSendToRoute={(order) => void updateOrder(order, "route")}
+                    onSendToRoute={(order, deliveryPersonId) =>
+                      void updateOrder(order, "route", deliveryPersonId)
+                    }
                     onFinish={(order) => void updateOrder(order, "finish")}
                     onPrint={handlePrintOrder}
-                    onAssignDeliveryPerson={(orderId, deliveryPersonId) =>
-                      void assignDeliveryPerson(orderId, deliveryPersonId)
-                    }
                   />
                 </div>
               </div>
             )
           ) : (
-            <div className="rounded-2xl border border-blue-100 bg-white shadow-sm">
+            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
               {historyLoading ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin text-[#2563eb]" />
+                    <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
                     Carregando histórico...
                   </div>
                 </div>
               ) : filteredHistoryOrders.length === 0 ? (
                 <div className="flex items-center justify-center py-20 text-center">
                   <div>
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-100 bg-white text-slate-500">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-slate-500">
                       <History className="h-6 w-6" />
                     </div>
 
@@ -4426,7 +4468,7 @@ export default function PedidosPage() {
                     </colgroup>
 
                     <thead>
-                      <tr className="border-b border-blue-100 bg-white">
+                      <tr className="border-b border-neutral-200 bg-white">
                         <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">
                           Pedido / Cliente
                         </th>
@@ -4463,10 +4505,10 @@ export default function PedidosPage() {
                         return (
                           <tr
                             key={order.id}
-                            className="border-b border-blue-100 last:border-0 transition hover:bg-[#f5f7fb]"
+                            className="border-b border-neutral-200 last:border-0 transition hover:bg-[#f5f5f5]"
                           >
                             <td className="px-2.5 py-2 align-top">
-                              <p className="truncate text-xs font-black text-[#2563eb]">
+                              <p className="truncate text-xs font-black text-[#111111]">
                                 #{getOrderNumber(order)}
                               </p>
 
@@ -4542,7 +4584,7 @@ export default function PedidosPage() {
                               <button
                                 type="button"
                                 onClick={() => setSelectedHistoryOrder(order)}
-                                className="mt-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md border border-blue-100 bg-white text-[#2563eb] transition hover:border-blue-300 hover:bg-blue-50"
+                                className="mt-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md border border-neutral-200 bg-white text-[#111111] transition hover:border-neutral-400 hover:bg-neutral-50"
                                 aria-label={`Ver histórico do pedido ${getOrderNumber(order)}`}
                               >
                                 <Eye className="h-3 w-3" />

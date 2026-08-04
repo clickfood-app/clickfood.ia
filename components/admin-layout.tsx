@@ -325,13 +325,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           isCollapsed && "md:ml-[72px] md:w-[calc(100%-72px)]",
         )}
       >
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm shadow-slate-200/70 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-black/95 shadow-sm shadow-black/30 backdrop-blur-xl">
           <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={toggleMobileSidebar}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-[#2563eb] transition hover:border-[#f97316] hover:bg-[#f97316] hover:text-white md:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-black text-white transition hover:bg-white hover:text-black md:hidden"
                 aria-label="Abrir menu"
               >
                 <Menu className="h-5 w-5" />
@@ -340,20 +340,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               <div className="hidden min-w-0 items-center gap-2 sm:flex">
                 <Link
                   href="/pedidos"
-                  className="text-sm font-bold text-[#2563eb] transition hover:text-[#f97316]"
+                  className="text-sm font-bold text-white transition hover:text-slate-300"
                 >
                   Painel
                 </Link>
 
-                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <ChevronRight className="h-4 w-4 text-slate-500" />
 
-                <span className="truncate text-sm font-black text-slate-900">
+                <span className="truncate text-sm font-black text-white">
                   {currentPage}
                 </span>
               </div>
 
               <div className="min-w-0 sm:hidden">
-                <p className="truncate text-base font-black text-slate-900">
+                <p className="truncate text-base font-black text-white">
                   {currentPage}
                 </p>
               </div>
@@ -364,7 +364,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <button
                   type="button"
                   onClick={handleEnableAlerts}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#f97316] bg-[#f97316] px-3 text-sm font-black text-white shadow-sm transition hover:border-[#ea580c] hover:bg-[#ea580c]"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white bg-white px-3 text-sm font-black text-black shadow-sm transition hover:bg-slate-200"
                 >
                   <Volume2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Ativar alertas</span>
@@ -377,18 +377,18 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   onClick={() => {
                     setProfileOpen((prev) => !prev)
                   }}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 transition hover:border-blue-300 hover:bg-blue-50/60"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-black px-2 text-white transition hover:border-white hover:bg-white/10"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563eb] text-xs font-black text-white ring-2 ring-orange-100">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-black ring-2 ring-white/20">
                     {userInitials}
                   </div>
 
                   <div className="hidden text-left md:block">
-                    <p className="max-w-[140px] truncate text-sm font-black leading-none text-slate-900">
+                    <p className="max-w-[140px] truncate text-sm font-black leading-none text-white">
                       {userName}
                     </p>
 
-                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-slate-500">
+                    <p className="mt-1 max-w-[140px] truncate text-xs leading-none text-slate-400">
                       {userEmail}
                     </p>
                   </div>
@@ -397,13 +397,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
-                    <div className="border-b border-slate-100 px-3 py-3">
-                      <p className="truncate text-sm font-black text-slate-900">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-white/15 bg-black p-2 shadow-xl shadow-black/30">
+                    <div className="border-b border-white/10 px-3 py-3">
+                      <p className="truncate text-sm font-black text-white">
                         {userName}
                       </p>
 
-                      <p className="mt-1 truncate text-xs text-slate-500">
+                      <p className="mt-1 truncate text-xs text-slate-400">
                         {userEmail}
                       </p>
                     </div>
@@ -414,7 +414,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-[#2563eb]"
+                      className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-white hover:text-black"
                     >
                       <User className="h-4 w-4" />
                       Perfil
@@ -426,19 +426,19 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         setProfileOpen(false)
                         router.push("/configuracoes")
                       }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-[#2563eb]"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-white hover:text-black"
                     >
                       <Settings className="h-4 w-4" />
                       Configurações
                     </button>
 
-                    <div className="my-2 h-px bg-slate-100" />
+                    <div className="my-2 h-px bg-white/10" />
 
                     <button
                       type="button"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-white transition hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <LogOut className="h-4 w-4" />
                       {isLoggingOut ? "Saindo..." : "Sair"}
@@ -450,7 +450,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="bg-[#f5f7fb] p-4 md:p-6">
+        <main className="min-h-[calc(100vh-64px)] bg-black p-4 md:p-6">
           <div className="mx-auto w-full max-w-[1500px]">{children}</div>
         </main>
       </div>

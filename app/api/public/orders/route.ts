@@ -18,6 +18,7 @@ const MAX_ADDRESS_COMPLEMENT_LENGTH = 120
 const DELIVERY_API_TIMEOUT_MS = 12_000
 const OPENROUTESERVICE_BASE_URL = "https://api.heigit.org"
 
+type DeliveryFeeMode = "distance" | "neighborhood"
 
 type CreateOrderItemInput = {
   product_id: string
@@ -71,6 +72,7 @@ type RestaurantRow = {
   pickup_enabled: boolean | null
   minimum_order: number | string | null
   auto_accept_orders: boolean | null
+  delivery_fee_mode: string | null
 }
 
 type ProductRow = {
@@ -85,6 +87,15 @@ type DeliveryDistanceRuleRow = {
   id: string
   restaurant_id: string
   up_to_km: number | string | null
+  fee: number | string | null
+  is_active: boolean | null
+  sort_order: number | null
+}
+
+type DeliveryNeighborhoodRuleRow = {
+  id: string
+  restaurant_id: string
+  neighborhood_name: string | null
   fee: number | string | null
   is_active: boolean | null
   sort_order: number | null
@@ -216,6 +227,7 @@ type DeliveryQuote = {
   fee: number
   customerAddress: string
   neighborhood: string
+  deliveryFeeMode: DeliveryFeeMode
 }
 
 class DeliveryCalculationError extends Error {
@@ -259,6 +271,18 @@ function roundMoney(value: number) {
 
 function normalizeZip(value: unknown) {
   return String(value || "").replace(/\D/g, "").slice(0, MAX_CUSTOMER_ZIP_LENGTH)
+}
+
+function normalizeDeliveryFeeMode(value: unknown): DeliveryFeeMode {
+  return value === "neighborhood" ? "neighborhood" : "distance"
+}
+
+function normalizeNeighborhoodKey(value: unknown) {
+  return normalizeText(value, MAX_NEIGHBORHOOD_LENGTH)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/\s+/g, " ")
 }
 
 async function fetchWithTimeout(
@@ -489,6 +513,51 @@ async function getDeliveryDistanceRules(restaurantId: string) {
   return rules
 }
 
+async function getDeliveryNeighborhoodRules(restaurantId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("delivery_neighborhood_rules")
+    .select(
+      "id, restaurant_id, neighborhood_name, fee, is_active, sort_order"
+    )
+    .eq("restaurant_id", restaurantId)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("neighborhood_name", { ascending: true })
+
+  if (error) {
+    console.error("Erro ao buscar taxas de entrega por bairro:", {
+      restaurantId,
+      message: error.message,
+      code: error.code,
+    })
+
+    throw new DeliveryCalculationError(
+      "Não foi possível carregar os bairros atendidos por este restaurante.",
+      500
+    )
+  }
+
+  const rules = ((data || []) as DeliveryNeighborhoodRuleRow[])
+    .map((rule) => ({
+      neighborhoodName: normalizeText(
+        rule.neighborhood_name,
+        MAX_NEIGHBORHOOD_LENGTH
+      ),
+      neighborhoodKey: normalizeNeighborhoodKey(rule.neighborhood_name),
+      fee: roundMoney(Math.max(0, normalizeNumber(rule.fee, 0))),
+    }))
+    .filter((rule) => Boolean(rule.neighborhoodKey))
+
+  if (rules.length === 0) {
+    throw new DeliveryCalculationError(
+      "Os bairros atendidos ainda não foram configurados para este restaurante.",
+      500
+    )
+  }
+
+  return rules
+}
+
 function getDeliveryFeeByDistance(
   distanceInMeters: number,
   deliveryRules: Array<{ upToKm: number; fee: number }>
@@ -502,6 +571,35 @@ function getDeliveryFeeByDistance(
 
     throw new DeliveryCalculationError(
       `Este endereço está fora da área de entrega de até ${maxDeliveryDistanceKm} km.`
+    )
+  }
+
+  return matchedRule.fee
+}
+
+function getDeliveryFeeByNeighborhood(
+  neighborhood: string,
+  deliveryRules: Array<{
+    neighborhoodName: string
+    neighborhoodKey: string
+    fee: number
+  }>
+) {
+  const neighborhoodKey = normalizeNeighborhoodKey(neighborhood)
+
+  if (!neighborhoodKey) {
+    throw new DeliveryCalculationError(
+      "Informe o bairro para calcular a taxa de entrega."
+    )
+  }
+
+  const matchedRule = deliveryRules.find(
+    (rule) => rule.neighborhoodKey === neighborhoodKey
+  )
+
+  if (!matchedRule) {
+    throw new DeliveryCalculationError(
+      `Este restaurante não realiza entregas no bairro ${neighborhood}.`
     )
   }
 
@@ -523,31 +621,9 @@ async function calculateDeliveryQuote({
   customerComplement: string
   neighborhood: string
 }): Promise<DeliveryQuote> {
-  const apiKey = process.env.OPENROUTESERVICE_API_KEY?.trim()
-
-  if (!apiKey) {
-    console.error("OPENROUTESERVICE_API_KEY não configurada no servidor.")
-
-    throw new DeliveryCalculationError(
-      "O cálculo de entrega ainda não está configurado.",
-      500
-    )
-  }
-
-  const restaurantAddress = buildAddress([
-    restaurant.address,
-    restaurant.city,
-    restaurant.state,
-    "Brasil",
-  ])
-
-  if (!restaurant.address?.trim() || !restaurant.city?.trim() || !restaurant.state?.trim()) {
-    throw new DeliveryCalculationError(
-      "O endereço do restaurante está incompleto nas configurações.",
-      500
-    )
-  }
-
+  const deliveryFeeMode = normalizeDeliveryFeeMode(
+    restaurant.delivery_fee_mode
+  )
   let resolvedCustomerAddress = customerAddress
   let resolvedNeighborhood = neighborhood
   let customerRouteAddress = buildAddress([
@@ -596,6 +672,46 @@ async function calculateDeliveryQuote({
     throw new DeliveryCalculationError("Informe o endereço de entrega.")
   }
 
+  if (deliveryFeeMode === "neighborhood") {
+    const deliveryRules = await getDeliveryNeighborhoodRules(restaurant.id)
+
+    return {
+      distanceKm: 0,
+      fee: getDeliveryFeeByNeighborhood(
+        resolvedNeighborhood,
+        deliveryRules
+      ),
+      customerAddress: resolvedCustomerAddress,
+      neighborhood: resolvedNeighborhood,
+      deliveryFeeMode,
+    }
+  }
+
+  const apiKey = process.env.OPENROUTESERVICE_API_KEY?.trim()
+
+  if (!apiKey) {
+    console.error("OPENROUTESERVICE_API_KEY não configurada no servidor.")
+
+    throw new DeliveryCalculationError(
+      "O cálculo de entrega ainda não está configurado.",
+      500
+    )
+  }
+
+  const restaurantAddress = buildAddress([
+    restaurant.address,
+    restaurant.city,
+    restaurant.state,
+    "Brasil",
+  ])
+
+  if (!restaurant.address?.trim() || !restaurant.city?.trim() || !restaurant.state?.trim()) {
+    throw new DeliveryCalculationError(
+      "O endereço do restaurante está incompleto nas configurações.",
+      500
+    )
+  }
+
   const [originCoordinates, destinationCoordinates, deliveryRules] = await Promise.all([
     geocodeAddress(restaurantAddress, apiKey),
     geocodeAddress(customerRouteAddress, apiKey),
@@ -613,6 +729,7 @@ async function calculateDeliveryQuote({
     fee: getDeliveryFeeByDistance(distanceInMeters, deliveryRules),
     customerAddress: resolvedCustomerAddress,
     neighborhood: resolvedNeighborhood,
+    deliveryFeeMode,
   }
 }
 
@@ -1053,7 +1170,7 @@ async function createOrderLegacy({
     supabaseAdmin
       .from("restaurants")
       .select(
-        "id, name, slug, is_active, address, city, state, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders"
+        "id, name, slug, is_active, address, city, state, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders, delivery_fee_mode"
       )
       .eq("id", restaurantId)
       .maybeSingle(),
@@ -1160,6 +1277,9 @@ async function createOrderLegacy({
   let deliveryDistanceKm = 0
   let resolvedCustomerAddress = customerAddress
   let resolvedNeighborhood = neighborhood
+  let deliveryFeeMode = normalizeDeliveryFeeMode(
+    typedRestaurant.delivery_fee_mode
+  )
 
   if (orderType === "delivery") {
     try {
@@ -1176,6 +1296,7 @@ async function createOrderLegacy({
       deliveryDistanceKm = deliveryQuote.distanceKm
       resolvedCustomerAddress = deliveryQuote.customerAddress
       resolvedNeighborhood = deliveryQuote.neighborhood
+      deliveryFeeMode = deliveryQuote.deliveryFeeMode
     } catch (error) {
       if (error instanceof DeliveryCalculationError) {
         return jsonError(error.message, error.status)
@@ -1511,6 +1632,7 @@ const initialStatus = shouldAutoAcceptOrder
         serviceFee: safeServiceFee,
         deliveryFee,
         deliveryDistanceKm,
+        deliveryFeeMode,
         discount,
         total,
         neighborhood: resolvedNeighborhood,
@@ -1532,6 +1654,83 @@ const initialStatus = shouldAutoAcceptOrder
       },
     }
   )
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const restaurantId = normalizeText(searchParams.get("restaurantId"), 80)
+
+    if (!restaurantId) {
+      return jsonError("restaurantId é obrigatório.", 400)
+    }
+
+    const { data: restaurantData, error: restaurantError } =
+      await supabaseAdmin
+        .from("restaurants")
+        .select("id, is_active, delivery_enabled, delivery_fee_mode")
+        .eq("id", restaurantId)
+        .maybeSingle()
+
+    if (restaurantError) {
+      console.error("Erro ao buscar configuração pública de entrega:", {
+        restaurantId,
+        message: restaurantError.message,
+        code: restaurantError.code,
+      })
+
+      return jsonError("Erro ao buscar as configurações de entrega.", 500)
+    }
+
+    if (!restaurantData || restaurantData.is_active === false) {
+      return jsonError("Restaurante não encontrado ou inativo.", 404)
+    }
+
+    const deliveryFeeMode = normalizeDeliveryFeeMode(
+      restaurantData.delivery_fee_mode
+    )
+
+    let neighborhoods: Array<{ name: string; fee: number }> = []
+
+    if (
+      restaurantData.delivery_enabled !== false &&
+      deliveryFeeMode === "neighborhood"
+    ) {
+      try {
+        const rules = await getDeliveryNeighborhoodRules(restaurantId)
+
+        neighborhoods = rules.map((rule) => ({
+          name: rule.neighborhoodName,
+          fee: rule.fee,
+        }))
+      } catch (error) {
+        console.error(
+          "Erro ao carregar bairros na configuração pública de entrega:",
+          error
+        )
+      }
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        delivery: {
+          enabled: restaurantData.delivery_enabled !== false,
+          feeMode: deliveryFeeMode,
+          neighborhoods,
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    )
+  } catch (error) {
+    console.error("GET /api/public/orders error:", error)
+
+    return jsonError("Erro inesperado ao carregar a entrega.", 500)
+  }
 }
 
 export async function PUT(request: Request) {
@@ -1590,7 +1789,7 @@ export async function PUT(request: Request) {
       await supabaseAdmin
         .from("restaurants")
         .select(
-          "id, name, slug, is_active, address, city, state, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders"
+          "id, name, slug, is_active, address, city, state, delivery_enabled, pickup_enabled, minimum_order, auto_accept_orders, delivery_fee_mode"
         )
         .eq("id", restaurantId)
         .maybeSingle()
@@ -1636,6 +1835,7 @@ export async function PUT(request: Request) {
             fee: quote.fee,
             customerAddress: quote.customerAddress,
             neighborhood: quote.neighborhood,
+            deliveryFeeMode: quote.deliveryFeeMode,
           },
         },
         {

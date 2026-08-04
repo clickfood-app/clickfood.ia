@@ -562,7 +562,7 @@ export default function AdminSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-blue-700 bg-[#2563eb] text-white shadow-xl shadow-blue-950/10 transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/10 bg-black text-white shadow-xl shadow-black/30 transition-all duration-300",
         isCollapsed ? "w-[72px]" : "w-64",
       )}
     >
@@ -570,7 +570,7 @@ export default function AdminSidebar({
         type="button"
         onClick={onToggleCollapse}
         className={cn(
-          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-lg border border-blue-100 bg-white text-[#2563eb] shadow-md transition hover:border-[#f97316] hover:bg-[#f97316] hover:text-white md:flex",
+          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-lg border border-white/20 bg-black text-white shadow-md transition hover:border-white hover:bg-white hover:text-black md:flex",
           isCollapsed && "right-[-14px]",
         )}
         aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
@@ -584,7 +584,7 @@ export default function AdminSidebar({
 
       <div
         className={cn(
-          "border-b border-white/15 bg-[#2563eb] p-3",
+          "border-b border-white/15 bg-black p-3",
           isCollapsed && "flex h-16 items-center justify-center px-0 py-0",
         )}
       >
@@ -602,15 +602,15 @@ export default function AdminSidebar({
             )}
           >
             {isCollapsed ? (
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#2563eb] shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black shadow-sm">
                 <Store className="h-5 w-5" />
               </div>
             ) : (
               <>
-                <div className="h-9 w-1 shrink-0 rounded-full bg-[#f97316]" />
+                <div className="h-9 w-1 shrink-0 rounded-full bg-white" />
 
                 <div className="min-w-0">
-                  <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100">
+                  <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">
                     Painel administrativo
                   </p>
 
@@ -626,7 +626,7 @@ export default function AdminSidebar({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:border-[#f97316] hover:bg-[#f97316] md:hidden"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:border-white hover:bg-white hover:text-black md:hidden"
               aria-label="Fechar menu"
             >
               <X className="h-4 w-4" />
@@ -641,8 +641,8 @@ export default function AdminSidebar({
                 className={cn(
                   "mt-3 rounded-xl border px-3 py-2.5",
                   operationStatus.isOpen
-                    ? "border-emerald-300/30 bg-emerald-950/15"
-                    : "border-red-300/30 bg-red-950/15",
+                    ? "border-white/20 bg-white/10"
+                    : "border-white/15 bg-zinc-900",
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -650,8 +650,8 @@ export default function AdminSidebar({
                     className={cn(
                       "h-2.5 w-2.5 shrink-0 rounded-full ring-4",
                       operationStatus.isOpen
-                        ? "bg-emerald-300 ring-emerald-300/15"
-                        : "bg-red-300 ring-red-300/15",
+                        ? "bg-white ring-white/15"
+                        : "bg-zinc-500 ring-white/10",
                     )}
                   />
 
@@ -660,8 +660,8 @@ export default function AdminSidebar({
                       className={cn(
                         "truncate text-xs font-bold uppercase tracking-[0.08em]",
                         operationStatus.isOpen
-                          ? "text-emerald-100"
-                          : "text-red-100",
+                          ? "text-white"
+                          : "text-zinc-300",
                       )}
                     >
                       {operationStatus.label}
@@ -688,7 +688,7 @@ export default function AdminSidebar({
           {navGroups.map((group) => (
             <div key={group.title}>
               {!isCollapsed && (
-                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-200">
+                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
                   {group.title}
                 </p>
               )}
@@ -711,8 +711,8 @@ export default function AdminSidebar({
                           className={cn(
                             "group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition",
                             active
-                              ? "border-white/20 bg-white/10 text-white"
-                              : "border-transparent text-blue-100 hover:bg-white/10 hover:text-white",
+                              ? "border-white bg-white text-black shadow-sm"
+                              : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
                             isCollapsed && "justify-center px-0",
                           )}
                           title={isCollapsed ? item.label : undefined}
@@ -721,8 +721,8 @@ export default function AdminSidebar({
                             className={cn(
                               "flex shrink-0 items-center justify-center transition",
                               active
-                                ? "text-[#fb923c]"
-                                : "text-blue-100 group-hover:text-white",
+                                ? "text-black"
+                                : "text-zinc-300 group-hover:text-white",
                               isCollapsed && "h-10 w-10 rounded-xl",
                             )}
                           >
@@ -738,7 +738,7 @@ export default function AdminSidebar({
                               <ChevronDown
                                 className={cn(
                                   "h-4 w-4 shrink-0 transition-transform",
-                                  active ? "text-[#fb923c]" : "text-blue-200",
+                                  active ? "text-black" : "text-zinc-500",
                                   isOpen && "rotate-180",
                                   isOpen && !active && "text-white",
                                 )}
@@ -748,7 +748,7 @@ export default function AdminSidebar({
                         </button>
 
                         {!isCollapsed && isOpen && (
-                          <div className="ml-4 mt-1 border-l border-white/20 pl-2">
+                          <div className="ml-4 mt-1 border-l border-white/15 pl-2">
                             <div className="flex flex-col gap-1">
                               {item.children?.map((child) => {
                                 const childActive = isSubHrefActive(
@@ -763,16 +763,16 @@ export default function AdminSidebar({
                                     className={cn(
                                       "group flex items-center gap-2.5 rounded-xl border px-3 py-2 text-sm font-semibold transition",
                                       childActive
-                                        ? "border-white bg-white text-[#1d4ed8] shadow-sm"
-                                        : "border-transparent text-blue-100 hover:bg-white/10 hover:text-white",
+                                        ? "border-white bg-white text-black shadow-sm"
+                                        : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
                                     )}
                                   >
                                     <span
                                       className={cn(
                                         "shrink-0 transition",
                                         childActive
-                                          ? "text-[#f97316]"
-                                          : "text-blue-200 group-hover:text-white",
+                                          ? "text-black"
+                                          : "text-zinc-400 group-hover:text-white",
                                       )}
                                     >
                                       {child.icon}
@@ -798,8 +798,8 @@ export default function AdminSidebar({
                       className={cn(
                         "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
                         active
-                          ? "border-white border-l-4 border-l-[#f97316] bg-white text-[#1d4ed8] shadow-sm"
-                          : "border-transparent text-blue-100 hover:bg-white/10 hover:text-white",
+                          ? "border-white bg-white text-black shadow-sm"
+                          : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
                         isCollapsed && "justify-center px-0",
                       )}
                       title={isCollapsed ? item.label : undefined}
@@ -808,8 +808,8 @@ export default function AdminSidebar({
                         className={cn(
                           "flex shrink-0 items-center justify-center transition",
                           active
-                            ? "text-[#f97316]"
-                            : "text-blue-100 group-hover:text-white",
+                            ? "text-black"
+                            : "text-zinc-300 group-hover:text-white",
                           isCollapsed && "h-10 w-10 rounded-xl",
                         )}
                       >
@@ -831,16 +831,16 @@ export default function AdminSidebar({
       </nav>
 
       {!isCollapsed && (
-        <div className="border-t border-white/15 bg-[#2563eb] p-3">
+        <div className="border-t border-white/15 bg-black p-3">
           <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-300 ring-4 ring-emerald-300/15" />
+            <span className="h-2 w-2 rounded-full bg-white ring-4 ring-white/15" />
 
             <div className="min-w-0">
               <p className="truncate text-xs font-bold uppercase tracking-[0.12em] text-white">
                 Sistema
               </p>
 
-              <p className="truncate text-xs font-medium text-blue-100">
+              <p className="truncate text-xs font-medium text-zinc-400">
                 Sistema online
               </p>
             </div>
@@ -850,7 +850,7 @@ export default function AdminSidebar({
 
       {isCollapsed && (
         <div className="border-t border-white/15 p-3">
-          <div className="mx-auto h-1.5 w-8 rounded-full bg-[#f97316]" />
+          <div className="mx-auto h-1.5 w-8 rounded-full bg-white" />
         </div>
       )}
     </aside>

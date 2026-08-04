@@ -4,21 +4,14 @@ import { FormEvent, useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   ArrowDownCircle,
-  BarChart3,
-  Bike,
   CalendarClock,
   CheckCircle2,
-  Clock3,
   Loader2,
-  PackageX,
   Pencil,
   Plus,
   RefreshCcw,
   Search,
-  ShoppingCart,
   Trash2,
-  Users,
-  WalletCards,
   X,
 } from "lucide-react"
 import AdminLayout from "@/components/admin-layout"
@@ -30,7 +23,7 @@ import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
 type ExpenseStatus = "pending" | "paid" | "cancelled"
-type StatusFilter = "all" | ExpenseStatus
+type StatusFilter = "all" | ExpenseStatus | "overdue"
 
 type ExpenseOrigin = "manual" | "purchase" | "staff" | "delivery" | "loss"
 type OriginFilter = "all" | ExpenseOrigin
@@ -86,9 +79,9 @@ const statusLabels: Record<string, string> = {
 }
 
 const statusStyles: Record<string, string> = {
-  pending: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
-  paid: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
-  cancelled: "bg-[#111111] text-zinc-500 ring-yellow-400/20",
+  pending: "border-white/20 bg-white/[0.06] text-white",
+  paid: "border-white bg-white text-black",
+  cancelled: "border-white/10 bg-transparent text-zinc-500",
 }
 
 const originLabels: Record<ExpenseOrigin, string> = {
@@ -100,27 +93,11 @@ const originLabels: Record<ExpenseOrigin, string> = {
 }
 
 const originStyles: Record<ExpenseOrigin, string> = {
-  manual: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
-  purchase: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
-  staff: "bg-emerald-500/10 text-emerald-400 ring-emerald-400/20",
-  delivery: "bg-yellow-400/10 text-yellow-400 ring-yellow-400/20",
-  loss: "bg-red-50 text-red-700 ring-red-100",
-}
-
-const originAccentStyles: Record<ExpenseOrigin, string> = {
-  manual: "border-l-yellow-400",
-  purchase: "border-l-violet-500",
-  staff: "border-l-emerald-500",
-  delivery: "border-l-yellow-400",
-  loss: "border-l-red-500",
-}
-
-const originActiveStyles: Record<ExpenseOrigin, string> = {
-  manual: "border-yellow-400/30 bg-yellow-400/10 ring-yellow-400/20",
-  purchase: "border-yellow-400/30 bg-yellow-400/10 ring-yellow-400/20",
-  staff: "border-emerald-400/30 bg-emerald-500/10 ring-emerald-400/20",
-  delivery: "border-yellow-400/30 bg-yellow-400/10 ring-yellow-400/20",
-  loss: "border-red-200 bg-red-50/70 ring-red-100",
+  manual: "border-white/10 bg-white/[0.03] text-zinc-300",
+  purchase: "border-white/10 bg-white/[0.03] text-zinc-300",
+  staff: "border-white/10 bg-white/[0.03] text-zinc-300",
+  delivery: "border-white/10 bg-white/[0.03] text-zinc-300",
+  loss: "border-white/10 bg-white/[0.03] text-zinc-300",
 }
 
 const manualCategoryOptions = [
@@ -209,7 +186,8 @@ function pickNumber(...values: unknown[]) {
 function pickText(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim()
-    if (typeof value === "number" && Number.isFinite(value)) return String(value)
+    if (typeof value === "number" && Number.isFinite(value))
+      return String(value)
   }
 
   return ""
@@ -235,16 +213,19 @@ function normalizeStatus(value: unknown): ExpenseStatus {
   const status = String(value || "").toLowerCase()
 
   if (
-    ["paid", "pago", "settled", "liquidado", "confirmed", "confirmado"].includes(
-      status,
-    )
+    [
+      "paid",
+      "pago",
+      "settled",
+      "liquidado",
+      "confirmed",
+      "confirmado",
+    ].includes(status)
   ) {
     return "paid"
   }
 
-  if (
-    ["cancelled", "canceled", "cancelado", "cancelada"].includes(status)
-  ) {
+  if (["cancelled", "canceled", "cancelado", "cancelada"].includes(status)) {
     return "cancelled"
   }
 
@@ -377,8 +358,15 @@ function mapSupplierPurchase(row: any): Expense360 | null {
 }
 
 function mapStaffPayment(row: any): Expense360 | null {
-  const status = normalizeStatus(row.status || (row.paid_at ? "paid" : "pending"))
-  const dueDate = pickDate(row.due_date, row.payment_date, row.date, row.created_at)
+  const status = normalizeStatus(
+    row.status || (row.paid_at ? "paid" : "pending"),
+  )
+  const dueDate = pickDate(
+    row.due_date,
+    row.payment_date,
+    row.date,
+    row.created_at,
+  )
   const paidAt = pickDateTime(row.paid_at, row.payment_date)
   const amount = pickNumber(
     row.amount,
@@ -388,7 +376,12 @@ function mapStaffPayment(row: any): Expense360 | null {
     row.salary_amount,
   )
   const staffName = pickText(row.staff_name, row.employee_name, row.name)
-  const paymentType = pickText(row.payment_type, row.type, row.category, "Pagamento")
+  const paymentType = pickText(
+    row.payment_type,
+    row.type,
+    row.category,
+    "Pagamento",
+  )
 
   if (!row.id || amount <= 0) return null
 
@@ -398,10 +391,18 @@ function mapStaffPayment(row: any): Expense360 | null {
     sourceTable: "staff_payments",
     origin: "staff",
     originLabel: "Funcionários",
-    description: staffName ? `${paymentType} - ${staffName}` : "Pagamento de funcionário",
-    category: pickText(row.category, row.payment_type, row.type, "Funcionários"),
+    description: staffName
+      ? `${paymentType} - ${staffName}`
+      : "Pagamento de funcionário",
+    category: pickText(
+      row.category,
+      row.payment_type,
+      row.type,
+      "Funcionários",
+    ),
     amount,
-    date: status === "paid" ? pickDate(paidAt, dueDate) : dueDate || todayDate(),
+    date:
+      status === "paid" ? pickDate(paidAt, dueDate) : dueDate || todayDate(),
     dueDate: dueDate || null,
     paidAt,
     paymentMethod: pickText(row.payment_method, row.paymentMethod) || null,
@@ -415,8 +416,15 @@ function mapStaffPayment(row: any): Expense360 | null {
 }
 
 function mapDeliverySettlement(row: any): Expense360 | null {
-  const status = normalizeStatus(row.status || (row.paid_at ? "paid" : "pending"))
-  const dueDate = pickDate(row.due_date, row.settlement_date, row.date, row.created_at)
+  const status = normalizeStatus(
+    row.status || (row.paid_at ? "paid" : "pending"),
+  )
+  const dueDate = pickDate(
+    row.due_date,
+    row.settlement_date,
+    row.date,
+    row.created_at,
+  )
   const paidAt = pickDateTime(row.paid_at, row.payment_date)
   const amount = pickNumber(
     row.total_amount,
@@ -425,7 +433,11 @@ function mapDeliverySettlement(row: any): Expense360 | null {
     row.delivery_fee_total,
     row.total,
   )
-  const deliveryName = pickText(row.delivery_person_name, row.delivery_name, row.name)
+  const deliveryName = pickText(
+    row.delivery_person_name,
+    row.delivery_name,
+    row.name,
+  )
 
   if (!row.id || amount <= 0) return null
 
@@ -435,10 +447,13 @@ function mapDeliverySettlement(row: any): Expense360 | null {
     sourceTable: "delivery_settlements",
     origin: "delivery",
     originLabel: "Entregadores",
-    description: deliveryName ? `Repasse - ${deliveryName}` : "Repasse de entregador",
+    description: deliveryName
+      ? `Repasse - ${deliveryName}`
+      : "Repasse de entregador",
     category: "Entregadores",
     amount,
-    date: status === "paid" ? pickDate(paidAt, dueDate) : dueDate || todayDate(),
+    date:
+      status === "paid" ? pickDate(paidAt, dueDate) : dueDate || todayDate(),
     dueDate: dueDate || null,
     paidAt,
     paymentMethod: pickText(row.payment_method, row.paymentMethod) || null,
@@ -472,7 +487,9 @@ function mapProductLoss(row: any): Expense360 | null {
     sourceTable: "product_losses",
     origin: "loss",
     originLabel: "Perdas / consumo",
-    description: productName ? `Perda - ${productName}` : "Perda / consumo interno",
+    description: productName
+      ? `Perda - ${productName}`
+      : "Perda / consumo interno",
     category: reason || "Perdas",
     amount,
     date: date || todayDate(),
@@ -501,6 +518,7 @@ export default function DespesasPage() {
   const [endDate, setEndDate] = useState(currentMonthEnd())
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [originFilter, setOriginFilter] = useState<OriginFilter>("all")
+  const [categoryFilter, setCategoryFilter] = useState("all")
   const [search, setSearch] = useState("")
 
   const [showForm, setShowForm] = useState(false)
@@ -518,8 +536,15 @@ export default function DespesasPage() {
     const term = search.trim().toLowerCase()
 
     return expenses.filter((expense) => {
-      const matchesStatus = statusFilter === "all" || expense.status === statusFilter
-      const matchesOrigin = originFilter === "all" || expense.origin === originFilter
+      const matchesOrigin =
+        originFilter === "all" || expense.origin === originFilter
+      const matchesCategory =
+        categoryFilter === "all" || expense.category === categoryFilter
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "overdue"
+          ? isExpenseOverdue(expense)
+          : expense.status === statusFilter)
 
       const matchesSearch =
         !term ||
@@ -528,9 +553,17 @@ export default function DespesasPage() {
         expense.originLabel.toLowerCase().includes(term) ||
         expense.notes?.toLowerCase().includes(term)
 
-      return matchesStatus && matchesOrigin && matchesSearch
+      return matchesStatus && matchesOrigin && matchesCategory && matchesSearch
     })
-  }, [expenses, originFilter, search, statusFilter])
+  }, [categoryFilter, expenses, originFilter, search, statusFilter])
+
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(new Set(expenses.map((expense) => expense.category)))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [expenses],
+  )
 
   const totals = useMemo(() => {
     return filteredExpenses.reduce(
@@ -540,8 +573,6 @@ export default function DespesasPage() {
         const value = toNumber(expense.amount)
 
         acc.total += value
-        acc.byOrigin[expense.origin] = (acc.byOrigin[expense.origin] || 0) + value
-
         if (expense.status === "paid") {
           acc.paid += value
           acc.paidCount += 1
@@ -567,68 +598,9 @@ export default function DespesasPage() {
         paidCount: 0,
         pendingCount: 0,
         overdueCount: 0,
-        byOrigin: {} as Record<ExpenseOrigin, number>,
       },
     )
   }, [filteredExpenses])
-
-  const totalsByCategory = useMemo(() => {
-    const grouped = filteredExpenses.reduce<Record<string, number>>((acc, expense) => {
-      if (expense.status === "cancelled") return acc
-
-      acc[expense.category] = (acc[expense.category] || 0) + toNumber(expense.amount)
-      return acc
-    }, {})
-
-    return Object.entries(grouped)
-      .map(([categoryName, total]) => ({
-        category: categoryName,
-        total: Number(total),
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 8)
-  }, [filteredExpenses])
-
-  const sourceCards = useMemo(
-    () => [
-      {
-        key: "purchase" as ExpenseOrigin,
-        title: "Compras",
-        description: "Compras de fornecedores",
-        value: totals.byOrigin.purchase || 0,
-        icon: ShoppingCart,
-      },
-      {
-        key: "staff" as ExpenseOrigin,
-        title: "Funcionários",
-        description: "Folha, diárias e freelancers",
-        value: totals.byOrigin.staff || 0,
-        icon: Users,
-      },
-      {
-        key: "delivery" as ExpenseOrigin,
-        title: "Entregadores",
-        description: "Repasses e taxas",
-        value: totals.byOrigin.delivery || 0,
-        icon: Bike,
-      },
-      {
-        key: "manual" as ExpenseOrigin,
-        title: "Manuais/fixas",
-        description: "Aluguel, luz, impostos e outros",
-        value: totals.byOrigin.manual || 0,
-        icon: WalletCards,
-      },
-      {
-        key: "loss" as ExpenseOrigin,
-        title: "Perdas/consumo",
-        description: "Perdas, consumo próprio e doações",
-        value: totals.byOrigin.loss || 0,
-        icon: PackageX,
-      },
-    ],
-    [totals.byOrigin],
-  )
 
   async function safeLoadTable(tableName: string, currentRestaurantId: string) {
     const { data, error } = await supabase
@@ -671,14 +643,19 @@ export default function DespesasPage() {
 
       setRestaurantId(restaurant.id)
 
-      const [payables, purchases, staffPayments, deliverySettlements, productLosses] =
-        await Promise.all([
-          safeLoadTable("accounts_payable", restaurant.id),
-          safeLoadTable("supplier_purchases", restaurant.id),
-          safeLoadTable("staff_payments", restaurant.id),
-          safeLoadTable("delivery_settlements", restaurant.id),
-          safeLoadTable("product_losses", restaurant.id),
-        ])
+      const [
+        payables,
+        purchases,
+        staffPayments,
+        deliverySettlements,
+        productLosses,
+      ] = await Promise.all([
+        safeLoadTable("accounts_payable", restaurant.id),
+        safeLoadTable("supplier_purchases", restaurant.id),
+        safeLoadTable("staff_payments", restaurant.id),
+        safeLoadTable("delivery_settlements", restaurant.id),
+        safeLoadTable("product_losses", restaurant.id),
+      ])
 
       const purchaseIds = new Set(
         (purchases || [])
@@ -809,7 +786,9 @@ export default function DespesasPage() {
 
         if (error) throw error
       } else {
-        const { error } = await supabase.from("accounts_payable").insert(payload)
+        const { error } = await supabase
+          .from("accounts_payable")
+          .insert(payload)
 
         if (error) throw error
       }
@@ -828,7 +807,9 @@ export default function DespesasPage() {
     if (!restaurantId) return
 
     if (expense.sourceTable !== "accounts_payable") {
-      alert("Essa despesa vem de outro módulo. Faça a baixa pela tela de origem.")
+      alert(
+        "Essa despesa vem de outro módulo. Faça a baixa pela tela de origem.",
+      )
       return
     }
 
@@ -864,7 +845,9 @@ export default function DespesasPage() {
       return
     }
 
-    const confirmed = window.confirm(`Cancelar a despesa "${expense.description}"?`)
+    const confirmed = window.confirm(
+      `Cancelar a despesa "${expense.description}"?`,
+    )
 
     if (!confirmed) return
 
@@ -894,7 +877,7 @@ export default function DespesasPage() {
   function renderExpenseActions(expense: Expense360) {
     if (!expense.canEdit && !expense.canPay) {
       return (
-        <span className="rounded-full bg-[#111111] px-3 py-1 text-xs font-medium text-zinc-500">
+        <span className="whitespace-nowrap text-xs font-medium text-zinc-500">
           Via {expense.originLabel}
         </span>
       )
@@ -908,7 +891,7 @@ export default function DespesasPage() {
             size="sm"
             onClick={() => markAsPaid(expense)}
             disabled={updatingId === expense.id}
-            className="h-8 gap-2"
+            className="h-8 gap-2 bg-white text-black hover:bg-zinc-200"
           >
             {updatingId === expense.id ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -924,7 +907,9 @@ export default function DespesasPage() {
           size="sm"
           variant="outline"
           onClick={() => handleEdit(expense)}
-          className="h-8"
+          aria-label="Editar despesa"
+          title="Editar despesa"
+          className="h-8 border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
         >
           <Pencil className="h-4 w-4" />
         </Button>
@@ -936,7 +921,9 @@ export default function DespesasPage() {
             variant="outline"
             onClick={() => cancelExpense(expense)}
             disabled={updatingId === expense.id}
-            className="h-8"
+            aria-label="Cancelar despesa"
+            title="Cancelar despesa"
+            className="h-8 border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -947,115 +934,94 @@ export default function DespesasPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4 pb-8">
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-[0_10px_35px_rgba(15,23,42,0.06)]">
-          <div className="flex flex-col gap-3 border-b border-white/10 bg-gradient-to-r from-[#050505] via-[#080808] to-[#080808] p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A] text-white shadow-sm">
-                <ArrowDownCircle className="h-5 w-5" />
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
-                    Despesas 360
-                  </h1>
-                  <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-yellow-400">
-                    visão contábil
-                  </span>
-                </div>
-                <p className="text-sm text-zinc-500">
-                  Contas a pagar, centros de custo, baixas e conferência financeira em uma tela limpa.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={loadData}
-                disabled={loading}
-                className="h-9 gap-2 border-white/10 bg-[#0A0A0A] shadow-sm hover:bg-[#111111]"
-              >
-                <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-                Atualizar
-              </Button>
-
-              <Button type="button" onClick={openNewExpenseForm} className="h-9 gap-2 shadow-sm">
-                <Plus className="h-4 w-4" />
-                Nova despesa
-              </Button>
-            </div>
+      <div className="min-h-[calc(100vh-64px)] space-y-5 bg-black pb-8 text-white">
+        <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">
+              Despesas
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Controle os gastos e as contas a pagar do restaurante.
+            </p>
           </div>
 
-          <div className="grid gap-0 divide-y divide-white/10 bg-[#0A0A0A] sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5">
-            <div className="group p-4 transition hover:bg-[#111111]">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                  Total no período
-                </p>
-                <span className="h-2 w-2 rounded-full bg-[#111111]" />
-              </div>
-              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-white">
-                {formatCurrency(totals.total)}
-              </strong>
-              <span className="text-xs text-zinc-500">Base para conferência</span>
-            </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={loadData}
+              disabled={loading}
+              className="h-10 gap-2 border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
+            >
+              <RefreshCcw
+                className={cn("h-4 w-4", loading && "animate-spin")}
+              />
+              Atualizar
+            </Button>
 
-            <div className="group p-4 transition hover:bg-[#111111]">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                  Pago
-                </p>
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              </div>
-              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-emerald-400">
-                {formatCurrency(totals.paid)}
-              </strong>
-              <span className="text-xs text-zinc-500">{totals.paidCount} baixa(s)</span>
-            </div>
+            <Button
+              type="button"
+              onClick={openNewExpenseForm}
+              className="h-10 gap-2 bg-white text-black hover:bg-zinc-200"
+            >
+              <Plus className="h-4 w-4" />
+              Nova despesa
+            </Button>
+          </div>
+        </div>
 
-            <div className="group p-4 transition hover:bg-[#111111]">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                  Em aberto
-                </p>
-                <span className="h-2 w-2 rounded-full bg-yellow-400" />
-              </div>
-              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-yellow-400">
-                {formatCurrency(totals.pending)}
-              </strong>
-              <span className="text-xs text-zinc-500">{totals.pendingCount} pendência(s)</span>
-            </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-[#080808] p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Total
+            </p>
+            <strong className="mt-2 block text-2xl font-semibold text-white">
+              {formatCurrency(totals.total)}
+            </strong>
+            <span className="text-xs text-zinc-600">
+              No período selecionado
+            </span>
+          </div>
 
-            <div className="group p-4 transition hover:bg-[#111111]">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                  Vencido
-                </p>
-                <span className="h-2 w-2 rounded-full bg-red-500" />
-              </div>
-              <strong className="mt-1.5 block text-xl font-bold tracking-tight text-red-600">
-                {formatCurrency(totals.overdue)}
-              </strong>
-              <span className="text-xs text-zinc-500">{totals.overdueCount} título(s)</span>
-            </div>
+          <div className="rounded-2xl border border-white/10 bg-[#080808] p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Pago
+            </p>
+            <strong className="mt-2 block text-2xl font-semibold text-white">
+              {formatCurrency(totals.paid)}
+            </strong>
+            <span className="text-xs text-zinc-600">
+              {totals.paidCount} despesa(s)
+            </span>
+          </div>
 
-            <div className="bg-[#111111] p-4 sm:col-span-2 xl:col-span-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                Competência
-              </p>
-              <strong className="mt-1.5 block text-sm font-bold text-white">
-                {formatDate(startDate)} - {formatDate(endDate)}
-              </strong>
-              <span className="text-xs text-zinc-500">Filtro ativo</span>
-            </div>
+          <div className="rounded-2xl border border-white/10 bg-[#080808] p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Pendente
+            </p>
+            <strong className="mt-2 block text-2xl font-semibold text-white">
+              {formatCurrency(totals.pending)}
+            </strong>
+            <span className="text-xs text-zinc-600">
+              {totals.pendingCount} despesa(s)
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-[#080808] p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Vencido
+            </p>
+            <strong className="mt-2 block text-2xl font-semibold text-white">
+              {formatCurrency(totals.overdue)}
+            </strong>
+            <span className="text-xs text-zinc-600">
+              {totals.overdueCount} despesa(s)
+            </span>
           </div>
         </div>
 
         {showForm && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-[#050505] backdrop-blur-[2px]">
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm">
             <button
               type="button"
               aria-label="Fechar formulário"
@@ -1065,19 +1031,17 @@ export default function DespesasPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="flex h-full w-full flex-col bg-[#0A0A0A] shadow-2xl sm:max-w-xl"
+              className="flex h-full w-full flex-col border-l border-white/10 bg-black shadow-2xl sm:max-w-xl"
             >
               <div className="border-b border-white/10 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-semibold text-yellow-400 ring-1 ring-yellow-400/20">
-                      Lançamento manual
-                    </span>
-                    <h2 className="mt-2 text-lg font-semibold text-white">
+                    <h2 className="text-lg font-semibold text-white">
                       {editingId ? "Editar despesa" : "Nova despesa"}
                     </h2>
                     <p className="text-sm text-zinc-500">
-                      Use apenas para gastos que não entram automaticamente por outros módulos.
+                      Use apenas para gastos que não entram automaticamente por
+                      outros módulos.
                     </p>
                   </div>
 
@@ -1086,7 +1050,7 @@ export default function DespesasPage() {
                     variant="outline"
                     size="icon"
                     onClick={() => clearForm(true)}
-                    className="h-9 w-9 shrink-0"
+                    className="h-9 w-9 shrink-0 border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -1095,22 +1059,23 @@ export default function DespesasPage() {
 
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 <div className="space-y-1.5">
-                  <Label>Descrição</Label>
+                  <Label className="text-zinc-300">Descrição</Label>
                   <Input
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
                     placeholder="Ex: Aluguel, energia, manutenção..."
                     required
+                    className="border-white/15 bg-[#080808] text-white placeholder:text-zinc-600 focus-visible:ring-white/30"
                   />
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Categoria</Label>
+                    <Label className="text-zinc-300">Categoria</Label>
                     <select
                       value={category}
                       onChange={(event) => setCategory(event.target.value)}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className="h-10 w-full rounded-md border border-white/15 bg-[#080808] px-3 text-sm text-white [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                     >
                       <option value="">Selecione</option>
                       {manualCategoryOptions.map((option) => (
@@ -1122,7 +1087,7 @@ export default function DespesasPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>Valor</Label>
+                    <Label className="text-zinc-300">Valor</Label>
                     <Input
                       type="number"
                       min="0"
@@ -1131,26 +1096,30 @@ export default function DespesasPage() {
                       onChange={(event) => setAmount(event.target.value)}
                       placeholder="Ex: 250.00"
                       required
+                      className="border-white/15 bg-[#080808] text-white placeholder:text-zinc-600 focus-visible:ring-white/30"
                     />
                   </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Vencimento</Label>
+                    <Label className="text-zinc-300">Vencimento</Label>
                     <Input
                       type="date"
                       value={dueDate}
                       onChange={(event) => setDueDate(event.target.value)}
+                      className="border-white/15 bg-[#080808] text-white [color-scheme:dark] focus-visible:ring-white/30"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>Status</Label>
+                    <Label className="text-zinc-300">Status</Label>
                     <select
                       value={status}
-                      onChange={(event) => setStatus(event.target.value as ExpenseStatus)}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      onChange={(event) =>
+                        setStatus(event.target.value as ExpenseStatus)
+                      }
+                      className="h-10 w-full rounded-md border border-white/15 bg-[#080808] px-3 text-sm text-white [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                     >
                       <option value="pending">Pendente</option>
                       <option value="paid">Pago</option>
@@ -1161,45 +1130,61 @@ export default function DespesasPage() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Método de pagamento</Label>
+                    <Label className="text-zinc-300">Método de pagamento</Label>
                     <Input
                       value={paymentMethod}
                       onChange={(event) => setPaymentMethod(event.target.value)}
                       placeholder="Pix, dinheiro, cartão..."
+                      className="border-white/15 bg-[#080808] text-white placeholder:text-zinc-600 focus-visible:ring-white/30"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>Referência</Label>
+                    <Label className="text-zinc-300">Referência</Label>
                     <Input
                       value={paymentReference}
-                      onChange={(event) => setPaymentReference(event.target.value)}
+                      onChange={(event) =>
+                        setPaymentReference(event.target.value)
+                      }
                       placeholder="Nota, comprovante..."
+                      className="border-white/15 bg-[#080808] text-white placeholder:text-zinc-600 focus-visible:ring-white/30"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Observação</Label>
+                  <Label className="text-zinc-300">Observação</Label>
                   <Textarea
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}
                     placeholder="Detalhes internos da despesa..."
                     rows={4}
+                    className="border-white/15 bg-[#080808] text-white placeholder:text-zinc-600 focus-visible:ring-white/30"
                   />
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-[#111111] p-3 text-xs text-zinc-500">
-                  Despesas de compras, funcionários, entregadores e perdas devem vir dos módulos de origem. Aqui fica só o lançamento contábil manual.
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-500">
+                  Despesas de compras, funcionários, entregadores e perdas devem
+                  vir dos módulos de origem. Aqui fica só o lançamento contábil
+                  manual.
                 </div>
               </div>
 
               <div className="grid gap-2 border-t border-white/10 p-4 sm:grid-cols-2">
-                <Button type="button" variant="outline" onClick={() => clearForm(true)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => clearForm(true)}
+                  className="border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                >
                   Cancelar
                 </Button>
 
-                <Button type="submit" disabled={saving} className="gap-2">
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="gap-2 bg-white text-black hover:bg-zinc-200"
+                >
                   {saving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -1212,393 +1197,312 @@ export default function DespesasPage() {
           </div>
         )}
 
-        <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-[0_8px_28px_rgba(15,23,42,0.05)]">
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-zinc-500">
-                  Centros de custo
-                </h2>
-                <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[11px] font-semibold text-zinc-500">
-                  {sourceCards.length} grupos
-                </span>
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#080808]">
+          <div className="border-b border-white/10 p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-white">Lista de despesas</h2>
+                <p className="text-xs text-zinc-500">
+                  {filteredExpenses.length} registro(s) encontrado(s)
+                </p>
               </div>
-              <p className="mt-1 text-xs text-zinc-500">
-                Filtre a movimentação por origem para conferir cada conta com mais clareza.
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("")
+                  setStatusFilter("all")
+                  setOriginFilter("all")
+                  setCategoryFilter("all")
+                  setStartDate(currentMonthStart())
+                  setEndDate(currentMonthEnd())
+                }}
+                className="text-xs font-medium text-zinc-400 transition hover:text-white"
+              >
+                Limpar filtros
+              </button>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-7">
+              <div className="relative md:col-span-2 xl:col-span-2">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar despesa..."
+                  className="h-10 border-white/15 bg-black pl-9 text-white placeholder:text-zinc-600 focus-visible:ring-white/30"
+                />
+              </div>
+
+              <Input
+                type="date"
+                aria-label="Data inicial"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="h-10 border-white/15 bg-black text-white [color-scheme:dark] focus-visible:ring-white/30"
+              />
+
+              <Input
+                type="date"
+                aria-label="Data final"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="h-10 border-white/15 bg-black text-white [color-scheme:dark] focus-visible:ring-white/30"
+              />
+
+              <select
+                value={categoryFilter}
+                aria-label="Filtrar por categoria"
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                className="h-10 rounded-md border border-white/15 bg-black px-3 text-sm text-white [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              >
+                <option value="all">Todas categorias</option>
+                {categoryOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                aria-label="Filtrar por status"
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as StatusFilter)
+                }
+                className="h-10 rounded-md border border-white/15 bg-black px-3 text-sm text-white [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              >
+                <option value="all">Todos status</option>
+                <option value="pending">Pendentes</option>
+                <option value="overdue">Vencidas</option>
+                <option value="paid">Pagas</option>
+                <option value="cancelled">Canceladas</option>
+              </select>
+
+              <select
+                value={originFilter}
+                aria-label="Filtrar por origem"
+                onChange={(event) =>
+                  setOriginFilter(event.target.value as OriginFilter)
+                }
+                className="h-10 rounded-md border border-white/15 bg-black px-3 text-sm text-white [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              >
+                <option value="all">Todas origens</option>
+                <option value="purchase">Compras</option>
+                <option value="staff">Funcionários</option>
+                <option value="delivery">Entregadores</option>
+                <option value="manual">Manuais/fixas</option>
+                <option value="loss">Perdas/consumo</option>
+              </select>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-14 text-sm text-zinc-500">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Carregando despesas...
+            </div>
+          ) : filteredExpenses.length === 0 ? (
+            <div className="m-3 rounded-xl border border-dashed border-white/10 p-8 text-center sm:p-10">
+              <ArrowDownCircle className="mx-auto h-9 w-9 text-zinc-500" />
+              <p className="mt-2 font-medium text-white">
+                Nenhuma despesa encontrada
+              </p>
+              <p className="text-sm text-zinc-500">
+                Lance uma despesa, registre uma compra ou ajuste os filtros.
               </p>
             </div>
+          ) : (
+            <>
+              <div className="space-y-2 p-3 lg:hidden">
+                {filteredExpenses.map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="rounded-xl border border-white/10 bg-black p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="line-clamp-2 font-semibold text-white">
+                          {expense.description}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                              originStyles[expense.origin],
+                            )}
+                          >
+                            {expense.originLabel}
+                          </span>
 
-            <button
-              type="button"
-              onClick={() => setOriginFilter("all")}
-              className={cn(
-                "w-fit rounded-lg px-3 py-2 text-xs font-bold ring-1 transition",
-                originFilter === "all"
-                  ? "bg-[#080808] text-white ring-yellow-400/20 shadow-sm"
-                  : "bg-[#0A0A0A] text-zinc-500 ring-yellow-400/20 hover:bg-[#111111]",
-              )}
-            >
-              Todos os centros
-            </button>
-          </div>
+                          <span
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                              isExpenseOverdue(expense)
+                                ? "border-white/40 bg-white/10 text-white"
+                                : statusStyles[expense.status] ||
+                                    "border-white/10 bg-transparent text-zinc-500",
+                            )}
+                          >
+                            {isExpenseOverdue(expense)
+                              ? "Vencido"
+                              : statusLabels[expense.status] || expense.status}
+                          </span>
+                        </div>
+                      </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            {sourceCards.map((item) => {
-              const Icon = item.icon
-              const active = originFilter === item.key
+                      <div className="text-right">
+                        <strong className="block text-sm font-semibold text-white">
+                          {formatCurrency(expense.amount)}
+                        </strong>
+                        <span className="text-xs text-zinc-500">
+                          {formatDate(expense.date)}
+                        </span>
+                      </div>
+                    </div>
 
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setOriginFilter(active ? "all" : item.key)}
-                  className={cn(
-                    "group rounded-2xl border border-l-4 bg-[#0A0A0A] p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-white/10 hover:shadow-md",
-                    originAccentStyles[item.key],
-                    active
-                      ? cn("ring-2", originActiveStyles[item.key])
-                      : "border-white/10",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-white">{item.title}</p>
-                      <p className="mt-0.5 line-clamp-2 min-h-[32px] text-xs leading-4 text-zinc-500">
-                        {item.description}
+                    <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-white/5 bg-white/[0.03] p-2 text-xs text-zinc-500">
+                      <div>
+                        <p className="text-zinc-500">Categoria</p>
+                        <p className="font-medium text-zinc-300">
+                          {expense.category}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-zinc-500">Pagamento</p>
+                        <p className="font-medium text-zinc-300">
+                          {expense.status === "paid"
+                            ? expense.paymentMethod || "Pago"
+                            : "Em aberto"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {expense.notes && (
+                      <p className="mt-2 line-clamp-2 text-xs text-zinc-500">
+                        {expense.notes}
                       </p>
-                    </div>
-
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border bg-[#0A0A0A] shadow-sm transition group-hover:scale-105",
-                        active ? "border-white/10 text-white" : "border-white/10 text-zinc-500",
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-end justify-between gap-2 border-t border-white/10 pt-3">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">
-                        Lançado
-                      </span>
-                      <strong className="block text-lg font-bold tracking-tight text-white">
-                        {formatCurrency(item.value)}
-                      </strong>
-                    </div>
-
-                    {active && (
-                      <span className="rounded-full bg-[#0A0A0A] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500 ring-1 ring-yellow-400/20">
-                        filtrando
-                      </span>
                     )}
+
+                    <div className="mt-3 flex justify-end">
+                      {renderExpenseActions(expense)}
+                    </div>
                   </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-sm">
-            <div className="border-b border-white/10 p-3">
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_145px_145px_145px_145px]">
-                <div className="relative md:col-span-2 xl:col-span-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                  <Input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar despesa, categoria, origem..."
-                    className="h-9 pl-9"
-                  />
-                </div>
-
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="h-9"
-                />
-
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  className="h-9"
-                />
-
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="all">Todos status</option>
-                  <option value="pending">Pendentes</option>
-                  <option value="paid">Pagas</option>
-                  <option value="cancelled">Canceladas</option>
-                </select>
-
-                <select
-                  value={originFilter}
-                  onChange={(event) => setOriginFilter(event.target.value as OriginFilter)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="all">Todas origens</option>
-                  <option value="purchase">Compras</option>
-                  <option value="staff">Funcionários</option>
-                  <option value="delivery">Entregadores</option>
-                  <option value="manual">Manuais/fixas</option>
-                  <option value="loss">Perdas/consumo</option>
-                </select>
+                ))}
               </div>
-            </div>
 
-            {loading ? (
-              <div className="flex items-center justify-center py-14 text-sm text-zinc-500">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Carregando despesas 360...
-              </div>
-            ) : filteredExpenses.length === 0 ? (
-              <div className="m-3 rounded-xl border border-dashed border-white/10 p-8 text-center sm:p-10">
-                <ArrowDownCircle className="mx-auto h-9 w-9 text-zinc-500" />
-                <p className="mt-2 font-medium text-white">
-                  Nenhuma despesa encontrada
-                </p>
-                <p className="text-sm text-zinc-500">
-                  Lance uma despesa, registre uma compra ou ajuste os filtros.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2 p-3 lg:hidden">
-                  {filteredExpenses.map((expense) => (
-                    <div
-                      key={expense.id}
-                      className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="line-clamp-2 font-semibold text-white">
-                            {expense.description}
-                          </p>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <div className="hidden overflow-hidden lg:block">
+                <div className="max-h-[650px] overflow-auto">
+                  <table className="w-full min-w-[980px] text-sm">
+                    <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#0D0D0D] text-left text-[11px] uppercase tracking-wide text-zinc-500">
+                      <tr>
+                        <th className="px-4 py-2.5">Despesa</th>
+                        <th className="px-4 py-2.5">Origem</th>
+                        <th className="px-4 py-2.5">Categoria</th>
+                        <th className="px-4 py-2.5">Venc./data</th>
+                        <th className="px-4 py-2.5">Status</th>
+                        <th className="px-4 py-2.5">Pagamento</th>
+                        <th className="px-4 py-2.5 text-right">Valor</th>
+                        <th className="px-4 py-2.5 text-right">Ações</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-white/10 bg-[#080808]">
+                      {filteredExpenses.map((expense) => (
+                        <tr
+                          key={expense.id}
+                          className="transition hover:bg-white/[0.03]"
+                        >
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex items-start gap-2">
+                              {isExpenseOverdue(expense) && (
+                                <AlertTriangle className="mt-0.5 h-4 w-4 text-white" />
+                              )}
+
+                              <div className="min-w-0">
+                                <p className="max-w-[360px] truncate font-medium text-white">
+                                  {expense.description}
+                                </p>
+                                <p className="max-w-[420px] truncate text-xs text-zinc-500">
+                                  {expense.notes || "Sem observação"}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3 align-top">
                             <span
                               className={cn(
-                                "rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
+                                "whitespace-nowrap rounded-full border px-2 py-1 text-xs font-medium",
                                 originStyles[expense.origin],
                               )}
                             >
                               {expense.originLabel}
                             </span>
+                          </td>
 
+                          <td className="px-4 py-3 align-top text-zinc-300">
+                            {expense.category}
+                          </td>
+
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex items-center gap-2 text-zinc-300">
+                              {isExpenseOverdue(expense) ? (
+                                <AlertTriangle className="h-4 w-4 text-white" />
+                              ) : (
+                                <CalendarClock className="h-4 w-4 text-zinc-500" />
+                              )}
+                              {formatDate(expense.date)}
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3 align-top">
                             <span
                               className={cn(
-                                "rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
-                                statusStyles[expense.status] ||
-                                  "bg-[#111111] text-zinc-500 ring-yellow-400/20",
+                                "whitespace-nowrap rounded-full border px-2 py-1 text-xs font-medium",
+                                isExpenseOverdue(expense)
+                                  ? "border-white/40 bg-white/10 text-white"
+                                  : statusStyles[expense.status] ||
+                                      "border-white/10 bg-transparent text-zinc-500",
                               )}
                             >
-                              {statusLabels[expense.status] || expense.status}
+                              {isExpenseOverdue(expense)
+                                ? "Vencido"
+                                : statusLabels[expense.status] ||
+                                  expense.status}
                             </span>
-                          </div>
-                        </div>
+                          </td>
 
-                        <div className="text-right">
-                          <strong className="block text-sm font-semibold text-yellow-400">
+                          <td className="px-4 py-3 align-top text-zinc-500">
+                            {expense.status === "paid" ? (
+                              <span className="line-clamp-2 max-w-[220px]">
+                                {expense.paymentMethod ||
+                                  "Método não informado"}
+                                {expense.paidAt
+                                  ? ` • ${formatDateTime(expense.paidAt)}`
+                                  : ""}
+                              </span>
+                            ) : (
+                              "Ainda não pago"
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3 text-right align-top font-semibold text-white">
                             {formatCurrency(expense.amount)}
-                          </strong>
-                          <span className="text-xs text-zinc-500">{formatDate(expense.date)}</span>
-                        </div>
-                      </div>
+                          </td>
 
-                      <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-[#111111] p-2 text-xs text-zinc-500">
-                        <div>
-                          <p className="text-zinc-500">Categoria</p>
-                          <p className="font-medium text-zinc-500">{expense.category}</p>
-                        </div>
-
-                        <div>
-                          <p className="text-zinc-500">Pagamento</p>
-                          <p className="font-medium text-zinc-500">
-                            {expense.status === "paid" ? expense.paymentMethod || "Pago" : "Em aberto"}
-                          </p>
-                        </div>
-                      </div>
-
-                      {expense.notes && (
-                        <p className="mt-2 line-clamp-2 text-xs text-zinc-500">{expense.notes}</p>
-                      )}
-
-                      <div className="mt-3 flex justify-end">
-                        {renderExpenseActions(expense)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hidden overflow-hidden lg:block">
-                  <div className="max-h-[650px] overflow-auto">
-                    <table className="w-full min-w-[980px] text-sm">
-                      <thead className="sticky top-0 z-10 bg-[#111111] text-left text-[11px] uppercase tracking-wide text-zinc-500 shadow-[inset_0_-1px_0_#111111]">
-                        <tr>
-                          <th className="px-4 py-2.5">Despesa</th>
-                          <th className="px-4 py-2.5">Centro</th>
-                          <th className="px-4 py-2.5">Categoria</th>
-                          <th className="px-4 py-2.5">Venc./data</th>
-                          <th className="px-4 py-2.5">Status</th>
-                          <th className="px-4 py-2.5">Pagamento</th>
-                          <th className="px-4 py-2.5 text-right">Valor</th>
-                          <th className="px-4 py-2.5 text-right">Ações</th>
+                          <td className="px-4 py-3 text-right align-top">
+                            {renderExpenseActions(expense)}
+                          </td>
                         </tr>
-                      </thead>
-
-                      <tbody className="divide-y divide-white/10 bg-[#0A0A0A]">
-                        {filteredExpenses.map((expense) => (
-                          <tr key={expense.id} className="hover:bg-[#111111]">
-                            <td className="px-4 py-3 align-top">
-                              <div className="flex items-start gap-2">
-                                {isExpenseOverdue(expense) && (
-                                  <AlertTriangle className="mt-0.5 h-4 w-4 text-red-500" />
-                                )}
-
-                                <div className="min-w-0">
-                                  <p className="max-w-[360px] truncate font-medium text-white">
-                                    {expense.description}
-                                  </p>
-                                  <p className="max-w-[420px] truncate text-xs text-zinc-500">
-                                    {expense.notes || "Sem observação"}
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-
-                            <td className="px-4 py-3 align-top">
-                              <span
-                                className={cn(
-                                  "whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ring-1",
-                                  originStyles[expense.origin],
-                                )}
-                              >
-                                {expense.originLabel}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-3 align-top text-zinc-500">
-                              {expense.category}
-                            </td>
-
-                            <td className="px-4 py-3 align-top">
-                              <div className="flex items-center gap-2 text-zinc-500">
-                                {isExpenseOverdue(expense) ? (
-                                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                                ) : (
-                                  <CalendarClock className="h-4 w-4 text-zinc-500" />
-                                )}
-                                {formatDate(expense.date)}
-                              </div>
-                            </td>
-
-                            <td className="px-4 py-3 align-top">
-                              <span
-                                className={cn(
-                                  "whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ring-1",
-                                  statusStyles[expense.status] ||
-                                    "bg-[#111111] text-zinc-500 ring-yellow-400/20",
-                                )}
-                              >
-                                {statusLabels[expense.status] || expense.status}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-3 align-top text-zinc-500">
-                              {expense.status === "paid" ? (
-                                <span className="line-clamp-2 max-w-[220px]">
-                                  {expense.paymentMethod || "Método não informado"}
-                                  {expense.paidAt
-                                    ? ` • ${formatDateTime(expense.paidAt)}`
-                                    : ""}
-                                </span>
-                              ) : (
-                                "Ainda não pago"
-                              )}
-                            </td>
-
-                            <td className="px-4 py-3 text-right align-top font-semibold text-yellow-400">
-                              {formatCurrency(expense.amount)}
-                            </td>
-
-                            <td className="px-4 py-3 text-right align-top">
-                              {renderExpenseActions(expense)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          <aside className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-zinc-500" />
-                  <h2 className="font-semibold text-white">Maiores categorias</h2>
-                </div>
-                <span className="text-xs text-zinc-500">Top 8</span>
-              </div>
-
-              {totalsByCategory.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
-                  Nenhuma categoria no período.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {totalsByCategory.map((item) => {
-                    const percent =
-                      totals.total > 0 ? Math.min((item.total / totals.total) * 100, 100) : 0
-
-                    return (
-                      <div key={item.category} className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="truncate font-medium text-zinc-500">
-                            {item.category}
-                          </span>
-                          <strong className="text-white">
-                            {formatCurrency(item.total)}
-                          </strong>
-                        </div>
-
-                        <div className="h-2 overflow-hidden rounded-full bg-[#111111]">
-                          <div
-                            className="h-full rounded-full bg-yellow-400"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-zinc-500">
-                  <Clock3 className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">Regra operacional</h3>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    A tela consolida despesas automáticas dos módulos. O lançamento manual fica para contas fixas, impostos, doações, consumo próprio e ajustes contábeis.
-                  </p>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            </div>
-          </aside>
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>

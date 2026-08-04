@@ -46,6 +46,13 @@ interface DeliveryFeeRule {
   sortOrder?: number
 }
 
+type DeliveryFeeMode = "distance" | "neighborhood"
+
+interface DeliveryNeighborhoodOption {
+  name: string
+  fee: number
+}
+
 interface PublicRestaurant {
   id: string
   name: string
@@ -74,6 +81,8 @@ interface PublicRestaurant {
   efi_pix_enabled?: boolean | null
   deliveryFee: number
   deliveryFeeRules?: DeliveryFeeRule[] | null
+  deliveryFeeMode?: DeliveryFeeMode | null
+  deliveryNeighborhoods?: DeliveryNeighborhoodOption[] | null
   openTime?: string | null
   closeTime?: string | null
   avgPrepTime?: number | null
@@ -306,6 +315,18 @@ function getActiveDeliveryRules(restaurant: PublicRestaurant) {
 }
 
 function getStartingDeliveryFee(restaurant: PublicRestaurant) {
+  if (
+    restaurant.deliveryFeeMode === "neighborhood" &&
+    Array.isArray(restaurant.deliveryNeighborhoods) &&
+    restaurant.deliveryNeighborhoods.length > 0
+  ) {
+    return Math.min(
+      ...restaurant.deliveryNeighborhoods.map((neighborhood) =>
+        Number(neighborhood.fee || 0)
+      )
+    )
+  }
+
   const rules = getActiveDeliveryRules(restaurant)
 
   if (rules.length === 0) {
@@ -360,7 +381,11 @@ function getRuleWeekdays(rule: ProductAvailabilityRule) {
   return []
 }
 
-function isTimeInsideRange(currentMinutes: number, startMinutes: number, endMinutes: number) {
+function isTimeInsideRange(
+  currentMinutes: number,
+  startMinutes: number,
+  endMinutes: number
+) {
   if (startMinutes === endMinutes) return true
 
   if (endMinutes > startMinutes) {
@@ -418,12 +443,16 @@ function getProductAvailabilityStatus(
 
   return {
     isAvailable: true,
-    displayCategoryId: activeRule.displayCategoryId ?? activeRule.display_category_id ?? null,
+    displayCategoryId:
+      activeRule.displayCategoryId ?? activeRule.display_category_id ?? null,
     isScheduled: true,
   }
 }
 
-function getVisibleMenuCategories(categories: MenuCategory[], now = new Date()) {
+function getVisibleMenuCategories(
+  categories: MenuCategory[],
+  now = new Date()
+) {
   const categoryMap = new Map<string, MenuCategory>()
   const orderedCategories: MenuCategory[] = []
 
@@ -446,7 +475,8 @@ function getVisibleMenuCategories(categories: MenuCategory[], now = new Date()) 
       if (!availability.isAvailable) return
 
       const targetCategory =
-        categoryMap.get(availability.displayCategoryId ?? "") ?? categoryMap.get(category.id)
+        categoryMap.get(availability.displayCategoryId ?? "") ??
+        categoryMap.get(category.id)
 
       if (!targetCategory) return
 
@@ -591,8 +621,6 @@ function ProductBadge({
     </div>
   )
 }
-
-
 
 // BLOCO: promoções e ofertas em destaque do cardápio público.
 // Usa productMeta como fonte temporária para não mexer no banco agora.
@@ -814,7 +842,6 @@ function FeaturedOfferCard({
   )
 }
 
-
 function FeaturedOffersSection({
   items,
   accentColor,
@@ -855,7 +882,6 @@ function FeaturedOffersSection({
     </section>
   )
 }
-
 
 // BLOCO: card compacto de produto para melhorar leitura e conversão no mobile.
 function ProductCard({
@@ -991,8 +1017,6 @@ function ProductCard({
     </div>
   )
 }
-
-
 function ModifierGroupComponent({
   group,
   selected,
@@ -1044,7 +1068,9 @@ function ModifierGroupComponent({
                 onClick={() => onIncrease(option)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-all",
-                  isSelected ? "border-yellow-200 bg-yellow-50" : "border-white/10 bg-[#0A0A0A] hover:bg-[#111111]"
+                  isSelected
+                    ? "border-yellow-200 bg-yellow-50"
+                    : "border-white/10 bg-[#0A0A0A] hover:bg-[#111111]"
                 )}
                 style={
                   isSelected
@@ -1059,21 +1085,30 @@ function ModifierGroupComponent({
                   <div
                     className={cn(
                       "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
-                      isSelected ? "border-transparent text-white" : "border-white/10"
+                      isSelected
+                        ? "border-transparent text-white"
+                        : "border-white/10"
                     )}
                     style={
                       isSelected
-                        ? { borderColor: accentColor, backgroundColor: accentColor }
+                        ? {
+                            borderColor: accentColor,
+                            backgroundColor: accentColor,
+                          }
                         : undefined
                     }
                   >
-                    {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                    {isSelected && (
+                      <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                    )}
                   </div>
 
                   <span
                     className={cn(
                       "text-sm",
-                      isSelected ? "font-semibold text-white" : "text-zinc-500"
+                      isSelected
+                        ? "font-semibold text-white"
+                        : "text-zinc-500"
                     )}
                   >
                     {option.name}
@@ -1081,7 +1116,9 @@ function ModifierGroupComponent({
                 </div>
 
                 <span className="text-xs font-black text-white">
-                  {option.price > 0 ? `+ ${formatPrice(option.price)}` : formatPrice(0)}
+                  {option.price > 0
+                    ? `+ ${formatPrice(option.price)}`
+                    : formatPrice(0)}
                 </span>
               </button>
             )
@@ -1111,22 +1148,33 @@ function ModifierGroupComponent({
                 <div
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all",
-                    isSelected ? "border-transparent text-white" : "border-white/10 text-zinc-500"
+                    isSelected
+                      ? "border-transparent text-white"
+                      : "border-white/10 text-zinc-500"
                   )}
                   style={
                     isSelected
-                      ? { borderColor: accentColor, backgroundColor: accentColor }
+                      ? {
+                          borderColor: accentColor,
+                          backgroundColor: accentColor,
+                        }
                       : undefined
                   }
                 >
-                  {isSelected ? `${selectedCount}x` : <Plus className="h-3.5 w-3.5" />}
+                  {isSelected ? (
+                    `${selectedCount}x`
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
                 </div>
 
                 <div className="min-w-0">
                   <p
                     className={cn(
                       "truncate text-sm",
-                      isSelected ? "font-semibold text-white" : "text-zinc-500"
+                      isSelected
+                        ? "font-semibold text-white"
+                        : "text-zinc-500"
                     )}
                   >
                     {option.name}
@@ -1136,7 +1184,9 @@ function ModifierGroupComponent({
 
               <div className="flex shrink-0 items-center gap-2">
                 <span className="mr-1 text-xs font-black text-white">
-                  {option.price > 0 ? `+ ${formatPrice(option.price)}` : formatPrice(0)}
+                  {option.price > 0
+                    ? `+ ${formatPrice(option.price)}`
+                    : formatPrice(0)}
                 </span>
 
                 <button
@@ -1157,7 +1207,11 @@ function ModifierGroupComponent({
                   onClick={() => onIncrease(option)}
                   disabled={reachedMax}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-white disabled:cursor-not-allowed disabled:bg-[#111111]"
-                  style={reachedMax ? undefined : { backgroundColor: accentColor }}
+                  style={
+                    reachedMax
+                      ? undefined
+                      : { backgroundColor: accentColor }
+                  }
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -1174,6 +1228,7 @@ type MenuProductWithModifiers = MenuProduct & {
   modifierGroups?: ModifierGroup[] | null
   modifier_groups?: ModifierGroup[] | null
 }
+
 function getProductModifierGroups(product: MenuProduct): ModifierGroup[] {
   const productWithModifiers = product as MenuProductWithModifiers
 
@@ -1213,11 +1268,15 @@ function ProductModal({
 }) {
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState("")
-  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, ModifierOption[]>>({})
+  const [selectedModifiers, setSelectedModifiers] = useState<
+    Record<string, ModifierOption[]>
+  >({})
 
   const modifierGroups = getProductModifierGroups(product)
   const productPromotion = getProductPromotion(product)
-  const formattedDescription = formatMenuProductDescription(product.description)
+  const formattedDescription = formatMenuProductDescription(
+    product.description
+  )
 
   const modifiersTotal = Object.values(selectedModifiers)
     .flat()
@@ -1231,7 +1290,10 @@ function ProductModal({
     (g) => (selectedModifiers[g.id] || []).length >= g.minSelect
   )
 
-  const handleModifierIncrease = (group: ModifierGroup, option: ModifierOption) => {
+  const handleModifierIncrease = (
+    group: ModifierGroup,
+    option: ModifierOption
+  ) => {
     setSelectedModifiers((prev) => {
       const current = prev[group.id] || []
       const isSelected = current.some((o) => o.id === option.id)
@@ -1248,7 +1310,10 @@ function ProductModal({
     })
   }
 
-  const handleModifierDecrease = (group: ModifierGroup, option: ModifierOption) => {
+  const handleModifierDecrease = (
+    group: ModifierGroup,
+    option: ModifierOption
+  ) => {
     setSelectedModifiers((prev) => {
       const current = prev[group.id] || []
       const optionIndex = current.findIndex((o) => o.id === option.id)
@@ -1271,17 +1336,31 @@ function ProductModal({
       const selected = selectedModifiers[group.id] || []
 
       selected.forEach((opt) => {
-        modifiers.push({ groupId: group.id, groupName: group.name, option: opt })
+        modifiers.push({
+          groupId: group.id,
+          groupName: group.name,
+          option: opt,
+        })
       })
     })
 
-    onAddToCart({ product, quantity, notes, modifiers, unitPrice })
+    onAddToCart({
+      product,
+      quantity,
+      notes,
+      modifiers,
+      unitPrice,
+    })
+
     onClose()
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3 sm:items-center sm:p-6">
-      <div className="fixed inset-0 bg-[#111111]5 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="fixed inset-0 bg-[#111111]5 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       <div className="relative z-10 flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-[#0A0A0A] shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <button
@@ -1294,7 +1373,13 @@ function ProductModal({
 
         <div className="relative h-[228px] w-full flex-shrink-0 overflow-hidden bg-[#111111]">
           {product.imageUrl ? (
-            <Image src={product.imageUrl} alt={product.name} fill className="object-cover" sizes="512px" />
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              fill
+              className="object-cover"
+              sizes="512px"
+            />
           ) : (
             <MenuImagePlaceholder />
           )}
@@ -1332,7 +1417,8 @@ function ProductModal({
               </h3>
 
               <div className="mt-1 flex items-center gap-2">
-                {productPromotion.isPromotional && productPromotion.originalPrice ? (
+                {productPromotion.isPromotional &&
+                productPromotion.originalPrice ? (
                   <p className="text-sm font-bold text-zinc-500 line-through">
                     {formatPrice(productPromotion.originalPrice)}
                   </p>
@@ -1358,15 +1444,21 @@ function ProductModal({
                     group={group}
                     accentColor={accentColor}
                     selected={selectedModifiers[group.id] || []}
-                    onIncrease={(opt) => handleModifierIncrease(group, opt)}
-                    onDecrease={(opt) => handleModifierDecrease(group, opt)}
+                    onIncrease={(opt) =>
+                      handleModifierIncrease(group, opt)
+                    }
+                    onDecrease={(opt) =>
+                      handleModifierDecrease(group, opt)
+                    }
                   />
                 ))}
               </div>
             )}
 
             <div className="border-t border-white/10 pt-4">
-              <label className="text-sm font-black text-white">Alguma observação?</label>
+              <label className="text-sm font-black text-white">
+                Alguma observação?
+              </label>
 
               <textarea
                 value={notes}
@@ -1381,18 +1473,24 @@ function ProductModal({
 
         <div className="flex-shrink-0 border-t border-white/10 bg-[#0A0A0A] p-4 backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-sm font-black text-white">Quantidade</span>
+            <span className="text-sm font-black text-white">
+              Quantidade
+            </span>
 
             <div className="flex h-10 items-center overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0A]">
               <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                onClick={() =>
+                  setQuantity(Math.max(1, quantity - 1))
+                }
                 className="flex h-10 w-11 items-center justify-center text-zinc-500 hover:text-zinc-500"
                 aria-label="Diminuir quantidade"
               >
                 <Minus className="h-4 w-4" />
               </button>
 
-              <span className="w-9 text-center text-sm font-black text-white">{quantity}</span>
+              <span className="w-9 text-center text-sm font-black text-white">
+                {quantity}
+              </span>
 
               <button
                 onClick={() => setQuantity(quantity + 1)}
@@ -1435,8 +1533,6 @@ function ProductModal({
     </div>
   )
 }
-
-
 function UpsellModal({
   suggestions,
   accentColor,
@@ -1520,7 +1616,8 @@ function UpsellModal({
               </div>
 
               <div className="shrink-0 text-right">
-                {suggestionPromotion.isPromotional && suggestionPromotion.originalPrice ? (
+                {suggestionPromotion.isPromotional &&
+                suggestionPromotion.originalPrice ? (
                   <p className="text-xs font-bold text-zinc-500 line-through">
                     {formatPrice(suggestionPromotion.originalPrice)}
                   </p>
@@ -1581,7 +1678,6 @@ function UpsellModal({
     </div>
   )
 }
-
 
 type NeighborhoodOption = {
   key: string
@@ -1820,10 +1916,14 @@ function parseCurrencyInput(value: string) {
   return Number.isFinite(parsedValue) ? parsedValue : null
 }
 
-function sanitizePixText(value: string | null | undefined, maxLength: number, fallback: string) {
+function sanitizePixText(
+  value: string | null | undefined,
+  maxLength: number,
+  fallback: string
+) {
   const normalized = (value || fallback)
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -1832,7 +1932,10 @@ function sanitizePixText(value: string | null | undefined, maxLength: number, fa
   return (normalized || fallback).slice(0, maxLength)
 }
 
-function normalizePixKeyForPayload(pixKey: string, pixKeyType?: string | null) {
+function normalizePixKeyForPayload(
+  pixKey: string,
+  pixKeyType?: string | null
+) {
   const type = normalizeOrderStatus(pixKeyType)
   const value = pixKey.trim()
 
@@ -1935,13 +2038,18 @@ function buildManualPixPayload({
   return `${payloadWithoutCrc}${calculatePixCrc16(payloadWithoutCrc)}`
 }
 
-
 function formatPaymentMethodLabel(method?: string | null) {
   const normalizedMethod = normalizeOrderStatus(method)
 
   if (["cash", "dinheiro"].includes(normalizedMethod)) return "Dinheiro"
-  if (["efi_pix", "pix_efi", "efi"].includes(normalizedMethod)) return "Pix automático"
-  if (["pix", "pix_manual", "pix_direto"].includes(normalizedMethod)) return "Pix"
+
+  if (["efi_pix", "pix_efi", "efi"].includes(normalizedMethod)) {
+    return "Pix automático"
+  }
+
+  if (["pix", "pix_manual", "pix_direto"].includes(normalizedMethod)) {
+    return "Pix"
+  }
 
   if (
     [
@@ -2020,7 +2128,6 @@ function getOrderProgressIndex(
   if (["cancelled", "canceled", "cancelado"].includes(normalizedStatus)) {
     return -1
   }
-
 
   const isCompletedStatus = [
     "completed",
@@ -2126,7 +2233,6 @@ function getOrderStatusLabel(
   ) {
     return "Aguardando conferência Pix"
   }
-
 
   const isCompletedStatus = [
     "completed",
@@ -2348,7 +2454,6 @@ function LoyaltyProgressCard({
     </div>
   )
 }
-
 function getOrderTrackingMessage({
   progressIndex,
   orderType,
@@ -2497,19 +2602,29 @@ function OrderTrackingCard({
             </div>
 
             <div className="shrink-0 rounded-2xl bg-[#111111] px-3 py-2 text-right ring-1 ring-yellow-400/20">
-              <p className="text-[9px] font-black uppercase text-zinc-500">Total</p>
-              <p className="text-sm font-black text-white">{formatPrice(Number(order.total || 0))}</p>
+              <p className="text-[9px] font-black uppercase text-zinc-500">
+                Total
+              </p>
+
+              <p className="text-sm font-black text-white">
+                {formatPrice(Number(order.total || 0))}
+              </p>
             </div>
           </div>
 
           <div className="mt-4 rounded-2xl bg-[#111111] p-3 ring-1 ring-yellow-400/20">
             <div className="flex items-center justify-between gap-2">
               <p className="truncate text-xs font-black text-white">
-                {getOrderStatusLabel(order.status, orderType, order.customer_received_at)}
+                {getOrderStatusLabel(
+                  order.status,
+                  orderType,
+                  order.customer_received_at
+                )}
               </p>
 
               <p className="shrink-0 text-[11px] font-bold text-zinc-500">
-                {orderType === "delivery" ? "Entrega" : "Retirada"} • {formatPaymentMethodLabel(order.payment_method)}
+                {orderType === "delivery" ? "Entrega" : "Retirada"} •{" "}
+                {formatPaymentMethodLabel(order.payment_method)}
               </p>
             </div>
 
@@ -2536,7 +2651,9 @@ function OrderTrackingCard({
                           "h-3 w-3 rounded-full transition-all",
                           isCurrent && "animate-pulse ring-4 ring-yellow-100"
                         )}
-                        style={{ backgroundColor: isDone ? accentColor : "#d1d5db" }}
+                        style={{
+                          backgroundColor: isDone ? accentColor : "#d1d5db",
+                        }}
                       />
                     </div>
 
@@ -2584,7 +2701,9 @@ function OrderTrackingCard({
             ) : showReviewForm ? (
               <div className="mt-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
                 <p className="text-sm font-black text-white">
-                  {orderType === "pickup" ? "Como foi sua retirada?" : "Como foi seu pedido?"}
+                  {orderType === "pickup"
+                    ? "Como foi sua retirada?"
+                    : "Como foi seu pedido?"}
                 </p>
 
                 <p className="mt-1 text-xs leading-relaxed text-zinc-500">
@@ -2602,7 +2721,9 @@ function OrderTrackingCard({
                       <Star
                         className={cn(
                           "h-7 w-7",
-                          rating >= star ? "fill-yellow-400 text-yellow-400" : "text-zinc-500"
+                          rating >= star
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-zinc-500"
                         )}
                       />
                     </button>
@@ -2637,7 +2758,9 @@ function OrderTrackingCard({
             ) : canConfirmReceived ? (
               <div className="mt-3 rounded-2xl border border-white/10 bg-[#111111] p-3">
                 <p className="text-xs font-black text-white">
-                  {orderType === "pickup" ? "Você já retirou seu pedido?" : "Seu pedido chegou?"}
+                  {orderType === "pickup"
+                    ? "Você já retirou seu pedido?"
+                    : "Seu pedido chegou?"}
                 </p>
 
                 <div className="mt-3 grid gap-2">
@@ -2647,7 +2770,9 @@ function OrderTrackingCard({
                     className="w-full rounded-2xl py-3 text-sm font-black text-white shadow-lg active:scale-[0.98]"
                     style={{ backgroundColor: accentColor }}
                   >
-                    {orderType === "pickup" ? "Sim, já retirei" : "Sim, recebi"}
+                    {orderType === "pickup"
+                      ? "Sim, já retirei"
+                      : "Sim, recebi"}
                   </button>
 
                   {whatsappPhone ? (
@@ -2680,8 +2805,6 @@ function OrderTrackingCard({
     </div>
   )
 }
-
-
 function CustomerStartModal({
   open,
   restaurantName,
@@ -3036,7 +3159,6 @@ function ProfileLoyaltyCoins({
     </div>
   )
 }
-
 function formatOrderHistoryDate(value?: string | null) {
   if (!value) return "Data não informada"
 
@@ -3056,13 +3178,27 @@ function formatOrderHistoryDate(value?: string | null) {
 function getCustomerOrderStatusClasses(order: CustomerVisibleOrder) {
   const normalizedStatus = normalizeOrderStatus(order.status)
   const normalizedPaymentStatus = normalizeOrderStatus(order.payment_status)
-  const label = getOrderStatusLabel(order.status, order.order_type, order.customer_received_at)
+  const label = getOrderStatusLabel(
+    order.status,
+    order.order_type,
+    order.customer_received_at
+  )
   const normalizedLabel = label.toLocaleLowerCase("pt-BR")
 
   if (
     order.customer_received_at ||
-    ["delivered", "completed", "finished", "paid", "concluido", "concluida", "finalizado"].includes(normalizedStatus) ||
-    ["paid", "confirmed", "approved", "settled"].includes(normalizedPaymentStatus) ||
+    [
+      "delivered",
+      "completed",
+      "finished",
+      "paid",
+      "concluido",
+      "concluida",
+      "finalizado",
+    ].includes(normalizedStatus) ||
+    ["paid", "confirmed", "approved", "settled"].includes(
+      normalizedPaymentStatus
+    ) ||
     normalizedLabel.includes("entregue") ||
     normalizedLabel.includes("finalizado") ||
     normalizedLabel.includes("pago")
@@ -3071,15 +3207,29 @@ function getCustomerOrderStatusClasses(order: CustomerVisibleOrder) {
   }
 
   if (
-    ["cancelled", "canceled", "cancelado", "cancelada"].includes(normalizedStatus) ||
+    ["cancelled", "canceled", "cancelado", "cancelada"].includes(
+      normalizedStatus
+    ) ||
     normalizedLabel.includes("cancel")
   ) {
     return "bg-red-50 text-red-700 ring-1 ring-red-100"
   }
 
   if (
-    ["waiting_payment", "waiting_customer_payment", "awaiting_payment", "pending_payment", "awaiting_review"].includes(normalizedStatus) ||
-    ["waiting_payment", "waiting_customer_payment", "awaiting_payment", "pending", "awaiting_review"].includes(normalizedPaymentStatus) ||
+    [
+      "waiting_payment",
+      "waiting_customer_payment",
+      "awaiting_payment",
+      "pending_payment",
+      "awaiting_review",
+    ].includes(normalizedStatus) ||
+    [
+      "waiting_payment",
+      "waiting_customer_payment",
+      "awaiting_payment",
+      "pending",
+      "awaiting_review",
+    ].includes(normalizedPaymentStatus) ||
     normalizedLabel.includes("pix") ||
     normalizedLabel.includes("pagamento")
   ) {
@@ -3120,14 +3270,21 @@ function CustomerProfileModal({
 
   const firstName = customer?.name?.trim().split(/\s+/)[0] || "cliente"
   const activeOrderStatusLabel = activeOrder
-    ? getOrderStatusLabel(activeOrder.status, activeOrder.order_type, activeOrder.customer_received_at)
+    ? getOrderStatusLabel(
+        activeOrder.status,
+        activeOrder.order_type,
+        activeOrder.customer_received_at
+      )
     : ""
   const latestOrder = orderHistory[0] ?? null
   const cashbackBalance = Number(cashbackStatus?.wallet?.balance ?? 0)
   const loyaltySummary = loyalty?.loyalty_campaigns?.is_active
     ? loyalty.reward_available
       ? "Disponível"
-      : `${Math.max(0, loyalty.current_orders)}/${Math.max(1, loyalty.required_orders)}`
+      : `${Math.max(0, loyalty.current_orders)}/${Math.max(
+          1,
+          loyalty.required_orders
+        )}`
     : "0"
 
   return (
@@ -3180,9 +3337,13 @@ function CustomerProfileModal({
                   </div>
 
                   <div>
-                    <p className="text-sm font-black text-white">Meus benefícios</p>
+                    <p className="text-sm font-black text-white">
+                      Meus benefícios
+                    </p>
+
                     <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
-                      Seus pedidos podem liberar cashback, fidelidade e recompensas quando disponíveis.
+                      Seus pedidos podem liberar cashback, fidelidade e
+                      recompensas quando disponíveis.
                     </p>
                   </div>
                 </div>
@@ -3251,16 +3412,24 @@ function CustomerProfileModal({
                       </p>
 
                       <p className="mt-1 text-base font-black text-white">
-                        #{activeOrder.public_order_number || activeOrder.id.slice(0, 8)}
+                        #
+                        {activeOrder.public_order_number ||
+                          activeOrder.id.slice(0, 8)}
                       </p>
 
-                      <span className={cn("mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-black", getCustomerOrderStatusClasses(activeOrder))}>
+                      <span
+                        className={cn(
+                          "mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-black",
+                          getCustomerOrderStatusClasses(activeOrder)
+                        )}
+                      >
                         {activeOrderStatusLabel}
                       </span>
                     </div>
 
                     <div className="shrink-0 text-right">
                       <p className="text-xs font-bold text-zinc-500">Total</p>
+
                       <p className="mt-1 text-base font-black text-yellow-700">
                         {formatPrice(Number(activeOrder.total || 0))}
                       </p>
@@ -3278,12 +3447,18 @@ function CustomerProfileModal({
               )}
 
               <div className="mb-4">
-                <h3 className="mb-2 text-sm font-black text-white">Meus benefícios</h3>
+                <h3 className="mb-2 text-sm font-black text-white">
+                  Meus benefícios
+                </h3>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <Sparkles className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Cashback disponível</p>
+
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">
+                      Cashback disponível
+                    </p>
+
                     <p className="mt-0.5 text-sm font-black text-white">
                       {formatPrice(cashbackBalance)}
                     </p>
@@ -3291,29 +3466,51 @@ function CustomerProfileModal({
 
                   <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <ShoppingBag className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Pedidos feitos</p>
-                    <p className="mt-0.5 text-sm font-black text-white">{orderHistory.length}</p>
+
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">
+                      Pedidos feitos
+                    </p>
+
+                    <p className="mt-0.5 text-sm font-black text-white">
+                      {orderHistory.length}
+                    </p>
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <Receipt className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Último pedido</p>
+
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">
+                      Último pedido
+                    </p>
+
                     <p className="mt-0.5 truncate text-sm font-black text-white">
-                      {latestOrder?.created_at ? formatOrderHistoryDate(latestOrder.created_at).slice(0, 10) : "0"}
+                      {latestOrder?.created_at
+                        ? formatOrderHistoryDate(
+                            latestOrder.created_at
+                          ).slice(0, 10)
+                        : "0"}
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
                     <Star className="h-4 w-4 text-yellow-600" />
-                    <p className="mt-2 text-[10px] font-bold text-zinc-500">Fidelidade</p>
-                    <p className="mt-0.5 truncate text-sm font-black text-white">{loyaltySummary}</p>
+
+                    <p className="mt-2 text-[10px] font-bold text-zinc-500">
+                      Fidelidade
+                    </p>
+
+                    <p className="mt-0.5 truncate text-sm font-black text-white">
+                      {loyaltySummary}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-lg font-black text-white">Histórico de pedidos</h3>
+                  <h3 className="text-lg font-black text-white">
+                    Histórico de pedidos
+                  </h3>
 
                   <span className="rounded-full bg-[#111111] px-3 py-1 text-xs font-black text-zinc-500">
                     Todos
@@ -3323,7 +3520,9 @@ function CustomerProfileModal({
                 {orderHistory.length > 0 ? (
                   <div className="space-y-2.5">
                     {orderHistory.map((order) => {
-                      const orderType = normalizeCustomerOrderType(order.order_type)
+                      const orderType = normalizeCustomerOrderType(
+                        order.order_type
+                      )
                       const orderItems = order.items ?? []
                       const itemsLabel = orderItems
                         .slice(0, 2)
@@ -3344,7 +3543,9 @@ function CustomerProfileModal({
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="text-sm font-black text-white">
-                                #{order.public_order_number || order.id.slice(0, 8)}
+                                #
+                                {order.public_order_number ||
+                                  order.id.slice(0, 8)}
                               </p>
 
                               <p className="mt-0.5 text-xs font-semibold text-zinc-500">
@@ -3352,7 +3553,13 @@ function CustomerProfileModal({
                               </p>
 
                               <p className="mt-1 text-xs font-bold text-zinc-500">
-                                {orderType === "delivery" ? "Entrega" : "Retirada"} • {formatPaymentMethodLabel(order.payment_method)}
+                                {orderType === "delivery"
+                                  ? "Entrega"
+                                  : "Retirada"}{" "}
+                                •{" "}
+                                {formatPaymentMethodLabel(
+                                  order.payment_method
+                                )}
                               </p>
                             </div>
 
@@ -3361,7 +3568,12 @@ function CustomerProfileModal({
                                 {formatPrice(Number(order.total || 0))}
                               </p>
 
-                              <span className={cn("mt-1 inline-flex rounded-full px-2 py-1 text-[10px] font-black", getCustomerOrderStatusClasses(order))}>
+                              <span
+                                className={cn(
+                                  "mt-1 inline-flex rounded-full px-2 py-1 text-[10px] font-black",
+                                  getCustomerOrderStatusClasses(order)
+                                )}
+                              >
                                 {statusLabel}
                               </span>
                             </div>
@@ -3370,7 +3582,11 @@ function CustomerProfileModal({
                           {itemsLabel && (
                             <p className="mt-2 line-clamp-1 text-xs font-semibold text-zinc-500">
                               {itemsLabel}
-                              {orderItems.length > 2 ? ` +${orderItems.length - 2} item${orderItems.length - 2 === 1 ? "" : "s"}` : ""}
+                              {orderItems.length > 2
+                                ? ` +${orderItems.length - 2} item${
+                                    orderItems.length - 2 === 1 ? "" : "s"
+                                  }`
+                                : ""}
                             </p>
                           )}
 
@@ -3396,7 +3612,8 @@ function CustomerProfileModal({
                     </p>
 
                     <p className="mt-1 text-xs font-semibold leading-relaxed text-zinc-500">
-                      Quando você fizer pedidos por aqui, eles vão aparecer nessa área.
+                      Quando você fizer pedidos por aqui, eles vão aparecer
+                      nessa área.
                     </p>
                   </div>
                 )}
@@ -3416,8 +3633,6 @@ function CustomerProfileModal({
     </div>
   )
 }
-
-
 function CartSheet({
   items,
   open,
@@ -3457,6 +3672,15 @@ function CartSheet({
   const [orderType, setOrderType] = useState<"delivery" | "pickup">(
     deliveryEnabled ? "delivery" : "pickup"
   )
+const deliveryFeeMode: DeliveryFeeMode =
+  restaurant.deliveryFeeMode === "neighborhood" ? "neighborhood" : "distance"
+const deliveryNeighborhoodOptions = useMemo(
+  () =>
+    Array.isArray(restaurant.deliveryNeighborhoods)
+      ? restaurant.deliveryNeighborhoods
+      : [],
+  [restaurant.deliveryNeighborhoods]
+)
 const [customerAddress, setCustomerAddress] = useState("")
 const [deliveryCep, setDeliveryCep] = useState("")
 const [deliveryNumber, setDeliveryNumber] = useState("")
@@ -3515,8 +3739,34 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
     setCalculatedDeliveryFee(null)
     setDeliveryCalculationError("")
     setIsCalculatingDelivery(false)
+    return
   }
-}, [orderType])
+
+  setDeliveryCalculationError("")
+  setIsCalculatingDelivery(false)
+
+  if (deliveryFeeMode === "neighborhood") {
+    setDeliveryCep("")
+    setDeliveryDistanceKm(null)
+    const activeNeighborhood = deliveryNeighborhoodOptions.find(
+      (neighborhood) =>
+        normalizeNeighborhoodKey(neighborhood.name) ===
+        normalizeNeighborhoodKey(deliveryNeighborhood)
+    )
+
+    setCalculatedDeliveryFee(activeNeighborhood?.fee ?? null)
+    return
+  }
+
+  setDeliveryNeighborhood("")
+  setCalculatedDeliveryFee(null)
+  setDeliveryDistanceKm(null)
+}, [
+  orderType,
+  deliveryFeeMode,
+  deliveryNeighborhood,
+  deliveryNeighborhoodOptions,
+])
   useEffect(() => {
     if (!open) {
       setStep("cart")
@@ -3535,10 +3785,28 @@ const [isLoadingCashback, setIsLoadingCashback] = useState(false)
   if (!open || !customer?.address) return
 
   setCustomerAddress(customer.address.customerAddress ?? "")
+  setDeliveryCep(customer.address.customerZip ?? "")
+  setDeliveryNumber(customer.address.customerNumber ?? "")
+  setDeliveryComplement(customer.address.customerComplement ?? "")
+  setDeliveryNeighborhood(customer.address.neighborhood ?? "")
+  setDeliveryCity(customer.address.city ?? "")
+  setDeliveryState(customer.address.state ?? "")
   setDeliveryDistanceKm(null)
-  setCalculatedDeliveryFee(null)
   setDeliveryCalculationError("")
-}, [open, customer?.address])
+
+  if (deliveryFeeMode === "neighborhood") {
+    const savedNeighborhood = deliveryNeighborhoodOptions.find(
+      (neighborhood) =>
+        normalizeNeighborhoodKey(neighborhood.name) ===
+        normalizeNeighborhoodKey(customer.address?.neighborhood)
+    )
+
+    setCalculatedDeliveryFee(savedNeighborhood?.fee ?? null)
+    return
+  }
+
+  setCalculatedDeliveryFee(null)
+}, [open, customer?.address, deliveryFeeMode, deliveryNeighborhoodOptions])
 
 useEffect(() => {
   const customerPhone = onlyDigits(customer?.phone)
@@ -3731,16 +3999,25 @@ const automaticPixQrCodeImageUrl = pixPayment?.qrCodeBase64
     normalizeOrderStatus(String(pixPayment?.status ?? ""))
   )
 const pixPaymentAmount = Number(pixPayment?.amount ?? total ?? 0)
+const selectedDeliveryNeighborhood = deliveryNeighborhoodOptions.find(
+  (neighborhood) =>
+    normalizeNeighborhoodKey(neighborhood.name) ===
+    normalizeNeighborhoodKey(deliveryNeighborhood)
+)
 const checkoutBlockedByDelivery =
   orderType === "delivery" &&
-  (
-    onlyDigits(deliveryCep).length !== 8 ||
-    !customerAddress.trim() ||
-    !deliveryNumber.trim() ||
-    calculatedDeliveryFee === null ||
-    deliveryDistanceKm === null ||
-    Boolean(deliveryCalculationError)
-  )
+  (deliveryFeeMode === "neighborhood"
+    ? !selectedDeliveryNeighborhood ||
+      !customerAddress.trim() ||
+      !deliveryNumber.trim() ||
+      calculatedDeliveryFee === null ||
+      Boolean(deliveryCalculationError)
+    : onlyDigits(deliveryCep).length !== 8 ||
+      !customerAddress.trim() ||
+      !deliveryNumber.trim() ||
+      calculatedDeliveryFee === null ||
+      deliveryDistanceKm === null ||
+      Boolean(deliveryCalculationError))
 
 const checkoutButtonDisabled =
   isProcessing ||
@@ -3751,7 +4028,9 @@ const checkoutButtonDisabled =
 const primaryButtonLabel = checkoutBlockedByDelivery
   ? isCalculatingDelivery
     ? "Calculando entrega..."
-    : "Calcule a entrega"
+    : deliveryFeeMode === "neighborhood"
+      ? "Preencha a entrega"
+      : "Calcule a entrega"
   : isAutomaticPixPayment
     ? "Gerar Pix automático"
     : isPixPayment
@@ -3770,10 +4049,16 @@ const formattedCustomerAddress =
         deliveryNeighborhood.trim()
           ? `Bairro: ${deliveryNeighborhood.trim()}`
           : "",
-        deliveryCity.trim() && deliveryState.trim()
-          ? `${deliveryCity.trim()} - ${deliveryState.trim()}`
-          : deliveryCity.trim(),
-        onlyDigits(deliveryCep).length === 8
+        (deliveryCity.trim() ||
+          (deliveryFeeMode === "neighborhood" ? restaurant.city?.trim() : "")) &&
+        (deliveryState.trim() ||
+          (deliveryFeeMode === "neighborhood" ? restaurant.state?.trim() : ""))
+          ? `${
+              deliveryCity.trim() || restaurant.city?.trim() || ""
+            } - ${deliveryState.trim() || restaurant.state?.trim() || ""}`
+          : deliveryCity.trim() ||
+            (deliveryFeeMode === "neighborhood" ? restaurant.city?.trim() : ""),
+        deliveryFeeMode === "distance" && onlyDigits(deliveryCep).length === 8
           ? `CEP: ${deliveryCep}`
           : "",
       ]
@@ -3904,7 +4189,26 @@ const formattedCustomerAddress =
   onClearCart,
 ])
 
+const selectDeliveryNeighborhood = (neighborhoodName: string) => {
+  const selectedNeighborhood = deliveryNeighborhoodOptions.find(
+    (neighborhood) =>
+      normalizeNeighborhoodKey(neighborhood.name) ===
+      normalizeNeighborhoodKey(neighborhoodName)
+  )
+
+  setDeliveryNeighborhood(selectedNeighborhood?.name ?? "")
+  setCalculatedDeliveryFee(selectedNeighborhood?.fee ?? null)
+  setDeliveryDistanceKm(null)
+  setDeliveryCalculationError("")
+
+  if (selectedNeighborhood) {
+    setDeliveryCity(restaurant.city?.trim() || "")
+    setDeliveryState(restaurant.state?.trim() || "")
+  }
+}
 const calculateDelivery = async () => {
+  if (deliveryFeeMode !== "distance") return
+
   const normalizedCep = onlyDigits(deliveryCep)
   const normalizedNumber = deliveryNumber.trim()
   const normalizedComplement = deliveryComplement.trim()
@@ -4044,36 +4348,58 @@ const calculateDelivery = async () => {
     }
 
     if (orderType === "delivery") {
-  if (onlyDigits(deliveryCep).length !== 8) {
-    alert("Informe um CEP válido.")
-    return false
-  }
+      if (deliveryFeeMode === "neighborhood") {
+        if (!selectedDeliveryNeighborhood) {
+          alert("Selecione o bairro de entrega.")
+          return false
+        }
 
-  if (!customerAddress.trim()) {
-    alert("Consulte o CEP para localizar o endereço.")
-    return false
-  }
+        if (!customerAddress.trim()) {
+          alert("Informe a rua ou avenida do endereço.")
+          return false
+        }
 
-  if (!deliveryNumber.trim()) {
-    alert("Informe o número do endereço.")
-    return false
-  }
+        if (!deliveryNumber.trim()) {
+          alert("Informe o número do endereço.")
+          return false
+        }
 
-  if (isCalculatingDelivery) {
-    alert("Aguarde o cálculo da entrega.")
-    return false
-  }
+        if (calculatedDeliveryFee === null) {
+          alert("Selecione novamente o bairro de entrega.")
+          return false
+        }
+      } else {
+        if (onlyDigits(deliveryCep).length !== 8) {
+          alert("Informe um CEP válido.")
+          return false
+        }
 
-  if (deliveryCalculationError) {
-    alert(deliveryCalculationError)
-    return false
-  }
+        if (!customerAddress.trim()) {
+          alert("Consulte o CEP para localizar o endereço.")
+          return false
+        }
 
-  if (calculatedDeliveryFee === null || deliveryDistanceKm === null) {
-    alert("Calcule a taxa de entrega antes de finalizar.")
-    return false
-  }
-}
+        if (!deliveryNumber.trim()) {
+          alert("Informe o número do endereço.")
+          return false
+        }
+
+        if (isCalculatingDelivery) {
+          alert("Aguarde o cálculo da entrega.")
+          return false
+        }
+
+        if (deliveryCalculationError) {
+          alert(deliveryCalculationError)
+          return false
+        }
+
+        if (calculatedDeliveryFee === null || deliveryDistanceKm === null) {
+          alert("Calcule a taxa de entrega antes de finalizar.")
+          return false
+        }
+      }
+    }
 
     if (isCashPayment && needsChange) {
       if (!changeForAmount || changeForAmount <= 0) {
@@ -4108,21 +4434,22 @@ const calculateDelivery = async () => {
       alert("Nao foi possivel copiar o Pix.")
     }
   }
+
   const createPublicOrder = async (paymentMethodLabel: string) => {
-    
     if (!customer) {
       throw new Error("Cliente não identificado.")
     }
 
-    if (orderType === "delivery") {
+  if (orderType === "delivery") {
   onSaveAddress({
-    customerAddress: formattedCustomerAddress,
-    customerZip: onlyDigits(deliveryCep),
+    customerAddress: customerAddress.trim(),
+    customerZip:
+      deliveryFeeMode === "distance" ? onlyDigits(deliveryCep) : undefined,
     customerNumber: deliveryNumber.trim(),
     customerComplement: deliveryComplement.trim(),
     neighborhood: deliveryNeighborhood.trim(),
-    city: deliveryCity.trim(),
-    state: deliveryState.trim(),
+    city: deliveryCity.trim() || restaurant.city?.trim() || "",
+    state: deliveryState.trim() || restaurant.state?.trim() || "",
     distanceKm: deliveryDistanceKm ?? undefined,
     deliveryFee: calculatedDeliveryFee ?? undefined,
   })
@@ -4141,7 +4468,9 @@ const calculateDelivery = async () => {
         customerAddress:
   orderType === "delivery" ? formattedCustomerAddress : undefined,
 customerZip:
-  orderType === "delivery" ? onlyDigits(deliveryCep) : undefined,
+  orderType === "delivery" && deliveryFeeMode === "distance"
+    ? onlyDigits(deliveryCep)
+    : undefined,
 customerNumber:
   orderType === "delivery" ? deliveryNumber.trim() : undefined,
 customerComplement:
@@ -4327,13 +4656,14 @@ orderType,
 
     if (orderType === "delivery") {
   onSaveAddress({
-    customerAddress: formattedCustomerAddress,
-    customerZip: onlyDigits(deliveryCep),
+    customerAddress: customerAddress.trim(),
+    customerZip:
+      deliveryFeeMode === "distance" ? onlyDigits(deliveryCep) : undefined,
     customerNumber: deliveryNumber.trim(),
     customerComplement: deliveryComplement.trim(),
     neighborhood: deliveryNeighborhood.trim(),
-    city: deliveryCity.trim(),
-    state: deliveryState.trim(),
+    city: deliveryCity.trim() || restaurant.city?.trim() || "",
+    state: deliveryState.trim() || restaurant.state?.trim() || "",
     distanceKm: deliveryDistanceKm ?? undefined,
     deliveryFee: calculatedDeliveryFee ?? undefined,
   })
@@ -4356,7 +4686,9 @@ orderType,
           customer_address:
   orderType === "delivery" ? formattedCustomerAddress : null,
 customer_zip:
-  orderType === "delivery" ? onlyDigits(deliveryCep) : null,
+  orderType === "delivery" && deliveryFeeMode === "distance"
+    ? onlyDigits(deliveryCep)
+    : null,
 customer_number:
   orderType === "delivery" ? deliveryNumber.trim() : null,
 customer_complement:
@@ -4512,8 +4844,7 @@ delivery_distance_km:
   }
 
   if (!open) return null
-
-  return (
+    return (
     <>
     <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3 sm:items-center sm:p-6">
       <div className="fixed inset-0 bg-[#111111]5 backdrop-blur-sm" onClick={onClose} />
@@ -4564,14 +4895,21 @@ delivery_distance_km:
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-yellow-50 text-yellow-600">
                     <ShoppingBag className="h-7 w-7" />
                   </div>
-                  <p className="mt-3 text-sm font-black text-zinc-500">Carrinho vazio</p>
+
+                  <p className="mt-3 text-sm font-black text-zinc-500">
+                    Carrinho vazio
+                  </p>
+
                   <p className="mt-1 text-xs font-semibold text-zinc-500">
                     Escolha um item do cardápio para começar.
                   </p>
                 </div>
               ) : (
                 items.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm">
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3 shadow-sm"
+                  >
                     <div className="flex items-start gap-3">
                       {item.product.imageUrl ? (
                         <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[#111111]">
@@ -4596,7 +4934,9 @@ delivery_distance_km:
 
                         {item.modifiers.length > 0 && (
                           <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-zinc-500">
-                            {item.modifiers.map((m) => m.option.name).join(", ")}
+                            {item.modifiers
+                              .map((m) => m.option.name)
+                              .join(", ")}
                           </p>
                         )}
 
@@ -4619,7 +4959,9 @@ delivery_distance_km:
                       <div className="flex h-9 items-center overflow-hidden rounded-xl border border-white/10 bg-[#111111]">
                         <button
                           onClick={() =>
-                            item.quantity <= 1 ? onRemove(item.id) : onUpdateQuantity(item.id, -1)
+                            item.quantity <= 1
+                              ? onRemove(item.id)
+                              : onUpdateQuantity(item.id, -1)
                           }
                           className="flex h-9 w-9 items-center justify-center text-zinc-500"
                           aria-label="Diminuir item"
@@ -4627,7 +4969,9 @@ delivery_distance_km:
                           <Minus className="h-3.5 w-3.5" />
                         </button>
 
-                        <span className="w-8 text-center text-sm font-black text-white">{item.quantity}</span>
+                        <span className="w-8 text-center text-sm font-black text-white">
+                          {item.quantity}
+                        </span>
 
                         <button
                           onClick={() => onUpdateQuantity(item.id, 1)}
@@ -4652,36 +4996,50 @@ delivery_distance_km:
                 <div className="mb-4 space-y-2 text-sm">
                   <div className="flex justify-between text-zinc-500">
                     <span>Subtotal</span>
-                    <span className="font-bold text-white">{formatPrice(subtotal)}</span>
+
+                    <span className="font-bold text-white">
+                      {formatPrice(subtotal)}
+                    </span>
                   </div>
 
                   <div className="flex justify-between text-zinc-500">
                     <span>Entrega</span>
+
                     <span className="font-bold text-white">
-  {cartDeliveryPreviewLabel}
-</span>
+                      {cartDeliveryPreviewLabel}
+                    </span>
                   </div>
 
                   <div className="flex justify-between border-t border-white/10 pt-2 text-base font-black">
                     <span className="text-white">Total</span>
-                    <span className="text-yellow-700">{formatPrice(cartPreviewTotal)}</span>
+
+                    <span className="text-yellow-700">
+                      {formatPrice(cartPreviewTotal)}
+                    </span>
                   </div>
                 </div>
 
                 {!restaurantIsOpen && (
                   <div className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs font-black text-yellow-800">
-                    Restaurante fechado agora. Você pode montar o carrinho, mas só consegue finalizar quando abrir.
+                    Restaurante fechado agora. Você pode montar o carrinho, mas
+                    só consegue finalizar quando abrir.
                   </div>
                 )}
 
                 <button
                   onClick={() => {
                     if (!restaurantIsOpen) {
-                      alert(restaurant.closedMessage?.trim() || "Restaurante fechado no momento. Tente novamente no horário de funcionamento.")
+                      alert(
+                        restaurant.closedMessage?.trim() ||
+                          "Restaurante fechado no momento. Tente novamente no horário de funcionamento."
+                      )
                       return
                     }
 
-                    if (!customer?.name || !isValidBrazilianMobilePhone(customer.phone)) {
+                    if (
+                      !customer?.name ||
+                      !isValidBrazilianMobilePhone(customer.phone)
+                    ) {
                       onEditCustomer()
                       return
                     }
@@ -4690,12 +5048,21 @@ delivery_distance_km:
                   }}
                   disabled={!restaurantIsOpen}
                   className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-white shadow-lg hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500 disabled:shadow-none"
-                  style={restaurantIsOpen ? {
-                    backgroundColor: accentColor,
-                    boxShadow: `0 14px 30px -10px ${accentColor}`,
-                  } : undefined}
+                  style={
+                    restaurantIsOpen
+                      ? {
+                          backgroundColor: accentColor,
+                          boxShadow: `0 14px 30px -10px ${accentColor}`,
+                        }
+                      : undefined
+                  }
                 >
-                  <span className="text-sm font-black">{restaurantIsOpen ? "Continuar" : "Restaurante fechado"}</span>
+                  <span className="text-sm font-black">
+                    {restaurantIsOpen
+                      ? "Continuar"
+                      : "Restaurante fechado"}
+                  </span>
+
                   <ChevronUp className="h-4 w-4 rotate-90" />
                 </button>
 
@@ -4708,7 +5075,10 @@ delivery_distance_km:
                 </button>
 
                 <div className="mt-4 text-center">
-                  <p className="text-xs font-black text-zinc-500">Ambiente 100% seguro</p>
+                  <p className="text-xs font-black text-zinc-500">
+                    Ambiente 100% seguro
+                  </p>
+
                   <p className="mt-0.5 text-[11px] font-semibold text-zinc-500">
                     Seus dados estão protegidos
                   </p>
@@ -4726,9 +5096,14 @@ delivery_distance_km:
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-white">Checkout seguro</p>
+                    <p className="text-sm font-black text-white">
+                      Checkout seguro
+                    </p>
+
                     <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-400">
-                      Seus dados ficam salvos apenas neste restaurante. Na próxima compra, endereço e WhatsApp já aparecem preenchidos.
+                      Seus dados ficam salvos apenas neste restaurante. Na
+                      próxima compra, endereço e WhatsApp já aparecem
+                      preenchidos.
                     </p>
                   </div>
                 </div>
@@ -4736,9 +5111,13 @@ delivery_distance_km:
 
               {!restaurantIsOpen && (
                 <div className="rounded-[22px] border border-yellow-200 bg-yellow-50 p-4">
-                  <p className="text-sm font-black text-yellow-900">Restaurante fechado agora</p>
+                  <p className="text-sm font-black text-yellow-900">
+                    Restaurante fechado agora
+                  </p>
+
                   <p className="mt-1 text-xs font-semibold leading-relaxed text-yellow-800">
-                    O cardápio continua disponível para consulta, mas a finalização do pedido está bloqueada até a loja abrir.
+                    O cardápio continua disponível para consulta, mas a
+                    finalização do pedido está bloqueada até a loja abrir.
                   </p>
                 </div>
               )}
@@ -4759,14 +5138,20 @@ delivery_distance_km:
                   ].map((type) => (
                     <button
                       key={type.id}
-                      onClick={() => setOrderType(type.id as "delivery" | "pickup")}
+                      onClick={() =>
+                        setOrderType(type.id as "delivery" | "pickup")
+                      }
                       className={cn(
                         "flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black transition-all active:scale-[0.98]",
                         orderType === type.id
                           ? "text-white shadow-md"
                           : "border border-white/10 bg-[#0A0A0A] text-zinc-500 hover:bg-[#111111]"
                       )}
-                      style={orderType === type.id ? { backgroundColor: accentColor } : undefined}
+                      style={
+                        orderType === type.id
+                          ? { backgroundColor: accentColor }
+                          : undefined
+                      }
                     >
                       <type.icon className="h-4 w-4" />
                       {type.label}
@@ -4796,9 +5181,13 @@ delivery_distance_km:
                       )}
 
                       {hasSavedAddress ? (
-                        <p className="line-clamp-1 text-zinc-500">Endereço salvo: {savedAddressLabel}</p>
+                        <p className="line-clamp-1 text-zinc-500">
+                          Endereço salvo: {savedAddressLabel}
+                        </p>
                       ) : (
-                        <p className="text-yellow-400">Endereço será salvo após finalizar.</p>
+                        <p className="text-yellow-400">
+                          Endereço será salvo após finalizar.
+                        </p>
                       )}
                     </div>
                   </div>
@@ -4817,6 +5206,7 @@ delivery_distance_km:
                 <div className="rounded-2xl border border-white/10 bg-[#111111] p-4">
                   <div className="flex items-center gap-3">
                     <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+
                     <p className="text-sm font-bold text-zinc-500">
                       Verificando cashback...
                     </p>
@@ -4838,7 +5228,9 @@ delivery_distance_km:
                       <div
                         className={cn(
                           "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm",
-                          canUseCashback ? "bg-emerald-500" : "bg-yellow-400"
+                          canUseCashback
+                            ? "bg-emerald-500"
+                            : "bg-yellow-400"
                         )}
                       >
                         <Sparkles className="h-5 w-5" />
@@ -4850,14 +5242,17 @@ delivery_distance_km:
                             <p
                               className={cn(
                                 "text-[10px] font-black uppercase tracking-[0.16em]",
-                                canUseCashback ? "text-emerald-400" : "text-yellow-400"
+                                canUseCashback
+                                  ? "text-emerald-400"
+                                  : "text-yellow-400"
                               )}
                             >
                               Cashback disponível
                             </p>
 
                             <h4 className="mt-1 text-sm font-black text-white">
-                              Você tem {formatPrice(cashbackWalletBalance)} de saldo
+                              Você tem {formatPrice(cashbackWalletBalance)} de
+                              saldo
                             </h4>
                           </div>
 
@@ -4874,29 +5269,42 @@ delivery_distance_km:
                         </div>
 
                         <p className="mt-2 text-xs font-semibold leading-relaxed text-zinc-500">
-                          Use até {formatPrice(maxCashbackDiscount)} em pedidos acima de {formatPrice(cashbackRedeemMin)} em produtos.
-                          <span className="font-black text-white"> A entrega não entra nessa conta.</span>
+                          Use até {formatPrice(maxCashbackDiscount)} em pedidos
+                          acima de {formatPrice(cashbackRedeemMin)} em produtos.
+                          <span className="font-black text-white">
+                            {" "}
+                            A entrega não entra nessa conta.
+                          </span>
                         </p>
 
                         <div className="mt-3 rounded-2xl bg-[#0A0A0A] p-3 ring-1 ring-black/5">
                           <div className="flex items-center justify-between text-[11px] font-black text-zinc-500">
                             <span>Produtos</span>
-                            <span>{formatPrice(subtotal)} / {formatPrice(cashbackRedeemMin)}</span>
+
+                            <span>
+                              {formatPrice(subtotal)} /{" "}
+                              {formatPrice(cashbackRedeemMin)}
+                            </span>
                           </div>
 
                           <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#111111]">
                             <div
                               className={cn(
                                 "h-full rounded-full transition-all duration-500",
-                                canUseCashback ? "bg-emerald-500" : "bg-yellow-400"
+                                canUseCashback
+                                  ? "bg-emerald-500"
+                                  : "bg-yellow-400"
                               )}
-                              style={{ width: `${cashbackProgressPercent}%` }}
+                              style={{
+                                width: `${cashbackProgressPercent}%`,
+                              }}
                             />
                           </div>
 
                           {!canUseCashback && cashbackMissingAmount > 0 ? (
                             <p className="mt-2 text-[11px] font-black text-yellow-400">
-                              Faltam {formatPrice(cashbackMissingAmount)} em produtos para liberar.
+                              Faltam {formatPrice(cashbackMissingAmount)} em
+                              produtos para liberar.
                             </p>
                           ) : (
                             <p className="mt-2 text-[11px] font-black text-emerald-400">
@@ -4907,7 +5315,10 @@ delivery_distance_km:
 
                         <button
                           type="button"
-                          onClick={() => canUseCashback && setUseCashback((current) => !current)}
+                          onClick={() =>
+                            canUseCashback &&
+                            setUseCashback((current) => !current)
+                          }
                           disabled={!canUseCashback}
                           className={cn(
                             "mt-3 w-full rounded-xl py-2.5 text-xs font-black transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
@@ -4919,10 +5330,16 @@ delivery_distance_km:
                           )}
                         >
                           {useCashback
-                            ? `Cashback aplicado: -${formatPrice(cashbackDiscount)}`
+                            ? `Cashback aplicado: -${formatPrice(
+                                cashbackDiscount
+                              )}`
                             : canUseCashback
-                              ? `Usar ${formatPrice(maxCashbackDiscount)} de cashback`
-                              : `Adicione mais ${formatPrice(cashbackMissingAmount)} em produtos`}
+                              ? `Usar ${formatPrice(
+                                  maxCashbackDiscount
+                                )} de cashback`
+                              : `Adicione mais ${formatPrice(
+                                  cashbackMissingAmount
+                                )} em produtos`}
                         </button>
                       </div>
                     </div>
@@ -4930,213 +5347,377 @@ delivery_distance_km:
                 </div>
               ) : null}
 
-{orderType === "delivery" && (
-  <div
-    className={cn(
-      "rounded-[22px] border p-4 shadow-sm transition-all",
-      deliveryCalculationError
-        ? "border-red-400/40 bg-red-500/10"
-        : checkoutBlockedByDelivery
-          ? "border-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/20"
-          : "border-emerald-400/30 bg-emerald-500/10"
-    )}
-  >
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div>
-        <p
-          className={cn(
-            "text-[10px] font-black uppercase tracking-[0.16em]",
-            deliveryCalculationError
-              ? "text-red-400"
-              : checkoutBlockedByDelivery
-                ? "text-yellow-400"
-                : "text-emerald-400"
-          )}
-        >
-          Entrega
-        </p>
+              {orderType === "delivery" && (
+                <div
+                  className={cn(
+                    "rounded-[22px] border p-4 shadow-sm transition-all",
+                    deliveryCalculationError
+                      ? "border-red-400/40 bg-red-500/10"
+                      : checkoutBlockedByDelivery
+                        ? "border-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/20"
+                        : "border-emerald-400/30 bg-emerald-500/10"
+                  )}
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p
+                        className={cn(
+                          "text-[10px] font-black uppercase tracking-[0.16em]",
+                          deliveryCalculationError
+                            ? "text-red-400"
+                            : checkoutBlockedByDelivery
+                              ? "text-yellow-400"
+                              : "text-emerald-400"
+                        )}
+                      >
+                        Entrega
+                      </p>
 
-        <h4 className="mt-1 text-base font-black text-white">
-          Endereço do pedido
-        </h4>
+                      <h4 className="mt-1 text-base font-black text-white">
+                        Endereço do pedido
+                      </h4>
 
-        <p className="mt-1 text-xs font-semibold text-zinc-500">
-          Informe o CEP e o número para calcular a distância e a taxa.
-        </p>
-      </div>
+                      <p className="mt-1 text-xs font-semibold text-zinc-500">
+                        {deliveryFeeMode === "neighborhood"
+                          ? "Escolha o bairro atendido e informe o endereço da entrega."
+                          : "Informe o CEP e o número para calcular a distância e a taxa."}
+                      </p>
+                    </div>
 
-      {!checkoutBlockedByDelivery && calculatedDeliveryFee !== null ? (
-        <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
-          Calculado
-        </span>
-      ) : (
-        <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black text-black">
-          Obrigatório
-        </span>
-      )}
-    </div>
+                    {!checkoutBlockedByDelivery &&
+                    calculatedDeliveryFee !== null ? (
+                      <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-400 ring-1 ring-emerald-400/20">
+                        {deliveryFeeMode === "neighborhood"
+                          ? "Selecionado"
+                          : "Calculado"}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black text-black">
+                        Obrigatório
+                      </span>
+                    )}
+                  </div>
 
-    <div className="space-y-3">
-      <div className="grid grid-cols-[1fr_110px] gap-2">
-        <div>
-          <label className="text-xs font-bold uppercase text-zinc-500">
-            CEP *
-          </label>
+                  <div className="space-y-3">
+                    {deliveryFeeMode === "neighborhood" ? (
+                      <>
+                        <div>
+                          <label className="text-xs font-bold uppercase text-zinc-500">
+                            Bairro *
+                          </label>
 
-          <input
-            type="text"
-            inputMode="numeric"
-            value={deliveryCep}
-            onChange={(event) => {
-              const digits = onlyDigits(event.target.value).slice(0, 8)
+                          <div className="relative mt-2">
+                            <select
+                              value={deliveryNeighborhood}
+                              onChange={(event) =>
+                                selectDeliveryNeighborhood(event.target.value)
+                              }
+                              disabled={
+                                deliveryNeighborhoodOptions.length === 0
+                              }
+                              className="w-full appearance-none rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 pr-11 text-sm font-semibold text-white focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20 disabled:cursor-not-allowed disabled:text-zinc-500"
+                            >
+                              <option value="">
+                                {deliveryNeighborhoodOptions.length > 0
+                                  ? "Selecione seu bairro"
+                                  : "Nenhum bairro disponível"}
+                              </option>
 
-              const formattedCep =
-                digits.length > 5
-                  ? `${digits.slice(0, 5)}-${digits.slice(5)}`
-                  : digits
+                              {deliveryNeighborhoodOptions.map(
+                                (neighborhood) => (
+                                  <option
+                                    key={neighborhood.name}
+                                    value={neighborhood.name}
+                                  >
+                                    {neighborhood.name} —{" "}
+                                    {formatPrice(neighborhood.fee)}
+                                  </option>
+                                )
+                              )}
+                            </select>
 
-              setDeliveryCep(formattedCep)
-              setCustomerAddress("")
-              setDeliveryNeighborhood("")
-              setDeliveryCity("")
-              setDeliveryState("")
-              setDeliveryDistanceKm(null)
-              setCalculatedDeliveryFee(null)
-              setDeliveryCalculationError("")
-            }}
-            placeholder="00000-000"
-            maxLength={9}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
-          />
-        </div>
+                            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-yellow-400" />
+                          </div>
+                        </div>
 
-        <div>
-          <label className="text-xs font-bold uppercase text-zinc-500">
-            Número *
-          </label>
+                        <div className="grid grid-cols-[1fr_110px] gap-2">
+                          <div>
+                            <label className="text-xs font-bold uppercase text-zinc-500">
+                              Rua ou avenida *
+                            </label>
 
-          <input
-            type="text"
-            inputMode="numeric"
-            value={deliveryNumber}
-            onChange={(event) => {
-              setDeliveryNumber(event.target.value.slice(0, 20))
-              setDeliveryDistanceKm(null)
-              setCalculatedDeliveryFee(null)
-              setDeliveryCalculationError("")
-            }}
-            placeholder="123"
-            maxLength={20}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
-          />
-        </div>
-      </div>
+                            <input
+                              type="text"
+                              value={customerAddress}
+                              onChange={(event) => {
+                                setCustomerAddress(
+                                  event.target.value.slice(0, 180)
+                                )
+                                setDeliveryCalculationError("")
+                              }}
+                              placeholder="Nome da rua"
+                              maxLength={180}
+                              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+                            />
+                          </div>
 
-      <div>
-        <label className="text-xs font-bold uppercase text-zinc-500">
-          Complemento
-        </label>
+                          <div>
+                            <label className="text-xs font-bold uppercase text-zinc-500">
+                              Número *
+                            </label>
 
-        <input
-          type="text"
-          value={deliveryComplement}
-          onChange={(event) => {
-            setDeliveryComplement(event.target.value.slice(0, 120))
-            setDeliveryDistanceKm(null)
-            setCalculatedDeliveryFee(null)
-            setDeliveryCalculationError("")
-          }}
-          placeholder="Apartamento, bloco, casa, referência..."
-          maxLength={120}
-          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
-        />
-      </div>
+                            <input
+                              type="text"
+                              value={deliveryNumber}
+                              onChange={(event) => {
+                                setDeliveryNumber(
+                                  event.target.value.slice(0, 20)
+                                )
+                                setDeliveryCalculationError("")
+                              }}
+                              placeholder="123"
+                              maxLength={20}
+                              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+                            />
+                          </div>
+                        </div>
 
-      {customerAddress && (
-        <div className="rounded-2xl border border-white/10 bg-[#111111] p-3">
-          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
-            Endereço localizado
-          </p>
+                        <div>
+                          <label className="text-xs font-bold uppercase text-zinc-500">
+                            Complemento
+                          </label>
 
-          <p className="mt-1 text-sm font-black text-white">
-            {customerAddress}, Nº {deliveryNumber}
-          </p>
+                          <input
+                            type="text"
+                            value={deliveryComplement}
+                            onChange={(event) =>
+                              setDeliveryComplement(
+                                event.target.value.slice(0, 120)
+                              )
+                            }
+                            placeholder="Apartamento, bloco, casa, referência..."
+                            maxLength={120}
+                            className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+                          />
+                        </div>
 
-          <p className="mt-1 text-xs font-semibold text-zinc-500">
-            {[deliveryNeighborhood, deliveryCity, deliveryState]
-              .filter(Boolean)
-              .join(" • ")}
-          </p>
-        </div>
-      )}
+                        {selectedDeliveryNeighborhood &&
+                          calculatedDeliveryFee !== null && (
+                            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
+                                    Bairro atendido
+                                  </p>
 
-      <button
-        type="button"
-        onClick={() => void calculateDelivery()}
-        disabled={
-          isCalculatingDelivery ||
-          onlyDigits(deliveryCep).length !== 8 ||
-          !deliveryNumber.trim()
-        }
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 py-3.5 text-sm font-black text-black shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500 disabled:shadow-none"
-      >
-        {isCalculatingDelivery ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Calculando entrega...
-          </>
-        ) : (
-          <>
-            <Truck className="h-4 w-4" />
-            Calcular entrega
-          </>
-        )}
-      </button>
+                                  <p className="mt-1 text-sm font-black text-white">
+                                    {selectedDeliveryNeighborhood.name}
+                                  </p>
+                                </div>
 
-      {deliveryCalculationError && (
-        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-3">
-          <p className="text-xs font-black text-red-400">
-            {deliveryCalculationError}
-          </p>
-        </div>
-      )}
+                                <div className="text-right">
+                                  <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
+                                    Taxa de entrega
+                                  </p>
 
-      {calculatedDeliveryFee !== null &&
-        deliveryDistanceKm !== null &&
-        !deliveryCalculationError && (
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
-                  Distância da rota
-                </p>
+                                  <p className="mt-1 text-lg font-black text-emerald-400">
+                                    {formatPrice(calculatedDeliveryFee)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
-                <p className="mt-1 text-sm font-black text-white">
-                  {deliveryDistanceKm.toFixed(2).replace(".", ",")} km
-                </p>
-              </div>
+                        {deliveryNeighborhoodOptions.length === 0 && (
+                          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-3">
+                            <p className="text-xs font-black text-red-400">
+                              Nenhum bairro de entrega está disponível no
+                              momento.
+                            </p>
+                          </div>
+                        )}
 
-              <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
-                  Taxa de entrega
-                </p>
+                        <p className="text-[11px] font-semibold text-zinc-500">
+                          A taxa é definida pelo bairro selecionado.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-[1fr_110px] gap-2">
+                          <div>
+                            <label className="text-xs font-bold uppercase text-zinc-500">
+                              CEP *
+                            </label>
 
-                <p className="mt-1 text-lg font-black text-emerald-400">
-                  {formatPrice(calculatedDeliveryFee)}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={deliveryCep}
+                              onChange={(event) => {
+                                const digits = onlyDigits(
+                                  event.target.value
+                                ).slice(0, 8)
 
-      <p className="text-[11px] font-semibold text-zinc-500">
-        A taxa é calculada pela rota entre o restaurante e o endereço informado.
-      </p>
-    </div>
-  </div>
-)}
+                                const formattedCep =
+                                  digits.length > 5
+                                    ? `${digits.slice(0, 5)}-${digits.slice(5)}`
+                                    : digits
 
-              <div className="rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
+                                setDeliveryCep(formattedCep)
+                                setCustomerAddress("")
+                                setDeliveryNeighborhood("")
+                                setDeliveryCity("")
+                                setDeliveryState("")
+                                setDeliveryDistanceKm(null)
+                                setCalculatedDeliveryFee(null)
+                                setDeliveryCalculationError("")
+                              }}
+                              placeholder="00000-000"
+                              maxLength={9}
+                              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-bold uppercase text-zinc-500">
+                              Número *
+                            </label>
+
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={deliveryNumber}
+                              onChange={(event) => {
+                                setDeliveryNumber(
+                                  event.target.value.slice(0, 20)
+                                )
+                                setDeliveryDistanceKm(null)
+                                setCalculatedDeliveryFee(null)
+                                setDeliveryCalculationError("")
+                              }}
+                              placeholder="123"
+                              maxLength={20}
+                              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold uppercase text-zinc-500">
+                            Complemento
+                          </label>
+
+                          <input
+                            type="text"
+                            value={deliveryComplement}
+                            onChange={(event) => {
+                              setDeliveryComplement(
+                                event.target.value.slice(0, 120)
+                              )
+                              setDeliveryDistanceKm(null)
+                              setCalculatedDeliveryFee(null)
+                              setDeliveryCalculationError("")
+                            }}
+                            placeholder="Apartamento, bloco, casa, referência..."
+                            maxLength={120}
+                            className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/20"
+                          />
+                        </div>
+
+                        {customerAddress && (
+                          <div className="rounded-2xl border border-white/10 bg-[#111111] p-3">
+                            <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                              Endereço localizado
+                            </p>
+
+                            <p className="mt-1 text-sm font-black text-white">
+                              {customerAddress}, Nº {deliveryNumber}
+                            </p>
+
+                            <p className="mt-1 text-xs font-semibold text-zinc-500">
+                              {[
+                                deliveryNeighborhood,
+                                deliveryCity,
+                                deliveryState,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </p>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => void calculateDelivery()}
+                          disabled={
+                            isCalculatingDelivery ||
+                            onlyDigits(deliveryCep).length !== 8 ||
+                            !deliveryNumber.trim()
+                          }
+                          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 py-3.5 text-sm font-black text-black shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#111111] disabled:text-zinc-500 disabled:shadow-none"
+                        >
+                          {isCalculatingDelivery ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Calculando entrega...
+                            </>
+                          ) : (
+                            <>
+                              <Truck className="h-4 w-4" />
+                              Calcular entrega
+                            </>
+                          )}
+                        </button>
+
+                        {calculatedDeliveryFee !== null &&
+                          deliveryDistanceKm !== null &&
+                          !deliveryCalculationError && (
+                            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
+                                    Distância da rota
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-black text-white">
+                                    {deliveryDistanceKm
+                                      .toFixed(2)
+                                      .replace(".", ",")}{" "}
+                                    km
+                                  </p>
+                                </div>
+
+                                <div className="text-right">
+                                  <p className="text-[10px] font-black uppercase tracking-wide text-emerald-400">
+                                    Taxa de entrega
+                                  </p>
+
+                                  <p className="mt-1 text-lg font-black text-emerald-400">
+                                    {formatPrice(calculatedDeliveryFee)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        <p className="text-[11px] font-semibold text-zinc-500">
+                          A taxa é calculada pela rota entre o restaurante e o
+                          endereço informado.
+                        </p>
+                      </>
+                    )}
+
+                    {deliveryCalculationError && (
+                      <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-3">
+                        <p className="text-xs font-black text-red-400">
+                          {deliveryCalculationError}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+                            <div className="rounded-[22px] border border-white/10 bg-[#0A0A0A] p-4 shadow-sm">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
@@ -5390,6 +5971,7 @@ delivery_distance_km:
                 )}
 
                 {orderType === "delivery" &&
+  deliveryFeeMode === "distance" &&
   deliveryDistanceKm !== null &&
   calculatedDeliveryFee !== null && (
     <div className="flex justify-between text-zinc-500">
@@ -5407,7 +5989,9 @@ delivery_distance_km:
 
     <span>
       {checkoutBlockedByDelivery
-        ? "Calcule a entrega"
+        ? deliveryFeeMode === "neighborhood"
+          ? "Selecione o bairro"
+          : "Calcule a entrega"
         : formatPrice(deliveryFee)}
     </span>
   </div>
@@ -5444,7 +6028,11 @@ delivery_distance_km:
     return
   }
 
-  alert("Informe o endereço e calcule a taxa de entrega.")
+  alert(
+    deliveryFeeMode === "neighborhood"
+      ? "Selecione o bairro e informe o endereço de entrega."
+      : "Informe o endereço e calcule a taxa de entrega."
+  )
   return
 }
 
@@ -5864,7 +6452,6 @@ delivery_distance_km:
     </>
   )
 }
-
 function FloatingCartButton({
   count,
   total,
@@ -6100,8 +6687,59 @@ export default function CardapioPublicoPage() {
         }
 
         const resultCampaigns = result.campaigns as Partial<PublicMenuCampaigns> | undefined
+        let loadedRestaurant = (result.restaurant ?? null) as PublicRestaurant | null
 
-        setRestaurant((result.restaurant ?? null) as PublicRestaurant | null)
+        if (loadedRestaurant?.id) {
+          try {
+            const deliveryResponse = await fetch(
+              `/api/public/orders?restaurantId=${encodeURIComponent(loadedRestaurant.id)}`,
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            )
+
+            const deliveryResult = (await deliveryResponse.json()) as {
+              success?: boolean
+              delivery?: {
+                feeMode?: DeliveryFeeMode
+                neighborhoods?: DeliveryNeighborhoodOption[]
+              }
+            }
+
+            if (deliveryResponse.ok && deliveryResult.success) {
+              loadedRestaurant = {
+                ...loadedRestaurant,
+                deliveryFeeMode:
+                  deliveryResult.delivery?.feeMode === "neighborhood"
+                    ? "neighborhood"
+                    : "distance",
+                deliveryNeighborhoods: Array.isArray(
+                  deliveryResult.delivery?.neighborhoods
+                )
+                  ? deliveryResult.delivery.neighborhoods
+                      .map((neighborhood) => ({
+                        name: String(neighborhood.name || "").trim(),
+                        fee: Number(neighborhood.fee || 0),
+                      }))
+                      .filter(
+                        (neighborhood) =>
+                          Boolean(neighborhood.name) &&
+                          Number.isFinite(neighborhood.fee) &&
+                          neighborhood.fee >= 0
+                      )
+                  : [],
+              }
+            }
+          } catch (deliveryError) {
+            console.error(
+              "Erro ao carregar as configurações públicas de entrega:",
+              deliveryError
+            )
+          }
+        }
+
+        setRestaurant(loadedRestaurant)
         setCategories((result.categories ?? []) as MenuCategory[])
         setMenuCampaigns({
           upsellRules: Array.isArray(resultCampaigns?.upsellRules)
@@ -6439,8 +7077,7 @@ export default function CardapioPublicoPage() {
     tableNumber,
     activeOrder?.customer_received_at,
   ])
-
-  const visibleCategories = useMemo(
+    const visibleCategories = useMemo(
     () => getVisibleMenuCategories(categories, availabilityClock),
     [categories, availabilityClock]
   )
@@ -6934,7 +7571,6 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
     )
   }
 }
-
   return (
     <div className="clickfood-public-menu min-h-screen bg-[#080808] pb-32">
       <style jsx global>{`
@@ -7069,6 +7705,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           box-shadow: 0 18px 55px -38px rgba(250, 204, 21, 0.8) !important;
         }
       `}</style>
+
       <div className="mx-auto max-w-[480px] px-3 pt-3">
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-[#101010] shadow-[0_24px_70px_-45px_rgba(250,204,21,0.75)]">
@@ -7118,6 +7755,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 aria-label="Acessar minha conta"
               >
                 <UserRound className="h-5 w-5" />
+
                 {publicCustomer && (
                   <span
                     className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white"
@@ -7155,8 +7793,17 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               </h1>
 
               <p className="mt-1 text-sm font-semibold text-neutral-400">
-                {deliveryEnabled ? "Delivery" : pickupEnabled ? "Retirada" : "Cardápio"} •{" "}
-                <span className={restaurantIsOpen ? "text-emerald-400" : "text-red-600"}>
+                {deliveryEnabled
+                  ? "Delivery"
+                  : pickupEnabled
+                    ? "Retirada"
+                    : "Cardápio"}{" "}
+                •{" "}
+                <span
+                  className={
+                    restaurantIsOpen ? "text-emerald-400" : "text-red-600"
+                  }
+                >
                   {restaurantIsOpen ? "Aberto agora" : "Fechado agora"}
                 </span>
               </p>
@@ -7164,17 +7811,21 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <div className="rounded-xl border border-yellow-400/20 bg-[#080808] px-2.5 py-2.5 text-left shadow-sm">
                   <Truck className="h-4 w-4 text-yellow-600" />
+
                   <p className="mt-1 text-[9px] font-black text-neutral-500">
                     Entrega
                   </p>
 
                   <p className="mt-1 truncate text-sm font-black text-white">
-                    {deliveryEnabled ? formatPrice(startingDeliveryFee) : "No local"}
+                    {deliveryEnabled
+                      ? formatPrice(startingDeliveryFee)
+                      : "No local"}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-yellow-400/20 bg-[#080808] px-2.5 py-2.5 text-left shadow-sm">
                   <Timer className="h-4 w-4 text-yellow-600" />
+
                   <p className="mt-1 text-[9px] font-black text-neutral-500">
                     Tempo
                   </p>
@@ -7186,6 +7837,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
                 <div className="rounded-xl border border-yellow-400/20 bg-[#080808] px-2.5 py-2.5 text-left shadow-sm">
                   <ShoppingBag className="h-4 w-4 text-yellow-600" />
+
                   <p className="mt-1 text-[9px] font-black text-neutral-500">
                     Mínimo
                   </p>
@@ -7201,7 +7853,10 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
 
         {!restaurantIsOpen && (
           <div className="mt-3 rounded-2xl border border-yellow-300/30 bg-yellow-300/10 px-4 py-3 text-sm font-semibold text-yellow-100 shadow-[0_18px_45px_-35px_rgba(250,204,21,0.9)]">
-            <p className="font-black text-yellow-300">Restaurante fechado no momento</p>
+            <p className="font-black text-yellow-300">
+              Restaurante fechado no momento
+            </p>
+
             <p className="mt-1 text-xs leading-relaxed text-white/70">
               {restaurant.closedMessage?.trim()
                 ? restaurant.closedMessage
@@ -7214,13 +7869,16 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           <div className="grid grid-cols-[1fr_58px] gap-3">
             <button
               type="button"
-              onClick={() => setCategorySelectorOpen((current) => !current)}
+              onClick={() =>
+                setCategorySelectorOpen((current) => !current)
+              }
               className="flex h-[58px] items-center justify-between rounded-2xl border border-yellow-400/20 bg-[#111111] px-4 text-left shadow-[0_18px_45px_-38px_rgba(250,204,21,0.8)] active:scale-[0.99]"
             >
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-yellow-400">
                   Categorias
                 </p>
+
                 <p className="mt-0.5 truncate text-sm font-black text-white">
                   {selectedCategoryName}
                 </p>
@@ -7238,7 +7896,10 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
               type="button"
               onClick={() => {
                 setSearchExpanded((current) => !current)
-                window.setTimeout(() => searchInputRef.current?.focus(), 80)
+                window.setTimeout(
+                  () => searchInputRef.current?.focus(),
+                  80
+                )
               }}
               className="flex h-[58px] items-center justify-center rounded-2xl border border-yellow-400/20 bg-[#111111] text-yellow-300 shadow-[0_18px_45px_-38px_rgba(250,204,21,0.8)] active:scale-[0.99]"
               aria-label="Buscar no cardápio"
@@ -7266,7 +7927,10 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                         : "text-neutral-300 hover:bg-[#0A0A0A] hover:text-yellow-300"
                     )}
                   >
-                    <span className="truncate text-sm font-black">{cat.name}</span>
+                    <span className="truncate text-sm font-black">
+                      {cat.name}
+                    </span>
+
                     <span
                       className={cn(
                         "cf-count-pill rounded-full px-2 py-0.5 text-[10px] font-black",
@@ -7321,13 +7985,21 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-300 ring-1 ring-yellow-400/20">
                   <Truck className="h-5 w-5" />
                 </div>
+
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-white">Calcular taxa e tempo de entrega</p>
+                  <p className="text-sm font-black text-white">
+                    {restaurant.deliveryFeeMode === "neighborhood"
+                      ? "Bairros e taxa de entrega"
+                      : "Calcular taxa e tempo de entrega"}
+                  </p>
+
                   <p className="mt-0.5 text-xs font-semibold text-neutral-400">
-                    A partir de {formatPrice(startingDeliveryFee)} • {estimatedDeliveryTime}
+                    A partir de {formatPrice(startingDeliveryFee)} •{" "}
+                    {estimatedDeliveryTime}
                   </p>
                 </div>
               </div>
+
               <ChevronUp className="h-5 w-5 rotate-90 text-yellow-300" />
             </div>
 
@@ -7337,10 +8009,15 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-300 ring-1 ring-yellow-400/20">
                     <Sparkles className="h-5 w-5" />
                   </div>
+
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Troque pontos por recompensas</p>
+                    <p className="text-sm font-black text-white">
+                      Troque pontos por recompensas
+                    </p>
+
                     <p className="mt-1 text-xs font-semibold leading-relaxed text-neutral-400">
-                      Continue comprando para acumular selos e liberar benefícios neste restaurante.
+                      Continue comprando para acumular selos e liberar
+                      benefícios neste restaurante.
                     </p>
                   </div>
                 </div>
@@ -7349,6 +8026,7 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           </div>
         </div>
       </div>
+
       <div className="mx-auto max-w-[480px] px-3">
         <FeaturedOffersSection
           items={featuredProducts}
@@ -7405,7 +8083,12 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
                   key={product.id}
                   product={product}
                   accentColor={themeColor}
-                  onSelect={() => setSelectedProduct({ product, categoryId: category.id })}
+                  onSelect={() =>
+                    setSelectedProduct({
+                      product,
+                      categoryId: category.id,
+                    })
+                  }
                   onQuickAdd={() => {
                     handleAddWithUpsell(
                       {
@@ -7427,8 +8110,14 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         {filteredCategories.length === 0 && searchQuery && (
           <div className="py-12 text-center">
             <Search className="mx-auto mb-3 h-12 w-12 text-zinc-500" />
-            <p className="text-sm font-medium text-zinc-500">Nenhum produto encontrado</p>
-            <p className="mt-1 text-xs text-zinc-500">Tente buscar por outro termo</p>
+
+            <p className="text-sm font-medium text-zinc-500">
+              Nenhum produto encontrado
+            </p>
+
+            <p className="mt-1 text-xs text-zinc-500">
+              Tente buscar por outro termo
+            </p>
           </div>
         )}
       </div>
@@ -7436,14 +8125,18 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
       <MobileBottomNav
         cartCount={cartCount}
         activeOrder={activeOrder}
-        onMenu={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        onMenu={() =>
+          window.scrollTo({ top: 0, behavior: "smooth" })
+        }
         onSearch={() => {
           setSearchExpanded(true)
+
           window.setTimeout(() => {
             document.getElementById("menu-search")?.scrollIntoView({
               behavior: "smooth",
               block: "center",
             })
+
             searchInputRef.current?.focus()
           }, 80)
         }}
@@ -7452,7 +8145,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         onCart={() => setCartOpen(true)}
       />
 
-      {restaurant && <WhatsAppFloatingButton whatsapp={restaurant.whatsapp} />}
+      {restaurant && (
+        <WhatsAppFloatingButton whatsapp={restaurant.whatsapp} />
+      )}
 
       {selectedProduct && (
         <ProductModal
@@ -7460,7 +8155,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           categoryId={selectedProduct.categoryId}
           accentColor={themeColor}
           onClose={() => setSelectedProduct(null)}
-          onAddToCart={(item) => handleAddWithUpsell(item, selectedProduct.categoryId)}
+          onAddToCart={(item) =>
+            handleAddWithUpsell(item, selectedProduct.categoryId)
+          }
         />
       )}
 
@@ -7471,11 +8168,19 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
           onAdd={(product) => {
             const upsellCategoryId =
               visibleCategories.find((category) =>
-                category.products.some((menuProduct) => menuProduct.id === product.id)
+                category.products.some(
+                  (menuProduct) => menuProduct.id === product.id
+                )
               )?.id ?? ""
 
-            if (productHasRequiredModifiers(product) && upsellCategoryId) {
-              setSelectedProduct({ product, categoryId: upsellCategoryId })
+            if (
+              productHasRequiredModifiers(product) &&
+              upsellCategoryId
+            ) {
+              setSelectedProduct({
+                product,
+                categoryId: upsellCategoryId,
+              })
               setUpsellProducts(null)
               return
             }
@@ -7540,7 +8245,9 @@ const confirmActiveOrderReceived = async (rating: number, review: string) => {
         pickupEnabled={pickupEnabled}
         tableNumber={tableNumber}
         customer={publicCustomer}
-        onEditCustomer={() => openCustomerAccessModal("checkout", false)}
+        onEditCustomer={() =>
+          openCustomerAccessModal("checkout", false)
+        }
         onSaveAddress={savePublicCustomerAddress}
         onOrderCreated={saveActiveOrder}
       />

@@ -2101,7 +2101,7 @@ return data;
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-[#070707] pb-28 text-white xl:pb-4">
+      <div className="min-h-screen bg-black pb-28 text-white xl:pb-4">
         <div className="mx-auto max-w-[1880px] p-3 sm:p-4">
           <header className="border-b border-white/[0.08] pb-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
