@@ -1,15 +1,22 @@
 import {
+  ArrowLeftRight,
+  Armchair,
+  BellRing,
   BookOpen,
   CircleAlert,
   CircleDollarSign,
-  ClipboardCheck,
   Coins,
   FileBarChart,
   Gift,
   Globe,
+  HandCoins,
+  Landmark,
+  LayoutDashboard,
+  MapPin,
   Megaphone,
   MonitorCheck,
   PackageOpen,
+  Percent,
   PlusCircle,
   ReceiptText,
   Settings,
@@ -18,7 +25,10 @@ import {
   Target,
   TicketPercent,
   TrendingUp,
+  Trophy,
   Truck,
+  UserCog,
+  UserX,
   Users,
   Wallet,
   type LucideIcon,
@@ -42,82 +52,63 @@ export type AdminNavItem = {
 }
 
 export type AdminNavGroup = {
-  title: string
+  /** Sem título, o grupo é exibido sem cabeçalho. */
+  title?: string
   items: AdminNavItem[]
 }
 
 export const adminNavGroups: AdminNavGroup[] = [
   {
-    title: "Operação",
+    title: "Principal",
     items: [
-      {
-        label: "Novo Pedido",
-        icon: PlusCircle,
-        href: "/novo-pedido",
-        breadcrumbLabel: "Novo pedido",
-      },
-      {
-        label: "Pedidos",
-        icon: ShoppingCart,
-        href: "/pedidos",
-      },
-      {
-        label: "KDS",
-        icon: MonitorCheck,
-        href: "/kds",
-      },
+      { label: "Visão Geral", icon: LayoutDashboard, href: "/gestao" },
+      { label: "Pedidos", icon: ShoppingCart, href: "/pedidos" },
+      { label: "PDV", icon: PlusCircle, href: "/novo-pedido" },
+      { label: "KDS", icon: MonitorCheck, href: "/kds" },
     ],
   },
   {
     title: "Cardápio",
     items: [
-      {
-        label: "Cardápio",
-        icon: Globe,
-        href: "/divulgar-cardapio",
-      },
-      {
-        label: "Produtos",
-        icon: PackageOpen,
-        href: "/produtos",
-      },
+      { label: "Cardápio Digital", icon: Globe, href: "/divulgar-cardapio" },
+      { label: "Produtos", icon: PackageOpen, href: "/produtos" },
+      { label: "Ficha Técnica", icon: BookOpen, href: "/ficha-tecnica" },
     ],
   },
   {
-    title: "Administração",
+    title: "Clientes & Marketing",
     items: [
+      { label: "Clientes", icon: Users, href: "/clientes" },
+      { label: "Campanhas", icon: Megaphone, href: "/campanhas" },
+      { label: "Cupons", icon: TicketPercent, href: "/cupons" },
+      { label: "Upsell", icon: TrendingUp, href: "/campanhas/upsell" },
+      { label: "Fidelidade", icon: Gift, href: "/campanhas/fidelidade" },
+      { label: "Cashback", icon: Coins, href: "/campanhas/cashback" },
+    ],
+  },
+  {
+    title: "Operação",
+    items: [
+      { label: "Entregadores", icon: Truck, href: "/entregadores" },
       {
-        label: "Gestão interna",
-        icon: Store,
-        href: "/fornecedores",
-        children: [
-          {
-            label: "Fornecedores",
-            icon: Store,
-            href: "/fornecedores",
-          },
-          {
-            label: "Estoque",
-            icon: PackageOpen,
-            href: "/financeiro/controle-estoque",
-          },
-          {
-            label: "Ficha técnica",
-            icon: BookOpen,
-            href: "/ficha-tecnica",
-          },
-          {
-            label: "Perdas e desperdício",
-            icon: CircleAlert,
-            href: "/perdas-desperdicio",
-          },
-          {
-            label: "Metas",
-            icon: Target,
-            href: "/metas",
-          },
-        ],
+        label: "Estoque",
+        icon: PackageOpen,
+        href: "/financeiro/controle-estoque",
       },
+      {
+        label: "Perdas e Desperdício",
+        icon: CircleAlert,
+        href: "/perdas-desperdicio",
+      },
+      { label: "Fornecedores", icon: Store, href: "/fornecedores" },
+      { label: "Mesas", icon: Armchair, href: "/mesas" },
+      { label: "Equipe", icon: UserCog, href: "/equipe" },
+    ],
+  },
+  {
+    title: "Gestão",
+    items: [
+      { label: "Meu Desempenho", icon: Target, href: "/metas" },
       {
         label: "Financeiro",
         icon: Wallet,
@@ -130,7 +121,7 @@ export const adminNavGroups: AdminNavGroup[] = [
             breadcrumbLabel: "Finanças",
           },
           {
-            label: "Contas a pagar",
+            label: "Contas a Pagar",
             icon: ReceiptText,
             href: "/financeiro/contas-a-pagar",
           },
@@ -139,62 +130,57 @@ export const adminNavGroups: AdminNavGroup[] = [
             icon: CircleAlert,
             href: "/financeiro/despesas",
           },
+          { label: "Caixa", icon: Landmark, href: "/financeiro/caixa" },
           {
-            label: "Relatórios",
+            label: "Recebimentos",
+            icon: HandCoins,
+            href: "/financeiro/recebimentos",
+          },
+          {
+            label: "Entrada/Saída",
+            icon: ArrowLeftRight,
+            href: "/financeiro/entrada-saida",
+          },
+          { label: "CMV e Margem", icon: Percent, href: "/financeiro/cmv" },
+        ],
+      },
+      {
+        label: "Relatórios",
+        icon: FileBarChart,
+        href: "/financeiro/relatorios",
+        children: [
+          {
+            label: "Relatórios Financeiros",
             icon: FileBarChart,
             href: "/financeiro/relatorios",
           },
-        ],
-      },
-      {
-        label: "Entregadores",
-        icon: Truck,
-        href: "/entregadores",
-      },
-      {
-        label: "Clientes",
-        icon: Users,
-        href: "/clientes",
-      },
-      {
-        label: "Cupons",
-        icon: TicketPercent,
-        href: "/cupons",
-      },
-      {
-        label: "Campanhas",
-        icon: Megaphone,
-        href: "/campanhas",
-        children: [
           {
-            label: "Visão Geral",
-            icon: ClipboardCheck,
-            href: "/campanhas",
-            breadcrumbLabel: "Campanhas",
+            label: "Ranking de Produtos",
+            icon: Trophy,
+            href: "/crescimento/ranking-produtos",
           },
           {
-            label: "Upsell",
-            icon: TrendingUp,
-            href: "/campanhas/upsell",
+            label: "Alertas",
+            icon: BellRing,
+            href: "/crescimento/alertas",
           },
           {
-            label: "Fidelidade",
-            icon: Gift,
-            href: "/campanhas/fidelidade",
+            label: "Radar de Bairros",
+            icon: MapPin,
+            href: "/crescimento/radar-bairros",
           },
           {
-            label: "Cashback",
-            icon: Coins,
-            href: "/campanhas/cashback",
+            label: "Clientes Sumidos",
+            icon: UserX,
+            href: "/crescimento/clientes-sumidos",
           },
         ],
-      },
-      {
-        label: "Configurações",
-        icon: Settings,
-        href: "/configuracoes",
       },
     ],
+  },
+  // Configurações permanece no fim da lista até a reorganização do rodapé.
+  {
+    items: [{ label: "Configurações", icon: Settings, href: "/configuracoes" }],
   },
 ]
 
@@ -205,7 +191,6 @@ export const adminNavItems: AdminNavItem[] = adminNavGroups.flatMap(
 /** Rotas administrativas que têm breadcrumb, mas não aparecem no menu lateral. */
 const extraBreadcrumbLabels: Record<string, string> = {
   "/": "Pedidos",
-  "/gestao": "Painel",
   "/entregas": "Entregas",
   "/checkout": "Checkout",
   "/controle-estoque": "Controle de estoque",

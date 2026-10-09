@@ -129,7 +129,7 @@ function isHrefActive(pathname: string, item: AdminNavItem) {
     return pathname === "/" || pathname === "/gestao"
   }
 
-  return pathname === item.href || pathname.startsWith(`${item.href}/`)
+  return isSubHrefActive(pathname, item.href)
 }
 
 function formatTime(value: string | null) {
@@ -493,9 +493,9 @@ export default function AdminSidebar({
 
       <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-color:rgba(255,255,255,0.35)_transparent] [scrollbar-width:thin]">
         <div className="flex flex-col gap-4">
-          {adminNavGroups.map((group) => (
-            <div key={group.title}>
-              {!isCollapsed && (
+          {adminNavGroups.map((group, groupIndex) => (
+            <div key={group.title ?? groupIndex}>
+              {!isCollapsed && group.title && (
                 <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
                   {group.title}
                 </p>
