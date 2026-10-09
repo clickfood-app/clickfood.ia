@@ -248,6 +248,75 @@ function getRestaurantStatus(brand: RestaurantBrand, now: Date) {
   }
 }
 
+const focusRing =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0B0D]"
+
+const itemBase =
+  "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-colors duration-200 motion-reduce:transition-none"
+
+const collapsedItem = "mx-auto h-11 w-11 justify-center px-0"
+
+const collapsedActive =
+  "bg-[#FACC15]/[0.12] text-white ring-1 ring-inset ring-[#FACC15]/25"
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+}
+
+function NavLink({
+  item,
+  active,
+  isCollapsed,
+}: {
+  item: AdminNavItem
+  active: boolean
+  isCollapsed: boolean
+}) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      aria-label={isCollapsed ? item.label : undefined}
+      title={isCollapsed ? item.label : undefined}
+      className={cn(
+        itemBase,
+        focusRing,
+        !active && "text-zinc-400 hover:bg-white/[0.04] hover:text-white",
+        active &&
+          !isCollapsed &&
+          "bg-gradient-to-r from-[#FACC15]/[0.14] via-[#FACC15]/[0.05] to-transparent text-white",
+        isCollapsed && collapsedItem,
+        isCollapsed && active && collapsedActive,
+      )}
+    >
+      {active && !isCollapsed && (
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[#FACC15] shadow-[0_0_12px_rgba(250,204,21,0.6)]"
+        />
+      )}
+
+      <item.icon
+        aria-hidden="true"
+        strokeWidth={1.75}
+        className={cn(
+          "h-[18px] w-[18px] shrink-0 transition-colors",
+          active ? "text-[#FACC15]" : "text-zinc-500 group-hover:text-zinc-200",
+        )}
+      />
+
+      {!isCollapsed && (
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      )}
+    </Link>
+  )
+}
+
 export default function AdminSidebar({
   isCollapsed = false,
   onToggleCollapse,
@@ -262,6 +331,7 @@ export default function AdminSidebar({
   )
   const [isBrandLoaded, setIsBrandLoaded] = useState(false)
   const [now, setNow] = useState(() => new Date())
+  const [logoFailed, setLogoFailed] = useState(false)
 
   const defaultOpenItems = useMemo(() => {
     return adminNavItems
@@ -368,38 +438,34 @@ export default function AdminSidebar({
     )
   }
 
+  useEffect(() => {
+    setLogoFailed(false)
+  }, [brand.logoUrl])
+
   const operationStatus = useMemo(
     () => getRestaurantStatus(brand, now),
     [brand, now],
   )
 
+  const showStatus = isBrandLoaded
+  const showLogo = Boolean(brand.logoUrl) && !logoFailed
+
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/10 bg-black text-white shadow-xl shadow-black/30 transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/[0.06] bg-[#0B0B0D] text-white shadow-2xl shadow-black/50 transition-[width] duration-300 ease-out motion-reduce:transition-none",
         isCollapsed ? "w-[72px]" : "w-64",
       )}
     >
-      <button
-        type="button"
-        onClick={onToggleCollapse}
-        className={cn(
-          "absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-lg border border-white/20 bg-black text-white shadow-md transition hover:border-white hover:bg-white hover:text-black md:flex",
-          isCollapsed && "right-[-14px]",
-        )}
-        aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
-      >
-        {isCollapsed ? (
-          <ChevronRight className="h-4 w-4" />
-        ) : (
-          <ChevronLeft className="h-4 w-4" />
-        )}
-      </button>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(120%_80%_at_0%_0%,rgba(250,204,21,0.10),transparent_60%)]"
+      />
 
       <div
         className={cn(
-          "border-b border-white/15 bg-black p-3",
-          isCollapsed && "flex h-16 items-center justify-center px-0 py-0",
+          "relative shrink-0 px-3 pb-3 pt-4",
+          isCollapsed && "flex flex-col items-center px-0",
         )}
       >
         <div
@@ -411,28 +477,52 @@ export default function AdminSidebar({
           <Link
             href="/pedidos"
             className={cn(
-              "group flex min-w-0 items-center overflow-hidden",
-              isCollapsed ? "justify-center" : "gap-3",
+              "group flex min-w-0 items-center rounded-xl",
+              focusRing,
+              isCollapsed ? "justify-center" : "gap-3 px-1",
             )}
+            title={
+              isCollapsed
+                ? `${brand.name}${showStatus ? ` · ${operationStatus.label}` : ""}`
+                : undefined
+            }
+            aria-label={isCollapsed ? brand.name : undefined}
           >
-            {isCollapsed ? (
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black shadow-sm">
-                <Store className="h-5 w-5" />
-              </div>
-            ) : (
-              <>
-                <div className="h-9 w-1 shrink-0 rounded-full bg-white" />
+            <span className="relative shrink-0">
+              {showLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={brand.logoUrl ?? undefined}
+                  alt=""
+                  className="h-10 w-10 rounded-xl object-cover ring-1 ring-white/10"
+                  onError={() => setLogoFailed(true)}
+                />
+              ) : (
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FACC15] text-[#0B0B0D] shadow-[0_6px_20px_-6px_rgba(250,204,21,0.55)]">
+                  <Store className="h-5 w-5" strokeWidth={2} />
+                </span>
+              )}
 
-                <div className="min-w-0">
-                  <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">
-                    Painel administrativo
-                  </p>
+              {isCollapsed && showStatus && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2 ring-[#0B0B0D]",
+                    operationStatus.isOpen ? "bg-[#FACC15]" : "bg-zinc-600",
+                  )}
+                />
+              )}
+            </span>
 
-                  <p className="mt-0.5 truncate text-sm font-black leading-tight text-white">
-                    {brand.name}
-                  </p>
-                </div>
-              </>
+            {!isCollapsed && (
+              <span className="min-w-0">
+                <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                  Painel administrativo
+                </span>
+                <span className="mt-0.5 block truncate text-[15px] font-bold leading-tight tracking-tight text-white">
+                  {brand.name}
+                </span>
+              </span>
             )}
           </Link>
 
@@ -440,7 +530,10 @@ export default function AdminSidebar({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:border-white hover:bg-white hover:text-black md:hidden"
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-zinc-300 transition-colors hover:bg-white/10 hover:text-white md:hidden",
+                focusRing,
+              )}
               aria-label="Fechar menu"
             >
               <X className="h-4 w-4" />
@@ -448,70 +541,82 @@ export default function AdminSidebar({
           )}
         </div>
 
-        {!isCollapsed && (
-          <>
-            {isBrandLoaded ? (
-              <div
-                className={cn(
-                  "mt-3 rounded-xl border px-3 py-2.5",
-                  operationStatus.isOpen
-                    ? "border-white/20 bg-white/10"
-                    : "border-white/15 bg-zinc-900",
-                )}
-              >
-                <div className="flex items-center gap-2">
+        {!isCollapsed &&
+          (showStatus ? (
+            <div
+              role="status"
+              className="mt-4 flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5"
+            >
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                {operationStatus.isOpen && (
                   <span
-                    className={cn(
-                      "h-2.5 w-2.5 shrink-0 rounded-full ring-4",
-                      operationStatus.isOpen
-                        ? "bg-white ring-white/15"
-                        : "bg-zinc-500 ring-white/10",
-                    )}
+                    aria-hidden="true"
+                    className="absolute inline-flex h-full w-full rounded-full bg-[#FACC15] opacity-60 motion-safe:animate-ping"
                   />
+                )}
+                <span
+                  className={cn(
+                    "relative inline-flex h-2.5 w-2.5 rounded-full",
+                    operationStatus.isOpen
+                      ? "bg-[#FACC15] shadow-[0_0_10px_rgba(250,204,21,0.7)]"
+                      : "bg-zinc-600",
+                  )}
+                />
+              </span>
 
-                  <div className="min-w-0">
-                    <p
-                      className={cn(
-                        "truncate text-xs font-bold uppercase tracking-[0.08em]",
-                        operationStatus.isOpen
-                          ? "text-white"
-                          : "text-zinc-300",
-                      )}
-                    >
-                      {operationStatus.label}
-                    </p>
-
-                    <p className="mt-0.5 truncate text-xs font-medium text-white/75">
-                      {operationStatus.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="mt-3 h-[62px] rounded-xl border border-transparent px-3 py-2.5"
-                aria-hidden="true"
-              />
-            )}
-          </>
-        )}
+              <span className="min-w-0">
+                <span
+                  className={cn(
+                    "block truncate text-xs font-semibold",
+                    operationStatus.isOpen ? "text-[#FACC15]" : "text-zinc-300",
+                  )}
+                >
+                  {operationStatus.label}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-zinc-400">
+                  {operationStatus.description}
+                </span>
+              </span>
+            </div>
+          ) : (
+            <div
+              className="mt-4 h-[54px] rounded-xl border border-white/[0.04] bg-white/[0.02] motion-safe:animate-pulse"
+              aria-hidden="true"
+            />
+          ))}
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 [scrollbar-color:rgba(255,255,255,0.35)_transparent] [scrollbar-width:thin]">
-        <div className="flex flex-col gap-4">
-          {adminNavGroups.map((group) => (
+      <div
+        aria-hidden="true"
+        className="mx-4 h-px shrink-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+      />
+
+      <nav
+        aria-label="Menu administrativo"
+        className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 [scrollbar-color:rgba(255,255,255,0.12)_transparent] [scrollbar-width:thin]"
+      >
+        <div className="flex flex-col gap-5">
+          {adminNavGroups.map((group, groupIndex) => (
             <div key={group.title}>
-              {!isCollapsed && (
-                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+              {isCollapsed ? (
+                groupIndex > 0 && (
+                  <div
+                    aria-hidden="true"
+                    className="mx-auto mb-3 h-px w-6 bg-white/10"
+                  />
+                )
+              ) : (
+                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
                   {group.title}
                 </p>
               )}
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 {group.items.map((item) => {
                   const active = isHrefActive(pathname, item)
                   const hasChildren = Boolean(item.children?.length)
                   const isOpen = openItems.includes(item.label)
+                  const submenuId = `admin-submenu-${slugify(item.label)}`
 
                   if (hasChildren) {
                     return (
@@ -523,25 +628,30 @@ export default function AdminSidebar({
                             toggleItem(item.label)
                           }}
                           className={cn(
-                            "group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition",
+                            itemBase,
+                            focusRing,
+                            "text-left",
                             active
-                              ? "border-white bg-white text-black shadow-sm"
-                              : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
-                            isCollapsed && "justify-center px-0",
+                              ? "text-white"
+                              : "text-zinc-400 hover:bg-white/[0.04] hover:text-white",
+                            isCollapsed && collapsedItem,
+                            isCollapsed && active && collapsedActive,
                           )}
                           title={isCollapsed ? item.label : undefined}
+                          aria-label={isCollapsed ? item.label : undefined}
+                          aria-expanded={isCollapsed ? undefined : isOpen}
+                          aria-controls={isCollapsed ? undefined : submenuId}
                         >
-                          <span
+                          <item.icon
+                            aria-hidden="true"
+                            strokeWidth={1.75}
                             className={cn(
-                              "flex shrink-0 items-center justify-center transition",
+                              "h-[18px] w-[18px] shrink-0 transition-colors",
                               active
-                                ? "text-black"
-                                : "text-zinc-300 group-hover:text-white",
-                              isCollapsed && "h-10 w-10 rounded-xl",
+                                ? "text-[#FACC15]"
+                                : "text-zinc-500 group-hover:text-zinc-200",
                             )}
-                          >
-                            <item.icon className="h-5 w-5" />
-                          </span>
+                          />
 
                           {!isCollapsed && (
                             <>
@@ -550,54 +660,75 @@ export default function AdminSidebar({
                               </span>
 
                               <ChevronDown
+                                aria-hidden="true"
                                 className={cn(
-                                  "h-4 w-4 shrink-0 transition-transform",
-                                  active ? "text-black" : "text-zinc-500",
-                                  isOpen && "rotate-180",
-                                  isOpen && !active && "text-white",
+                                  "h-4 w-4 shrink-0 text-zinc-500 transition-transform duration-300 motion-reduce:transition-none",
+                                  isOpen && "rotate-180 text-zinc-300",
                                 )}
                               />
                             </>
                           )}
                         </button>
 
-                        {!isCollapsed && isOpen && (
-                          <div className="ml-4 mt-1 border-l border-white/15 pl-2">
-                            <div className="flex flex-col gap-1">
-                              {item.children?.map((child) => {
-                                const childActive = isSubHrefActive(
-                                  pathname,
-                                  child.href,
-                                )
+                        {!isCollapsed && (
+                          <div
+                            id={submenuId}
+                            inert={!isOpen}
+                            className={cn(
+                              "grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
+                              isOpen
+                                ? "grid-rows-[1fr] opacity-100"
+                                : "grid-rows-[0fr] opacity-0",
+                            )}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="ml-[21px] mt-1 flex flex-col gap-0.5 border-l border-white/[0.08] py-0.5 pl-3">
+                                {item.children?.map((child) => {
+                                  const childActive = isSubHrefActive(
+                                    pathname,
+                                    child.href,
+                                  )
 
-                                return (
-                                  <Link
-                                    key={child.href}
-                                    href={child.href}
-                                    className={cn(
-                                      "group flex items-center gap-2.5 rounded-xl border px-3 py-2 text-sm font-semibold transition",
-                                      childActive
-                                        ? "border-white bg-white text-black shadow-sm"
-                                        : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
-                                    )}
-                                  >
-                                    <span
+                                  return (
+                                    <Link
+                                      key={child.href}
+                                      href={child.href}
+                                      aria-current={
+                                        childActive ? "page" : undefined
+                                      }
                                       className={cn(
-                                        "shrink-0 transition",
+                                        "group relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors",
+                                        focusRing,
                                         childActive
-                                          ? "text-black"
-                                          : "text-zinc-400 group-hover:text-white",
+                                          ? "bg-white/[0.05] text-white"
+                                          : "text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-100",
                                       )}
                                     >
-                                      <child.icon className="h-4 w-4" />
-                                    </span>
+                                      {childActive && (
+                                        <span
+                                          aria-hidden="true"
+                                          className="absolute -left-[13.5px] top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-[#FACC15] shadow-[0_0_8px_rgba(250,204,21,0.7)]"
+                                        />
+                                      )}
 
-                                    <span className="truncate">
-                                      {child.label}
-                                    </span>
-                                  </Link>
-                                )
-                              })}
+                                      <child.icon
+                                        aria-hidden="true"
+                                        strokeWidth={1.75}
+                                        className={cn(
+                                          "h-4 w-4 shrink-0 transition-colors",
+                                          childActive
+                                            ? "text-[#FACC15]"
+                                            : "text-zinc-500 group-hover:text-zinc-300",
+                                        )}
+                                      />
+
+                                      <span className="truncate">
+                                        {child.label}
+                                      </span>
+                                    </Link>
+                                  )
+                                })}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -606,36 +737,12 @@ export default function AdminSidebar({
                   }
 
                   return (
-                    <Link
+                    <NavLink
                       key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
-                        active
-                          ? "border-white bg-white text-black shadow-sm"
-                          : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
-                        isCollapsed && "justify-center px-0",
-                      )}
-                      title={isCollapsed ? item.label : undefined}
-                    >
-                      <span
-                        className={cn(
-                          "flex shrink-0 items-center justify-center transition",
-                          active
-                            ? "text-black"
-                            : "text-zinc-300 group-hover:text-white",
-                          isCollapsed && "h-10 w-10 rounded-xl",
-                        )}
-                      >
-                        <item.icon className="h-5 w-5" />
-                      </span>
-
-                      {!isCollapsed && (
-                        <span className="min-w-0 flex-1 truncate">
-                          {item.label}
-                        </span>
-                      )}
-                    </Link>
+                      item={item}
+                      active={active}
+                      isCollapsed={isCollapsed}
+                    />
                   )
                 })}
               </div>
@@ -644,42 +751,21 @@ export default function AdminSidebar({
         </div>
       </nav>
 
-      <div className="shrink-0 border-t border-white/15 bg-black p-2">
-        <div className="flex flex-col gap-1">
-          {adminNavFooterItems.map((item) => {
-            const active = isHrefActive(pathname, item)
+      <div className="relative shrink-0 border-t border-white/[0.06] bg-[#0B0B0D] p-3">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-gradient-to-t from-[#0B0B0D] to-transparent"
+        />
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
-                  active
-                    ? "border-white bg-white text-black shadow-sm"
-                    : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
-                  isCollapsed && "justify-center px-0",
-                )}
-                title={isCollapsed ? item.label : undefined}
-              >
-                <span
-                  className={cn(
-                    "flex shrink-0 items-center justify-center transition",
-                    active
-                      ? "text-black"
-                      : "text-zinc-300 group-hover:text-white",
-                    isCollapsed && "h-10 w-10 rounded-xl",
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                </span>
-
-                {!isCollapsed && (
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                )}
-              </Link>
-            )
-          })}
+        <div className="flex flex-col gap-0.5">
+          {adminNavFooterItems.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              active={isHrefActive(pathname, item)}
+              isCollapsed={isCollapsed}
+            />
+          ))}
 
           {onLogout && (
             <button
@@ -687,20 +773,19 @@ export default function AdminSidebar({
               onClick={onLogout}
               disabled={isLoggingOut}
               className={cn(
-                "group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm font-semibold text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50",
-                isCollapsed && "justify-center px-0",
+                itemBase,
+                focusRing,
+                "w-full text-left text-zinc-400 hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50",
+                isCollapsed && collapsedItem,
               )}
               title={isCollapsed ? "Sair" : undefined}
               aria-label={isCollapsed ? "Sair" : undefined}
             >
-              <span
-                className={cn(
-                  "flex shrink-0 items-center justify-center text-zinc-300 transition group-hover:text-white",
-                  isCollapsed && "h-10 w-10 rounded-xl",
-                )}
-              >
-                <LogOut className="h-5 w-5" />
-              </span>
+              <LogOut
+                aria-hidden="true"
+                strokeWidth={1.75}
+                className="h-[18px] w-[18px] shrink-0 text-zinc-500 transition-colors group-hover:text-zinc-200"
+              />
 
               {!isCollapsed && (
                 <span className="min-w-0 flex-1 truncate">
@@ -711,6 +796,22 @@ export default function AdminSidebar({
           )}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className={cn(
+          "absolute -right-3 top-7 z-50 hidden h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#242428] text-zinc-300 shadow-lg shadow-black/40 transition-colors hover:border-[#FACC15] hover:bg-[#FACC15] hover:text-[#0B0B0D] md:flex",
+          focusRing,
+        )}
+        aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronLeft className="h-3.5 w-3.5" />
+        )}
+      </button>
     </aside>
   )
 }
