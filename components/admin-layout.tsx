@@ -257,6 +257,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         <AdminSidebar
           isCollapsed={isCollapsed}
           onToggleCollapse={toggleCollapse}
+          onLogout={handleLogout}
+          isLoggingOut={isLoggingOut}
         />
       </div>
 
@@ -272,6 +274,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               <AdminSidebar
                 isCollapsed={false}
                 onToggleCollapse={closeMobileSidebar}
+                onLogout={handleLogout}
+                isLoggingOut={isLoggingOut}
               />
             </div>
           </>

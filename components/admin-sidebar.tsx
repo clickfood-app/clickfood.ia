@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  LogOut,
   Store,
   X,
 } from "lucide-react"
@@ -14,6 +15,7 @@ import {
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import {
+  adminNavFooterItems,
   adminNavGroups,
   adminNavItems,
   type AdminNavItem,
@@ -31,6 +33,8 @@ type RestaurantBrand = {
 type AdminSidebarProps = {
   isCollapsed?: boolean
   onToggleCollapse?: () => void
+  onLogout?: () => void
+  isLoggingOut?: boolean
 }
 
 const RESTAURANT_BRAND_CACHE_KEY = "clickfood_admin_sidebar_brand"
@@ -247,6 +251,8 @@ function getRestaurantStatus(brand: RestaurantBrand, now: Date) {
 export default function AdminSidebar({
   isCollapsed = false,
   onToggleCollapse,
+  onLogout,
+  isLoggingOut = false,
 }: AdminSidebarProps) {
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
@@ -491,11 +497,11 @@ export default function AdminSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-color:rgba(255,255,255,0.35)_transparent] [scrollbar-width:thin]">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 [scrollbar-color:rgba(255,255,255,0.35)_transparent] [scrollbar-width:thin]">
         <div className="flex flex-col gap-4">
-          {adminNavGroups.map((group, groupIndex) => (
-            <div key={group.title ?? groupIndex}>
-              {!isCollapsed && group.title && (
+          {adminNavGroups.map((group) => (
+            <div key={group.title}>
+              {!isCollapsed && (
                 <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
                   {group.title}
                 </p>
@@ -638,29 +644,73 @@ export default function AdminSidebar({
         </div>
       </nav>
 
-      {!isCollapsed && (
-        <div className="border-t border-white/15 bg-black p-3">
-          <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5">
-            <span className="h-2 w-2 rounded-full bg-white ring-4 ring-white/15" />
+      <div className="shrink-0 border-t border-white/15 bg-black p-2">
+        <div className="flex flex-col gap-1">
+          {adminNavFooterItems.map((item) => {
+            const active = isHrefActive(pathname, item)
 
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold uppercase tracking-[0.12em] text-white">
-                Sistema
-              </p>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
+                  active
+                    ? "border-white bg-white text-black shadow-sm"
+                    : "border-transparent text-zinc-300 hover:bg-white/10 hover:text-white",
+                  isCollapsed && "justify-center px-0",
+                )}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <span
+                  className={cn(
+                    "flex shrink-0 items-center justify-center transition",
+                    active
+                      ? "text-black"
+                      : "text-zinc-300 group-hover:text-white",
+                    isCollapsed && "h-10 w-10 rounded-xl",
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                </span>
 
-              <p className="truncate text-xs font-medium text-zinc-400">
-                Sistema online
-              </p>
-            </div>
-          </div>
+                {!isCollapsed && (
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                )}
+              </Link>
+            )
+          })}
+
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={isLoggingOut}
+              className={cn(
+                "group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm font-semibold text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50",
+                isCollapsed && "justify-center px-0",
+              )}
+              title={isCollapsed ? "Sair" : undefined}
+              aria-label={isCollapsed ? "Sair" : undefined}
+            >
+              <span
+                className={cn(
+                  "flex shrink-0 items-center justify-center text-zinc-300 transition group-hover:text-white",
+                  isCollapsed && "h-10 w-10 rounded-xl",
+                )}
+              >
+                <LogOut className="h-5 w-5" />
+              </span>
+
+              {!isCollapsed && (
+                <span className="min-w-0 flex-1 truncate">
+                  {isLoggingOut ? "Saindo..." : "Sair"}
+                </span>
+              )}
+            </button>
+          )}
         </div>
-      )}
-
-      {isCollapsed && (
-        <div className="border-t border-white/15 p-3">
-          <div className="mx-auto h-1.5 w-8 rounded-full bg-white" />
-        </div>
-      )}
+      </div>
     </aside>
   )
 }

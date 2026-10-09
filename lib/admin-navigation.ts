@@ -52,8 +52,7 @@ export type AdminNavItem = {
 }
 
 export type AdminNavGroup = {
-  /** Sem título, o grupo é exibido sem cabeçalho. */
-  title?: string
+  title: string
   items: AdminNavItem[]
 }
 
@@ -178,10 +177,11 @@ export const adminNavGroups: AdminNavGroup[] = [
       },
     ],
   },
-  // Configurações permanece no fim da lista até a reorganização do rodapé.
-  {
-    items: [{ label: "Configurações", icon: Settings, href: "/configuracoes" }],
-  },
+]
+
+/** Itens fixos no rodapé da sidebar, fora da lista rolável. */
+export const adminNavFooterItems: AdminNavItem[] = [
+  { label: "Configurações", icon: Settings, href: "/configuracoes" },
 ]
 
 export const adminNavItems: AdminNavItem[] = adminNavGroups.flatMap(
@@ -199,7 +199,7 @@ const extraBreadcrumbLabels: Record<string, string> = {
 function buildAdminBreadcrumbMap() {
   const map: Record<string, string> = { ...extraBreadcrumbLabels }
 
-  for (const item of adminNavItems) {
+  for (const item of [...adminNavItems, ...adminNavFooterItems]) {
     const entries: (AdminNavItem | AdminNavChild)[] = item.children?.length
       ? item.children
       : [item]
