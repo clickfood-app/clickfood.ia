@@ -4,49 +4,20 @@ import React, { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  BookOpen,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleAlert,
-  CircleDollarSign,
-  ClipboardCheck,
-  Coins,
-  FileBarChart,
-  Gift,
-  Globe,
-  Megaphone,
-  MonitorCheck,
-  PackageOpen,
-  PlusCircle,
-  ReceiptText,
-  Settings,
-  ShoppingCart,
   Store,
-  Target,
-  TicketPercent,
-  TrendingUp,
-  Truck,
-  Users,
-  Wallet,
   X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-
-type NavChild = {
-  label: string
-  icon: React.ReactNode
-  href: string
-}
-
-type NavItem = {
-  label: string
-  icon: React.ReactNode
-  href: string
-  children?: NavChild[]
-}
+import {
+  adminNavGroups,
+  adminNavItems,
+  type AdminNavItem,
+} from "@/lib/admin-navigation"
 
 type RestaurantBrand = {
   name: string
@@ -137,169 +108,6 @@ function saveCachedRestaurantBrand(brand: RestaurantBrand) {
   }
 }
 
-const navItems: NavItem[] = [
-  {
-    label: "Novo Pedido",
-    icon: <PlusCircle className="h-5 w-5" />,
-    href: "/novo-pedido",
-  },
-  {
-    label: "Pedidos",
-    icon: <ShoppingCart className="h-5 w-5" />,
-    href: "/pedidos",
-  },
-  {
-    label: "KDS",
-    icon: <MonitorCheck className="h-5 w-5" />,
-    href: "/kds",
-  },
-  {
-    label: "Cardápio",
-    icon: <Globe className="h-5 w-5" />,
-    href: "/divulgar-cardapio",
-  },
-  {
-    label: "Produtos",
-    icon: <PackageOpen className="h-5 w-5" />,
-    href: "/produtos",
-  },
-  {
-    label: "Gestão interna",
-    icon: <Store className="h-5 w-5" />,
-    href: "/fornecedores",
-    children: [
-      {
-        label: "Fornecedores",
-        icon: <Store className="h-4 w-4" />,
-        href: "/fornecedores",
-      },
-      {
-        label: "Estoque",
-        icon: <PackageOpen className="h-4 w-4" />,
-        href: "/financeiro/controle-estoque",
-      },
-      {
-        label: "Ficha técnica",
-        icon: <BookOpen className="h-4 w-4" />,
-        href: "/ficha-tecnica",
-      },
-      {
-        label: "Perdas e desperdício",
-        icon: <CircleAlert className="h-4 w-4" />,
-        href: "/perdas-desperdicio",
-      },
-      {
-        label: "Metas",
-        icon: <Target className="h-4 w-4" />,
-        href: "/metas",
-      },
-    ],
-  },
-  {
-    label: "Financeiro",
-    icon: <Wallet className="h-5 w-5" />,
-    href: "/financeiro",
-    children: [
-      {
-        label: "Resumo",
-        icon: <CircleDollarSign className="h-4 w-4" />,
-        href: "/financeiro",
-      },
-      {
-        label: "Contas a pagar",
-        icon: <ReceiptText className="h-4 w-4" />,
-        href: "/financeiro/contas-a-pagar",
-      },
-      {
-        label: "Despesas",
-        icon: <CircleAlert className="h-4 w-4" />,
-        href: "/financeiro/despesas",
-      },
-      {
-        label: "Relatórios",
-        icon: <FileBarChart className="h-4 w-4" />,
-        href: "/financeiro/relatorios",
-      },
-    ],
-  },
-  {
-    label: "Entregadores",
-    icon: <Truck className="h-5 w-5" />,
-    href: "/entregadores",
-  },
-  {
-    label: "Clientes",
-    icon: <Users className="h-5 w-5" />,
-    href: "/clientes",
-  },
-  {
-    label: "Cupons",
-    icon: <TicketPercent className="h-5 w-5" />,
-    href: "/cupons",
-  },
-  {
-    label: "Campanhas",
-    icon: <Megaphone className="h-5 w-5" />,
-    href: "/campanhas",
-    children: [
-      {
-        label: "Visão Geral",
-        icon: <ClipboardCheck className="h-4 w-4" />,
-        href: "/campanhas",
-      },
-      {
-        label: "Upsell",
-        icon: <TrendingUp className="h-4 w-4" />,
-        href: "/campanhas/upsell",
-      },
-      {
-        label: "Fidelidade",
-        icon: <Gift className="h-4 w-4" />,
-        href: "/campanhas/fidelidade",
-      },
-      {
-        label: "Cashback",
-        icon: <Coins className="h-4 w-4" />,
-        href: "/campanhas/cashback",
-      },
-    ],
-  },
-  {
-    label: "Configurações",
-    icon: <Settings className="h-5 w-5" />,
-    href: "/configuracoes",
-  },
-]
-
-const navGroups = [
-  {
-    title: "Operação",
-    items: navItems.filter((item) =>
-      ["Novo Pedido", "Pedidos", "KDS"].includes(item.label),
-    ),
-  },
-  {
-    title: "Cardápio",
-    items: navItems.filter((item) =>
-      ["Cardápio", "Produtos"].includes(item.label),
-    ),
-  },
-  {
-    title: "Administração",
-    items: navItems.filter((item) =>
-      [
-        "Gestão interna",
-        "Financeiro",
-        "Entregadores",
-        "Clientes",
-        "Cupons",
-        "Campanhas",
-        "Configurações",
-      ].includes(item.label),
-    ),
-  },
-]
-
 function isSubHrefActive(pathname: string, href: string) {
   if (href === "/financeiro") {
     return pathname === "/financeiro"
@@ -312,7 +120,7 @@ function isSubHrefActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-function isHrefActive(pathname: string, item: NavItem) {
+function isHrefActive(pathname: string, item: AdminNavItem) {
   if (item.children?.length) {
     return item.children.some((child) => isSubHrefActive(pathname, child.href))
   }
@@ -450,7 +258,7 @@ export default function AdminSidebar({
   const [now, setNow] = useState(() => new Date())
 
   const defaultOpenItems = useMemo(() => {
-    return navItems
+    return adminNavItems
       .filter((item) =>
         item.children?.some((child) => isSubHrefActive(pathname, child.href)),
       )
@@ -685,7 +493,7 @@ export default function AdminSidebar({
 
       <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-color:rgba(255,255,255,0.35)_transparent] [scrollbar-width:thin]">
         <div className="flex flex-col gap-4">
-          {navGroups.map((group) => (
+          {adminNavGroups.map((group) => (
             <div key={group.title}>
               {!isCollapsed && (
                 <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
@@ -726,7 +534,7 @@ export default function AdminSidebar({
                               isCollapsed && "h-10 w-10 rounded-xl",
                             )}
                           >
-                            {item.icon}
+                            <item.icon className="h-5 w-5" />
                           </span>
 
                           {!isCollapsed && (
@@ -775,7 +583,7 @@ export default function AdminSidebar({
                                           : "text-zinc-400 group-hover:text-white",
                                       )}
                                     >
-                                      {child.icon}
+                                      <child.icon className="h-4 w-4" />
                                     </span>
 
                                     <span className="truncate">
@@ -813,7 +621,7 @@ export default function AdminSidebar({
                           isCollapsed && "h-10 w-10 rounded-xl",
                         )}
                       >
-                        {item.icon}
+                        <item.icon className="h-5 w-5" />
                       </span>
 
                       {!isCollapsed && (

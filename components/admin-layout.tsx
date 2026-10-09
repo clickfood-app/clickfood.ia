@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { adminBreadcrumbMap } from "@/lib/admin-navigation"
 import AdminSidebar from "@/components/admin-sidebar"
 import { useAuth } from "@/components/auth/auth-provider"
 
@@ -31,48 +32,6 @@ type RestaurantContext = {
   restaurant_name?: string | null
   logo_url?: string | null
   logoUrl?: string | null
-}
-
-const breadcrumbMap: Record<string, string> = {
-  "/": "Pedidos",
-  "/gestao": "Painel",
-
-  // Operação
-  "/novo-pedido": "Novo pedido",
-  "/pedidos": "Pedidos",
-  "/entregas": "Entregas",
-  "/kds": "KDS",
-
-  // Cardápio e vendas
-  "/divulgar-cardapio": "Cardápio",
-  "/produtos": "Produtos",
-  "/clientes": "Clientes",
-  "/cupons": "Cupons",
-  "/checkout": "Checkout",
-
-  // Campanhas
-  "/campanhas": "Campanhas",
-  "/campanhas/upsell": "Upsell",
-  "/campanhas/fidelidade": "Fidelidade",
-  "/campanhas/cashback": "Cashback",
-
-  // Gestão interna
-  "/fornecedores": "Fornecedores",
-  "/financeiro/controle-estoque": "Estoque",
-  "/controle-estoque": "Controle de estoque",
-  "/ficha-tecnica": "Ficha técnica",
-  "/perdas-desperdicio": "Perdas e desperdício",
-  "/metas": "Metas",
-
-  // Financeiro
-  "/financeiro": "Finanças",
-  "/financeiro/contas-a-pagar": "Contas a pagar",
-  "/financeiro/despesas": "Despesas",
-  "/financeiro/relatorios": "Relatórios",
-
-  // Configurações
-  "/entregadores": "Entregadores",
-  "/configuracoes": "Configurações",
 }
 
 function getInitials(name: string) {
@@ -118,7 +77,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
   const currentPage =
     title ||
-    breadcrumbMap[pathname] ||
+    adminBreadcrumbMap[pathname] ||
     pathname.replace("/", "").charAt(0).toUpperCase() + pathname.slice(2)
 
   const toggleCollapse = () => {
