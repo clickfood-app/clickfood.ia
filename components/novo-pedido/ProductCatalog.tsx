@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Plus, Search, SearchX, Store, Truck, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -26,6 +26,8 @@ interface ProductCatalogProps {
   onSearchChange: (value: string) => void;
   items: OrderItem[];
   onSelectProduct: (product: ProductWithModifiers) => void;
+  /** Dados do atendimento (cliente, entrega, observações), exibidos entre a modalidade e a busca. */
+  orderDetails?: ReactNode;
 }
 
 const ORDER_TYPE_OPTIONS: Array<{
@@ -86,6 +88,7 @@ export default function ProductCatalog({
   onSearchChange,
   items,
   onSelectProduct,
+  orderDetails,
 }: ProductCatalogProps) {
   const [showCodeHint, setShowCodeHint] = useState(false);
 
@@ -107,8 +110,8 @@ export default function ProductCatalog({
       : categories.find((category) => category.id === selectedCategory)?.name || "Produtos";
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-col bg-[#050505]">
-      <header className="shrink-0 space-y-4 border-b border-white/[0.07] bg-gradient-to-b from-[#0e0e0e] to-[#050505] px-4 pb-4 pt-4 sm:px-6">
+    <section className="flex min-h-0 min-w-0 flex-col overflow-y-auto bg-[#050505]">
+      <div className="shrink-0 space-y-4 bg-gradient-to-b from-[#0e0e0e] to-[#050505] px-4 pb-4 pt-4 sm:px-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 sm:block">
@@ -150,6 +153,10 @@ export default function ProductCatalog({
           </div>
         </div>
 
+        {orderDetails}
+      </div>
+
+      <div className="sticky top-0 z-20 space-y-3 border-b border-white/[0.07] bg-[#050505]/95 px-4 pb-3 pt-3 backdrop-blur sm:px-6">
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
@@ -195,7 +202,7 @@ export default function ProductCatalog({
         </div>
 
         {showCodeHint && (
-          <p className="-mt-2 rounded-lg border border-white/[0.07] bg-[#0c0c0c] px-3 py-2 text-xs text-zinc-500">
+          <p className="rounded-lg border border-white/[0.07] bg-[#0c0c0c] px-3 py-2 text-xs text-zinc-500">
             Leitura de código de barras ainda não está disponível neste PDV. Use a busca por nome.
           </p>
         )}
@@ -240,9 +247,9 @@ export default function ProductCatalog({
             );
           })}
         </div>
-      </header>
+      </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-5 sm:px-6">
+      <div className="px-4 pb-6 pt-5 sm:px-6">
         <div className="mb-4 flex items-end justify-between gap-3">
           <h2 className="truncate text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">
             {isSearching ? "Resultados da busca" : selectedCategoryLabel}

@@ -1507,7 +1507,6 @@ export default function NovoPedidoPage() {
       totalItems={totalItems}
       showPaymentStep={showPaymentStep}
       isOrderEmpty={isOrderEmpty}
-      details={detailsSection}
       paymentStep={paymentStep}
       subtotal={subtotal}
       deliveryFee={finalDeliveryFee}
@@ -1540,6 +1539,7 @@ export default function NovoPedidoPage() {
           onSearchChange={setSearchTerm}
           items={items}
           onSelectProduct={openProductCustomization}
+          orderDetails={detailsSection}
         />
 
         <aside className="hidden min-h-0 border-l border-white/[0.07] xl:flex xl:flex-col">
