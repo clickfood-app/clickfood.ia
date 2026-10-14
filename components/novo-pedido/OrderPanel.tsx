@@ -14,8 +14,6 @@ interface OrderPanelProps {
   totalItems: number;
   showPaymentStep: boolean;
   isOrderEmpty: boolean;
-  /** Seção de cliente, endereço e observações (renderizada pela página). */
-  details: ReactNode;
   /** Etapa de pagamento: substitui a comanda quando `showPaymentStep` é true. */
   paymentStep: ReactNode;
   subtotal: number;
@@ -122,7 +120,6 @@ export default function OrderPanel({
   totalItems,
   showPaymentStep,
   isOrderEmpty,
-  details,
   paymentStep,
   subtotal,
   deliveryFee,
@@ -225,7 +222,6 @@ export default function OrderPanel({
               )}
             </div>
 
-            <div className="px-4 pb-5">{details}</div>
           </div>
 
           <div className="shrink-0 space-y-3 border-t border-white/[0.07] bg-[#0b0b0b] p-4">
