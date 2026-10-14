@@ -1546,18 +1546,32 @@ export default function NovoPedidoPage() {
     },
   ];
 
+  const isOrderEmpty =
+    items.length === 0 &&
+    discount === 0 &&
+    !customer.name &&
+    !customer.phone &&
+    !customer.observation;
+
+  const isSearching = searchTerm.trim().length > 0;
+
+  const selectedCategoryLabel =
+    selectedCategory === "all"
+      ? "Todos os produtos"
+      : categories.find((category) => category.id === selectedCategory)?.name || "Produtos";
+
   const renderOrderPanel = (mobile = false) => (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden border border-white/[0.08] bg-[#0B0B0B] xl:rounded-xl">
-      <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-4">
-        <div className="flex min-w-0 items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col bg-[#0a0a0a]">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2">
           {showPaymentStep && (
             <button
               type="button"
               onClick={() => setShowPaymentStep(false)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-[#111111] text-zinc-400 transition hover:border-white/20 hover:text-white"
+              className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-300 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"
               aria-label="Voltar para o pedido"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5" />
             </button>
           )}
 
@@ -1565,24 +1579,36 @@ export default function NovoPedidoPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
               {showPaymentStep ? "Fechamento" : "Comanda atual"}
             </p>
-            <h2 className="mt-0.5 truncate text-base font-semibold text-white">
+            <h2 className="mt-0.5 truncate text-base font-bold text-white">
               {showPaymentStep ? "Pagamento" : "Pedido atual"}
             </h2>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           {!showPaymentStep && (
-            <span className="rounded-md border border-white/[0.08] bg-[#111111] px-2.5 py-1.5 text-xs font-semibold text-zinc-400">
-              {totalItems} {totalItems === 1 ? "item" : "itens"}
-            </span>
+            <>
+              <span className="rounded-md border border-white/[0.08] bg-[#111111] px-2 py-1 text-xs font-bold tabular-nums text-zinc-400">
+                {totalItems} {totalItems === 1 ? "item" : "itens"}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleClearOrder}
+                disabled={isOrderEmpty}
+                className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-zinc-500 transition hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Limpar
+              </button>
+            </>
           )}
 
           {mobile && (
             <button
               type="button"
               onClick={() => setShowMobileOrder(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.08] bg-[#111111] text-zinc-400 transition hover:text-white"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-[#111111] text-zinc-400 transition hover:text-white"
               aria-label="Fechar pedido"
             >
               <X className="h-4 w-4" />
@@ -1593,176 +1619,371 @@ export default function NovoPedidoPage() {
 
       {!showPaymentStep ? (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-            {items.length === 0 ? (
-              <div className="flex h-full min-h-[260px] flex-col items-center justify-center px-6 text-center">
-                <ShoppingCart className="h-7 w-7 text-zinc-700" />
-                <h3 className="mt-4 text-sm font-semibold text-zinc-300">
-                  Nenhum item adicionado
-                </h3>
-                <p className="mt-1 max-w-[240px] text-sm leading-5 text-zinc-600">
-                  Toque em um produto do catálogo para iniciar o pedido.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/[0.07]">
-                {items.map((item) => (
-                  <article key={item.id} className="py-4 first:pt-1">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-semibold leading-5 text-white">
-                          {item.name}
-                        </h3>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="p-4">
+              {items.length === 0 ? (
+                <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+                  <ShoppingCart className="h-7 w-7 text-zinc-700" />
+                  <h3 className="mt-4 text-sm font-semibold text-zinc-300">
+                    Nenhum item adicionado
+                  </h3>
+                  <p className="mt-1 max-w-[240px] text-sm leading-5 text-zinc-600">
+                    Toque em um produto do catálogo para iniciar o pedido.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {items.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-lg border border-white/[0.08] bg-[#101010] p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="break-words text-sm font-bold leading-5 text-white">
+                            {item.name}
+                          </h3>
 
-                        {item.modifiers && item.modifiers.length > 0 && (
-                          <p className="mt-1.5 text-xs leading-5 text-zinc-500">
-                            {item.modifiers
-                              .map((modifier) => modifier.optionName)
-                              .filter(Boolean)
-                              .join(" · ")}
+                          {item.modifiers && item.modifiers.length > 0 && (
+                            <p className="mt-1 text-xs leading-5 text-zinc-500">
+                              {item.modifiers
+                                .map((modifier) => modifier.optionName)
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          )}
+
+                          {item.observation && (
+                            <p className="mt-2 border-l-2 border-yellow-400/60 pl-2 text-xs leading-5 text-zinc-400">
+                              {item.observation}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-bold tabular-nums text-white">
+                            {formatCurrency(item.price * item.quantity)}
                           </p>
-                        )}
-
-                        {item.observation && (
-                          <p className="mt-2 border-l-2 border-yellow-400/60 pl-2 text-xs leading-5 text-zinc-400">
-                            {item.observation}
+                          <p className="mt-0.5 text-[11px] text-zinc-600">
+                            {formatCurrency(item.price)} cada
                           </p>
-                        )}
+                        </div>
                       </div>
 
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-semibold text-white">
-                          {formatCurrency(item.price * item.quantity)}
-                        </p>
-                        <p className="mt-1 text-[11px] text-zinc-600">
-                          {formatCurrency(item.price)} cada
-                        </p>
+                      <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.07] pt-3">
+                        <div className="flex h-8 items-center overflow-hidden rounded-md border border-white/[0.08] bg-[#111111]">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateQuantity(item.id, item.quantity - 1)
+                            }
+                            className="flex h-8 w-8 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
+                            aria-label="Diminuir quantidade"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+
+                          <span className="w-8 text-center text-sm font-bold tabular-nums text-white">
+                            {item.quantity}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateQuantity(item.id, item.quantity + 1)
+                            }
+                            className="flex h-8 w-8 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
+                            aria-label="Aumentar quantidade"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openItemEditor(item)}
+                            className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] bg-[#111111] px-2.5 text-xs font-semibold text-zinc-400 transition hover:border-white/20 hover:text-white"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-[#111111] text-zinc-600 transition hover:border-red-500/30 hover:text-red-400"
+                            aria-label="Remover item"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <div className="flex h-9 items-center overflow-hidden rounded-md border border-white/[0.08] bg-[#111111]">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleUpdateQuantity(item.id, item.quantity - 1)
-                          }
-                          className="flex h-9 w-9 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
-                          aria-label="Diminuir quantidade"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
+            <div className="border-t border-white/[0.08] p-4">
+              <span className="block text-xs font-semibold text-zinc-400">
+                Observação do pedido
+              </span>
+              <textarea
+                value={customer.observation || ""}
+                onChange={(event) =>
+                  setCustomer({
+                    ...customer,
+                    observation: event.target.value,
+                  })
+                }
+                placeholder="Ex.: embalar para viagem, chamar o cliente no balcão..."
+                rows={2}
+                className="mt-2 w-full resize-none rounded-lg border border-white/[0.08] bg-[#111111] px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
+              />
+            </div>
 
-                        <span className="w-8 text-center text-sm font-semibold text-white">
-                          {item.quantity}
-                        </span>
+            <div className="space-y-4 border-t border-white/[0.08] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-white">Cliente</h3>
+                  <p className="mt-0.5 text-xs text-zinc-600">
+                    Identificação opcional no balcão e obrigatória para entrega.
+                  </p>
+                </div>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleUpdateQuantity(item.id, item.quantity + 1)
-                          }
-                          className="flex h-9 w-9 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
-                          aria-label="Aumentar quantidade"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openItemEditor(item)}
-                          className="flex h-9 items-center gap-2 rounded-md border border-white/[0.08] bg-[#111111] px-3 text-xs font-semibold text-zinc-400 transition hover:border-white/20 hover:text-white"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          Editar
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(item.id)}
-                          className="flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.08] bg-[#111111] text-zinc-600 transition hover:border-red-500/30 hover:text-red-400"
-                          aria-label="Remover item"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+                {orderType !== "delivery" && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowCustomerPanel((current) => !current)
+                    }
+                    className={cn(
+                      "flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition",
+                      showCustomerPanel || customer.name || customer.phone
+                        ? "border-yellow-400/40 bg-yellow-400/[0.08] text-yellow-300"
+                        : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-white",
+                    )}
+                  >
+                    <UserRoundPlus className="h-3.5 w-3.5" />
+                    {customer.name || "Adicionar cliente"}
+                  </button>
+                )}
               </div>
-            )}
-          </div>
 
-          <div className="border-t border-white/[0.08] bg-[#090909] p-4">
-            <label className="block text-xs font-semibold text-zinc-400">
-              Observação do pedido
-            </label>
-            <textarea
-              value={customer.observation || ""}
-              onChange={(event) =>
-                setCustomer({
-                  ...customer,
-                  observation: event.target.value,
-                })
-              }
-              placeholder="Ex.: embalar para viagem, chamar o cliente no balcão..."
-              rows={2}
-              className="mt-2 w-full resize-none rounded-md border border-white/[0.08] bg-[#111111] px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-            />
+              {(showCustomerPanel || orderType === "delivery") && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                      Nome do cliente
+                    </label>
+                    <input
+                      type="text"
+                      value={customer.name}
+                      onChange={(event) =>
+                        setCustomer({
+                          ...customer,
+                          name: event.target.value,
+                        })
+                      }
+                      placeholder={
+                        orderType === "delivery"
+                          ? "Digite o nome"
+                          : "Opcional"
+                      }
+                      className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
+                    />
+                  </div>
 
-            <div className="mt-4 space-y-2.5 border-t border-white/[0.07] pt-4 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Subtotal</span>
-                <span className="font-medium text-zinc-200">
-                  {formatCurrency(subtotal)}
-                </span>
-              </div>
-
-              {orderType === "delivery" && (
-                <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 truncate text-zinc-500">
-                    Taxa de entrega
-                    {selectedDeliveryNeighborhood
-                      ? ` · ${selectedDeliveryNeighborhood.neighborhood}`
-                      : ""}
-                  </span>
-                  <span className="shrink-0 font-medium text-zinc-200">
-                    {selectedDeliveryNeighborhood
-                      ? formatCurrency(finalDeliveryFee)
-                      : "Não definida"}
-                  </span>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                      Telefone
+                    </label>
+                    <input
+                      type="tel"
+                      value={customer.phone}
+                      onChange={(event) =>
+                        setCustomer({
+                          ...customer,
+                          phone: event.target.value,
+                        })
+                      }
+                      placeholder="Opcional"
+                      className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
+                    />
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3">
-                <label htmlFor="order-discount" className="text-zinc-500">
-                  Desconto
-                </label>
-                <div className="flex h-9 w-28 items-center rounded-md border border-white/[0.08] bg-[#111111] px-2.5">
-                  <span className="text-xs text-zinc-600">R$</span>
-                  <input
-                    id="order-discount"
-                    type="number"
-                    min={0}
-                    value={discount}
-                    onChange={(event) =>
-                      setDiscount(
-                        Math.max(0, Number(event.target.value || 0)),
-                      )
-                    }
-                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-medium text-white outline-none"
-                  />
-                </div>
-              </div>
+              {orderType === "delivery" && (
+                <div className="space-y-3 rounded-lg border border-white/[0.08] bg-[#101010] p-3">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">
+                        Endereço da entrega
+                      </h3>
+                      <p className="mt-0.5 text-xs text-zinc-600">
+                        O bairro selecionado define automaticamente a taxa.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="flex items-end justify-between border-t border-white/[0.07] pt-4">
-                <span className="text-sm font-semibold text-white">Total</span>
-                <span className="text-2xl font-semibold tracking-tight text-yellow-400">
-                  {formatCurrency(total)}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                        Rua
+                      </label>
+                      <input
+                        type="text"
+                        value={address.street}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            street: event.target.value,
+                          })
+                        }
+                        placeholder="Nome da rua"
+                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                        Número
+                      </label>
+                      <input
+                        type="text"
+                        value={address.number}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            number: event.target.value,
+                          })
+                        }
+                        placeholder="Nº"
+                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                        Complemento
+                      </label>
+                      <input
+                        type="text"
+                        value={address.complement || ""}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            complement: event.target.value,
+                          })
+                        }
+                        placeholder="Opcional"
+                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
+                      />
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                        Bairro e taxa
+                      </label>
+                      <select
+                        value={selectedDeliveryNeighborhoodId}
+                        onChange={(event) =>
+                          handleSelectDeliveryNeighborhood(event.target.value)
+                        }
+                        disabled={deliveryNeighborhoodOptions.length === 0}
+                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition focus:border-yellow-400/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">Selecione</option>
+                        {deliveryNeighborhoodOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.neighborhood} — {formatCurrency(option.fee)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                        Cidade
+                      </label>
+                      <input
+                        type="text"
+                        value={address.city}
+                        onChange={(event) =>
+                          setAddress({
+                            ...address,
+                            city: event.target.value,
+                          })
+                        }
+                        placeholder="Cidade"
+                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
+                      />
+                    </div>
+                  </div>
+
+                  {deliveryNeighborhoodOptions.length === 0 && (
+                    <p className="rounded-lg border border-yellow-400/20 bg-yellow-400/[0.05] px-3 py-2.5 text-xs text-yellow-200">
+                      Nenhuma área de entrega ativa foi encontrada.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 space-y-2.5 border-t border-white/[0.08] bg-[#090909] p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-zinc-500">Subtotal</span>
+              <span className="font-semibold tabular-nums text-zinc-200">
+                {formatCurrency(subtotal)}
+              </span>
+            </div>
+
+            {orderType === "delivery" && (
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-zinc-500">
+                  Taxa de entrega
+                  {selectedDeliveryNeighborhood
+                    ? ` · ${selectedDeliveryNeighborhood.neighborhood}`
+                    : ""}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-zinc-200">
+                  {selectedDeliveryNeighborhood
+                    ? formatCurrency(finalDeliveryFee)
+                    : "Não definida"}
                 </span>
               </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <label htmlFor="order-discount" className="text-zinc-500">
+                Desconto
+              </label>
+              <div className="flex h-9 w-28 items-center rounded-md border border-white/[0.08] bg-[#111111] px-2.5 focus-within:border-yellow-400/50">
+                <span className="text-xs text-zinc-600">R$</span>
+                <input
+                  id="order-discount"
+                  type="number"
+                  min={0}
+                  value={discount}
+                  onChange={(event) =>
+                    setDiscount(
+                      Math.max(0, Number(event.target.value || 0)),
+                    )
+                  }
+                  className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums text-white outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-end justify-between border-t border-white/[0.08] pt-3">
+              <span className="text-sm font-bold text-white">Total</span>
+              <span className="text-2xl font-black tabular-nums tracking-tight text-yellow-400">
+                {formatCurrency(total)}
+              </span>
             </div>
 
             <button
@@ -1770,9 +1991,9 @@ export default function NovoPedidoPage() {
               onClick={() => setShowPaymentStep(true)}
               disabled={items.length === 0}
               className={cn(
-                "mt-4 flex h-12 w-full items-center justify-center rounded-md text-sm font-semibold transition",
+                "flex h-12 w-full items-center justify-center rounded-lg text-sm font-bold transition",
                 items.length > 0
-                  ? "bg-yellow-400 text-black hover:bg-yellow-300"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/10 hover:bg-yellow-300"
                   : "cursor-not-allowed bg-[#151515] text-zinc-700",
               )}
             >
@@ -1781,152 +2002,154 @@ export default function NovoPedidoPage() {
           </div>
         </>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="border-b border-white/[0.08] pb-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600">
-              Valor do pedido
-            </p>
-            <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
-              {formatCurrency(total)}
-            </p>
-            <p className="mt-1 text-sm text-zinc-500">
-              {totalItems} {totalItems === 1 ? "item" : "itens"} ·{" "}
-              {orderType === "delivery" ? "Entrega" : "Balcão"}
-            </p>
-          </div>
-
-          <section className="mt-5">
-            <div className="mb-3">
-              <h3 className="text-sm font-semibold text-white">
-                Situação do pagamento
-              </h3>
-              <p className="mt-1 text-xs text-zinc-600">
-                Informe se o pagamento já foi confirmado.
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="rounded-xl border border-white/[0.08] bg-[#101010] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600">
+                Valor do pedido
+              </p>
+              <p className="mt-2 text-4xl font-black tracking-tight text-white tabular-nums">
+                {formatCurrency(total)}
+              </p>
+              <p className="mt-1 text-sm text-zinc-500">
+                {totalItems} {totalItems === 1 ? "item" : "itens"} ·{" "}
+                {orderType === "delivery" ? "Entrega" : "Balcão"}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {paymentStatusOptions.map((statusOption) => {
-                const active = paymentStatus === statusOption.id;
+            <section className="mt-5">
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-white">
+                  Situação do pagamento
+                </h3>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Informe se o pagamento já foi confirmado.
+                </p>
+              </div>
 
-                return (
-                  <button
-                    key={statusOption.id}
-                    type="button"
-                    onClick={() => setPaymentStatus(statusOption.id)}
-                    className={cn(
-                      "min-h-[74px] rounded-md border px-3 py-3 text-left transition",
-                      active
-                        ? "border-yellow-400 bg-yellow-400 text-black"
-                        : "border-white/[0.08] bg-[#111111] text-zinc-300 hover:border-white/20",
-                    )}
-                  >
-                    <span className="block text-sm font-semibold">
-                      {statusOption.label}
-                    </span>
-                    <span
+              <div className="grid grid-cols-2 gap-2">
+                {paymentStatusOptions.map((statusOption) => {
+                  const active = paymentStatus === statusOption.id;
+
+                  return (
+                    <button
+                      key={statusOption.id}
+                      type="button"
+                      onClick={() => setPaymentStatus(statusOption.id)}
                       className={cn(
-                        "mt-1 block text-[11px] leading-4",
-                        active ? "text-black/60" : "text-zinc-600",
+                        "min-h-[74px] rounded-lg border px-3 py-3 text-left transition",
+                        active
+                          ? "border-yellow-400 bg-yellow-400 text-black"
+                          : "border-white/[0.08] bg-[#111111] text-zinc-300 hover:border-white/20",
                       )}
                     >
-                      {statusOption.description}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="mt-5">
-            <div className="mb-3">
-              <h3 className="text-sm font-semibold text-white">
-                Forma de pagamento
-              </h3>
-              <p className="mt-1 text-xs text-zinc-600">
-                Selecione como o cliente pagou ou vai pagar.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {paymentOptions.map((method) => {
-                const active = paymentMethod === method.id;
-
-                return (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={() => {
-                      setPaymentMethod(method.id);
-
-                      if (method.id !== "dinheiro") {
-                        setReceivedAmount("");
-                      }
-                    }}
-                    className={cn(
-                      "flex h-12 items-center justify-center rounded-md border text-sm font-semibold transition",
-                      active
-                        ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                        : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-white",
-                    )}
-                  >
-                    {method.name}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {paymentMethod === "dinheiro" && (
-            <section className="mt-5 border-t border-white/[0.08] pt-5">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-zinc-400">
-                    Troco para
-                  </label>
-                  <div className="flex h-11 items-center rounded-md border border-white/[0.08] bg-[#111111] px-3">
-                    <span className="text-xs text-zinc-600">R$</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={receivedAmount}
-                      onChange={(event) =>
-                        setReceivedAmount(event.target.value)
-                      }
-                      placeholder="0,00"
-                      className="min-w-0 flex-1 bg-transparent pl-2 text-sm font-medium text-white outline-none placeholder:text-zinc-700"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <span className="mb-2 block text-xs font-semibold text-zinc-400">
-                    Troco calculado
-                  </span>
-                  <div className="flex h-11 items-center justify-end rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm font-semibold text-emerald-400">
-                    {formatCurrency(changeAmount)}
-                  </div>
-                </div>
+                      <span className="block text-sm font-bold">
+                        {statusOption.label}
+                      </span>
+                      <span
+                        className={cn(
+                          "mt-1 block text-[11px] leading-4",
+                          active ? "text-black/60" : "text-zinc-600",
+                        )}
+                      >
+                        {statusOption.description}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
-          )}
 
-          {!canSubmit() && items.length > 0 && (
-            <div className="mt-5 border border-yellow-400/20 bg-yellow-400/[0.06] px-3 py-3 text-xs leading-5 text-yellow-200">
-              {orderType === "delivery" &&
-                (!address.street || !address.number) &&
-                "Preencha a rua e o número antes de finalizar."}
+            <section className="mt-5">
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-white">
+                  Forma de pagamento
+                </h3>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Selecione como o cliente pagou ou vai pagar.
+                </p>
+              </div>
 
-              {orderType === "delivery" &&
-                address.street &&
-                address.number &&
-                !selectedDeliveryNeighborhood &&
-                "Selecione o bairro para aplicar a taxa de entrega."}
-            </div>
-          )}
+              <div className="grid grid-cols-2 gap-2">
+                {paymentOptions.map((method) => {
+                  const active = paymentMethod === method.id;
 
-          <div className="mt-6 border-t border-white/[0.08] pt-5">
-            <div className="mb-4 flex items-center justify-between text-sm">
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod(method.id);
+
+                        if (method.id !== "dinheiro") {
+                          setReceivedAmount("");
+                        }
+                      }}
+                      className={cn(
+                        "flex h-12 items-center justify-center rounded-lg border text-sm font-bold transition",
+                        active
+                          ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                          : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-white",
+                      )}
+                    >
+                      {method.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {paymentMethod === "dinheiro" && (
+              <section className="mt-5 border-t border-white/[0.08] pt-5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-zinc-400">
+                      Troco para
+                    </label>
+                    <div className="flex h-11 items-center rounded-lg border border-white/[0.08] bg-[#111111] px-3 focus-within:border-yellow-400/50">
+                      <span className="text-xs text-zinc-600">R$</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={receivedAmount}
+                        onChange={(event) =>
+                          setReceivedAmount(event.target.value)
+                        }
+                        placeholder="0,00"
+                        className="min-w-0 flex-1 bg-transparent pl-2 text-sm font-medium text-white outline-none placeholder:text-zinc-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="mb-2 block text-xs font-semibold text-zinc-400">
+                      Troco calculado
+                    </span>
+                    <div className="flex h-11 items-center justify-end rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm font-bold tabular-nums text-emerald-400">
+                      {formatCurrency(changeAmount)}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {!canSubmit() && items.length > 0 && (
+              <div className="mt-5 rounded-lg border border-yellow-400/20 bg-yellow-400/[0.06] px-3 py-3 text-xs leading-5 text-yellow-200">
+                {orderType === "delivery" &&
+                  (!address.street || !address.number) &&
+                  "Preencha a rua e o número antes de finalizar."}
+
+                {orderType === "delivery" &&
+                  address.street &&
+                  address.number &&
+                  !selectedDeliveryNeighborhood &&
+                  "Selecione o bairro para aplicar a taxa de entrega."}
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 space-y-4 border-t border-white/[0.08] bg-[#090909] p-4">
+            <div className="flex items-center justify-between text-sm">
               <span className="text-zinc-500">Resumo</span>
               <span className="font-medium text-zinc-200">
                 {selectedPaymentStatusLabel} · {selectedPaymentLabel}
@@ -1938,9 +2161,9 @@ export default function NovoPedidoPage() {
               onClick={handleSubmit}
               disabled={!canSubmit() || isSubmitting}
               className={cn(
-                "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition",
+                "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition",
                 canSubmit() && !isSubmitting
-                  ? "bg-yellow-400 text-black hover:bg-yellow-300"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/10 hover:bg-yellow-300"
                   : "cursor-not-allowed bg-[#151515] text-zinc-700",
               )}
             >
@@ -1957,469 +2180,271 @@ export default function NovoPedidoPage() {
               )}
             </button>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-black pb-28 text-white xl:pb-4">
-        <div className="mx-auto max-w-[1880px] p-3 sm:p-4">
-          <header className="border-b border-white/[0.08] pb-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-medium text-zinc-600">
+      <div className="grid h-[calc(100dvh-6rem)] grid-cols-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-black text-zinc-100 md:h-[calc(100dvh-7rem)] xl:grid-cols-[minmax(0,1fr)_420px] xl:grid-rows-1 xl:rounded-xl xl:border xl:border-white/[0.08]">
+        <section className="flex min-h-0 min-w-0 flex-col">
+          <div className="shrink-0 space-y-3 border-b border-zinc-900 bg-gradient-to-b from-[#0d0d0d] to-black px-3 pb-3 pt-3 sm:px-4 sm:pt-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
                   Painel / Novo pedido
                 </p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+                <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight text-white">
                   {orderType === "delivery"
                     ? "Novo pedido para entrega"
-                    : "atendimento de balcão"}
+                    : "Atendimento de balcão"}
                 </h1>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Selecione os produtos, ajuste o pedido e finalize o pagamento.
-                </p>
               </div>
 
-              <div className="w-full lg:w-[470px]">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-600">
-                  Tipo do pedido
-                </p>
-                <div className="grid grid-cols-2 overflow-hidden rounded-md border border-white/[0.08] bg-[#0B0B0B] p-1">
-                  {orderTypeOptions.map((option) => {
-                    const active = orderType === option.value;
+              <div
+                className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-[#0B0B0B] p-1 md:w-[340px]"
+                role="group"
+                aria-label="Tipo do pedido"
+              >
+                {orderTypeOptions.map((option) => {
+                  const active = orderType === option.value;
 
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => changeOrderType(option.value)}
-                        className={cn(
-                          "min-h-[54px] rounded-[4px] px-4 text-left transition",
-                          active
-                            ? "bg-yellow-400 text-black"
-                            : "text-zinc-400 hover:bg-white/[0.04] hover:text-white",
-                        )}
-                      >
-                        <span className="block text-sm font-semibold">
-                          {option.label}
-                        </span>
-                        <span
-                          className={cn(
-                            "mt-0.5 block truncate text-[11px]",
-                            active ? "text-black/60" : "text-zinc-600",
-                          )}
-                        >
-                          {option.description}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={active}
+                      title={option.description}
+                      onClick={() => changeOrderType(option.value)}
+                      className={cn(
+                        "flex h-11 items-center justify-center rounded-lg text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400",
+                        active
+                          ? "bg-yellow-400 text-black shadow-md shadow-yellow-400/20"
+                          : "text-zinc-400 hover:bg-white/[0.04] hover:text-white",
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </header>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-            <main className="min-w-0 space-y-4">
-              <section className="border border-white/[0.08] bg-[#0B0B0B] p-4 sm:rounded-xl">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-white">
-                      Dados do atendimento
-                    </h2>
-                    <p className="mt-1 text-xs text-zinc-600">
-                      Identificação opcional no balcão e obrigatória para entrega.
-                    </p>
-                  </div>
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Buscar produto pelo nome ou categoria"
+                  aria-label="Buscar produto"
+                  className="h-12 w-full rounded-xl border border-white/[0.08] bg-[#111111] pl-11 pr-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-600 hover:border-white/15 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/15"
+                />
+              </div>
 
-                  <div className="flex items-center gap-2">
-                    {orderType !== "delivery" && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowCustomerPanel((current) => !current)
-                        }
-                        className={cn(
-                          "flex h-10 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
-                          showCustomerPanel || customer.name || customer.phone
-                            ? "border-yellow-400/40 bg-yellow-400/[0.08] text-yellow-300"
-                            : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-white",
-                        )}
-                      >
-                        <UserRoundPlus className="h-3.5 w-3.5" />
-                        {customer.name || "Adicionar cliente"}
-                      </button>
+              <button
+                type="button"
+                className="flex h-12 shrink-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#111111] px-4 text-xs font-bold text-zinc-400 transition hover:border-white/20 hover:text-white"
+              >
+                <Barcode className="h-4 w-4" />
+                Código
+              </button>
+            </div>
+
+            <div
+              className="-mx-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:-mx-4 sm:px-4 [&::-webkit-scrollbar]:hidden"
+              role="group"
+              aria-label="Categorias"
+            >
+              {categories.map((category) => {
+                const active = selectedCategory === category.id;
+                const count =
+                  category.id === "all"
+                    ? products.length
+                    : products.filter(
+                        (product) => product.category === category.id,
+                      ).length;
+
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={cn(
+                      "inline-flex h-11 shrink-0 snap-start items-center gap-2 rounded-xl border px-4 text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400",
+                      active
+                        ? isSearching
+                          ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-300/70"
+                          : "border-yellow-400 bg-yellow-400 text-black shadow-md shadow-yellow-400/20"
+                        : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-zinc-100",
                     )}
-
-                    <button
-                      type="button"
-                      onClick={handleClearOrder}
-                      disabled={
-                        items.length === 0 &&
-                        discount === 0 &&
-                        !customer.name &&
-                        !customer.phone &&
-                        !customer.observation
-                      }
-                      className="flex h-10 items-center gap-2 rounded-md border border-white/[0.08] bg-[#111111] px-3 text-xs font-semibold text-zinc-500 transition hover:border-red-500/30 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    {category.id === "all" ? "Todos" : category.name}
+                    <span
+                      className={cn(
+                        "rounded-md px-1.5 py-0.5 text-[11px] font-black tabular-nums",
+                        active && !isSearching
+                          ? "bg-black/15 text-black"
+                          : "bg-white/[0.06] text-zinc-400",
+                      )}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Limpar
-                    </button>
-                  </div>
-                </div>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                {(showCustomerPanel || orderType === "delivery") && (
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">
-                        Nome do cliente
-                      </label>
-                      <input
-                        type="text"
-                        value={customer.name}
-                        onChange={(event) =>
-                          setCustomer({
-                            ...customer,
-                            name: event.target.value,
-                          })
-                        }
-                        placeholder={
-                          orderType === "delivery"
-                            ? "Digite o nome do cliente"
-                            : "Opcional"
-                        }
-                        className="h-11 w-full rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-                      />
-                    </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-3 sm:px-4 sm:pt-4">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <h2 className="truncate text-sm font-bold uppercase tracking-wider text-zinc-400">
+                {isSearching ? "Resultados da busca" : selectedCategoryLabel}
+              </h2>
 
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">
-                        Telefone
-                      </label>
-                      <input
-                        type="tel"
-                        value={customer.phone}
-                        onChange={(event) =>
-                          setCustomer({
-                            ...customer,
-                            phone: event.target.value,
-                          })
-                        }
-                        placeholder="Opcional"
-                        className="h-11 w-full rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-                      />
-                    </div>
-                  </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-xs font-semibold tabular-nums text-zinc-500">
+                  {filteredProducts.length}{" "}
+                  {filteredProducts.length === 1 ? "item" : "itens"}
+                  {isSearching && " · em todas as categorias"}
+                </span>
+
+                {isSearching && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="text-xs font-semibold text-zinc-400 transition hover:text-yellow-300"
+                  >
+                    Limpar busca
+                  </button>
                 )}
-              </section>
-
-              {orderType === "delivery" && (
-                <section className="border border-white/[0.08] bg-[#0B0B0B] p-4 sm:rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-yellow-400" />
-                    <div>
-                      <h2 className="text-sm font-semibold text-white">
-                        Endereço da entrega
-                      </h2>
-                      <p className="mt-1 text-xs text-zinc-600">
-                        O bairro selecionado define automaticamente a taxa.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.4fr)_110px_minmax(160px,0.8fr)_minmax(190px,1fr)_minmax(140px,0.7fr)]">
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">
-                        Rua
-                      </label>
-                      <input
-                        type="text"
-                        value={address.street}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            street: event.target.value,
-                          })
-                        }
-                        placeholder="Nome da rua"
-                        className="h-11 w-full rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">
-                        Número
-                      </label>
-                      <input
-                        type="text"
-                        value={address.number}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            number: event.target.value,
-                          })
-                        }
-                        placeholder="Nº"
-                        className="h-11 w-full rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">
-                        Complemento
-                      </label>
-                      <input
-                        type="text"
-                        value={address.complement || ""}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            complement: event.target.value,
-                          })
-                        }
-                        placeholder="Opcional"
-                        className="h-11 w-full rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">
-                        Bairro e taxa
-                      </label>
-                      <select
-                        value={selectedDeliveryNeighborhoodId}
-                        onChange={(event) =>
-                          handleSelectDeliveryNeighborhood(event.target.value)
-                        }
-                        disabled={deliveryNeighborhoodOptions.length === 0}
-                        className="h-11 w-full rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition focus:border-yellow-400/50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="">Selecione</option>
-                        {deliveryNeighborhoodOptions.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.neighborhood} — {formatCurrency(option.fee)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">
-                        Cidade
-                      </label>
-                      <input
-                        type="text"
-                        value={address.city}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            city: event.target.value,
-                          })
-                        }
-                        placeholder="Cidade"
-                        className="h-11 w-full rounded-md border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-                      />
-                    </div>
-                  </div>
-
-                  {deliveryNeighborhoodOptions.length === 0 && (
-                    <p className="mt-3 border border-yellow-400/20 bg-yellow-400/[0.05] px-3 py-2.5 text-xs text-yellow-200">
-                      Nenhuma área de entrega ativa foi encontrada.
-                    </p>
-                  )}
-                </section>
-              )}
-
-              <section className="overflow-hidden border border-white/[0.08] bg-[#0B0B0B] sm:rounded-xl">
-                <div className="border-b border-white/[0.08] p-4">
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_110px]">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(event) => setSearchTerm(event.target.value)}
-                        placeholder="Buscar produto pelo nome ou categoria"
-                        className="h-12 w-full rounded-md border border-white/[0.08] bg-[#111111] pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      className="flex h-12 items-center justify-center gap-2 rounded-md border border-white/[0.08] bg-[#111111] text-xs font-semibold text-zinc-500 transition hover:border-white/20 hover:text-white"
-                    >
-                      <Barcode className="h-4 w-4" />
-                      Código
-                    </button>
-                  </div>
-
-                  <div className="mt-4 flex gap-1 overflow-x-auto border-b border-white/[0.07]">
-                    {categories.map((category) => {
-                      const active = selectedCategory === category.id;
-                      const count =
-                        category.id === "all"
-                          ? products.length
-                          : products.filter(
-                              (product) => product.category === category.id,
-                            ).length;
-
-                      return (
-                        <button
-                          key={category.id}
-                          type="button"
-                          onClick={() => setSelectedCategory(category.id)}
-                          className={cn(
-                            "relative shrink-0 px-3 py-3 text-sm font-medium transition",
-                            active
-                              ? "text-yellow-400"
-                              : "text-zinc-500 hover:text-zinc-200",
-                          )}
-                        >
-                          {category.id === "all" ? "Todos" : category.name}
-                          <span className="ml-1.5 text-[11px] text-zinc-700">
-                            {count}
-                          </span>
-                          {active && (
-                            <span className="absolute inset-x-2 bottom-0 h-0.5 bg-yellow-400" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <div className="mb-4 flex items-end justify-between gap-3">
-                    <div>
-                      <h2 className="text-base font-semibold text-white">
-                        Produtos
-                      </h2>
-                      <p className="mt-1 text-xs text-zinc-600">
-                        {filteredProducts.length} produto(s) disponível(is)
-                      </p>
-                    </div>
-
-                    {searchTerm.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchTerm("")}
-                        className="text-xs font-medium text-zinc-500 transition hover:text-white"
-                      >
-                        Limpar busca
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                    {filteredProducts.map((product) => {
-                      const groups = getProductGroups(product);
-                      const quantityInOrder = items
-                        .filter((item) => item.productId === product.id)
-                        .reduce(
-                          (sum, item) => sum + Number(item.quantity || 0),
-                          0,
-                        );
-
-                      return (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => openProductCustomization(product)}
-                          className="group relative flex min-h-[104px] overflow-hidden rounded-lg border border-white/[0.08] bg-[#101010] p-2.5 text-left transition hover:border-white/20 hover:bg-[#141414]"
-                        >
-                          <div className="h-[82px] w-[88px] shrink-0 overflow-hidden rounded-md bg-[#181818]">
-                            <img
-                              src={getProductImage(product)}
-                              alt={product.name}
-                              className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
-                              onError={(event) => {
-                                event.currentTarget.src = "/placeholder.svg";
-                              }}
-                            />
-                          </div>
-
-                          <div className="ml-3 flex min-w-0 flex-1 flex-col justify-between py-0.5">
-                            <div>
-                              <div className="flex items-start justify-between gap-2">
-                                <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-white">
-                                  {product.name}
-                                </h3>
-                                {quantityInOrder > 0 && (
-                                  <span className="shrink-0 rounded bg-yellow-400 px-1.5 py-0.5 text-[10px] font-bold text-black">
-                                    {quantityInOrder}x
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="mt-1 line-clamp-1 text-[11px] text-zinc-600">
-                                {groups.length > 0
-                                  ? "Possui complementos"
-                                  : product.categoryName || "Produto"}
-                              </p>
-                            </div>
-
-                            <p className="text-base font-semibold text-yellow-400">
-                              {formatCurrency(Number(product.price || 0))}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {filteredProducts.length === 0 && (
-                    <div className="flex min-h-[250px] flex-col items-center justify-center border border-dashed border-white/[0.08] bg-[#0E0E0E] px-6 text-center">
-                      <Search className="h-7 w-7 text-zinc-700" />
-                      <h3 className="mt-3 text-sm font-semibold text-zinc-300">
-                        Nenhum produto encontrado
-                      </h3>
-                      <p className="mt-1 text-sm text-zinc-600">
-                        Tente outra categoria ou altere o termo da busca.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            </main>
-
-            <aside className="hidden xl:sticky xl:top-4 xl:block xl:h-[calc(100vh-32px)]">
-              {renderOrderPanel(false)}
-            </aside>
-          </div>
-        </div>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#090909]/95 p-3 backdrop-blur-xl xl:hidden">
-        <button
-          type="button"
-          onClick={() => setShowMobileOrder(true)}
-          className="mx-auto flex h-14 w-full max-w-3xl items-center justify-between rounded-md bg-yellow-400 px-4 text-black shadow-2xl"
-        >
-          <div className="flex items-center gap-3 text-left">
-            <ShoppingCart className="h-5 w-5" />
-            <div>
-              <p className="text-[11px] font-semibold text-black/60">
-                {totalItems} {totalItems === 1 ? "item" : "itens"}
-              </p>
-              <p className="text-lg font-semibold tracking-tight">
-                {formatCurrency(total)}
-              </p>
+              </div>
             </div>
-          </div>
 
-          <span className="flex items-center gap-2 text-sm font-semibold">
-            Abrir pedido
-            <ChevronRight className="h-4 w-4" />
-          </span>
-        </button>
+            {filteredProducts.length > 0 ? (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-3 xl:gap-4">
+                {filteredProducts.map((product) => {
+                  const groups = getProductGroups(product);
+                  const hasRequiredChoices = groups.some((group) => group.required);
+                  const quantityInOrder = items
+                    .filter((item) => item.productId === product.id)
+                    .reduce(
+                      (sum, item) => sum + Number(item.quantity || 0),
+                      0,
+                    );
+
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => openProductCustomization(product)}
+                      className="group flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101010] text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-yellow-400/40 hover:bg-[#141414] hover:shadow-lg hover:shadow-yellow-400/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 active:translate-y-0 active:scale-[0.98]"
+                    >
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#181818]">
+                        <img
+                          src={getProductImage(product)}
+                          alt={product.name}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          onError={(event) => {
+                            event.currentTarget.src = "/placeholder.svg";
+                          }}
+                        />
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+
+                        {quantityInOrder > 0 && (
+                          <span className="absolute right-2 top-2 rounded-md bg-yellow-400 px-1.5 py-0.5 text-[11px] font-black text-black shadow-md">
+                            {quantityInOrder}x
+                          </span>
+                        )}
+
+                        {groups.length > 0 && (
+                          <span
+                            className={cn(
+                              "absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide backdrop-blur",
+                              hasRequiredChoices
+                                ? "bg-yellow-400/90 text-black"
+                                : "bg-black/60 text-zinc-200 ring-1 ring-white/10",
+                            )}
+                          >
+                            {hasRequiredChoices ? "Opções" : "Personalizar"}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-1 flex-col gap-1 p-3">
+                        <p className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-zinc-50">
+                          {product.name}
+                        </p>
+
+                        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                          <span className="text-base font-black tabular-nums text-yellow-400">
+                            {formatCurrency(Number(product.price || 0))}
+                          </span>
+                          <span
+                            aria-hidden="true"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-black shadow-md shadow-yellow-400/20 transition group-hover:bg-yellow-300"
+                          >
+                            <Plus className="h-5 w-5" strokeWidth={3} />
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex min-h-[250px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.08] bg-[#0E0E0E] px-6 text-center">
+                <Search className="h-7 w-7 text-zinc-700" />
+                <h3 className="mt-3 text-sm font-semibold text-zinc-300">
+                  Nenhum produto encontrado
+                </h3>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Tente outra categoria ou altere o termo da busca.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="hidden min-h-0 border-l border-white/[0.08] bg-[#0a0a0a] xl:flex xl:flex-col">
+          {renderOrderPanel(false)}
+        </aside>
+
+        {/* Celular e tablet: barra fixa com o total que abre a comanda em tela cheia. */}
+        <div className="shrink-0 border-t border-white/[0.08] bg-[#090909] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xl:hidden">
+          <button
+            type="button"
+            onClick={() => setShowMobileOrder(true)}
+            aria-haspopup="dialog"
+            className="flex h-14 w-full items-center justify-between rounded-xl bg-yellow-400 px-4 text-black shadow-lg shadow-yellow-400/20 transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300"
+          >
+            <span className="flex items-center gap-3 text-left">
+              <ShoppingCart className="h-5 w-5" />
+              <span>
+                <span className="block text-[11px] font-semibold text-black/60">
+                  {totalItems} {totalItems === 1 ? "item" : "itens"}
+                </span>
+                <span className="block text-lg font-black tabular-nums tracking-tight">
+                  {formatCurrency(total)}
+                </span>
+              </span>
+            </span>
+
+            <span className="flex items-center gap-2 text-sm font-bold">
+              Abrir pedido
+              <ChevronRight className="h-4 w-4" />
+            </span>
+          </button>
+        </div>
       </div>
 
       {showMobileOrder && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm xl:hidden">
-          <div className="absolute inset-0 sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[460px]">
+          <div className="absolute inset-0 bg-[#0a0a0a] sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[460px] sm:border-l sm:border-white/[0.08]">
             {renderOrderPanel(true)}
           </div>
         </div>
@@ -2427,10 +2452,10 @@ export default function NovoPedidoPage() {
 
       {customizingProduct && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-[#0B0B0B] shadow-2xl sm:rounded-xl">
-            <div className="flex items-start justify-between border-b border-white/[0.08] p-4 sm:p-5">
+          <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] p-4 sm:p-5">
               <div className="flex min-w-0 gap-3">
-                <div className="h-16 w-20 shrink-0 overflow-hidden rounded-md bg-[#151515]">
+                <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-[#151515]">
                   <img
                     src={getProductImage(customizingProduct)}
                     alt={customizingProduct.name}
@@ -2445,7 +2470,7 @@ export default function NovoPedidoPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-600">
                     {editingItemId ? "Editar item" : "Personalizar item"}
                   </p>
-                  <h3 className="mt-1 line-clamp-2 text-lg font-semibold text-white">
+                  <h3 className="mt-1 line-clamp-2 text-lg font-bold text-white">
                     {customizingProduct.name}
                   </h3>
                   <p className="mt-1 text-sm font-semibold text-yellow-400">
@@ -2457,7 +2482,7 @@ export default function NovoPedidoPage() {
               <button
                 type="button"
                 onClick={resetCustomization}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-[#111111] text-zinc-500 transition hover:text-white"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-[#111111] text-zinc-500 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"
                 aria-label="Fechar personalização"
               >
                 <X className="h-4 w-4" />
@@ -2470,6 +2495,9 @@ export default function NovoPedidoPage() {
                   {customizingGroups.map((group) => {
                     const selectedIds =
                       selectedModifierOptions[group.id] || [];
+                    const isSatisfied =
+                      selectedIds.length >= group.minSelect &&
+                      selectedIds.length <= group.maxSelect;
                     const selectionText = group.required
                       ? `Escolha de ${group.minSelect} até ${group.maxSelect}`
                       : `Opcional · escolha até ${group.maxSelect}`;
@@ -2477,24 +2505,29 @@ export default function NovoPedidoPage() {
                     return (
                       <section key={group.id}>
                         <div className="mb-3 flex items-start justify-between gap-3">
-                          <div>
-                            <h4 className="text-sm font-semibold text-white">
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-white">
                               {group.name}
                             </h4>
-                            <p className="mt-1 text-xs text-zinc-600">
+                            <p className="mt-1 text-xs text-zinc-500">
                               {selectionText}
                             </p>
                           </div>
 
-                          {group.required && (
-                            <span className="text-[11px] font-semibold text-yellow-400">
-                              Obrigatório
-                            </span>
-                          )}
+                          <span
+                            className={cn(
+                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                              isSatisfied
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-yellow-400/10 text-yellow-300",
+                            )}
+                          >
+                            {group.required ? "Obrigatório" : "Opcional"}
+                          </span>
                         </div>
 
-                        <div className="overflow-hidden rounded-md border border-white/[0.08]">
-                          {group.options.map((option, optionIndex) => {
+                        <div className="space-y-1.5">
+                          {group.options.map((option) => {
                             const active = selectedIds.includes(option.id);
 
                             return (
@@ -2505,18 +2538,16 @@ export default function NovoPedidoPage() {
                                   toggleModifierOption(group, option)
                                 }
                                 className={cn(
-                                  "flex w-full items-center justify-between gap-4 bg-[#101010] px-3 py-3 text-left transition",
-                                  optionIndex > 0 &&
-                                    "border-t border-white/[0.07]",
+                                  "flex w-full items-center justify-between gap-4 rounded-lg border px-3 py-2.5 text-left transition",
                                   active
-                                    ? "bg-yellow-400/[0.08]"
-                                    : "hover:bg-[#141414]",
+                                    ? "border-yellow-400/60 bg-yellow-400/[0.08]"
+                                    : "border-white/[0.08] bg-[#101010] hover:border-white/15 hover:bg-[#141414]",
                                 )}
                               >
                                 <span className="flex min-w-0 items-center gap-3">
                                   <span
                                     className={cn(
-                                      "flex h-5 w-5 shrink-0 items-center justify-center border",
+                                      "flex h-5 w-5 shrink-0 items-center justify-center border transition",
                                       group.maxSelect <= 1
                                         ? "rounded-full"
                                         : "rounded-[4px]",
@@ -2532,7 +2563,7 @@ export default function NovoPedidoPage() {
                                   </span>
                                 </span>
 
-                                <span className="shrink-0 text-sm font-medium text-zinc-400">
+                                <span className="shrink-0 text-sm font-semibold tabular-nums text-zinc-400">
                                   {Number(option.price || 0) > 0
                                     ? `+ ${formatCurrency(option.price)}`
                                     : "Sem acréscimo"}
@@ -2553,10 +2584,10 @@ export default function NovoPedidoPage() {
                     "mt-6 border-t border-white/[0.08] pt-6",
                 )}
               >
-                <label className="block text-sm font-semibold text-white">
+                <label className="block text-sm font-bold text-white">
                   Observação do item
                 </label>
-                <p className="mt-1 text-xs text-zinc-600">
+                <p className="mt-1 text-xs text-zinc-500">
                   Use somente para alterações específicas deste produto.
                 </p>
                 <textarea
@@ -2566,14 +2597,14 @@ export default function NovoPedidoPage() {
                   }
                   placeholder="Ex.: sem cebola, molho separado..."
                   rows={3}
-                  className="mt-3 w-full resize-none rounded-md border border-white/[0.08] bg-[#111111] px-3 py-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-yellow-400/50"
+                  className="mt-3 w-full resize-none rounded-lg border border-white/[0.08] bg-[#111111] px-3 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
                 />
               </section>
             </div>
 
             <div className="border-t border-white/[0.08] bg-[#090909] p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex h-11 w-fit items-center overflow-hidden rounded-md border border-white/[0.08] bg-[#111111]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 shrink-0 items-center overflow-hidden rounded-lg border border-white/[0.08] bg-[#111111]">
                   <button
                     type="button"
                     onClick={() =>
@@ -2581,13 +2612,13 @@ export default function NovoPedidoPage() {
                         Math.max(1, current - 1),
                       )
                     }
-                    className="flex h-11 w-11 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
+                    className="flex h-12 w-11 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
                     aria-label="Diminuir quantidade"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
 
-                  <span className="w-12 text-center text-base font-semibold text-white">
+                  <span className="w-10 text-center text-base font-bold tabular-nums text-white">
                     {customizingQuantity}
                   </span>
 
@@ -2596,7 +2627,7 @@ export default function NovoPedidoPage() {
                     onClick={() =>
                       setCustomizingQuantity((current) => current + 1)
                     }
-                    className="flex h-11 w-11 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
+                    className="flex h-12 w-11 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
                     aria-label="Aumentar quantidade"
                   >
                     <Plus className="h-4 w-4" />
@@ -2608,14 +2639,18 @@ export default function NovoPedidoPage() {
                   onClick={confirmCustomProduct}
                   disabled={!canAddCustomProduct()}
                   className={cn(
-                    "flex h-12 flex-1 items-center justify-center rounded-md px-5 text-sm font-semibold transition sm:max-w-[330px]",
+                    "flex h-12 min-w-0 flex-1 items-center justify-between rounded-lg px-4 text-sm font-bold transition",
                     canAddCustomProduct()
-                      ? "bg-yellow-400 text-black hover:bg-yellow-300"
+                      ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/10 hover:bg-yellow-300"
                       : "cursor-not-allowed bg-[#151515] text-zinc-700",
                   )}
                 >
-                  {editingItemId ? "Salvar alterações" : "Adicionar ao pedido"}
-                  <span className="ml-2">{formatCurrency(customProductTotal)}</span>
+                  <span className="truncate">
+                    {editingItemId ? "Salvar alterações" : "Adicionar ao pedido"}
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    {formatCurrency(customProductTotal)}
+                  </span>
                 </button>
               </div>
             </div>
