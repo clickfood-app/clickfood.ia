@@ -2,11 +2,11 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import AdminLayout from "@/components/admin-layout";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { initialCategories, type Product } from "@/lib/products-data";
+import { initialCategories } from "@/lib/products-data";
 import {
   type OrderType,
   type PaymentMethod,
@@ -15,22 +15,20 @@ import {
   type CustomerData,
   type DeliveryAddress,
 } from "@/lib/order-types";
+import ProductCatalog from "@/components/novo-pedido/ProductCatalog";
+import OrderPanel from "@/components/novo-pedido/OrderPanel";
+import CustomerDeliveryFields from "@/components/novo-pedido/CustomerDeliveryFields";
+import PaymentStep from "@/components/novo-pedido/PaymentStep";
+import ProductCustomizationDialog from "@/components/novo-pedido/ProductCustomizationDialog";
 import {
-  ArrowLeft,
-  Barcode,
-  Check,
-  ChevronRight,
-  Loader2,
-  MapPin,
-  Minus,
-  Pencil,
-  Plus,
-  Search,
-  ShoppingCart,
-  Trash2,
-  UserRoundPlus,
-  X,
-} from "lucide-react";
+  formatCurrency,
+  getProductGroups,
+  type DeliveryNeighborhoodOption,
+  type ManualModifierGroup,
+  type ManualModifierOption,
+  type PaymentStatus,
+  type ProductWithModifiers,
+} from "@/components/novo-pedido/shared";
 
 type DeliveryFeeRuleRow = {
   id: string;
@@ -43,42 +41,9 @@ type DeliveryFeeRuleRow = {
   sort_order: number | null;
 };
 
-type DeliveryNeighborhoodOption = {
-  id: string;
-  ruleId: string;
-  label: string;
-  neighborhood: string;
-  fee: number;
-  maxDistanceKm: number | null;
-  sortOrder: number;
-};
-
-type ManualModifierOption = {
-  id: string;
-  name: string;
-  price: number;
-};
-
-type ManualModifierGroup = {
-  id: string;
-  name: string;
-  required: boolean;
-  minSelect: number;
-  maxSelect: number;
-  options: ManualModifierOption[];
-};
-
-type ProductWithModifiers = Product & {
-  categoryName?: string;
-  modifierGroups?: ManualModifierGroup[];
-  modifier_groups?: ManualModifierGroup[];
-};
-
 type RawModifierGroupRow = Record<string, unknown>;
 type RawModifierOptionRow = Record<string, unknown>;
 type RawModifierLinkRow = Record<string, unknown>;
-
-type PaymentStatus = "pending" | "paid";
 
 function getSupabaseErrorMessage(error: unknown, fallback: string) {
   if (!error) return fallback;
@@ -308,30 +273,8 @@ function getOrderItemKey(item: OrderItemDraft) {
   ].join("::");
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(Number(value || 0));
-}
-
 function getCategoryKey(categoryName: string) {
   return `category:${categoryName.trim().toLocaleLowerCase("pt-BR")}`;
-}
-
-function getProductGroups(product: ProductWithModifiers | null) {
-  if (!product) return [];
-
-  return product.modifierGroups || product.modifier_groups || [];
-}
-
-function getProductImage(product: ProductWithModifiers) {
-  return (
-    ((product as unknown as { image?: string; image_url?: string }).image ||
-      (product as unknown as { image?: string; image_url?: string })
-        .image_url ||
-      "/placeholder.svg") as string
-  );
 }
 
 function normalizeDeliveryFeeOptions(
@@ -1497,55 +1440,6 @@ export default function NovoPedidoPage() {
     }
   };
 
-  const orderTypeOptions = [
-    {
-      value: "pickup" as OrderType,
-      label: "Balcão",
-      description: "Consumo ou retirada no balcão",
-    },
-    {
-      value: "delivery" as OrderType,
-      label: "Entrega",
-      description: "Pedido enviado ao endereço do cliente",
-    },
-  ];
-
-  const paymentStatusOptions: Array<{
-    id: PaymentStatus;
-    label: string;
-    description: string;
-  }> = [
-    {
-      id: "pending",
-      label: "Pendente",
-      description: "O cliente ainda vai pagar",
-    },
-    {
-      id: "paid",
-      label: "Já pago",
-      description: "Pagamento já confirmado",
-    },
-  ];
-
-  const paymentOptions = [
-    {
-      id: "pix" as PaymentMethod,
-      name: "Pix",
-    },
-    {
-      id: "dinheiro" as PaymentMethod,
-      name: "Dinheiro",
-    },
-    {
-      id: "credito" as PaymentMethod,
-      name: "Crédito",
-    },
-    {
-      id: "debito" as PaymentMethod,
-      name: "Débito",
-    },
-  ];
-
   const isOrderEmpty =
     items.length === 0 &&
     discount === 0 &&
@@ -1553,889 +1447,127 @@ export default function NovoPedidoPage() {
     !customer.phone &&
     !customer.observation;
 
-  const isSearching = searchTerm.trim().length > 0;
+  const paymentBlockingMessage =
+    items.length > 0 && !canSubmit()
+      ? orderType === "delivery" && (!address.street || !address.number)
+        ? "Preencha a rua e o número antes de finalizar."
+        : orderType === "delivery" && !selectedDeliveryNeighborhood
+          ? "Selecione o bairro para aplicar a taxa de entrega."
+          : null
+      : null;
 
-  const selectedCategoryLabel =
-    selectedCategory === "all"
-      ? "Todos os produtos"
-      : categories.find((category) => category.id === selectedCategory)?.name || "Produtos";
+  const detailsSection = (
+    <CustomerDeliveryFields
+      orderType={orderType}
+      customer={customer}
+      onCustomerChange={setCustomer}
+      showCustomerFields={showCustomerPanel}
+      onToggleCustomerFields={() => setShowCustomerPanel((current) => !current)}
+      address={address}
+      onAddressChange={setAddress}
+      neighborhoodOptions={deliveryNeighborhoodOptions}
+      selectedNeighborhoodId={selectedDeliveryNeighborhoodId}
+      onSelectNeighborhood={handleSelectDeliveryNeighborhood}
+      selectedNeighborhood={selectedDeliveryNeighborhood}
+    />
+  );
 
-  const renderOrderPanel = (mobile = false) => (
-    <div className="flex h-full min-h-0 flex-col bg-[#0a0a0a]">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          {showPaymentStep && (
-            <button
-              type="button"
-              onClick={() => setShowPaymentStep(false)}
-              className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-300 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"
-              aria-label="Voltar para o pedido"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          )}
+  const paymentStep = (
+    <PaymentStep
+      orderType={orderType}
+      totalItems={totalItems}
+      total={total}
+      customerName={customer.name}
+      deliveryNeighborhoodName={selectedDeliveryNeighborhood?.neighborhood || null}
+      paymentStatus={paymentStatus}
+      onPaymentStatusChange={setPaymentStatus}
+      paymentMethod={paymentMethod}
+      onPaymentMethodChange={(method) => {
+        setPaymentMethod(method);
 
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
-              {showPaymentStep ? "Fechamento" : "Comanda atual"}
-            </p>
-            <h2 className="mt-0.5 truncate text-base font-bold text-white">
-              {showPaymentStep ? "Pagamento" : "Pedido atual"}
-            </h2>
-          </div>
-        </div>
+        if (method !== "dinheiro") {
+          setReceivedAmount("");
+        }
+      }}
+      receivedAmount={receivedAmount}
+      onReceivedAmountChange={setReceivedAmount}
+      changeAmount={changeAmount}
+      canSubmit={canSubmit()}
+      blockingMessage={paymentBlockingMessage}
+      isSubmitting={isSubmitting}
+      onSubmit={handleSubmit}
+    />
+  );
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          {!showPaymentStep && (
-            <>
-              <span className="rounded-md border border-white/[0.08] bg-[#111111] px-2 py-1 text-xs font-bold tabular-nums text-zinc-400">
-                {totalItems} {totalItems === 1 ? "item" : "itens"}
-              </span>
-
-              <button
-                type="button"
-                onClick={handleClearOrder}
-                disabled={isOrderEmpty}
-                className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-zinc-500 transition hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Limpar
-              </button>
-            </>
-          )}
-
-          {mobile && (
-            <button
-              type="button"
-              onClick={() => setShowMobileOrder(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-[#111111] text-zinc-400 transition hover:text-white"
-              aria-label="Fechar pedido"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {!showPaymentStep ? (
-        <>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="p-4">
-              {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
-                  <ShoppingCart className="h-7 w-7 text-zinc-700" />
-                  <h3 className="mt-4 text-sm font-semibold text-zinc-300">
-                    Nenhum item adicionado
-                  </h3>
-                  <p className="mt-1 max-w-[240px] text-sm leading-5 text-zinc-600">
-                    Toque em um produto do catálogo para iniciar o pedido.
-                  </p>
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="rounded-lg border border-white/[0.08] bg-[#101010] p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="break-words text-sm font-bold leading-5 text-white">
-                            {item.name}
-                          </h3>
-
-                          {item.modifiers && item.modifiers.length > 0 && (
-                            <p className="mt-1 text-xs leading-5 text-zinc-500">
-                              {item.modifiers
-                                .map((modifier) => modifier.optionName)
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </p>
-                          )}
-
-                          {item.observation && (
-                            <p className="mt-2 border-l-2 border-yellow-400/60 pl-2 text-xs leading-5 text-zinc-400">
-                              {item.observation}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-bold tabular-nums text-white">
-                            {formatCurrency(item.price * item.quantity)}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-zinc-600">
-                            {formatCurrency(item.price)} cada
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.07] pt-3">
-                        <div className="flex h-8 items-center overflow-hidden rounded-md border border-white/[0.08] bg-[#111111]">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity - 1)
-                            }
-                            className="flex h-8 w-8 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
-                            aria-label="Diminuir quantidade"
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-
-                          <span className="w-8 text-center text-sm font-bold tabular-nums text-white">
-                            {item.quantity}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity + 1)
-                            }
-                            className="flex h-8 w-8 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
-                            aria-label="Aumentar quantidade"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openItemEditor(item)}
-                            className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] bg-[#111111] px-2.5 text-xs font-semibold text-zinc-400 transition hover:border-white/20 hover:text-white"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Editar
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(item.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-[#111111] text-zinc-600 transition hover:border-red-500/30 hover:text-red-400"
-                            aria-label="Remover item"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="border-t border-white/[0.08] p-4">
-              <span className="block text-xs font-semibold text-zinc-400">
-                Observação do pedido
-              </span>
-              <textarea
-                value={customer.observation || ""}
-                onChange={(event) =>
-                  setCustomer({
-                    ...customer,
-                    observation: event.target.value,
-                  })
-                }
-                placeholder="Ex.: embalar para viagem, chamar o cliente no balcão..."
-                rows={2}
-                className="mt-2 w-full resize-none rounded-lg border border-white/[0.08] bg-[#111111] px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-              />
-            </div>
-
-            <div className="space-y-4 border-t border-white/[0.08] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-white">Cliente</h3>
-                  <p className="mt-0.5 text-xs text-zinc-600">
-                    Identificação opcional no balcão e obrigatória para entrega.
-                  </p>
-                </div>
-
-                {orderType !== "delivery" && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowCustomerPanel((current) => !current)
-                    }
-                    className={cn(
-                      "flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition",
-                      showCustomerPanel || customer.name || customer.phone
-                        ? "border-yellow-400/40 bg-yellow-400/[0.08] text-yellow-300"
-                        : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-white",
-                    )}
-                  >
-                    <UserRoundPlus className="h-3.5 w-3.5" />
-                    {customer.name || "Adicionar cliente"}
-                  </button>
-                )}
-              </div>
-
-              {(showCustomerPanel || orderType === "delivery") && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-                      Nome do cliente
-                    </label>
-                    <input
-                      type="text"
-                      value={customer.name}
-                      onChange={(event) =>
-                        setCustomer({
-                          ...customer,
-                          name: event.target.value,
-                        })
-                      }
-                      placeholder={
-                        orderType === "delivery"
-                          ? "Digite o nome"
-                          : "Opcional"
-                      }
-                      className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-                      Telefone
-                    </label>
-                    <input
-                      type="tel"
-                      value={customer.phone}
-                      onChange={(event) =>
-                        setCustomer({
-                          ...customer,
-                          phone: event.target.value,
-                        })
-                      }
-                      placeholder="Opcional"
-                      className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {orderType === "delivery" && (
-                <div className="space-y-3 rounded-lg border border-white/[0.08] bg-[#101010] p-3">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
-                    <div>
-                      <h3 className="text-sm font-semibold text-white">
-                        Endereço da entrega
-                      </h3>
-                      <p className="mt-0.5 text-xs text-zinc-600">
-                        O bairro selecionado define automaticamente a taxa.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-                        Rua
-                      </label>
-                      <input
-                        type="text"
-                        value={address.street}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            street: event.target.value,
-                          })
-                        }
-                        placeholder="Nome da rua"
-                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-                        Número
-                      </label>
-                      <input
-                        type="text"
-                        value={address.number}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            number: event.target.value,
-                          })
-                        }
-                        placeholder="Nº"
-                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-                        Complemento
-                      </label>
-                      <input
-                        type="text"
-                        value={address.complement || ""}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            complement: event.target.value,
-                          })
-                        }
-                        placeholder="Opcional"
-                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-                        Bairro e taxa
-                      </label>
-                      <select
-                        value={selectedDeliveryNeighborhoodId}
-                        onChange={(event) =>
-                          handleSelectDeliveryNeighborhood(event.target.value)
-                        }
-                        disabled={deliveryNeighborhoodOptions.length === 0}
-                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition focus:border-yellow-400/50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="">Selecione</option>
-                        {deliveryNeighborhoodOptions.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.neighborhood} — {formatCurrency(option.fee)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-                        Cidade
-                      </label>
-                      <input
-                        type="text"
-                        value={address.city}
-                        onChange={(event) =>
-                          setAddress({
-                            ...address,
-                            city: event.target.value,
-                          })
-                        }
-                        placeholder="Cidade"
-                        className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-                      />
-                    </div>
-                  </div>
-
-                  {deliveryNeighborhoodOptions.length === 0 && (
-                    <p className="rounded-lg border border-yellow-400/20 bg-yellow-400/[0.05] px-3 py-2.5 text-xs text-yellow-200">
-                      Nenhuma área de entrega ativa foi encontrada.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="shrink-0 space-y-2.5 border-t border-white/[0.08] bg-[#090909] p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-500">Subtotal</span>
-              <span className="font-semibold tabular-nums text-zinc-200">
-                {formatCurrency(subtotal)}
-              </span>
-            </div>
-
-            {orderType === "delivery" && (
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="min-w-0 truncate text-zinc-500">
-                  Taxa de entrega
-                  {selectedDeliveryNeighborhood
-                    ? ` · ${selectedDeliveryNeighborhood.neighborhood}`
-                    : ""}
-                </span>
-                <span className="shrink-0 font-semibold tabular-nums text-zinc-200">
-                  {selectedDeliveryNeighborhood
-                    ? formatCurrency(finalDeliveryFee)
-                    : "Não definida"}
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <label htmlFor="order-discount" className="text-zinc-500">
-                Desconto
-              </label>
-              <div className="flex h-9 w-28 items-center rounded-md border border-white/[0.08] bg-[#111111] px-2.5 focus-within:border-yellow-400/50">
-                <span className="text-xs text-zinc-600">R$</span>
-                <input
-                  id="order-discount"
-                  type="number"
-                  min={0}
-                  value={discount}
-                  onChange={(event) =>
-                    setDiscount(
-                      Math.max(0, Number(event.target.value || 0)),
-                    )
-                  }
-                  className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums text-white outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-end justify-between border-t border-white/[0.08] pt-3">
-              <span className="text-sm font-bold text-white">Total</span>
-              <span className="text-2xl font-black tabular-nums tracking-tight text-yellow-400">
-                {formatCurrency(total)}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowPaymentStep(true)}
-              disabled={items.length === 0}
-              className={cn(
-                "flex h-12 w-full items-center justify-center rounded-lg text-sm font-bold transition",
-                items.length > 0
-                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/10 hover:bg-yellow-300"
-                  : "cursor-not-allowed bg-[#151515] text-zinc-700",
-              )}
-            >
-              Continuar para pagamento
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <div className="rounded-xl border border-white/[0.08] bg-[#101010] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600">
-                Valor do pedido
-              </p>
-              <p className="mt-2 text-4xl font-black tracking-tight text-white tabular-nums">
-                {formatCurrency(total)}
-              </p>
-              <p className="mt-1 text-sm text-zinc-500">
-                {totalItems} {totalItems === 1 ? "item" : "itens"} ·{" "}
-                {orderType === "delivery" ? "Entrega" : "Balcão"}
-              </p>
-            </div>
-
-            <section className="mt-5">
-              <div className="mb-3">
-                <h3 className="text-sm font-semibold text-white">
-                  Situação do pagamento
-                </h3>
-                <p className="mt-1 text-xs text-zinc-600">
-                  Informe se o pagamento já foi confirmado.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {paymentStatusOptions.map((statusOption) => {
-                  const active = paymentStatus === statusOption.id;
-
-                  return (
-                    <button
-                      key={statusOption.id}
-                      type="button"
-                      onClick={() => setPaymentStatus(statusOption.id)}
-                      className={cn(
-                        "min-h-[74px] rounded-lg border px-3 py-3 text-left transition",
-                        active
-                          ? "border-yellow-400 bg-yellow-400 text-black"
-                          : "border-white/[0.08] bg-[#111111] text-zinc-300 hover:border-white/20",
-                      )}
-                    >
-                      <span className="block text-sm font-bold">
-                        {statusOption.label}
-                      </span>
-                      <span
-                        className={cn(
-                          "mt-1 block text-[11px] leading-4",
-                          active ? "text-black/60" : "text-zinc-600",
-                        )}
-                      >
-                        {statusOption.description}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="mt-5">
-              <div className="mb-3">
-                <h3 className="text-sm font-semibold text-white">
-                  Forma de pagamento
-                </h3>
-                <p className="mt-1 text-xs text-zinc-600">
-                  Selecione como o cliente pagou ou vai pagar.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {paymentOptions.map((method) => {
-                  const active = paymentMethod === method.id;
-
-                  return (
-                    <button
-                      key={method.id}
-                      type="button"
-                      onClick={() => {
-                        setPaymentMethod(method.id);
-
-                        if (method.id !== "dinheiro") {
-                          setReceivedAmount("");
-                        }
-                      }}
-                      className={cn(
-                        "flex h-12 items-center justify-center rounded-lg border text-sm font-bold transition",
-                        active
-                          ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                          : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-white",
-                      )}
-                    >
-                      {method.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {paymentMethod === "dinheiro" && (
-              <section className="mt-5 border-t border-white/[0.08] pt-5">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold text-zinc-400">
-                      Troco para
-                    </label>
-                    <div className="flex h-11 items-center rounded-lg border border-white/[0.08] bg-[#111111] px-3 focus-within:border-yellow-400/50">
-                      <span className="text-xs text-zinc-600">R$</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={receivedAmount}
-                        onChange={(event) =>
-                          setReceivedAmount(event.target.value)
-                        }
-                        placeholder="0,00"
-                        className="min-w-0 flex-1 bg-transparent pl-2 text-sm font-medium text-white outline-none placeholder:text-zinc-700"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="mb-2 block text-xs font-semibold text-zinc-400">
-                      Troco calculado
-                    </span>
-                    <div className="flex h-11 items-center justify-end rounded-lg border border-white/[0.08] bg-[#111111] px-3 text-sm font-bold tabular-nums text-emerald-400">
-                      {formatCurrency(changeAmount)}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {!canSubmit() && items.length > 0 && (
-              <div className="mt-5 rounded-lg border border-yellow-400/20 bg-yellow-400/[0.06] px-3 py-3 text-xs leading-5 text-yellow-200">
-                {orderType === "delivery" &&
-                  (!address.street || !address.number) &&
-                  "Preencha a rua e o número antes de finalizar."}
-
-                {orderType === "delivery" &&
-                  address.street &&
-                  address.number &&
-                  !selectedDeliveryNeighborhood &&
-                  "Selecione o bairro para aplicar a taxa de entrega."}
-              </div>
-            )}
-          </div>
-
-          <div className="shrink-0 space-y-4 border-t border-white/[0.08] bg-[#090909] p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-500">Resumo</span>
-              <span className="font-medium text-zinc-200">
-                {selectedPaymentStatusLabel} · {selectedPaymentLabel}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit() || isSubmitting}
-              className={cn(
-                "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition",
-                canSubmit() && !isSubmitting
-                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/10 hover:bg-yellow-300"
-                  : "cursor-not-allowed bg-[#151515] text-zinc-700",
-              )}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processando pedido...
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4" />
-                  Confirmar pedido
-                </>
-              )}
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+  const orderPanel = (mobile: boolean) => (
+    <OrderPanel
+      mobile={mobile}
+      orderType={orderType}
+      items={items}
+      totalItems={totalItems}
+      showPaymentStep={showPaymentStep}
+      isOrderEmpty={isOrderEmpty}
+      details={detailsSection}
+      paymentStep={paymentStep}
+      subtotal={subtotal}
+      deliveryFee={finalDeliveryFee}
+      deliveryNeighborhoodName={selectedDeliveryNeighborhood?.neighborhood || null}
+      discount={discount}
+      onDiscountChange={setDiscount}
+      total={total}
+      onUpdateQuantity={handleUpdateQuantity}
+      onEditItem={openItemEditor}
+      onRemoveItem={handleRemoveItem}
+      onClear={handleClearOrder}
+      onBackToOrder={() => setShowPaymentStep(false)}
+      onContinueToPayment={() => setShowPaymentStep(true)}
+      onClose={() => setShowMobileOrder(false)}
+    />
   );
 
   return (
     <AdminLayout>
-      <div className="grid h-[calc(100dvh-6rem)] grid-cols-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-black text-zinc-100 md:h-[calc(100dvh-7rem)] xl:grid-cols-[minmax(0,1fr)_420px] xl:grid-rows-1 xl:rounded-xl xl:border xl:border-white/[0.08]">
-        <section className="flex min-h-0 min-w-0 flex-col">
-          <div className="shrink-0 space-y-3 border-b border-zinc-900 bg-gradient-to-b from-[#0d0d0d] to-black px-3 pb-3 pt-3 sm:px-4 sm:pt-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
-                  Painel / Novo pedido
-                </p>
-                <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight text-white">
-                  {orderType === "delivery"
-                    ? "Novo pedido para entrega"
-                    : "Atendimento de balcão"}
-                </h1>
-              </div>
+      <div className="grid h-[calc(100dvh-6rem)] grid-cols-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-[#050505] text-zinc-100 md:h-[calc(100dvh-7rem)] xl:grid-cols-[minmax(0,1fr)_440px] xl:grid-rows-1 xl:rounded-2xl xl:border xl:border-white/[0.08]">
+        <ProductCatalog
+          orderType={orderType}
+          onOrderTypeChange={changeOrderType}
+          products={products}
+          filteredProducts={filteredProducts}
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          items={items}
+          onSelectProduct={openProductCustomization}
+        />
 
-              <div
-                className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-[#0B0B0B] p-1 md:w-[340px]"
-                role="group"
-                aria-label="Tipo do pedido"
-              >
-                {orderTypeOptions.map((option) => {
-                  const active = orderType === option.value;
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      aria-pressed={active}
-                      title={option.description}
-                      onClick={() => changeOrderType(option.value)}
-                      className={cn(
-                        "flex h-11 items-center justify-center rounded-lg text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400",
-                        active
-                          ? "bg-yellow-400 text-black shadow-md shadow-yellow-400/20"
-                          : "text-zinc-400 hover:bg-white/[0.04] hover:text-white",
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar produto pelo nome ou categoria"
-                  aria-label="Buscar produto"
-                  className="h-12 w-full rounded-xl border border-white/[0.08] bg-[#111111] pl-11 pr-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-600 hover:border-white/15 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/15"
-                />
-              </div>
-
-              <button
-                type="button"
-                className="flex h-12 shrink-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#111111] px-4 text-xs font-bold text-zinc-400 transition hover:border-white/20 hover:text-white"
-              >
-                <Barcode className="h-4 w-4" />
-                Código
-              </button>
-            </div>
-
-            <div
-              className="-mx-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:-mx-4 sm:px-4 [&::-webkit-scrollbar]:hidden"
-              role="group"
-              aria-label="Categorias"
-            >
-              {categories.map((category) => {
-                const active = selectedCategory === category.id;
-                const count =
-                  category.id === "all"
-                    ? products.length
-                    : products.filter(
-                        (product) => product.category === category.id,
-                      ).length;
-
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={cn(
-                      "inline-flex h-11 shrink-0 snap-start items-center gap-2 rounded-xl border px-4 text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400",
-                      active
-                        ? isSearching
-                          ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-300/70"
-                          : "border-yellow-400 bg-yellow-400 text-black shadow-md shadow-yellow-400/20"
-                        : "border-white/[0.08] bg-[#111111] text-zinc-400 hover:border-white/20 hover:text-zinc-100",
-                    )}
-                  >
-                    {category.id === "all" ? "Todos" : category.name}
-                    <span
-                      className={cn(
-                        "rounded-md px-1.5 py-0.5 text-[11px] font-black tabular-nums",
-                        active && !isSearching
-                          ? "bg-black/15 text-black"
-                          : "bg-white/[0.06] text-zinc-400",
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-3 sm:px-4 sm:pt-4">
-            <div className="mb-3 flex items-baseline justify-between gap-3">
-              <h2 className="truncate text-sm font-bold uppercase tracking-wider text-zinc-400">
-                {isSearching ? "Resultados da busca" : selectedCategoryLabel}
-              </h2>
-
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="text-xs font-semibold tabular-nums text-zinc-500">
-                  {filteredProducts.length}{" "}
-                  {filteredProducts.length === 1 ? "item" : "itens"}
-                  {isSearching && " · em todas as categorias"}
-                </span>
-
-                {isSearching && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm("")}
-                    className="text-xs font-semibold text-zinc-400 transition hover:text-yellow-300"
-                  >
-                    Limpar busca
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-3 xl:gap-4">
-                {filteredProducts.map((product) => {
-                  const groups = getProductGroups(product);
-                  const hasRequiredChoices = groups.some((group) => group.required);
-                  const quantityInOrder = items
-                    .filter((item) => item.productId === product.id)
-                    .reduce(
-                      (sum, item) => sum + Number(item.quantity || 0),
-                      0,
-                    );
-
-                  return (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => openProductCustomization(product)}
-                      className="group flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101010] text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-yellow-400/40 hover:bg-[#141414] hover:shadow-lg hover:shadow-yellow-400/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 active:translate-y-0 active:scale-[0.98]"
-                    >
-                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#181818]">
-                        <img
-                          src={getProductImage(product)}
-                          alt={product.name}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          onError={(event) => {
-                            event.currentTarget.src = "/placeholder.svg";
-                          }}
-                        />
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
-
-                        {quantityInOrder > 0 && (
-                          <span className="absolute right-2 top-2 rounded-md bg-yellow-400 px-1.5 py-0.5 text-[11px] font-black text-black shadow-md">
-                            {quantityInOrder}x
-                          </span>
-                        )}
-
-                        {groups.length > 0 && (
-                          <span
-                            className={cn(
-                              "absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide backdrop-blur",
-                              hasRequiredChoices
-                                ? "bg-yellow-400/90 text-black"
-                                : "bg-black/60 text-zinc-200 ring-1 ring-white/10",
-                            )}
-                          >
-                            {hasRequiredChoices ? "Opções" : "Personalizar"}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex flex-1 flex-col gap-1 p-3">
-                        <p className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-zinc-50">
-                          {product.name}
-                        </p>
-
-                        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-                          <span className="text-base font-black tabular-nums text-yellow-400">
-                            {formatCurrency(Number(product.price || 0))}
-                          </span>
-                          <span
-                            aria-hidden="true"
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-black shadow-md shadow-yellow-400/20 transition group-hover:bg-yellow-300"
-                          >
-                            <Plus className="h-5 w-5" strokeWidth={3} />
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex min-h-[250px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.08] bg-[#0E0E0E] px-6 text-center">
-                <Search className="h-7 w-7 text-zinc-700" />
-                <h3 className="mt-3 text-sm font-semibold text-zinc-300">
-                  Nenhum produto encontrado
-                </h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Tente outra categoria ou altere o termo da busca.
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <aside className="hidden min-h-0 border-l border-white/[0.08] bg-[#0a0a0a] xl:flex xl:flex-col">
-          {renderOrderPanel(false)}
+        <aside className="hidden min-h-0 border-l border-white/[0.07] xl:flex xl:flex-col">
+          {orderPanel(false)}
         </aside>
 
-        {/* Celular e tablet: barra fixa com o total que abre a comanda em tela cheia. */}
-        <div className="shrink-0 border-t border-white/[0.08] bg-[#090909] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xl:hidden">
+        {/* Celular e tablet: barra com o total que abre a comanda em tela cheia. */}
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#080808] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xl:hidden">
           <button
             type="button"
             onClick={() => setShowMobileOrder(true)}
             aria-haspopup="dialog"
-            className="flex h-14 w-full items-center justify-between rounded-xl bg-yellow-400 px-4 text-black shadow-lg shadow-yellow-400/20 transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300"
+            className="flex h-14 w-full items-center justify-between rounded-2xl bg-yellow-400 px-4 text-black shadow-lg shadow-yellow-400/15 transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300"
           >
             <span className="flex items-center gap-3 text-left">
-              <ShoppingCart className="h-5 w-5" />
+              <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-black/10 px-2 text-sm font-black tabular-nums">
+                {totalItems}
+              </span>
               <span>
                 <span className="block text-[11px] font-semibold text-black/60">
-                  {totalItems} {totalItems === 1 ? "item" : "itens"}
+                  {totalItems === 1 ? "item na comanda" : "itens na comanda"}
                 </span>
-                <span className="block text-lg font-black tabular-nums tracking-tight">
-                  {formatCurrency(total)}
-                </span>
+                <span className="block text-lg font-black tabular-nums tracking-tight">{formatCurrency(total)}</span>
               </span>
             </span>
 
-            <span className="flex items-center gap-2 text-sm font-bold">
-              Abrir pedido
+            <span className="flex items-center gap-1.5 text-sm font-bold">
+              Ver pedido
               <ChevronRight className="h-4 w-4" />
             </span>
           </button>
@@ -2444,218 +1576,28 @@ export default function NovoPedidoPage() {
 
       {showMobileOrder && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm xl:hidden">
-          <div className="absolute inset-0 bg-[#0a0a0a] sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[460px] sm:border-l sm:border-white/[0.08]">
-            {renderOrderPanel(true)}
+          <div className="absolute inset-0 bg-[#080808] sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[480px] sm:border-l sm:border-white/[0.08]">
+            {orderPanel(true)}
           </div>
         </div>
       )}
 
       {customizingProduct && (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl sm:rounded-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] p-4 sm:p-5">
-              <div className="flex min-w-0 gap-3">
-                <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-[#151515]">
-                  <img
-                    src={getProductImage(customizingProduct)}
-                    alt={customizingProduct.name}
-                    className="h-full w-full object-cover"
-                    onError={(event) => {
-                      event.currentTarget.src = "/placeholder.svg";
-                    }}
-                  />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-600">
-                    {editingItemId ? "Editar item" : "Personalizar item"}
-                  </p>
-                  <h3 className="mt-1 line-clamp-2 text-lg font-bold text-white">
-                    {customizingProduct.name}
-                  </h3>
-                  <p className="mt-1 text-sm font-semibold text-yellow-400">
-                    {formatCurrency(customProductUnitPrice)}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={resetCustomization}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-[#111111] text-zinc-500 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"
-                aria-label="Fechar personalização"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-              {customizingGroups.length > 0 && (
-                <div className="space-y-6">
-                  {customizingGroups.map((group) => {
-                    const selectedIds =
-                      selectedModifierOptions[group.id] || [];
-                    const isSatisfied =
-                      selectedIds.length >= group.minSelect &&
-                      selectedIds.length <= group.maxSelect;
-                    const selectionText = group.required
-                      ? `Escolha de ${group.minSelect} até ${group.maxSelect}`
-                      : `Opcional · escolha até ${group.maxSelect}`;
-
-                    return (
-                      <section key={group.id}>
-                        <div className="mb-3 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-white">
-                              {group.name}
-                            </h4>
-                            <p className="mt-1 text-xs text-zinc-500">
-                              {selectionText}
-                            </p>
-                          </div>
-
-                          <span
-                            className={cn(
-                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                              isSatisfied
-                                ? "bg-emerald-500/10 text-emerald-400"
-                                : "bg-yellow-400/10 text-yellow-300",
-                            )}
-                          >
-                            {group.required ? "Obrigatório" : "Opcional"}
-                          </span>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          {group.options.map((option) => {
-                            const active = selectedIds.includes(option.id);
-
-                            return (
-                              <button
-                                key={option.id}
-                                type="button"
-                                onClick={() =>
-                                  toggleModifierOption(group, option)
-                                }
-                                className={cn(
-                                  "flex w-full items-center justify-between gap-4 rounded-lg border px-3 py-2.5 text-left transition",
-                                  active
-                                    ? "border-yellow-400/60 bg-yellow-400/[0.08]"
-                                    : "border-white/[0.08] bg-[#101010] hover:border-white/15 hover:bg-[#141414]",
-                                )}
-                              >
-                                <span className="flex min-w-0 items-center gap-3">
-                                  <span
-                                    className={cn(
-                                      "flex h-5 w-5 shrink-0 items-center justify-center border transition",
-                                      group.maxSelect <= 1
-                                        ? "rounded-full"
-                                        : "rounded-[4px]",
-                                      active
-                                        ? "border-yellow-400 bg-yellow-400 text-black"
-                                        : "border-white/15 bg-[#0B0B0B]",
-                                    )}
-                                  >
-                                    {active && <Check className="h-3 w-3" />}
-                                  </span>
-                                  <span className="truncate text-sm font-medium text-zinc-200">
-                                    {option.name}
-                                  </span>
-                                </span>
-
-                                <span className="shrink-0 text-sm font-semibold tabular-nums text-zinc-400">
-                                  {Number(option.price || 0) > 0
-                                    ? `+ ${formatCurrency(option.price)}`
-                                    : "Sem acréscimo"}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    );
-                  })}
-                </div>
-              )}
-
-              <section
-                className={cn(
-                  customizingGroups.length > 0 &&
-                    "mt-6 border-t border-white/[0.08] pt-6",
-                )}
-              >
-                <label className="block text-sm font-bold text-white">
-                  Observação do item
-                </label>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Use somente para alterações específicas deste produto.
-                </p>
-                <textarea
-                  value={customizingObservation}
-                  onChange={(event) =>
-                    setCustomizingObservation(event.target.value)
-                  }
-                  placeholder="Ex.: sem cebola, molho separado..."
-                  rows={3}
-                  className="mt-3 w-full resize-none rounded-lg border border-white/[0.08] bg-[#111111] px-3 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400/50"
-                />
-              </section>
-            </div>
-
-            <div className="border-t border-white/[0.08] bg-[#090909] p-4 sm:p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 shrink-0 items-center overflow-hidden rounded-lg border border-white/[0.08] bg-[#111111]">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCustomizingQuantity((current) =>
-                        Math.max(1, current - 1),
-                      )
-                    }
-                    className="flex h-12 w-11 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
-                    aria-label="Diminuir quantidade"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-
-                  <span className="w-10 text-center text-base font-bold tabular-nums text-white">
-                    {customizingQuantity}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCustomizingQuantity((current) => current + 1)
-                    }
-                    className="flex h-12 w-11 items-center justify-center text-zinc-500 transition hover:bg-white/[0.04] hover:text-white"
-                    aria-label="Aumentar quantidade"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={confirmCustomProduct}
-                  disabled={!canAddCustomProduct()}
-                  className={cn(
-                    "flex h-12 min-w-0 flex-1 items-center justify-between rounded-lg px-4 text-sm font-bold transition",
-                    canAddCustomProduct()
-                      ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/10 hover:bg-yellow-300"
-                      : "cursor-not-allowed bg-[#151515] text-zinc-700",
-                  )}
-                >
-                  <span className="truncate">
-                    {editingItemId ? "Salvar alterações" : "Adicionar ao pedido"}
-                  </span>
-                  <span className="shrink-0 tabular-nums">
-                    {formatCurrency(customProductTotal)}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ProductCustomizationDialog
+          product={customizingProduct}
+          editing={Boolean(editingItemId)}
+          quantity={customizingQuantity}
+          observation={customizingObservation}
+          selectedOptions={selectedModifierOptions}
+          unitPrice={customProductUnitPrice}
+          totalPrice={customProductTotal}
+          canConfirm={canAddCustomProduct()}
+          onClose={resetCustomization}
+          onQuantityChange={setCustomizingQuantity}
+          onObservationChange={setCustomizingObservation}
+          onToggleOption={toggleModifierOption}
+          onConfirm={confirmCustomProduct}
+        />
       )}
     </AdminLayout>
   );
