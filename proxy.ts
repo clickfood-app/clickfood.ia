@@ -72,6 +72,7 @@ export const config = {
     "/metas/:path*",
 
     "/mesas/:path*",
+    "/dispositivos-impressao/:path*",
     "/entregadores/:path*",
     "/entregas/:path*",
     "/funcionarios/:path*",
