@@ -135,6 +135,8 @@ function getPaymentMethodLabel(method?: string | null) {
   if (normalizedMethod === "credit_card" || normalizedMethod === "credito") return "Cartão de crédito"
   if (normalizedMethod === "debit_card" || normalizedMethod === "debito") return "Cartão de débito"
   if (normalizedMethod === "card_on_delivery") return "Cartão na entrega"
+  if (normalizedMethod === "food_card_on_delivery") return "Cartão Alimentação — Na entrega"
+  if (normalizedMethod === "meal_card_on_delivery") return "Cartão Refeição — Na entrega"
   if (normalizedMethod === "cash_on_delivery") return "Dinheiro na entrega"
   if (normalizedMethod === "mesa") return "Mesa"
 

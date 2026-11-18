@@ -768,6 +768,8 @@ type PublicPaymentMethod =
   | "pix"
   | "cash"
   | "card_on_delivery"
+  | "food_card_on_delivery"
+  | "meal_card_on_delivery"
   | ""
 
 function mapPaymentMethod(value: string): PublicPaymentMethod {
@@ -818,6 +820,22 @@ function mapPaymentMethod(value: string): PublicPaymentMethod {
     normalized === "debito"
   ) {
     return "card_on_delivery"
+  }
+
+  if (
+    normalized === "cartao_alimentacao" ||
+    normalized === "vale_alimentacao" ||
+    normalized === "food_card_on_delivery"
+  ) {
+    return "food_card_on_delivery"
+  }
+
+  if (
+    normalized === "cartao_refeicao" ||
+    normalized === "vale_refeicao" ||
+    normalized === "meal_card_on_delivery"
+  ) {
+    return "meal_card_on_delivery"
   }
 
   return ""
@@ -937,7 +955,12 @@ async function createOrderWithRetry(orderPayload: Record<string, unknown>) {
 }
 
 function canAutoAcceptPublicOrder(paymentMethod: PublicPaymentMethod) {
-  return paymentMethod === "cash" || paymentMethod === "card_on_delivery"
+  return (
+    paymentMethod === "cash" ||
+    paymentMethod === "card_on_delivery" ||
+    paymentMethod === "food_card_on_delivery" ||
+    paymentMethod === "meal_card_on_delivery"
+  )
 }
 
 async function getRestaurantAutoAcceptOrders(restaurantId: string) {
@@ -1979,7 +2002,11 @@ export async function POST(request: Request) {  try {
   !hasCashback &&
   !tableId &&
   !needsChange &&
-  paymentMethod !== "picpay_pix"
+  paymentMethod !== "picpay_pix" &&
+  // A função SQL rápida só aceita cash/card_on_delivery/pix*; os cartões
+  // alimentação/refeição seguem pelo caminho legado, sem migration.
+  paymentMethod !== "food_card_on_delivery" &&
+  paymentMethod !== "meal_card_on_delivery"
 
     if (canUseFastPath) {
       const { response, error } = await createOrderFast({

@@ -2064,6 +2064,18 @@ function formatPaymentMethodLabel(method?: string | null) {
     return "Cartão na entrega"
   }
 
+  if (
+    ["food_card_on_delivery", "cartao_alimentacao"].includes(normalizedMethod)
+  ) {
+    return "Cartão Alimentação — Na entrega"
+  }
+
+  if (
+    ["meal_card_on_delivery", "cartao_refeicao"].includes(normalizedMethod)
+  ) {
+    return "Cartão Refeição — Na entrega"
+  }
+
   return method || "Não informado"
 }
 
@@ -5775,6 +5787,24 @@ delivery_distance_km:
     value: "cartao",
     icon: CreditCard,
     helper: "Crédito ou débito na entrega.",
+    tag: undefined as string | undefined,
+  },
+
+  {
+    id: "cartao_alimentacao",
+    label: "Cartão Alimentação",
+    value: "cartao_alimentacao",
+    icon: CreditCard,
+    helper: "Pague na entrega com a maquininha.",
+    tag: undefined as string | undefined,
+  },
+
+  {
+    id: "cartao_refeicao",
+    label: "Cartão Refeição",
+    value: "cartao_refeicao",
+    icon: Utensils,
+    helper: "Pague na entrega com a maquininha.",
     tag: undefined as string | undefined,
   },
 ].map((method) => {

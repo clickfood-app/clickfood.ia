@@ -799,6 +799,12 @@ function getPaymentLabel(paymentMethod: string | null) {
 
   if (normalized === "dinheiro_na_entrega") return "Dinheiro";
   if (normalized === "card_on_delivery") return "Cartão na entrega";
+  if (normalized === "food_card_on_delivery") {
+    return "Cartão Alimentação — Na entrega";
+  }
+  if (normalized === "meal_card_on_delivery") {
+    return "Cartão Refeição — Na entrega";
+  }
 
   if (
     normalized === "credit_card" ||
