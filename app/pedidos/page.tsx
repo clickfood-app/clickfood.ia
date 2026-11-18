@@ -1,26 +1,15 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
-  BellRing,
-  Bot,
-  CheckCircle2,
-  ChefHat,
-  Clock3,
   CreditCard,
   Eye,
   History,
   Loader2,
   MapPin,
-  Package,
-  Printer,
-  RefreshCcw,
   Search,
-  Settings2,
   Truck,
   User,
-  Volume2,
   XCircle,
 } from "lucide-react";
 
@@ -33,6 +22,21 @@ import {
   type ThermalPrintMode,
   type ThermalPrintOrder,
 } from "@/lib/thermal-print";
+
+import { CancelOrderDialog } from "./_components/cancel-order-dialog";
+import { OrderBoard } from "./_components/order-board";
+import { OrderDetailsDrawer } from "./_components/order-details-drawer";
+import { OrdersToolbar } from "./_components/orders-toolbar";
+import {
+  formatRelativeUpdate,
+  parsePdvNotes,
+  toTimestamp,
+  type BoardStage,
+  type OrderCardActions,
+  type OrderCardView,
+  type OrderTypeFilter,
+  type PaymentTone,
+} from "./_lib/order-display";
 
 type OrderRow = {
   id: string;
@@ -64,6 +68,8 @@ type OrderRow = {
   pix_proof_uploaded_at: string | null;
   pix_confirmed_at: string | null;
   pix_confirmed_by: string | null;
+  table_number?: string | number | null;
+  guest_count?: number | string | null;
 };
 
 type OrderItemModifier = {
@@ -176,36 +182,6 @@ const DEFAULT_HISTORY_FILTERS: HistoryFilters = {
   paymentMethod: "all",
   deliveryPersonId: "all",
 };
-
-const columnStyles = {
-  analysis: {
-    title: "Pendentes",
-    description: "Conferir e aceitar",
-    icon: Clock3,
-    accent: "bg-[#f97316]",
-    border: "border-orange-200",
-    badge: "border-orange-200 bg-orange-50 text-[#f97316]",
-    body: "bg-slate-50",
-  },
-  preparation: {
-    title: "Em preparo",
-    description: "Produção na cozinha",
-    icon: ChefHat,
-    accent: "bg-neutral-900",
-    border: "border-neutral-300",
-    badge: "border-neutral-300 bg-neutral-50 text-neutral-900",
-    body: "bg-slate-50",
-  },
-  ready: {
-    title: "Prontos",
-    description: "Retirar ou entregar",
-    icon: CheckCircle2,
-    accent: "bg-emerald-500",
-    border: "border-emerald-200",
-    badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    body: "bg-slate-50",
-  },
-} satisfies Record<BoardStatus, Record<string, string | typeof Clock3>>;
 
 async function ensureSupabaseSession() {
   const {
@@ -543,24 +519,6 @@ function getDateEndIso(value: string) {
   return new Date(`${value}T23:59:59.999`).toISOString();
 }
 
-function formatElapsedTime(value: string, nowMs: number) {
-  const createdAt = new Date(value).getTime();
-  const diffInMinutes = Math.max(0, Math.floor((nowMs - createdAt) / 60000));
-
-  if (diffInMinutes < 1) return "agora";
-  if (diffInMinutes < 60) return `${diffInMinutes}min`;
-
-  const hours = Math.floor(diffInMinutes / 60);
-  const minutes = diffInMinutes % 60;
-
-  if (hours < 24) {
-    return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`;
-  }
-
-  const days = Math.floor(hours / 24);
-  return `${days}d`;
-}
-
 function getOrderNumber(order: OrderRow) {
   if (
     order.public_order_number !== null &&
@@ -747,12 +705,6 @@ function buildPrintNotes(order: OrderRow) {
   if (isWhatsAppAiOrder(order)) return "Pedido criado por IA";
 
   return getCleanOrderNote(order.notes);
-}
-
-function getAcceptDeadline(order: OrderRow) {
-  const createdAt = new Date(order.created_at);
-
-  return new Date(createdAt.getTime() + 20 * 1000);
 }
 
 function getPreparationBaseTime(order: OrderRow) {
@@ -1033,26 +985,26 @@ function getOrderStatusBadgeClasses(
   status: string | null | undefined,
 ) {
   if (isFinishedOrderStatus(status)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
   }
 
   if (isCancelledOrderStatus(status)) {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "border-red-500/30 bg-red-500/10 text-red-300";
   }
 
   if (isPixWaitingStatus(status)) {
-    return "border-orange-200 bg-orange-50 text-orange-700";
+    return "border-orange-500/30 bg-orange-500/10 text-orange-300";
   }
 
   if (isReadyStatus(status)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
   }
 
   if (isPreparationStatus(status)) {
-    return "border-neutral-300 bg-neutral-50 text-neutral-900";
+    return "border-white/15 bg-white/[0.06] text-zinc-200";
   }
 
-  return "border-orange-200 bg-orange-50 text-orange-700";
+  return "border-orange-500/30 bg-orange-500/10 text-orange-300";
 }
 
 function matchesHistoryStatus(
@@ -1292,838 +1244,195 @@ function buildThermalOrderPayload(
     changeFor: getOrderChangeFor(order) || null,
   };
 }
-type OrderCardProps = {
-  order: OrderRow;
-  status: BoardStatus;
-  items: OrderItem[];
-  deliveryPeople: DeliveryPerson[];
-  averagePrepTimeMinutes: number;
-  nowMs: number;
-  busyOrderId: string | null;
-  kdsEnabled: boolean;
-  onAccept: (order: OrderRow) => void;
-  onCancel: (order: OrderRow) => void;
-  onMarkReady: (order: OrderRow) => void;
-  onSendToRoute: (
-    order: OrderRow,
-    deliveryPersonId: string,
-  ) => void;
-  onFinish: (order: OrderRow) => void;
-  onPrint: (
-    order: OrderRow,
-    items: OrderItem[],
-    mode: ThermalPrintMode,
-  ) => void;
-};
+// ---------------------------------------------------------------------------
+// Central de pedidos: colunas e dados de exibição dos cards.
+// Os predicados de coluna são exatamente os filtros que o board já usava.
+// ---------------------------------------------------------------------------
 
-function OrderCard({
-  order,
-  status,
-  items,
-  deliveryPeople,
-  averagePrepTimeMinutes,
-  nowMs,
-  busyOrderId,
-  kdsEnabled,
-  onAccept,
-  onCancel,
-  onMarkReady,
-  onSendToRoute,
-  onFinish,
-  onPrint,
-}: OrderCardProps) {
-  const isBusy = busyOrderId === order.id;
-  const isDelivery = isDeliveryOrder(order);
-  const isPixReview = isPixAwaitingReview(order);
-  const deliveryAddress = getOrderAddress(order);
-  const neighborhood = getOrderNeighborhood(order);
-  const customerCpf = getOrderCpf(order);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
-  const [selectedDeliveryPersonId, setSelectedDeliveryPersonId] = useState(
-    order.delivery_person_id || "",
-  );
-
-  const acceptDeadline = getAcceptDeadline(order);
-  const acceptRemainingMs = acceptDeadline.getTime() - nowMs;
-  const acceptRemainingSeconds = Math.max(
-    0,
-    Math.ceil(acceptRemainingMs / 1000),
-  );
-  const acceptDelaySeconds = Math.max(
-    0,
-    Math.floor(Math.abs(acceptRemainingMs) / 1000),
-  );
-
-  const preparationDeadline = getPreparationDeadline(
-    order,
-    averagePrepTimeMinutes,
-  );
-
-  const preparationRemainingMs =
-    preparationDeadline.getTime() - nowMs;
-
-  const isLate =
-    (status === "analysis" && acceptRemainingMs <= 0) ||
-    (status === "preparation" && preparationRemainingMs <= 0);
-
-  const showCashChange =
-    isCashPaymentMethod(order.payment_method) &&
-    order.needs_change &&
-    getOrderChangeFor(order) > 0;
-
-  const isAiOrder = isWhatsAppAiOrder(order);
-  const cleanOrderNote = getCleanOrderNote(order.notes);
-  const previewItems = items.slice(0, 3);
-  const hiddenItemsCount = Math.max(
-    0,
-    items.length - previewItems.length,
-  );
-
-  const primaryActionLabel =
-    status === "analysis"
-      ? "Aceitar pedido"
-      : status === "preparation"
-        ? "Marcar pronto"
-        : "Finalizar pedido";
-
-  const handlePrimaryAction = () => {
-    if (status === "analysis") {
-      onAccept(order);
-      return;
-    }
-
-    if (status === "preparation") {
-      onMarkReady(order);
-      return;
-    }
-
-    if (isDelivery) {
-      setDeliveryPickerOpen(true);
-      return;
-    }
-
-    onFinish(order);
-  };
-
-  const handleFinishDelivery = () => {
-    onSendToRoute(order, selectedDeliveryPersonId);
-    setDeliveryPickerOpen(false);
-  };
-
-  const primaryActionDisabled =
-    isBusy || (status === "preparation" && kdsEnabled);
-
-  const elapsedLabel =
-    status === "analysis"
-      ? acceptRemainingMs > 0
-        ? `${acceptRemainingSeconds}s para aceitar`
-        : `atrasado há ${acceptDelaySeconds}s`
-      : status === "preparation"
-        ? preparationRemainingMs > 0
-          ? `${Math.ceil(preparationRemainingMs / 60000)} min restantes`
-          : "atrasado"
-        : `pronto há ${formatElapsedTime(
-            order.preparation_started_at ||
-              order.accepted_at ||
-              order.created_at,
-            nowMs,
-          )}`;
-
+function isAnalysisColumnOrder(order: OrderRow) {
   return (
-    <>
-      <article
-        className={[
-          "overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md",
-          isLate
-            ? "border-red-500 !bg-red-50 ring-2 ring-red-200"
-            : "border-neutral-200 hover:border-neutral-400",
-        ].join(" ")}
-      >
-        <div
-          className={[
-            "h-1",
-            isLate
-              ? "bg-red-500"
-              : status === "analysis"
-                ? "bg-[#f97316]"
-                : status === "preparation"
-                  ? "bg-[#111111]"
-                  : "bg-emerald-500",
-          ].join(" ")}
-        />
-
-        {status === "analysis" && isLate && (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-red-300 bg-red-100 px-3 py-2 text-red-700">
-            <Clock3 className="h-4 w-4 shrink-0" />
-            <p className="text-xs font-black uppercase tracking-wide">
-              Pedido atrasado · aguardando aceite
-            </p>
-          </div>
-        )}
-
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg font-black tracking-tight text-slate-900">
-                  #{getOrderNumber(order)}
-                </h3>
-
-                <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                  {getOrderTypeLabel(order)}
-                </span>
-
-                {isAiOrder && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                    <Bot className="h-3 w-3" />
-                    IA
-                  </span>
-                )}
-              </div>
-
-              <p className="mt-2 truncate text-sm font-black text-slate-900">
-                {getCustomerName(order)}
-              </p>
-
-              <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
-                {getCustomerPhone(order)}
-              </p>
-
-              {isDelivery ? (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#f97316]" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                      Endereço de entrega
-                    </p>
-                    <p className="mt-0.5 line-clamp-3 font-bold leading-relaxed">
-                      {deliveryAddress || "Endereço não informado"}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                neighborhood && (
-                  <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold text-slate-600">
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#f97316]" />
-                    <span className="truncate">{neighborhood}</span>
-                  </p>
-                )
-              )}
-            </div>
-
-            <div className="shrink-0 text-right">
-              <p className="text-lg font-black text-slate-900">
-                {formatBRL(order.total)}
-              </p>
-
-              <p
-                className={[
-                  "mt-1 text-xs font-black",
-                  isLate ? "text-red-600" : "text-slate-500",
-                ].join(" ")}
-              >
-                {elapsedLabel}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50/40 px-3 py-2.5">
-            {previewItems.length > 0 ? (
-              <div className="space-y-1.5">
-                {previewItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start justify-between gap-3 text-sm"
-                  >
-                    <p className="min-w-0 font-bold text-slate-700">
-                      <span className="font-black text-[#111111]">
-                        {item.quantity}x
-                      </span>{" "}
-                      {item.name}
-                    </p>
-
-                    {item.total > 0 && (
-                      <p className="shrink-0 text-xs font-black text-slate-600">
-                        {formatBRL(item.total)}
-                      </p>
-                    )}
-                  </div>
-                ))}
-
-                {hiddenItemsCount > 0 && (
-                  <p className="text-xs font-bold text-slate-500">
-                    + {hiddenItemsCount}{" "}
-                    {hiddenItemsCount === 1 ? "item" : "itens"}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm font-semibold text-slate-500">
-                Itens ainda não carregados.
-              </p>
-            )}
-          </div>
-
-          <div className="mt-3 border-b border-neutral-200 pb-3">
-            <div>
-              <p className="text-xs font-black text-slate-800">
-                {getPaymentLabel(order.payment_method)}
-              </p>
-
-              <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
-                {getPaymentStatusLabel(order.payment_status)}
-              </p>
-            </div>
-          </div>
-
-          {isPixReview && status === "analysis" && (
-            <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
-              <p className="text-xs font-black text-amber-900">
-                Pagamento via Pix
-              </p>
-
-              <p className="mt-1 text-xs font-semibold leading-relaxed text-amber-800">
-                Confira o comprovante no WhatsApp antes de aceitar. Se
-                não houver pagamento, cancele o pedido.
-              </p>
-            </div>
-          )}
-
-          {showCashChange && (
-            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-              <p className="text-xs font-black text-amber-900">
-                Troco para {formatBRL(getOrderChangeFor(order))}
-              </p>
-
-              <p className="mt-0.5 text-xs font-semibold text-amber-800">
-                Separar {formatBRL(getOrderChangeAmount(order))} de
-                troco.
-              </p>
-            </div>
-          )}
-
-          <div className="mt-4 grid grid-cols-[auto_minmax(0,0.8fr)_minmax(0,1.2fr)] gap-2">
-            <button
-              type="button"
-              onClick={() => onPrint(order, items, "receipt")}
-              title="Imprimir pedido"
-              aria-label="Imprimir pedido"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 bg-white text-[#111111] transition hover:border-neutral-400 hover:bg-neutral-50"
-            >
-              <Printer className="h-4 w-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onCancel(order)}
-              disabled={isBusy}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 text-sm font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <XCircle className="h-4 w-4" />
-              Cancelar
-            </button>
-
-            {status === "preparation" && kdsEnabled ? (
-              <div className="inline-flex h-11 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm font-black text-[#111111]">
-                KDS controla o preparo
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handlePrimaryAction}
-                disabled={primaryActionDisabled}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#111111] px-3 text-sm font-black text-white transition hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : status === "ready" && isDelivery ? (
-                  <Truck className="h-4 w-4" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-
-                {primaryActionLabel}
-              </button>
-            )}
-          </div>
-
-          {status === "ready" && isDelivery && deliveryPickerOpen && (
-            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 shadow-sm">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm">
-                  <Truck className="h-4 w-4" />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-slate-900">
-                    Quem fará a entrega?
-                  </p>
-                  <p className="text-[11px] font-semibold text-slate-500">
-                    Selecione o motoboy antes de concluir.
-                  </p>
-                </div>
-              </div>
-
-              <select
-                value={selectedDeliveryPersonId}
-                onChange={(event) =>
-                  setSelectedDeliveryPersonId(event.target.value)
-                }
-                disabled={isBusy || deliveryPeople.length === 0}
-                className="mt-2.5 h-9 w-full rounded-lg border border-emerald-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                aria-label="Selecionar motoboy"
-              >
-                <option value="">
-                  {deliveryPeople.length === 0
-                    ? "Nenhum motoboy cadastrado"
-                    : "Selecione um motoboy"}
-                </option>
-
-                {deliveryPeople.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                    {person.phone ? ` · ${person.phone}` : ""}
-                  </option>
-                ))}
-              </select>
-
-              <div className="mt-2.5 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeliveryPickerOpen(false)}
-                  disabled={isBusy}
-                  className="h-8 px-2 text-xs font-black text-slate-500 transition hover:text-slate-900 disabled:opacity-50"
-                >
-                  Voltar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFinishDelivery}
-                  disabled={isBusy || !selectedDeliveryPersonId}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isBusy ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  )}
-                  Confirmar finalização
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </article>
-
-      {detailsOpen &&
-        createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm">
-            <div
-              className="absolute inset-0"
-              onClick={() => setDetailsOpen(false)}
-              aria-hidden="true"
-            />
-
-            <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
-              <div className="flex items-start justify-between gap-3 border-b border-neutral-200 px-4 py-4">
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#111111]">
-                    Pedido #{getOrderNumber(order)}
-                  </p>
-
-                  <h3 className="mt-1 text-xl font-black text-slate-900">
-                    {getCustomerName(order)}
-                  </h3>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
-                    {getCustomerPhone(order)} ·{" "}
-                    {getOrderTypeLabel(order)}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setDetailsOpen(false)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-200"
-                  aria-label="Fechar detalhes"
-                >
-                  <XCircle className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f5f5f5] p-4">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                      Pagamento
-                    </p>
-
-                    <p className="mt-1 text-sm font-black text-slate-900">
-                      {getPaymentLabel(order.payment_method)}
-                    </p>
-
-                    <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                      {getPaymentStatusLabel(
-                        order.payment_status,
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                      Tipo
-                    </p>
-
-                    <p className="mt-1 text-sm font-black text-slate-900">
-                      {getOrderTypeLabel(order)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                      Total
-                    </p>
-
-                    <p className="mt-1 text-lg font-black text-slate-900">
-                      {formatBRL(order.total)}
-                    </p>
-                  </div>
-                </div>
-
-                {isPixReview && status === "analysis" && (
-                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-amber-900">
-                      Confira o Pix antes do aceite
-                    </p>
-
-                    <p className="mt-1 text-sm font-semibold leading-relaxed text-amber-800">
-                      Verifique o comprovante na conversa do
-                      WhatsApp. Aceitar o pedido também registra o
-                      pagamento como conferido.
-                    </p>
-                  </div>
-                )}
-
-                {(deliveryAddress || customerCpf) && (
-                  <div className="rounded-xl border border-neutral-200 bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                      Cliente e entrega
-                    </p>
-
-                    {deliveryAddress && (
-                      <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-600">
-                        <span className="font-black text-slate-900">
-                          Endereço:
-                        </span>{" "}
-                        {deliveryAddress}
-                      </p>
-                    )}
-
-                    {customerCpf && (
-                      <p className="mt-1 text-sm font-semibold text-slate-600">
-                        <span className="font-black text-slate-900">
-                          CPF:
-                        </span>{" "}
-                        {customerCpf}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {showCashChange && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-amber-900">
-                      Troco
-                    </p>
-
-                    <p className="mt-1 text-sm font-semibold text-amber-800">
-                      Troco para{" "}
-                      {formatBRL(getOrderChangeFor(order))} ·
-                      separar{" "}
-                      {formatBRL(getOrderChangeAmount(order))}.
-                    </p>
-                  </div>
-                )}
-
-                <div className="rounded-xl border border-neutral-200 bg-white p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                      Itens
-                    </p>
-
-                    <span className="text-xs font-black text-slate-500">
-                      {formatItemCount(items.length)}
-                    </span>
-                  </div>
-
-                  {items.length > 0 ? (
-                    <div className="divide-y divide-neutral-200">
-                      {items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="py-2.5 first:pt-0 last:pb-0"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-black text-slate-900">
-                                <span className="text-[#111111]">
-                                  {item.quantity}x
-                                </span>{" "}
-                                {item.name}
-                              </p>
-
-                              {getSafeOrderItemModifiers(
-                                item,
-                              ).map((modifier, index) => (
-                                <p
-                                  key={`${
-                                    modifier.groupId ??
-                                    modifier.groupName
-                                  }-${
-                                    modifier.optionId ??
-                                    modifier.optionName
-                                  }-${index}`}
-                                  className="mt-0.5 text-xs font-semibold text-slate-500"
-                                >
-                                  ·{" "}
-                                  {formatOrderItemModifier(
-                                    modifier,
-                                  )}
-                                </p>
-                              ))}
-
-                              {item.notes && (
-                                <p className="mt-1 text-xs font-semibold text-[#f97316]">
-                                  Obs: {item.notes}
-                                </p>
-                              )}
-                            </div>
-
-                            {item.total > 0 && (
-                              <p className="shrink-0 text-sm font-black text-slate-900">
-                                {formatBRL(item.total)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="rounded-lg border border-dashed border-neutral-200 p-3 text-sm text-slate-500">
-                      Itens do pedido não carregados.
-                    </p>
-                  )}
-                </div>
-
-                {(cleanOrderNote || isAiOrder) && (
-                  <div className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                      {isAiOrder ? "Origem" : "Observação"}
-                    </p>
-
-                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold leading-relaxed text-slate-600">
-                      {isAiOrder && (
-                        <Bot className="h-4 w-4 text-[#111111]" />
-                      )}
-
-                      {isAiOrder
-                        ? "Pedido criado por IA"
-                        : cleanOrderNote}
-                    </p>
-                  </div>
-                )}
-
-              </div>
-
-              <div className="border-t border-neutral-200 bg-white p-3">
-                <div className="grid grid-cols-2 gap-2 sm:flex">
-                  {status !== "analysis" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onPrint(order, items, "kitchen")
-                      }
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
-                    >
-                      <ChefHat className="h-4 w-4" />
-                      Cozinha
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onPrint(order, items, "receipt")
-                    }
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Recibo
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDetailsOpen(false);
-                      onCancel(order);
-                    }}
-                    disabled={isBusy}
-                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 text-xs font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Cancelar
-                  </button>
-
-                  {status === "preparation" && kdsEnabled ? (
-                    <div className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs font-black text-[#111111]">
-                      KDS controlando
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handlePrimaryAction();
-                        setDetailsOpen(false);
-                      }}
-                      disabled={primaryActionDisabled}
-                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#111111] px-3 text-xs font-black text-white transition hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : status === "ready" && isDelivery ? (
-                        <Truck className="h-4 w-4" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4" />
-                      )}
-
-                      {primaryActionLabel}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
-    </>
+    isPixWaitingOrder(order) || getBoardStatus(order.status) === "analysis"
   );
 }
 
-type BoardColumnProps = {
-  status: BoardStatus;
-  orders: OrderRow[];
-  orderItemsByOrderId: Record<string, OrderItem[]>;
-  deliveryPeople: DeliveryPerson[];
-  averagePrepTimeMinutes: number;
-  nowMs: number;
-  busyOrderId: string | null;
-  kdsEnabled: boolean;
-  onAccept: (order: OrderRow) => void;
-  onCancel: (order: OrderRow) => void;
-  onMarkReady: (order: OrderRow) => void;
-  onSendToRoute: (
-    order: OrderRow,
-    deliveryPersonId: string,
-  ) => void;
-  onFinish: (order: OrderRow) => void;
-  onPrint: (
-    order: OrderRow,
-    items: OrderItem[],
-    mode: ThermalPrintMode,
-  ) => void;
-};
-function BoardColumn({
-  status,
-  orders,
-  orderItemsByOrderId,
-  deliveryPeople,
-  averagePrepTimeMinutes,
-  nowMs,
-  busyOrderId,
-  kdsEnabled,
-  onAccept,
-  onCancel,
-  onMarkReady,
-  onSendToRoute,
-  onFinish,
-  onPrint,
-}: BoardColumnProps) {
-  const styles = columnStyles[status]
-  const Icon = styles.icon as typeof Clock3
-
+function isPreparationColumnOrder(order: OrderRow) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <div className="border-b border-neutral-200 bg-white px-4 py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span
-              className={`h-2.5 w-2.5 shrink-0 rounded-full ${styles.accent}`}
-            />
+    !isPixWaitingOrder(order) &&
+    getBoardStatus(order.status) === "preparation"
+  );
+}
 
-            <div className="min-w-0">
-              <h2 className="text-sm font-black tracking-tight text-slate-900">
-                {styles.title as string}
-              </h2>
+function isReadyColumnOrder(order: OrderRow) {
+  return !isPixWaitingOrder(order) && getBoardStatus(order.status) === "ready";
+}
 
-              <p className="truncate text-xs font-semibold text-slate-500">
-                {styles.description as string}
-              </p>
-            </div>
-          </div>
+function getColumnStage(
+  order: OrderRow | null | undefined,
+): BoardStage | null {
+  if (!order) return null;
+  if (isAnalysisColumnOrder(order)) return "analysis";
+  if (isPreparationColumnOrder(order)) return "preparation";
+  if (isReadyColumnOrder(order)) return "ready";
 
-          <span
-            className={`flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-xs font-black ${styles.badge}`}
-          >
-            {orders.length}
-          </span>
-        </div>
-      </div>
+  return null;
+}
 
-      <div
-        className={`${styles.body} min-h-[calc(100vh-250px)] space-y-3 p-3`}
-      >
-        {orders.length === 0 ? (
-          <div className="flex min-h-[165px] items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white p-5 text-center">
-            <div>
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-[#111111]">
-                <Icon className="h-5 w-5" />
-              </div>
+// Somente apresentação: mais antigo primeiro, sem mudar a consulta no banco.
+function sortOrdersOldestFirst(list: OrderRow[]) {
+  return [...list].sort((a, b) => {
+    const aTime = toTimestamp(a.created_at);
+    const bTime = toTimestamp(b.created_at);
 
-              <p className="text-sm font-black text-slate-900">
-                Nenhum pedido
-              </p>
+    return (
+      (Number.isFinite(aTime) ? aTime : 0) -
+      (Number.isFinite(bTime) ? bTime : 0)
+    );
+  });
+}
 
-              <p className="mt-1 max-w-[220px] text-xs font-semibold leading-relaxed text-slate-500">
-                Os pedidos dessa etapa aparecem aqui automaticamente.
-              </p>
-            </div>
-          </div>
-        ) : (
-          orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              status={status}
-              items={orderItemsByOrderId[order.id] || []}
-              deliveryPeople={deliveryPeople}
-              averagePrepTimeMinutes={averagePrepTimeMinutes}
-              nowMs={nowMs}
-              busyOrderId={busyOrderId}
-              kdsEnabled={kdsEnabled}
-              onAccept={onAccept}
-              onCancel={onCancel}
-              onMarkReady={onMarkReady}
-              onSendToRoute={onSendToRoute}
-              onFinish={onFinish}
-              onPrint={onPrint}
-            />
-          ))
-        )}
-      </div>
-    </section>
-  )
+function getOrderOriginLabel(order: OrderRow) {
+  if (isWhatsAppAiOrder(order)) return "IA";
+  if (isPdvOrder(order)) return "PDV";
+
+  const source = normalizeStatus(order.order_source || order.source);
+
+  if (source === "public" || source === "public_menu") return "Cardápio";
+
+  return null;
+}
+
+function getPaymentTone(paymentStatus: string | null): PaymentTone {
+  if (isPaidPaymentStatus(paymentStatus)) return "paid";
+  if (isCancelledPaymentStatus(paymentStatus)) return "cancelled";
+
+  const label = getPaymentStatusLabel(paymentStatus);
+
+  if (label === "Aguardando conferência" || label === "Aguardando pagamento") {
+    return "review";
+  }
+
+  return "pending";
+}
+
+function getOrderGuestCount(order: OrderRow) {
+  const guestCount = Number(order.guest_count);
+
+  return Number.isFinite(guestCount) && guestCount > 0 ? guestCount : null;
+}
+
+function buildOrderCardView(
+  order: OrderRow,
+  items: OrderItem[],
+  deliveryPeople: DeliveryPerson[],
+  averagePrepTimeMinutes: number,
+): OrderCardView {
+  const typeLabel = getOrderTypeLabel(order);
+  const isAiOrder = isWhatsAppAiOrder(order);
+  const pdvNotes = isPdvOrder(order) ? parsePdvNotes(order.notes) : null;
+
+  let orderNote: string | null = null;
+
+  if (!isAiOrder) {
+    orderNote = pdvNotes
+      ? [pdvNotes.observation, ...pdvNotes.extraLines]
+          .filter(Boolean)
+          .join("\n") || null
+      : getCleanOrderNote(order.notes);
+  }
+
+  const showCashChange =
+    isCashPaymentMethod(order.payment_method) &&
+    Boolean(order.needs_change) &&
+    getOrderChangeFor(order) > 0;
+
+  const deliveryFee = Number(order.delivery_fee || 0);
+  const hasDeliveryFeeValue =
+    order.delivery_fee !== null &&
+    order.delivery_fee !== undefined &&
+    order.delivery_fee !== "";
+
+  const subtotal = Number(order.subtotal || 0);
+  const discount = Number(order.discount || 0);
+  const itemsTotal = items.reduce(
+    (sum, item) => sum + Number(item.total || 0),
+    0,
+  );
+
+  const timeline = [
+    { label: "Entrada", value: order.created_at },
+    { label: "Aceito", value: order.accepted_at },
+    { label: "Preparo", value: order.preparation_started_at },
+    { label: "Rota", value: order.out_for_delivery_at },
+    { label: "Finalizado", value: order.delivered_at },
+    { label: "Cancelado", value: order.cancelled_at },
+  ]
+    .filter((entry) => Boolean(entry.value))
+    .map((entry) => ({
+      label: entry.label,
+      value: formatDateTime(entry.value),
+    }));
+
+  return {
+    id: order.id,
+    number: getOrderNumber(order),
+    typeLabel,
+    isDelivery: isDeliveryOrder(order),
+    isPixReview: isPixAwaitingReview(order),
+    isAiOrder,
+    originLabel: getOrderOriginLabel(order),
+    customerName: getCustomerName(order),
+    customerPhone: getCustomerPhone(order),
+    customerCpf: getOrderCpf(order),
+    createdAt: order.created_at,
+    createdAtMs: toTimestamp(order.created_at),
+    createdAtLabel: formatDateTime(order.created_at),
+    preparationDeadlineMs: getPreparationDeadline(
+      order,
+      averagePrepTimeMinutes,
+    ).getTime(),
+    address: getOrderAddress(order) ?? pdvNotes?.address ?? null,
+    neighborhood:
+      getOrderNeighborhood(order) ?? pdvNotes?.neighborhood ?? null,
+    deliveryFeeLabel:
+      hasDeliveryFeeValue && (typeLabel === "Entrega" || deliveryFee > 0)
+        ? formatBRL(deliveryFee)
+        : null,
+    deliveryPersonId: order.delivery_person_id,
+    deliveryPersonName: getDeliveryPersonName(
+      deliveryPeople,
+      order.delivery_person_id,
+    ),
+    tableNumber: getOrderTextField(order, ["table_number"]),
+    guestCount: getOrderGuestCount(order),
+    paymentLabel: getPaymentLabel(order.payment_method),
+    paymentStatusLabel:
+      getPaymentStatusLabel(order.payment_status) ?? "Não informado",
+    paymentTone: getPaymentTone(order.payment_status),
+    subtotalLabel: formatBRL(subtotal > 0 ? subtotal : itemsTotal),
+    discountLabel: discount > 0 ? formatBRL(discount) : null,
+    totalLabel: formatBRL(order.total),
+    change: showCashChange
+      ? {
+          forLabel: formatBRL(getOrderChangeFor(order)),
+          amountLabel: formatBRL(getOrderChangeAmount(order)),
+        }
+      : null,
+    pdvChange:
+      !showCashChange && pdvNotes && (pdvNotes.cashReceived || pdvNotes.change)
+        ? { received: pdvNotes.cashReceived, change: pdvNotes.change }
+        : null,
+    orderNote,
+    pixProofUrl: order.pix_proof_url,
+    items: items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      name: item.name,
+      totalLabel: item.total > 0 ? formatBRL(item.total) : null,
+      modifiers: getSafeOrderItemModifiers(item).map(formatOrderItemModifier),
+      notes: item.notes?.trim() || null,
+    })),
+    timeline,
+  };
 }
 
 type HistoryOrderDetailsModalProps = {
@@ -2160,22 +1469,22 @@ function HistoryOrderDetailsModal({
     subtotal > 0 ? subtotal : calculatedItemsTotal
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm">
       <div
         className="absolute inset-0"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative z-10 flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3">
+      <div className="relative z-10 flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-[#111113] shadow-2xl shadow-black ring-1 ring-white/10">
+        <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-400">
               Histórico do pedido
             </p>
 
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-black text-zinc-950">
+              <h3 className="text-lg font-black text-zinc-50">
                 Pedido #{getOrderNumber(order)}
               </h3>
 
@@ -2189,7 +1498,7 @@ function HistoryOrderDetailsModal({
               </span>
             </div>
 
-            <p className="mt-1 text-xs font-semibold text-zinc-500">
+            <p className="mt-1 text-xs font-semibold text-zinc-400">
               Criado em {formatDateTime(order.created_at)}
             </p>
           </div>
@@ -2197,7 +1506,7 @@ function HistoryOrderDetailsModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition hover:border-amber-400 hover:text-zinc-950"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.06] hover:text-zinc-50"
             aria-label="Fechar histórico"
           >
             <XCircle className="h-4 w-4" />
@@ -2206,88 +1515,88 @@ function HistoryOrderDetailsModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="grid gap-3 lg:grid-cols-3">
-            <div className="rounded-xl border border-zinc-200 bg-white p-3">
-              <div className="flex items-center gap-2 text-zinc-500">
-                <User className="h-4 w-4 text-amber-700" />
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <User className="h-4 w-4" />
 
                 <p className="text-[10px] font-black uppercase tracking-wide">
                   Cliente
                 </p>
               </div>
 
-              <p className="mt-2 text-sm font-black text-zinc-950">
+              <p className="mt-2 text-sm font-black text-zinc-50">
                 {getCustomerName(order)}
               </p>
 
-              <p className="mt-1 text-xs font-semibold text-zinc-500">
+              <p className="mt-1 text-xs font-semibold text-zinc-400">
                 {getCustomerPhone(order)}
               </p>
             </div>
 
-            <div className="rounded-xl border border-zinc-200 bg-white p-3">
-              <div className="flex items-center gap-2 text-zinc-500">
-                <CreditCard className="h-4 w-4 text-amber-700" />
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <CreditCard className="h-4 w-4" />
 
                 <p className="text-[10px] font-black uppercase tracking-wide">
                   Pagamento
                 </p>
               </div>
 
-              <p className="mt-2 text-sm font-black text-zinc-950">
+              <p className="mt-2 text-sm font-black text-zinc-50">
                 {getPaymentLabel(order.payment_method)}
               </p>
 
-              <p className="mt-1 text-xs font-semibold text-zinc-500">
+              <p className="mt-1 text-xs font-semibold text-zinc-400">
                 {getPaymentStatusLabel(order.payment_status)}
               </p>
             </div>
 
-            <div className="rounded-xl border border-zinc-200 bg-white p-3">
-              <div className="flex items-center gap-2 text-zinc-500">
-                <Truck className="h-4 w-4 text-amber-700" />
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <Truck className="h-4 w-4" />
 
                 <p className="text-[10px] font-black uppercase tracking-wide">
                   Entrega
                 </p>
               </div>
 
-              <p className="mt-2 text-sm font-black text-zinc-950">
+              <p className="mt-2 text-sm font-black text-zinc-50">
                 {getOrderTypeLabel(order)}
               </p>
 
-              <p className="mt-1 text-xs font-semibold text-zinc-500">
+              <p className="mt-1 text-xs font-semibold text-zinc-400">
                 Taxa: {formatBRL(order.delivery_fee)}
               </p>
             </div>
           </div>
 
           <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="rounded-xl border border-zinc-200 bg-white p-3">
-              <div className="flex items-center gap-2 text-zinc-500">
-                <MapPin className="h-4 w-4 text-amber-700" />
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <MapPin className="h-4 w-4" />
 
                 <p className="text-[10px] font-black uppercase tracking-wide">
                   Endereço e bairro
                 </p>
               </div>
 
-              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-600">
-                <span className="font-black text-zinc-950">
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-300">
+                <span className="font-black text-zinc-50">
                   Endereço:
                 </span>{" "}
                 {deliveryAddress || "Não informado"}
               </p>
 
-              <p className="mt-1 text-sm font-semibold leading-relaxed text-zinc-600">
-                <span className="font-black text-zinc-950">
+              <p className="mt-1 text-sm font-semibold leading-relaxed text-zinc-300">
+                <span className="font-black text-zinc-50">
                   Bairro:
                 </span>{" "}
                 {neighborhood || "Não informado"}
               </p>
 
               {deliveryPersonName && (
-                <p className="mt-1 text-sm font-semibold leading-relaxed text-zinc-600">
-                  <span className="font-black text-zinc-950">
+                <p className="mt-1 text-sm font-semibold leading-relaxed text-zinc-300">
+                  <span className="font-black text-zinc-50">
                     Motoboy:
                   </span>{" "}
                   {deliveryPersonName}
@@ -2295,12 +1604,12 @@ function HistoryOrderDetailsModal({
               )}
             </div>
 
-            <div className="rounded-xl border border-zinc-200 bg-white p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
                 Datas do pedido
               </p>
 
-              <div className="mt-2 space-y-1.5 text-xs font-semibold text-zinc-500">
+              <div className="mt-2 space-y-1.5 text-xs font-semibold text-zinc-300">
                 <p>
                   Entrada: {formatDateTime(order.created_at)}
                 </p>
@@ -2346,13 +1655,13 @@ function HistoryOrderDetailsModal({
             </div>
           </div>
 
-          <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200 bg-white">
-            <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+          <div className="mt-3 overflow-hidden rounded-xl bg-white/[0.03] ring-1 ring-inset ring-white/[0.06]">
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
                 Itens do pedido
               </p>
 
-              <span className="text-xs font-black text-zinc-500">
+              <span className="text-xs font-black text-zinc-400">
                 {formatItemCount(items.length)}
               </span>
             </div>
@@ -2365,7 +1674,7 @@ function HistoryOrderDetailsModal({
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px]">
                   <thead>
-                    <tr className="border-b border-zinc-200 bg-zinc-50">
+                    <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                       <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
                         Produto
                       </th>
@@ -2394,10 +1703,10 @@ function HistoryOrderDetailsModal({
                       return (
                         <tr
                           key={item.id}
-                          className="border-b border-zinc-200 last:border-0"
+                          className="border-b border-white/[0.06] last:border-0"
                         >
                           <td className="px-3 py-3">
-                            <p className="text-sm font-black text-zinc-950">
+                            <p className="text-sm font-black text-zinc-50">
                               {item.name}
                             </p>
 
@@ -2412,7 +1721,7 @@ function HistoryOrderDetailsModal({
                                   modifier.optionId ??
                                   modifier.optionName
                                 }-${index}`}
-                                className="mt-0.5 text-xs font-semibold text-zinc-500"
+                                className="mt-0.5 text-xs font-semibold text-zinc-400"
                               >
                                 ·{" "}
                                 {formatOrderItemModifier(
@@ -2422,21 +1731,21 @@ function HistoryOrderDetailsModal({
                             ))}
 
                             {item.notes && (
-                              <p className="mt-1 text-xs font-semibold text-amber-700">
+                              <p className="mt-1 text-xs font-semibold text-orange-300">
                                 Obs: {item.notes}
                               </p>
                             )}
                           </td>
 
-                          <td className="px-3 py-3 text-center text-sm font-bold text-zinc-600">
+                          <td className="px-3 py-3 text-center text-sm font-bold text-zinc-300">
                             {item.quantity}
                           </td>
 
-                          <td className="px-3 py-3 text-right text-sm font-semibold text-zinc-500">
+                          <td className="px-3 py-3 text-right text-sm font-semibold text-zinc-400">
                             {formatBRL(unitPrice)}
                           </td>
 
-                          <td className="px-3 py-3 text-right text-sm font-black text-zinc-950">
+                          <td className="px-3 py-3 text-right text-sm font-black text-zinc-50">
                             {formatBRL(item.total)}
                           </td>
                         </tr>
@@ -2449,23 +1758,23 @@ function HistoryOrderDetailsModal({
           </div>
 
           <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="rounded-xl border border-zinc-200 bg-white p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
                 Observações
               </p>
 
-              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-600">
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-300">
                 {buildPrintNotes(order) ||
                   "Nenhuma observação registrada."}
               </p>
             </div>
 
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
                 Resumo financeiro
               </p>
 
-              <div className="mt-3 space-y-2 text-sm font-semibold">
+              <div className="mt-3 space-y-2 text-sm font-semibold tabular-nums">
                 <div className="flex justify-between gap-3 text-zinc-300">
                   <span>Subtotal</span>
                   <span>{formatBRL(shownSubtotal)}</span>
@@ -2483,8 +1792,8 @@ function HistoryOrderDetailsModal({
                   </div>
                 )}
 
-                <div className="border-t border-amber-200 pt-2">
-                  <div className="flex justify-between gap-3 text-base font-black text-zinc-950">
+                <div className="border-t border-white/[0.08] pt-2">
+                  <div className="flex justify-between gap-3 text-base font-black text-zinc-50">
                     <span>Total</span>
                     <span>{formatBRL(total)}</span>
                   </div>
@@ -2498,7 +1807,7 @@ function HistoryOrderDetailsModal({
               href={order.pix_proof_url}
               target="_blank"
               rel="noreferrer"
-              className="mt-3 inline-flex h-10 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 text-sm font-black text-amber-700 transition hover:bg-amber-100"
+              className="mt-3 inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-bold text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.06] hover:text-zinc-50"
             >
               Ver comprovante Pix
             </a>
@@ -2557,6 +1866,9 @@ export default function PedidosPage() {
   const [newOrderAlert, setNewOrderAlert] = useState<NewOrderAlert | null>(
     null,
   );
+  const [typeFilter, setTypeFilter] = useState<OrderTypeFilter>("all");
+  const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioUnlockedRef = useRef(false);
@@ -3725,6 +3037,10 @@ export default function PedidosPage() {
     const normalizedSearch = search.trim().toLowerCase();
 
     return openOrders.filter((order) => {
+      if (typeFilter !== "all" && getOrderTypeLabel(order) !== typeFilter) {
+        return false;
+      }
+
       if (!normalizedSearch) return true;
 
       const customerName = getCustomerName(order).toLowerCase();
@@ -3737,7 +3053,7 @@ export default function PedidosPage() {
         orderNumber.includes(normalizedSearch)
       );
     });
-  }, [openOrders, search]);
+  }, [openOrders, search, typeFilter]);
 
   const filteredHistoryOrders = useMemo(() => {
     const normalizedSearch = historySearch.trim().toLowerCase();
@@ -3811,669 +3127,472 @@ export default function PedidosPage() {
   }, [filteredOrders, selectedOrderIds]);
 
   const analysisOrders = useMemo(
-    () =>
-      filteredOrders.filter(
-        (order) =>
-          isPixWaitingOrder(order) ||
-          getBoardStatus(order.status) === "analysis",
-      ),
+    () => sortOrdersOldestFirst(filteredOrders.filter(isAnalysisColumnOrder)),
     [filteredOrders],
   );
 
   const preparationOrders = useMemo(
     () =>
-      filteredOrders.filter(
-        (order) =>
-          !isPixWaitingOrder(order) &&
-          getBoardStatus(order.status) === "preparation",
-      ),
+      sortOrdersOldestFirst(filteredOrders.filter(isPreparationColumnOrder)),
     [filteredOrders],
   );
 
   const readyOrders = useMemo(
-    () =>
-      filteredOrders.filter(
-        (order) =>
-          !isPixWaitingOrder(order) && getBoardStatus(order.status) === "ready",
-      ),
+    () => sortOrdersOldestFirst(filteredOrders.filter(isReadyColumnOrder)),
     [filteredOrders],
   );
+
+  const ordersById = useMemo(
+    () => new Map(orders.map((order) => [order.id, order])),
+    [orders],
+  );
+
+  const orderViewsById = useMemo(() => {
+    const views = new Map<string, OrderCardView>();
+
+    for (const order of openOrders) {
+      views.set(
+        order.id,
+        buildOrderCardView(
+          order,
+          orderItemsByOrderId[order.id] || [],
+          allDeliveryPeople,
+          averagePrepTimeMinutes,
+        ),
+      );
+    }
+
+    return views;
+  }, [openOrders, orderItemsByOrderId, allDeliveryPeople, averagePrepTimeMinutes]);
+
+  const boardColumns = useMemo(() => {
+    const toViews = (list: OrderRow[]) =>
+      list
+        .map((order) => orderViewsById.get(order.id))
+        .filter((view): view is OrderCardView => Boolean(view));
+
+    return {
+      analysis: toViews(analysisOrders),
+      preparation: toViews(preparationOrders),
+      ready: toViews(readyOrders),
+    };
+  }, [analysisOrders, preparationOrders, readyOrders, orderViewsById]);
+
+  const boardTotals = useMemo(
+    () => ({
+      analysis: openOrders.filter(isAnalysisColumnOrder).length,
+      preparation: openOrders.filter(isPreparationColumnOrder).length,
+      ready: openOrders.filter(isReadyColumnOrder).length,
+      pixReview: openOrders.filter(isPixWaitingOrder).length,
+    }),
+    [openOrders],
+  );
+
+  const orderTypeCounts = useMemo(() => {
+    const counts: Record<OrderTypeFilter, number> = {
+      all: openOrders.length,
+      Entrega: 0,
+      Retirada: 0,
+      Mesa: 0,
+    };
+
+    for (const order of openOrders) {
+      const typeLabel = getOrderTypeLabel(order);
+
+      if (
+        typeLabel === "Entrega" ||
+        typeLabel === "Retirada" ||
+        typeLabel === "Mesa"
+      ) {
+        counts[typeLabel] += 1;
+      }
+    }
+
+    return counts;
+  }, [openOrders]);
+
+  const detailsView = detailsOrderId
+    ? orderViewsById.get(detailsOrderId) ?? null
+    : null;
+  const detailsStage = detailsOrderId
+    ? getColumnStage(ordersById.get(detailsOrderId))
+    : null;
+  const cancelTargetView = cancelOrderId
+    ? orderViewsById.get(cancelOrderId) ?? null
+    : null;
+
+  // Fecha a gaveta se o pedido saiu da central (finalizado/cancelado).
+  useEffect(() => {
+    if (detailsOrderId && !detailsView) {
+      setDetailsOrderId(null);
+    }
+  }, [detailsOrderId, detailsView]);
+
+  // Mesmos handlers que o board antigo passava para cada card.
+  const handleAcceptOrder = (order: OrderRow) => void updateOrder(order, "accept");
+  const handleCancelOrder = (order: OrderRow) => void updateOrder(order, "cancel");
+  const handleMarkReadyOrder = (order: OrderRow) => void updateOrder(order, "ready");
+  const handleSendToRouteOrder = (order: OrderRow, deliveryPersonId: string) =>
+    void updateOrder(order, "route", deliveryPersonId);
+  const handleFinishOrder = (order: OrderRow) => void updateOrder(order, "finish");
+
+  function runWithOrder(orderId: string, run: (order: OrderRow) => void) {
+    const order = ordersById.get(orderId);
+
+    if (order) run(order);
+  }
+
+  const orderCardActions: OrderCardActions = {
+    onAccept: (orderId) => runWithOrder(orderId, handleAcceptOrder),
+    onMarkReady: (orderId) => runWithOrder(orderId, handleMarkReadyOrder),
+    onFinish: (orderId) => runWithOrder(orderId, handleFinishOrder),
+    onSendToRoute: (orderId, deliveryPersonId) =>
+      runWithOrder(orderId, (order) =>
+        handleSendToRouteOrder(order, deliveryPersonId),
+      ),
+    onPrint: (orderId, mode) =>
+      runWithOrder(orderId, (order) =>
+        handlePrintOrder(order, orderItemsByOrderId[order.id] || [], mode),
+      ),
+    onRequestCancel: (orderId) => {
+      setDetailsOrderId(null);
+      setCancelOrderId(orderId);
+    },
+    onOpenDetails: (orderId) => setDetailsOrderId(orderId),
+  };
+
+  // Confirmação de cancelamento: depois de confirmar, chama o mesmo handler de antes.
+  function confirmCancelOrder() {
+    const orderId = cancelOrderId;
+
+    setCancelOrderId(null);
+
+    if (!orderId || !orderViewsById.has(orderId)) return;
+
+    runWithOrder(orderId, handleCancelOrder);
+  }
+
+  const isBoardFiltered = typeFilter !== "all" || search.trim() !== "";
 
   return (
     <AdminLayout
       title="Pedidos"
       description="Central operacional do restaurante"
+      fullWidth
     >
-      <div className="min-h-[calc(100vh-90px)] bg-[#f5f5f5] p-2 sm:p-4">
-        <div className="flex flex-col gap-4">
-          <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-                <div className="flex shrink-0 rounded-xl border border-neutral-900 bg-[#111111] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("operation")}
-                    className={[
-                      "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition",
-                      activeView === "operation"
-                        ? "bg-white text-[#111111] shadow-sm"
-                        : "text-neutral-200 hover:bg-white/10 hover:text-white",
-                    ].join(" ")}
-                  >
-                    <Package className="h-4 w-4" />
-                    Operação
-                  </button>
+      <div
+        className={[
+          "flex flex-col gap-3",
+          activeView === "operation" ? "xl:h-[calc(100vh-88px)]" : "",
+        ].join(" ")}
+      >
+        <OrdersToolbar
+          activeView={activeView}
+          onChangeView={setActiveView}
+          updatedLabel={formatRelativeUpdate(lastUpdatedAt, nowMs)}
+          isDataFresh={Boolean(
+            lastUpdatedAt && nowMs - lastUpdatedAt.getTime() < 30000,
+          )}
+          isRefreshing={refreshing || historyRefreshing}
+          onRefresh={() =>
+            activeView === "operation"
+              ? void refreshAll()
+              : void loadHistoryOrders(true)
+          }
+          search={search}
+          onSearchChange={setSearch}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          typeCounts={orderTypeCounts}
+          summary={boardTotals}
+          alertsEnabled={orderAlertsEnabled}
+          notificationDenied={notificationPermission === "denied"}
+          onToggleAlerts={() => {
+            if (orderAlertsEnabled) {
+              disableOrderAlerts();
+              return;
+            }
 
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("history")}
-                    className={[
-                      "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition",
-                      activeView === "history"
-                        ? "bg-white text-[#111111] shadow-sm"
-                        : "text-neutral-200 hover:bg-white/10 hover:text-white",
-                    ].join(" ")}
-                  >
-                    <History className="h-4 w-4" />
-                    Histórico
-                  </button>
+            void enableOrderAlerts();
+          }}
+          batchPrint={{
+            visibleCount: filteredOrders.length,
+            selectedCount: selectedVisibleOrders.length,
+            onSelectAll: () =>
+              selectVisibleOrders(filteredOrders.map((order) => order.id)),
+            onPrintKitchen: () => handlePrintSelectedOrders("kitchen"),
+            onPrintReceipts: () => handlePrintSelectedOrders("receipt"),
+            onClear: clearSelectedOrders,
+          }}
+          settings={{
+            averagePrepTimeMinutes,
+            savingPrepTime,
+            onChangePrepTime: (minutes) => updateAveragePrepTime(minutes),
+            kdsEnabled,
+            onToggleKds: toggleKdsEnabled,
+            autoAcceptOrders,
+            savingAutoAcceptOrders,
+            onToggleAutoAccept: () =>
+              void updateAutoAcceptOrders(!autoAcceptOrders),
+          }}
+          newOrderAlert={
+            newOrderAlert
+              ? {
+                  orderNumber: newOrderAlert.orderNumber,
+                  customerName: newOrderAlert.customerName,
+                  totalLabel: formatBRL(newOrderAlert.total),
+                }
+              : null
+          }
+          onDismissNewOrderAlert={() => setNewOrderAlert(null)}
+          error={error}
+        />
+
+        {activeView === "operation" ? (
+          loading ? (
+            <div className="flex min-h-[240px] flex-1 items-center justify-center rounded-xl bg-[#0D0D0F] ring-1 ring-inset ring-white/[0.06]">
+              <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-400">
+                <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                Carregando operação...
+              </div>
+            </div>
+          ) : (
+            <OrderBoard
+              columns={boardColumns}
+              totals={boardTotals}
+              isFiltered={isBoardFiltered}
+              nowMs={nowMs}
+              busyOrderId={busyOrderId}
+              kdsEnabled={kdsEnabled}
+              deliveryPeople={deliveryPeople}
+              actions={orderCardActions}
+            />
+          )
+        ) : (
+          <>
+            <section className="space-y-3 rounded-xl bg-[#0D0D0F] p-3 ring-1 ring-inset ring-white/[0.06] sm:p-4">
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.5fr)_145px_145px_165px_175px_185px]">
+                <div className="relative min-w-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+
+                  <input
+                    value={historySearch}
+                    onChange={(event) => setHistorySearch(event.target.value)}
+                    placeholder="Buscar pedido, cliente, bairro ou item..."
+                    className="h-10 w-full rounded-lg border border-white/10 bg-[#161619] pl-9 pr-3 text-sm font-semibold text-zinc-100 outline-none transition placeholder:font-normal placeholder:text-zinc-500 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/15"
+                  />
                 </div>
 
-                {activeView === "operation" && (
-                  <div className="relative min-w-0 flex-1">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
-                    <input
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Buscar cliente, telefone ou pedido..."
-                      className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                    />
-                  </div>
-                )}
+                <input
+                  type="date"
+                  value={historyFilters.dateFrom}
+                  onChange={(event) =>
+                    updateHistoryFilter({ dateFrom: event.target.value })
+                  }
+                  className="h-10 w-full rounded-lg border border-white/10 bg-[#161619] px-3 text-sm font-semibold text-zinc-100 outline-none transition focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/15"
+                />
 
-                <div className="flex flex-wrap items-center gap-2 xl:ml-auto xl:justify-end">
-                  {activeView === "operation" && (
-                    <p className="hidden text-xs font-semibold text-slate-500 2xl:block">
-                      {lastUpdatedAt
-                        ? `Atualizado ${lastUpdatedAt.toLocaleTimeString(
-                            "pt-BR",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
-                          )}`
-                        : "Aguardando dados"}
-                    </p>
-                  )}
+                <input
+                  type="date"
+                  value={historyFilters.dateTo}
+                  onChange={(event) =>
+                    updateHistoryFilter({ dateTo: event.target.value })
+                  }
+                  className="h-10 w-full rounded-lg border border-white/10 bg-[#161619] px-3 text-sm font-semibold text-zinc-100 outline-none transition focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/15"
+                />
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      activeView === "operation"
-                        ? void refreshAll()
-                        : void loadHistoryOrders(true)
-                    }
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-black text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-50"
-                  >
-                    {refreshing || historyRefreshing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCcw className="h-4 w-4" />
-                    )}
-                    <span className="hidden sm:inline">Atualizar</span>
-                  </button>
+                <select
+                  value={historyFilters.status}
+                  onChange={(event) =>
+                    updateHistoryFilter({
+                      status: event.target.value as HistoryStatusFilter,
+                    })
+                  }
+                  className="h-10 w-full rounded-lg border border-white/10 bg-[#161619] px-3 text-sm font-semibold text-zinc-100 outline-none transition focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/15"
+                >
+                  <option value="all">Todos status</option>
+                  <option value="open">Em aberto</option>
+                  <option value="finished">Finalizados</option>
+                  <option value="cancelled">Cancelados</option>
+                </select>
 
-                  {activeView === "operation" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (orderAlertsEnabled) {
-                          disableOrderAlerts();
-                          return;
-                        }
+                <select
+                  value={historyFilters.paymentStatus}
+                  onChange={(event) =>
+                    updateHistoryFilter({
+                      paymentStatus: event.target
+                        .value as HistoryPaymentStatusFilter,
+                    })
+                  }
+                  className="h-10 w-full rounded-lg border border-white/10 bg-[#161619] px-3 text-sm font-semibold text-zinc-100 outline-none transition focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/15"
+                >
+                  <option value="all">Todos pagamentos</option>
+                  <option value="paid">Pago</option>
+                  <option value="pending">Pendente</option>
+                  <option value="cancelled">Cancelado/Falhou</option>
+                </select>
 
-                        void enableOrderAlerts();
-                      }}
-                      className={[
-                        "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-black transition",
-                        orderAlertsEnabled
-                          ? "border-[#f97316] bg-[#f97316] text-white hover:border-[#ea580c] hover:bg-[#ea580c]"
-                          : "border-neutral-200 bg-white text-[#111111] hover:border-neutral-300 hover:bg-neutral-50",
-                      ].join(" ")}
-                      title={
-                        notificationPermission === "denied"
-                          ? "O navegador bloqueou notificações de desktop, mas o som do painel pode funcionar."
-                          : undefined
-                      }
-                    >
-                      {orderAlertsEnabled ? (
-                        <Volume2 className="h-4 w-4" />
-                      ) : (
-                        <BellRing className="h-4 w-4" />
-                      )}
-                      <span className="hidden sm:inline">
-                        {orderAlertsEnabled ? "Alertas ativos" : "Alertas"}
-                      </span>
-                    </button>
-                  )}
+                <select
+                  value={historyFilters.deliveryPersonId}
+                  onChange={(event) =>
+                    updateHistoryFilter({
+                      deliveryPersonId: event.target.value,
+                    })
+                  }
+                  className="h-10 w-full rounded-lg border border-white/10 bg-[#161619] px-3 text-sm font-semibold text-zinc-100 outline-none transition focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/15"
+                >
+                  <option value="all">Todos motoboys</option>
 
-                  {activeView === "operation" && (
-                    <details className="relative z-30">
-                      <summary className="inline-flex h-10 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-black text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-50 [&::-webkit-details-marker]:hidden">
-                        <Settings2 className="h-4 w-4" />
-                        <span className="hidden sm:inline">Ajustes</span>
-                      </summary>
+                  {allDeliveryPeople.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                      <div className="absolute right-0 top-12 w-[min(340px,calc(100vw-2rem))] rounded-2xl border border-neutral-200 bg-white p-3 shadow-xl">
-                        <div>
-                          <label
-                            htmlFor="average-prep-time"
-                            className="text-[11px] font-black uppercase tracking-wide text-[#111111]"
-                          >
-                            Tempo médio de preparo
-                          </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={setHistoryToday}
+                  className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-bold text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.06] hover:text-zinc-50"
+                >
+                  Hoje
+                </button>
 
-                          <div className="mt-1.5 flex items-center gap-2">
-                            <select
-                              id="average-prep-time"
-                              value={averagePrepTimeMinutes}
-                              onChange={(event) =>
-                                updateAveragePrepTime(
-                                  Number(event.target.value),
-                                )
-                              }
-                              disabled={savingPrepTime}
-                              className="h-10 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                            >
-                              <option value={10}>10 min</option>
-                              <option value={15}>15 min</option>
-                              <option value={20}>20 min</option>
-                              <option value={25}>25 min</option>
-                              <option value={30}>30 min</option>
-                              <option value={35}>35 min</option>
-                              <option value={40}>40 min</option>
-                              <option value={45}>45 min</option>
-                              <option value={50}>50 min</option>
-                              <option value={60}>60 min</option>
-                            </select>
+                <button
+                  type="button"
+                  onClick={setHistoryYesterday}
+                  className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-bold text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.06] hover:text-zinc-50"
+                >
+                  Ontem
+                </button>
 
-                            {savingPrepTime && (
-                              <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
-                            )}
-                          </div>
-                        </div>
+                <button
+                  type="button"
+                  onClick={setHistoryLastSevenDays}
+                  className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-bold text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.06] hover:text-zinc-50"
+                >
+                  7 dias
+                </button>
 
-                        <button
-                          type="button"
-                          onClick={toggleKdsEnabled}
-                          className="mt-3 flex w-full items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5 text-left transition hover:bg-neutral-50"
-                        >
-                          <div>
-                            <p className="text-sm font-black text-slate-900">
-                              KDS
-                            </p>
+                <button
+                  type="button"
+                  onClick={clearHistoryFilters}
+                  className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-bold text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100"
+                >
+                  Limpar
+                </button>
+              </div>
 
-                            <p className="text-xs font-semibold text-slate-500">
-                              {kdsEnabled
-                                ? "A cozinha controla quando fica pronto."
-                                : "A tela de pedidos controla o preparo."}
-                            </p>
-                          </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                    Pedidos
+                  </p>
 
-                          <span
-                            className={[
-                              "rounded-full px-2 py-1 text-[10px] font-black uppercase",
-                              kdsEnabled
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-neutral-50 text-[#111111]",
-                            ].join(" ")}
-                          >
-                            {kdsEnabled ? "Ativo" : "Inativo"}
-                          </span>
-                        </button>
+                  <p className="mt-1 text-xl font-black tabular-nums text-zinc-50">
+                    {historyStats.totalOrders}
+                  </p>
+                </div>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void updateAutoAcceptOrders(!autoAcceptOrders)
-                          }
-                          disabled={savingAutoAcceptOrders}
-                          className="mt-2 flex w-full items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5 text-left transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <div>
-                            <p className="text-sm font-black text-slate-900">
-                              Aceite automático
-                            </p>
+                <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                    Total vendido
+                  </p>
 
-                            <p className="text-xs font-semibold text-slate-500">
-                              Pix manual continua exigindo aceite do atendente.
-                            </p>
-                          </div>
+                  <p className="mt-1 text-xl font-black tabular-nums text-zinc-50">
+                    {formatBRL(historyStats.revenue)}
+                  </p>
+                </div>
 
-                          {savingAutoAcceptOrders ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
-                          ) : (
-                            <span
-                              className={[
-                                "rounded-full px-2 py-1 text-[10px] font-black uppercase",
-                                autoAcceptOrders
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-neutral-50 text-[#111111]",
-                              ].join(" ")}
-                            >
-                              {autoAcceptOrders ? "Ativo" : "Inativo"}
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    </details>
-                  )}
+                <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-inset ring-white/[0.06]">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                    Taxas de entrega
+                  </p>
+
+                  <p className="mt-1 text-xl font-black tabular-nums text-zinc-50">
+                    {formatBRL(historyStats.deliveryFees)}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-emerald-500/[0.06] p-3 ring-1 ring-inset ring-emerald-500/20">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                    Finalizados
+                  </p>
+
+                  <p className="mt-1 text-xl font-black tabular-nums text-emerald-300">
+                    {historyStats.finishedOrders}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-red-500/[0.06] p-3 ring-1 ring-inset ring-red-500/20">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                    Cancelados
+                  </p>
+
+                  <p className="mt-1 text-xl font-black tabular-nums text-red-300">
+                    {historyStats.cancelledOrders}
+                  </p>
                 </div>
               </div>
 
-              {activeView === "operation" && filteredOrders.length > 0 && (
-                <details className="rounded-xl border border-neutral-200 bg-neutral-50/50">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 transition hover:bg-neutral-50 [&::-webkit-details-marker]:hidden">
-                    <div>
-                      <p className="text-sm font-black text-slate-900">
-                        Impressão em lote
-                      </p>
+              {uniquePaymentMethods.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateHistoryFilter({ paymentMethod: "all" })}
+                    className={[
+                      "rounded-full px-3 py-1.5 text-xs font-bold transition",
+                      historyFilters.paymentMethod === "all"
+                        ? "bg-yellow-400 text-black"
+                        : "text-zinc-400 ring-1 ring-inset ring-white/10 hover:bg-white/[0.06] hover:text-zinc-100",
+                    ].join(" ")}
+                  >
+                    Todos
+                  </button>
 
-                      <p className="text-xs font-semibold text-slate-500">
-                        {selectedVisibleOrders.length > 0
-                          ? `${selectedVisibleOrders.length} selecionado(s)`
-                          : `${filteredOrders.length} pedido(s) visível(is)`}
-                      </p>
-                    </div>
-
-                    <Printer className="h-4 w-4 text-[#111111]" />
-                  </summary>
-
-                  <div className="flex flex-wrap gap-2 border-t border-neutral-200 bg-white p-3">
+                  {uniquePaymentMethods.map((method) => (
                     <button
+                      key={method}
                       type="button"
                       onClick={() =>
-                        selectVisibleOrders(
-                          filteredOrders.map((order) => order.id),
-                        )
+                        updateHistoryFilter({ paymentMethod: method })
                       }
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:border-neutral-300 hover:bg-neutral-50"
+                      className={[
+                        "rounded-full px-3 py-1.5 text-xs font-bold transition",
+                        historyFilters.paymentMethod === method
+                          ? "bg-yellow-400 text-black"
+                          : "text-zinc-400 ring-1 ring-inset ring-white/10 hover:bg-white/[0.06] hover:text-zinc-100",
+                      ].join(" ")}
                     >
-                      Selecionar todos
+                      {getPaymentLabel(method)}
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handlePrintSelectedOrders("kitchen")}
-                      disabled={selectedVisibleOrders.length === 0}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#111111] px-3 text-xs font-black text-white transition hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <ChefHat className="h-4 w-4" />
-                      Cozinha ({selectedVisibleOrders.length})
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handlePrintSelectedOrders("receipt")}
-                      disabled={selectedVisibleOrders.length === 0}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-black text-[#f97316] transition hover:border-[#f97316] hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <Printer className="h-4 w-4" />
-                      Recibos ({selectedVisibleOrders.length})
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={clearSelectedOrders}
-                      disabled={selectedVisibleOrders.length === 0}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-                </details>
-              )}
-
-              {activeView === "history" && (
-                <>
-                  <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.5fr)_145px_145px_165px_175px_185px]">
-                    <div className="relative min-w-0">
-                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
-
-                      <input
-                        value={historySearch}
-                        onChange={(event) =>
-                          setHistorySearch(event.target.value)
-                        }
-                        placeholder="Buscar pedido, cliente, bairro ou item..."
-                        className="h-10 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-600 focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                      />
-                    </div>
-
-                    <input
-                      type="date"
-                      value={historyFilters.dateFrom}
-                      onChange={(event) =>
-                        updateHistoryFilter({ dateFrom: event.target.value })
-                      }
-                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                    />
-
-                    <input
-                      type="date"
-                      value={historyFilters.dateTo}
-                      onChange={(event) =>
-                        updateHistoryFilter({ dateTo: event.target.value })
-                      }
-                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                    />
-
-                    <select
-                      value={historyFilters.status}
-                      onChange={(event) =>
-                        updateHistoryFilter({
-                          status: event.target.value as HistoryStatusFilter,
-                        })
-                      }
-                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                    >
-                      <option value="all">Todos status</option>
-                      <option value="open">Em aberto</option>
-                      <option value="finished">Finalizados</option>
-                      <option value="cancelled">Cancelados</option>
-                    </select>
-
-                    <select
-                      value={historyFilters.paymentStatus}
-                      onChange={(event) =>
-                        updateHistoryFilter({
-                          paymentStatus: event.target
-                            .value as HistoryPaymentStatusFilter,
-                        })
-                      }
-                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                    >
-                      <option value="all">Todos pagamentos</option>
-                      <option value="paid">Pago</option>
-                      <option value="pending">Pendente</option>
-                      <option value="cancelled">Cancelado/Falhou</option>
-                    </select>
-
-                    <select
-                      value={historyFilters.deliveryPersonId}
-                      onChange={(event) =>
-                        updateHistoryFilter({
-                          deliveryPersonId: event.target.value,
-                        })
-                      }
-                      className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#111111] focus:ring-2 focus:ring-neutral-200"
-                    >
-                      <option value="all">Todos motoboys</option>
-
-                      {allDeliveryPeople.map((person) => (
-                        <option key={person.id} value={person.id}>
-                          {person.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={setHistoryToday}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
-                    >
-                      Hoje
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={setHistoryYesterday}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
-                    >
-                      Ontem
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={setHistoryLastSevenDays}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-xs font-black text-[#111111] transition hover:bg-neutral-50"
-                    >
-                      7 dias
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={clearHistoryFilters}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                        Pedidos
-                      </p>
-
-                      <p className="mt-1 text-xl font-black text-slate-900">
-                        {historyStats.totalOrders}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                        Total vendido
-                      </p>
-
-                      <p className="mt-1 text-xl font-black text-slate-900">
-                        {formatBRL(historyStats.revenue)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-[#111111]">
-                        Taxas de entrega
-                      </p>
-
-                      <p className="mt-1 text-xl font-black text-slate-900">
-                        {formatBRL(historyStats.deliveryFees)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
-                        Finalizados
-                      </p>
-
-                      <p className="mt-1 text-xl font-black text-emerald-600">
-                        {historyStats.finishedOrders}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-red-100 bg-red-50/60 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
-                        Cancelados
-                      </p>
-
-                      <p className="mt-1 text-xl font-black text-red-600">
-                        {historyStats.cancelledOrders}
-                      </p>
-                    </div>
-                  </div>
-
-                  {uniquePaymentMethods.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateHistoryFilter({ paymentMethod: "all" })
-                        }
-                        className={[
-                          "rounded-full border px-3 py-1.5 text-xs font-black transition",
-                          historyFilters.paymentMethod === "all"
-                            ? "border-[#111111] bg-[#111111] text-white"
-                            : "border-neutral-200 bg-white text-slate-500 hover:bg-neutral-50 hover:text-[#111111]",
-                        ].join(" ")}
-                      >
-                        Todos
-                      </button>
-
-                      {uniquePaymentMethods.map((method) => (
-                        <button
-                          key={method}
-                          type="button"
-                          onClick={() =>
-                            updateHistoryFilter({ paymentMethod: method })
-                          }
-                          className={[
-                            "rounded-full border px-3 py-1.5 text-xs font-black transition",
-                            historyFilters.paymentMethod === method
-                              ? "border-[#111111] bg-[#111111] text-white"
-                              : "border-neutral-200 bg-white text-slate-500 hover:bg-neutral-50 hover:text-[#111111]",
-                          ].join(" ")}
-                        >
-                          {getPaymentLabel(method)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                  {error}
+                  ))}
                 </div>
               )}
+            </section>
 
-              {activeView === "operation" && newOrderAlert && (
-                <div className="overflow-hidden rounded-xl border border-orange-200 bg-orange-50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f97316] text-white">
-                        <BellRing className="h-4 w-4" />
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-slate-900">
-                          Novo pedido recebido
-                        </p>
-
-                        <p className="truncate text-xs font-bold text-orange-700">
-                          {newOrderAlert.orderNumber} ·{" "}
-                          {newOrderAlert.customerName} ·{" "}
-                          {formatBRL(newOrderAlert.total)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setNewOrderAlert(null)}
-                      className="shrink-0 rounded-full p-1 text-orange-700 transition hover:bg-orange-100"
-                      aria-label="Fechar alerta de novo pedido"
-                    >
-                      <XCircle className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-                    {activeView === "operation" ? (
-            loading ? (
-              <div className="flex items-center justify-center rounded-2xl border border-neutral-200 bg-white py-20 shadow-sm">
-                <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
-                  Carregando operação...
-                </div>
-              </div>
-            ) : (
-              <div className="overflow-x-auto pb-2">
-                <div className="grid min-w-[1020px] grid-cols-3 gap-3">
-                  <BoardColumn
-                    status="analysis"
-                    orders={analysisOrders}
-                    orderItemsByOrderId={orderItemsByOrderId}
-                    deliveryPeople={deliveryPeople}
-                    averagePrepTimeMinutes={averagePrepTimeMinutes}
-                    nowMs={nowMs}
-                    busyOrderId={busyOrderId}
-                    kdsEnabled={kdsEnabled}
-                    onAccept={(order) => void updateOrder(order, "accept")}
-                    onCancel={(order) => void updateOrder(order, "cancel")}
-                    onMarkReady={(order) => void updateOrder(order, "ready")}
-                    onSendToRoute={(order, deliveryPersonId) =>
-                      void updateOrder(order, "route", deliveryPersonId)
-                    }
-                    onFinish={(order) => void updateOrder(order, "finish")}
-                    onPrint={handlePrintOrder}
-                  />
-
-                  <BoardColumn
-                    status="preparation"
-                    orders={preparationOrders}
-                    orderItemsByOrderId={orderItemsByOrderId}
-                    deliveryPeople={deliveryPeople}
-                    averagePrepTimeMinutes={averagePrepTimeMinutes}
-                    nowMs={nowMs}
-                    busyOrderId={busyOrderId}
-                    kdsEnabled={kdsEnabled}
-                    onAccept={(order) => void updateOrder(order, "accept")}
-                    onCancel={(order) => void updateOrder(order, "cancel")}
-                    onMarkReady={(order) => void updateOrder(order, "ready")}
-                    onSendToRoute={(order, deliveryPersonId) =>
-                      void updateOrder(order, "route", deliveryPersonId)
-                    }
-                    onFinish={(order) => void updateOrder(order, "finish")}
-                    onPrint={handlePrintOrder}
-                  />
-
-                  <BoardColumn
-                    status="ready"
-                    orders={readyOrders}
-                    orderItemsByOrderId={orderItemsByOrderId}
-                    deliveryPeople={deliveryPeople}
-                    averagePrepTimeMinutes={averagePrepTimeMinutes}
-                    nowMs={nowMs}
-                    busyOrderId={busyOrderId}
-                    kdsEnabled={kdsEnabled}
-                    onAccept={(order) => void updateOrder(order, "accept")}
-                    onCancel={(order) => void updateOrder(order, "cancel")}
-                    onMarkReady={(order) => void updateOrder(order, "ready")}
-                    onSendToRoute={(order, deliveryPersonId) =>
-                      void updateOrder(order, "route", deliveryPersonId)
-                    }
-                    onFinish={(order) => void updateOrder(order, "finish")}
-                    onPrint={handlePrintOrder}
-                  />
-                </div>
-              </div>
-            )
-          ) : (
-            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
+            <section className="rounded-xl bg-[#0D0D0F] ring-1 ring-inset ring-white/[0.06]">
               {historyLoading ? (
                 <div className="flex items-center justify-center py-20">
-                  <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
+                  <div className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-400">
+                    <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
                     Carregando histórico...
                   </div>
                 </div>
               ) : filteredHistoryOrders.length === 0 ? (
                 <div className="flex items-center justify-center py-20 text-center">
                   <div>
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-slate-500">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl text-zinc-500 ring-1 ring-inset ring-white/10">
                       <History className="h-6 w-6" />
                     </div>
 
-                    <p className="text-sm font-black text-slate-900">
+                    <p className="text-sm font-black text-zinc-100">
                       Nenhum pedido encontrado
                     </p>
 
-                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                    <p className="mt-1 text-xs font-semibold text-zinc-500">
                       Ajuste os filtros ou escolha outro período.
                     </p>
                   </div>
@@ -4490,24 +3609,24 @@ export default function PedidosPage() {
                     </colgroup>
 
                     <thead>
-                      <tr className="border-b border-neutral-200 bg-white">
-                        <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">
+                      <tr className="border-b border-white/[0.06]">
+                        <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
                           Pedido / Cliente
                         </th>
 
-                        <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
                           Entrega
                         </th>
 
-                        <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
                           Itens
                         </th>
 
-                        <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-zinc-500">
                           Pagamento
                         </th>
 
-                        <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-wide text-zinc-500">
                           Valor
                         </th>
                       </tr>
@@ -4527,46 +3646,46 @@ export default function PedidosPage() {
                         return (
                           <tr
                             key={order.id}
-                            className="border-b border-neutral-200 last:border-0 transition hover:bg-[#f5f5f5]"
+                            className="border-b border-white/[0.05] transition last:border-0 hover:bg-white/[0.025]"
                           >
                             <td className="px-2.5 py-2 align-top">
-                              <p className="truncate text-xs font-black text-[#111111]">
+                              <p className="truncate text-xs font-black tabular-nums text-zinc-50">
                                 #{getOrderNumber(order)}
                               </p>
 
-                              <p className="mt-0.5 truncate text-xs font-black text-slate-900">
+                              <p className="mt-0.5 truncate text-xs font-bold text-zinc-200">
                                 {getCustomerName(order)}
                               </p>
 
-                              <p className="truncate text-[10px] font-semibold text-slate-500">
+                              <p className="truncate text-[10px] font-semibold text-zinc-500">
                                 {getCustomerPhone(order)}
                               </p>
 
-                              <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-600">
+                              <p className="mt-0.5 truncate text-[10px] font-semibold text-zinc-400">
                                 {getOrderTypeLabel(order)}
                               </p>
                             </td>
 
                             <td className="px-2.5 py-2 align-top">
-                              <p className="truncate text-xs font-semibold text-slate-600">
+                              <p className="truncate text-xs font-semibold text-zinc-300">
                                 {address || "Sem endereço"}
                               </p>
 
-                              <p className="truncate text-[10px] font-black uppercase text-slate-500">
+                              <p className="truncate text-[10px] font-black uppercase text-zinc-500">
                                 {neighborhood || "Bairro não informado"}
                               </p>
 
-                              <p className="truncate text-[10px] font-semibold text-slate-600">
+                              <p className="truncate text-[10px] font-semibold text-zinc-400">
                                 Motoboy: {deliveryPersonName || "Não informado"}
                               </p>
                             </td>
 
                             <td className="px-2.5 py-2 align-top">
-                              <p className="truncate text-xs font-semibold text-slate-600">
+                              <p className="truncate text-xs font-semibold text-zinc-300">
                                 {formatHistoryItemsSummary(items)}
                               </p>
 
-                              <p className="truncate text-[10px] font-semibold text-slate-500">
+                              <p className="truncate text-[10px] font-semibold text-zinc-500">
                                 {formatItemCount(items.length)}
                               </p>
                             </td>
@@ -4581,32 +3700,32 @@ export default function PedidosPage() {
                                 {getOrderStatusLabel(order.status)}
                               </span>
 
-                              <p className="mt-0.5 truncate text-xs font-semibold text-slate-600">
+                              <p className="mt-0.5 truncate text-xs font-semibold text-zinc-300">
                                 {getPaymentLabel(order.payment_method)}
                               </p>
 
-                              <p className="truncate text-[10px] font-semibold text-slate-500">
+                              <p className="truncate text-[10px] font-semibold text-zinc-500">
                                 {getPaymentStatusLabel(order.payment_status)}
                               </p>
 
-                              <p className="truncate text-[10px] font-semibold text-slate-600">
+                              <p className="truncate text-[10px] font-semibold text-zinc-400">
                                 {formatDateTime(order.created_at)}
                               </p>
                             </td>
 
                             <td className="px-2.5 py-2 text-right align-top">
-                              <p className="text-xs font-black text-slate-900">
+                              <p className="text-xs font-black tabular-nums text-zinc-50">
                                 {formatBRL(order.total)}
                               </p>
 
-                              <p className="text-[10px] font-semibold text-slate-500">
+                              <p className="text-[10px] font-semibold text-zinc-500">
                                 Taxa {formatBRL(order.delivery_fee)}
                               </p>
 
                               <button
                                 type="button"
                                 onClick={() => setSelectedHistoryOrder(order)}
-                                className="mt-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md border border-neutral-200 bg-white text-[#111111] transition hover:border-neutral-400 hover:bg-neutral-50"
+                                className="mt-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.06] hover:text-zinc-50"
                                 aria-label={`Ver histórico do pedido ${getOrderNumber(order)}`}
                               >
                                 <Eye className="h-3 w-3" />
@@ -4619,9 +3738,9 @@ export default function PedidosPage() {
                   </table>
                 </div>
               )}
-            </div>
-          )}
-        </div>
+            </section>
+          </>
+        )}
       </div>
 
       {selectedHistoryOrder && (
@@ -4632,6 +3751,26 @@ export default function PedidosPage() {
           onClose={() => setSelectedHistoryOrder(null)}
         />
       )}
+
+      <OrderDetailsDrawer
+        view={detailsView}
+        stage={detailsStage}
+        onClose={() => setDetailsOrderId(null)}
+        isBusy={busyOrderId !== null && busyOrderId === detailsOrderId}
+        kdsEnabled={kdsEnabled}
+        deliveryPeople={deliveryPeople}
+        actions={orderCardActions}
+      />
+
+      <CancelOrderDialog
+        open={cancelOrderId !== null}
+        view={cancelTargetView}
+        isBusy={busyOrderId !== null && busyOrderId === cancelOrderId}
+        onOpenChange={(open) => {
+          if (!open) setCancelOrderId(null);
+        }}
+        onConfirm={confirmCancelOrder}
+      />
     </AdminLayout>
   );
 }

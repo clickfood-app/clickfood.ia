@@ -24,6 +24,8 @@ interface AdminLayoutProps {
   children: React.ReactNode
   title?: string
   description?: string
+  // Opt-in: usa toda a largura disponível (desligado por padrão).
+  fullWidth?: boolean
 }
 
 type RestaurantContext = {
@@ -46,7 +48,11 @@ function getInitials(name: string) {
   return `${words[0][0]}${words[1][0]}`.toUpperCase()
 }
 
-export default function AdminLayout({ children, title }: AdminLayoutProps) {
+export default function AdminLayout({
+  children,
+  title,
+  fullWidth = false,
+}: AdminLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
@@ -413,8 +419,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="min-h-[calc(100vh-64px)] bg-black p-4 md:p-6">
-          <div className="mx-auto w-full max-w-[1500px]">{children}</div>
+        <main
+          className={
+            fullWidth
+              ? "min-h-[calc(100vh-64px)] bg-black p-2 md:p-3"
+              : "min-h-[calc(100vh-64px)] bg-black p-4 md:p-6"
+          }
+        >
+          <div
+            className={
+              fullWidth ? "w-full" : "mx-auto w-full max-w-[1500px]"
+            }
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>
