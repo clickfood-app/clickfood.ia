@@ -5,6 +5,7 @@ type CustomerAuthBody = {
   restaurantId?: string
   name?: string
   phone?: string
+  email?: string | null
   document?: string | null
   address?: string | null
   neighborhood?: string | null
@@ -13,6 +14,7 @@ type CustomerAuthBody = {
 
 const MAX_NAME_LENGTH = 120
 const MAX_PHONE_LENGTH = 20
+const MAX_EMAIL_LENGTH = 254
 const MAX_DOCUMENT_LENGTH = 20
 const MAX_ADDRESS_LENGTH = 250
 const MAX_NEIGHBORHOOD_LENGTH = 120
@@ -38,6 +40,10 @@ function isValidBrazilianMobilePhone(value: string) {
   return /^([1-9]{2})9\d{8}$/.test(value)
 }
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
 function jsonError(message: string, status = 400) {
   return NextResponse.json(
     {
@@ -61,8 +67,16 @@ export async function POST(request: Request) {
     const restaurantId = cleanText(body.restaurantId, 80)
     const name = cleanText(body.name, MAX_NAME_LENGTH)
     const phone = onlyDigits(body.phone).slice(0, MAX_PHONE_LENGTH)
-    const document = onlyDigits(body.document).slice(0, MAX_DOCUMENT_LENGTH) || null
-    const lastAddress = cleanText(body.address, MAX_ADDRESS_LENGTH) || null
+
+    const email =
+      cleanText(body.email, MAX_EMAIL_LENGTH).toLowerCase() || null
+
+    const document =
+      onlyDigits(body.document).slice(0, MAX_DOCUMENT_LENGTH) || null
+
+    const lastAddress =
+      cleanText(body.address, MAX_ADDRESS_LENGTH) || null
+
     const lastNeighborhood =
       cleanText(body.neighborhood, MAX_NEIGHBORHOOD_LENGTH) ||
       cleanText(body.neighborhoodKey, MAX_NEIGHBORHOOD_LENGTH) ||
@@ -77,14 +91,22 @@ export async function POST(request: Request) {
     }
 
     if (!isValidBrazilianMobilePhone(phone)) {
-      return jsonError("Informe um celular/WhatsApp válido com DDD.", 400)
+      return jsonError(
+        "Informe um celular/WhatsApp válido com DDD.",
+        400
+      )
     }
 
-    const { data: restaurant, error: restaurantError } = await supabaseAdmin
-      .from("restaurants")
-      .select("id, is_active")
-      .eq("id", restaurantId)
-      .maybeSingle()
+    if (email && !isValidEmail(email)) {
+      return jsonError("Informe um e-mail válido.", 400)
+    }
+
+    const { data: restaurant, error: restaurantError } =
+      await supabaseAdmin
+        .from("restaurants")
+        .select("id, is_active")
+        .eq("id", restaurantId)
+        .maybeSingle()
 
     if (restaurantError) {
       console.error("Erro ao validar restaurante no login público:", {
@@ -97,12 +119,20 @@ export async function POST(request: Request) {
     }
 
     if (!restaurant || restaurant.is_active === false) {
-      return jsonError("Restaurante não encontrado ou inativo.", 404)
+      return jsonError(
+        "Restaurante não encontrado ou inativo.",
+        404
+      )
     }
 
-    const { data: existingCustomer, error: existingCustomerError } = await supabaseAdmin
+    const {
+      data: existingCustomer,
+      error: existingCustomerError,
+    } = await supabaseAdmin
       .from("restaurant_customers")
-      .select("id, restaurant_id, name, phone, document, last_address, last_neighborhood")
+      .select(
+        "id, restaurant_id, name, phone, email, document, last_address, last_neighborhood"
+      )
       .eq("restaurant_id", restaurantId)
       .eq("phone", phone)
       .maybeSingle()
@@ -119,28 +149,48 @@ export async function POST(request: Request) {
     }
 
     if (existingCustomer) {
-      const existingName = normalizeNameForMatch(existingCustomer.name || "")
+      const existingName = normalizeNameForMatch(
+        existingCustomer.name || ""
+      )
+
       const incomingName = normalizeNameForMatch(name)
 
-      if (existingName && incomingName && existingName !== incomingName) {
+      if (
+        existingName &&
+        incomingName &&
+        existingName !== incomingName
+      ) {
         return jsonError(
           "Este WhatsApp já está cadastrado com outro nome neste restaurante. Confira o nome usado anteriormente ou fale com o restaurante.",
           409
         )
       }
 
-      const { data: updatedCustomer, error: updateError } = await supabaseAdmin
+      const {
+        data: updatedCustomer,
+        error: updateError,
+      } = await supabaseAdmin
         .from("restaurant_customers")
         .update({
           name: existingCustomer.name || name,
-          document: document || existingCustomer.document || null,
-          last_address: lastAddress || existingCustomer.last_address || null,
-          last_neighborhood: lastNeighborhood || existingCustomer.last_neighborhood || null,
+          email: email || existingCustomer.email || null,
+          document:
+            document || existingCustomer.document || null,
+          last_address:
+            lastAddress ||
+            existingCustomer.last_address ||
+            null,
+          last_neighborhood:
+            lastNeighborhood ||
+            existingCustomer.last_neighborhood ||
+            null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingCustomer.id)
         .eq("restaurant_id", restaurantId)
-        .select("id, restaurant_id, name, phone, document, last_address, last_neighborhood")
+        .select(
+          "id, restaurant_id, name, phone, email, document, last_address, last_neighborhood"
+        )
         .single()
 
       if (updateError || !updatedCustomer) {
@@ -151,7 +201,10 @@ export async function POST(request: Request) {
           code: updateError?.code,
         })
 
-        return jsonError("Erro ao entrar na conta do cliente.", 500)
+        return jsonError(
+          "Erro ao entrar na conta do cliente.",
+          500
+        )
       }
 
       return NextResponse.json({
@@ -162,24 +215,32 @@ export async function POST(request: Request) {
           restaurantId: updatedCustomer.restaurant_id,
           name: updatedCustomer.name,
           phone: updatedCustomer.phone,
+          email: updatedCustomer.email,
           document: updatedCustomer.document,
           lastAddress: updatedCustomer.last_address,
-          lastNeighborhood: updatedCustomer.last_neighborhood,
+          lastNeighborhood:
+            updatedCustomer.last_neighborhood,
         },
       })
     }
 
-    const { data: insertedCustomer, error: insertError } = await supabaseAdmin
+    const {
+      data: insertedCustomer,
+      error: insertError,
+    } = await supabaseAdmin
       .from("restaurant_customers")
       .insert({
         restaurant_id: restaurantId,
         name,
         phone,
+        email,
         document,
         last_address: lastAddress,
         last_neighborhood: lastNeighborhood,
       })
-      .select("id, restaurant_id, name, phone, document, last_address, last_neighborhood")
+      .select(
+        "id, restaurant_id, name, phone, email, document, last_address, last_neighborhood"
+      )
       .single()
 
     if (insertError || !insertedCustomer) {
@@ -201,14 +262,21 @@ export async function POST(request: Request) {
         restaurantId: insertedCustomer.restaurant_id,
         name: insertedCustomer.name,
         phone: insertedCustomer.phone,
+        email: insertedCustomer.email,
         document: insertedCustomer.document,
         lastAddress: insertedCustomer.last_address,
         lastNeighborhood: insertedCustomer.last_neighborhood,
       },
     })
   } catch (error) {
-    console.error("POST /api/public/customer/auth error:", error)
+    console.error(
+      "POST /api/public/customer/auth error:",
+      error
+    )
 
-    return jsonError("Erro inesperado ao entrar/cadastrar cliente.", 500)
+    return jsonError(
+      "Erro inesperado ao entrar/cadastrar cliente.",
+      500
+    )
   }
 }

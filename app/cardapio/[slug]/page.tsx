@@ -1713,6 +1713,7 @@ type OrderPaymentStatusResponse = {
 type PublicCustomerProfile = {
   name: string
   phone: string
+  email: string
   document: string
   address?: {
     customerAddress: string
@@ -2838,6 +2839,7 @@ function CustomerStartModal({
 }) {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
   const [document, setDocument] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -2846,6 +2848,7 @@ function CustomerStartModal({
 
     setName(initialCustomer?.name ?? "")
     setPhone(initialCustomer?.phone ? formatPhonePreview(initialCustomer.phone) : "")
+    setEmail(initialCustomer?.email ?? "")
     setDocument(initialCustomer?.document ? formatCpfPreview(initialCustomer.document) : "")
   }, [open, initialCustomer])
 
@@ -2863,6 +2866,7 @@ function CustomerStartModal({
 
     const normalizedName = name.trim()
     const normalizedPhone = onlyDigits(phone)
+    const normalizedEmail = email.trim().toLowerCase()
     const normalizedDocument = onlyDigits(document)
 
     if (!normalizedName) {
@@ -2872,6 +2876,11 @@ function CustomerStartModal({
 
     if (!isValidBrazilianMobilePhone(normalizedPhone)) {
       alert("Informe um celular/WhatsApp válido com DDD.")
+      return
+    }
+
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      alert("Informe um e-mail válido.")
       return
     }
 
@@ -2886,6 +2895,7 @@ function CustomerStartModal({
       await onSave({
         name: normalizedName,
         phone: normalizedPhone,
+        email: normalizedEmail,
         document: normalizedDocument,
         address: initialCustomer?.address,
       })
@@ -2978,6 +2988,19 @@ function CustomerStartModal({
                 onChange={(event) => setPhone(formatPhonePreview(event.target.value))}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase text-zinc-500">E-mail *</label>
+
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seuemail@exemplo.com"
+                autoComplete="email"
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111111] px-4 py-3.5 text-sm font-semibold text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-100"
               />
             </div>
@@ -7409,6 +7432,7 @@ const savePublicCustomer = async (customer: PublicCustomerProfile) => {
   const normalizedCustomer: PublicCustomerProfile = {
     ...customer,
     phone: onlyDigits(customer.phone),
+    email: customer.email.trim().toLowerCase(),
     document: onlyDigits(customer.document),
   }
 
@@ -7421,6 +7445,7 @@ const savePublicCustomer = async (customer: PublicCustomerProfile) => {
       restaurantId: restaurant.id,
       name: normalizedCustomer.name,
       phone: normalizedCustomer.phone,
+      email: normalizedCustomer.email,
       document: normalizedCustomer.document,
       address: normalizedCustomer.address?.customerAddress ?? null,
       neighborhoodKey: null,
@@ -7436,6 +7461,7 @@ const savePublicCustomer = async (customer: PublicCustomerProfile) => {
   const confirmedCustomer: PublicCustomerProfile = {
     name: data.customer?.name ?? normalizedCustomer.name,
     phone: onlyDigits(data.customer?.phone ?? normalizedCustomer.phone),
+    email: String(data.customer?.email ?? normalizedCustomer.email).trim().toLowerCase(),
     document: onlyDigits(data.customer?.document ?? normalizedCustomer.document),
     address: normalizedCustomer.address,
   }
