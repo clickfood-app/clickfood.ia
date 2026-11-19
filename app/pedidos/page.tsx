@@ -3133,7 +3133,7 @@ export default function PedidosPage() {
 
   const preparationOrders = useMemo(
     () =>
-      sortOrdersOldestFirst(filteredOrders.filter(isPreparationColumnOrder)),
+      [...filteredOrders.filter(isPreparationColumnOrder)].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [filteredOrders],
   );
 
